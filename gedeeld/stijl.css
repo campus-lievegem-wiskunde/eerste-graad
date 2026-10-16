@@ -602,3 +602,16 @@
   .tts-bar .tts-btn{ display:inline-flex; align-items:center; gap:.45rem; padding:.42rem .9rem; border:2px solid var(--tq); border-radius:999px; background:var(--card); color:var(--accent-dark); font:inherit; font-size:.88rem; font-weight:700; cursor:pointer; }
   .tts-bar .tts-btn:hover, .tts-bar .tts-btn[aria-pressed="true"]{ border-color:var(--orange); background:var(--or-soft); color:var(--ink); }
   .tts-bar .tts-btn svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ===== Aanmelden ===== */
+  body.needs-login #app, body.needs-login .pager, body.needs-login .info-box, body.needs-login nav.side ol, body.needs-login .tegels, body.needs-login .page > h2, body.needs-login .kruimel{ display:none !important; }
+  .login-gate{ display:flex; justify-content:center; padding:2.5rem 0; }
+  .login-card{ max-width:460px; width:100%; border:2px solid var(--tq); border-radius:1rem; background:var(--card); padding:1.4rem 1.5rem; text-align:center; }
+  .login-card h2{ margin:0 0 .4rem; font-size:1.35rem; }
+  .login-card p{ color:var(--ink-soft); margin:.2rem 0 1rem; }
+  .login-msg{ color:var(--bad) !important; font-weight:700; min-height:1.2em; }
+  .user-chip{ display:flex; align-items:center; gap:.5rem; margin:0 0 .7rem; padding:.3rem .2rem; font-size:.84rem; color:var(--ink-soft); }
+  .user-chip .u-av{ display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:50%; background:var(--accent-soft); color:var(--accent-dark); font-weight:800; }
+  .user-chip .t b{ color:var(--ink); } .user-chip .linkbtn{ margin-left:.3rem; font-size:.82rem; padding:0; }
+  .tts-bar .user-chip{ margin:0 auto 0 0; }
+  @media (min-width:881px){ body.nav-collapsed .user-chip{ justify-content:center; } body.nav-collapsed .user-chip .t{ display:none; } }

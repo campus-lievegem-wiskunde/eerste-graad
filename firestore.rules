@@ -1,0 +1,23 @@
+rules_version = '2';
+// Toegangsregels voor Cloud Firestore. Plak dit in Firebase → Firestore → Rules en klik op Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function aangemeld() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.matches('.*@svsl[.]be$');
+    }
+    function beheerder() {
+      return aangemeld() && exists(/databases/$(database)/documents/beheerders/$(request.auth.token.email));
+    }
+    // voortgang: document <uid>_<site>; een leerling leest en schrijft enkel zijn eigen documenten
+    match /voortgang/{docId} {
+      allow read, write: if aangemeld() && docId.matches(request.auth.uid + '_.*');
+      allow read: if beheerder();
+    }
+    // lijst van beheerders: iedereen mag enkel nagaan of hij zelf beheerder is
+    match /beheerders/{email} {
+      allow read: if aangemeld() && request.auth.token.email == email;
+    }
+  }
+}

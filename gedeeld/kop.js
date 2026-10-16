@@ -60,9 +60,8 @@
     apply(c);
     tog.addEventListener('click', ()=>{ c = !c; apply(c); try{ localStorage.setItem(KEY, c ? '1' : '0'); }catch(e){}
       setTimeout(()=>window.dispatchEvent(new Event('resize')), 280); });
-    document.addEventListener('DOMContentLoaded', ()=>{
-      document.querySelectorAll('nav.side button .lbl').forEach(l=>{ const bt = l.closest('button'); if(bt && !bt.title) bt.title = l.textContent.trim(); });
-    });
+    const tips = ()=>document.querySelectorAll('nav.side button .lbl').forEach(l=>{ const bt = l.closest('button'); if(bt && !bt.title) bt.title = l.textContent.trim(); });
+    document.addEventListener('DOMContentLoaded', tips); document.addEventListener('inhoud-geladen', tips);
   }
 
   /* ---------- voorlezen: standaard uit, Nederlandstalige (bij voorkeur mannelijke) stem ---------- */
