@@ -26,19 +26,19 @@ export const SITES = [
     "id": "roos",
     "naam": "Soorten getallen",
     "toets": false,
-    "vragen": 52
+    "vragen": 55
    },
    {
     "id": "benaming",
     "naam": "Benamingen",
     "toets": false,
-    "vragen": 8
+    "vragen": 10
    },
    {
     "id": "deling",
     "naam": "Deling met rest",
     "toets": false,
-    "vragen": 6
+    "vragen": 21
    },
    {
     "id": "bewerking",
@@ -92,13 +92,13 @@ export const SITES = [
     "id": "venn",
     "naam": "Venn: getallen plaatsen",
     "toets": false,
-    "vragen": 0
+    "vragen": 12
    },
    {
     "id": "kleuren",
     "naam": "Venn: kleuren",
     "toets": false,
-    "vragen": 0
+    "vragen": 9
    },
    {
     "id": "implicatie",
@@ -128,7 +128,7 @@ export const SITES = [
     "id": "fout",
     "naam": "Zoek de fout",
     "toets": false,
-    "vragen": 0
+    "vragen": 8
    },
    {
     "id": "toets1",
@@ -163,115 +163,115 @@ export const SITES = [
     "id": "gerei",
     "naam": "Je tekengerei",
     "toets": false,
-    "vragen": 0
+    "vragen": 17
    },
    {
     "id": "begrippen",
     "naam": "Punt, rechte, …",
     "toets": false,
-    "vragen": 0
+    "vragen": 26
    },
    {
     "id": "symbolen",
     "naam": "∈ ∉ ⊂ ⊄ =",
     "toets": false,
-    "vragen": 0
+    "vragen": 17
    },
    {
     "id": "collineair",
     "naam": "Collineair en concurrent",
     "toets": false,
-    "vragen": 0
+    "vragen": 14
    },
    {
     "id": "meten",
     "naam": "Lijnstukken meten",
     "toets": false,
-    "vragen": 0
+    "vragen": 15
    },
    {
     "id": "herleiden",
     "naam": "Herleiden",
     "toets": false,
-    "vragen": 0
+    "vragen": 29
    },
    {
     "id": "tekenen",
     "naam": "Lijnstukken tekenen",
     "toets": false,
-    "vragen": 0
+    "vragen": 8
    },
    {
     "id": "construeren",
     "naam": "Construeren",
     "toets": false,
-    "vragen": 0
+    "vragen": 6
    },
    {
     "id": "hoeken",
     "naam": "Soorten hoeken",
     "toets": false,
-    "vragen": 0
+    "vragen": 30
    },
    {
     "id": "graden",
     "naam": "Graden en de klok",
     "toets": false,
-    "vragen": 0
+    "vragen": 28
    },
    {
     "id": "hoekmeten",
     "naam": "Hoeken meten",
     "toets": false,
-    "vragen": 0
+    "vragen": 7
    },
    {
     "id": "hoektekenen",
     "naam": "Hoeken tekenen",
     "toets": false,
-    "vragen": 0
+    "vragen": 10
    },
    {
     "id": "inspringend",
     "naam": "Inspringende hoeken",
     "toets": false,
-    "vragen": 0
+    "vragen": 9
    },
    {
     "id": "bissectrice",
     "naam": "Bissectrice",
     "toets": false,
-    "vragen": 0
+    "vragen": 9
    },
    {
     "id": "verbanden",
     "naam": "Overstaand en nevenhoeken",
     "toets": false,
-    "vragen": 0
+    "vragen": 16
    },
    {
     "id": "berekenen",
     "naam": "Hoeken berekenen",
     "toets": false,
-    "vragen": 0
+    "vragen": 41
    },
    {
     "id": "compsup",
     "naam": "Complementair, supplementair",
     "toets": false,
-    "vragen": 0
+    "vragen": 28
    },
    {
     "id": "vraagstukken",
     "naam": "Vraagstukken",
     "toets": false,
-    "vragen": 0
+    "vragen": 20
    },
    {
     "id": "fout",
     "naam": "Zoek de fout",
     "toets": false,
-    "vragen": 0
+    "vragen": 9
    },
    {
     "id": "toets1",

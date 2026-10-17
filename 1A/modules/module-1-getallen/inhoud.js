@@ -5,6 +5,8 @@
 const CLres = (id, ok, info) => { try{ window.CL && window.CL.res(id, ok, info); }catch(e){} };
 const CLvraag = id => { try{ window.CL && window.CL.vraag(id); }catch(e){} };
 const CLtoets = (key, score, n) => { try{ window.CL && window.CL.toets(key, score, n); }catch(e){} };
+let CURKEY = ''; /* sleutel van de kaart die nu opgebouwd wordt: elk vraag-id begint met onderdeel-id + '_' (nodig voor het dashboard) */
+const QID = id => (CURKEY && !String(id).startsWith(CURKEY + '_')) ? CURKEY + '_' + id : String(id);
 const PREFIX = 'm1_herh_v2_';
 let QZ = null; /* verzamelt beoordelaars tijdens het opbouwen van een proeftoetsvraag */
 function load(k){ try{ const r = localStorage.getItem(PREFIX+k); if(r){ const p = JSON.parse(r); if(p && typeof p === 'object') return p; } }catch(e){} return {}; }
@@ -119,7 +121,7 @@ document.addEventListener('click', e=>{
 });
 
 function qBlock(parent, st, save, id, q){
-  const row = el('div','q'); if(!QZ) CLvraag(id);
+  const row = el('div','q'); const qid = QID(id); if(!QZ && !q.noCL) CLvraag(qid);
   row.append(el('div', 'q-text'+(q.block?' block':''), (q.nr?`<span class="q-num">${q.nr}</span>`:'') + (q.help?helpHTML(q.help)+' ':'') + fillInputs(q.html, id, q.size, q.mode)));
   let optBtns = [], wrap = null;
   if(q.choice){
@@ -165,7 +167,7 @@ function qBlock(parent, st, save, id, q){
       else if(r.ok) inp.classList.add('ok'); else if(!r.info) inp.classList.add('bad'); });
     if(q.choice && r.choiceOk!=null){ optBtns.forEach(b=>{ if(b.dataset.val===s.c) b.classList.add(r.choiceOk?'good':'wrong'); }); }
     if(!r.ok && q.sol) solBtn.hidden = false;
-    s.checked = true; save(); CLres(id, !!r.ok, !!r.info);
+    s.checked = true; save(); if(!q.noCL) CLres(qid, !!r.ok, !!r.info);
   }
   btn.addEventListener('click', ()=>run());
   solBtn.addEventListener('click', ()=>{ sol.hidden=!sol.hidden; solBtn.textContent = sol.hidden ? 'Toon oplossing' : 'Verberg oplossing'; });
@@ -183,7 +185,7 @@ function qBlock(parent, st, save, id, q){
 }
 
 function qChoice(parent, st, save, id, q){
-  const row = el('div','q'); if(!QZ) CLvraag(id);
+  const row = el('div','q'); const qid = QID(id); if(!QZ) CLvraag(qid);
   row.append(el('div','q-text', (q.nr?`<span class="q-num">${q.nr}</span>`:'') + `<span class="stmt">${q.html}</span>`));
   const wrap = el('div','choices');
   const btns = q.opts.map(([val,label])=>{ const b=el('button','opt',label); b.type='button'; b.dataset.val=val; wrap.append(b); return b; });
@@ -196,7 +198,7 @@ function qChoice(parent, st, save, id, q){
     btns.forEach(b=>{ b.classList.remove('chosen','good','wrong'); if(b.dataset.val===val) b.classList.add('chosen', ok?'good':'wrong'); });
     fb.className = 'fb ' + (ok?'ok':'bad');
     fb.innerHTML = (ok ? '✅ Juist! ' : '❌ Niet juist. ') + (q.why||'');
-    if(doSave){ st[id]=val; save(); CLres(id, ok); }
+    if(doSave){ st[id]=val; save(); CLres(qid, ok); }
   }
   btns.forEach(b=> b.addEventListener('click', ()=>apply(b.dataset.val, true)));
   if(st[id]) apply(st[id], false);
@@ -250,7 +252,7 @@ function bankEx(b, st, save, key, lines, words){
   });
   b.append(list);
   const chips = {};
-  const quiz = QZ;
+  const quiz = QZ; const qid = QID('sleep'); if(!quiz) CLvraag(qid);
   function toPool(chip){
     const par = chip.parentElement;
     if(par && par.classList.contains('blank')){ const i=+par.dataset.i; delete st[i]; fbs[i].textContent=''; }
@@ -268,6 +270,7 @@ function bankEx(b, st, save, key, lines, words){
     chip.classList.remove('chip-ok','chip-bad'); chip.classList.add(ok?'chip-ok':'chip-bad');
     fbs[i].className = 'fb '+(ok?'ok':'bad');
     fbs[i].textContent = ok ? '✅ Juist! ' + lines[i].why : '❌ Niet juist. Probeer een ander woord.';
+    if(lines.every((ln,j)=>st[j]!=null)) CLres(qid, lines.every((ln,j)=>st[j]===ln.ans));
   }
   shuffle(words).forEach(w=>{
     const c = el('span','chip', w); c.dataset.w = w; c.dataset.grp = key;
@@ -289,7 +292,7 @@ function posDrag(b, st, save, key, cfg){
   const fb = el('div','feedback');
   b.append(pool, stage, fb);
   const pos = st.pos || (st.pos = {});
-  const quiz = QZ;
+  const quiz = QZ; const qid = QID('plaats'); if(!quiz) CLvraag(qid);
   function toPool(chip){ resetChipStyle(chip); chip.classList.remove('chip-ok','chip-bad'); pool.append(chip); delete pos[chip.dataset.id]; save(); }
   function toStage(chip, nx, ny, silent){
     nx = Math.min(.96, Math.max(.04, nx)); ny = Math.min(.95, Math.max(.05, ny));
@@ -304,6 +307,7 @@ function posDrag(b, st, save, key, cfg){
     chip.classList.remove('chip-ok','chip-bad'); chip.classList.add(ok?'chip-ok':'chip-bad');
     if(!silent){ fb.className='feedback '+(ok?'ok':'bad'); fb.innerHTML = (ok?'✅ ':'❌ ') + fmt(it.d) + (ok?' staat juist. ':' staat nog niet op de juiste plaats. ') + fmt(it.why); }
     pos[it.id] = {x:nx, y:ny}; save();
+    if(!silent && cfg.items.every(i=>pos[i.id])) CLres(qid, cfg.items.every(i=>cfg.zoneAt(pos[i.id].x, pos[i.id].y)===i.zone));
   }
   const chips = [];
   shuffle(cfg.items).forEach(it=>{
@@ -350,7 +354,7 @@ function vennColor(parent, st, save, id, item){
   act.append(bCheck,bClear,bSol);
   const fb = el('div','fb');
   box.append(act, fb); parent.append(box);
-  const quiz = QZ; let locked = false;
+  const quiz = QZ; let locked = false; const qid = QID(id); if(!quiz) CLvraag(qid);
   if(quiz){ bCheck.hidden = true; bSol.hidden = true; }
   let sel = new Set(st[id]||[]);
   const code = (x,y)=> g.c.reduce((acc,c,i)=> acc | ((Math.hypot(x-c.x,y-c.y)<=c.r)?(1<<i):0), 0);
@@ -382,6 +386,7 @@ function vennColor(parent, st, save, id, item){
   });
   bCheck.addEventListener('click', ()=>{
     const extra=[...sel].filter(k=>!target.has(k)).length, miss=[...target].filter(k=>!sel.has(k)).length;
+    CLres(qid, !extra && !miss);
     if(!extra && !miss){ fb.className='fb ok'; fb.textContent='✅ Juist gekleurd!'; return; }
     fb.className='fb bad';
     const parts=[]; if(extra) parts.push(`${extra} deel${extra>1?'en':''} te veel`); if(miss) parts.push(`${miss} deel${miss>1?'en':''} te weinig`);
@@ -410,7 +415,7 @@ function tableEx(b, st, save, key, rows){
   b.append(el('div','', html));
   const fb = el('div','fb'); b.append(fb);
   const quiz = QZ;
-  const tIns = [...b.querySelectorAll('table .inp')];
+  const tIns = [...b.querySelectorAll('table .inp')]; const qid = QID('tabel'); if(!quiz) CLvraag(qid);
   const cellOk = inp => { const r=rows[+inp.dataset.row]; return parseNum(inp.value)===r[r.hide]; };
   if(quiz) quiz.push({ grade:()=>tIns.every(cellOk), reveal:()=>tIns.forEach(inp=>inp.classList.add(cellOk(inp)?'ok':'bad')), lock:()=>tIns.forEach(i=>i.readOnly=true) });
   tIns.forEach(inp=>{
@@ -423,6 +428,7 @@ function tableEx(b, st, save, key, rows){
       const ok = parseNum(v) === row[row.hide];
       inp.classList.add(ok?'ok':'bad');
       if(!silent){ fb.className = 'fb '+(ok?'ok':'bad');
+        if(tIns.every(x=>x.value.trim()!=='')) CLres(qid, tIns.every(cellOk));
         fb.textContent = ok ? `✅ Rij ${L[ri]} klopt: ${row.D} = ${row.d} · ${row.q} + ${row.r}.` : `❌ Rij ${L[ri]} klopt nog niet. Controleer met D = d · q + r (en r moet kleiner zijn dan d).`; }
     }
     inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); check(); } });
@@ -447,15 +453,15 @@ function errBlock(parent, st, save, id, e){
   const s = st[id] || (st[id] = {tried:[], found:false});
   const fb = el('div','fb');
   const fixBox = el('div','fix'); fixBox.hidden = true;
-  const quiz = QZ; let qLocked = false;
+  const quiz = QZ; let qLocked = false; const qid = QID(id); if(!quiz) CLvraag(qid);
   const btns = e.lines.map((ln,i)=>{
     const li = el('li'); const b = el('button','err-line', `<span class="ln">Stap ${i+1}</span><span>${ln}</span>`); b.type='button';
     li.append(b); ol.append(li);
     b.addEventListener('click', ()=>{
       if(quiz){ if(qLocked) return; s.pick=i; save(); btns.forEach((x,j)=>x.classList.toggle('picked', j===i)); return; }
       if(s.found) return;
-      if(i===e.wrong){ s.found=true; save(); paint(); }
-      else { if(!s.tried.includes(i)) s.tried.push(i); save(); paint(); fb.className='fb bad'; fb.textContent = `❌ Stap ${i+1} klopt wel. Zoek verder.`; }
+      if(i===e.wrong){ s.found=true; save(); paint(); CLres(qid, true); }
+      else { if(!s.tried.includes(i)) s.tried.push(i); save(); paint(); CLres(qid, false); fb.className='fb bad'; fb.textContent = `❌ Stap ${i+1} klopt wel. Zoek verder.`; }
     });
     return b;
   });
@@ -465,7 +471,7 @@ function errBlock(parent, st, save, id, e){
     btns.forEach((b,i)=>{ b.classList.toggle('nope', s.tried.includes(i)); b.classList.toggle('found', s.found && i===e.wrong); });
     if(s.found){
       fb.className='fb ok'; fb.innerHTML = `✅ Juist, de fout zit in stap ${e.wrong+1}. ${e.why}`;
-      if(fixBox.hidden){ fixBox.hidden=false; fixBox.append(el('div','sub','Verbeter deze stap:')); qBlock(fixBox, st, save, id+'_fix', {html:e.fix, check:e.fixCheck, sol:e.fixSol, mode:e.mode}); }
+      if(fixBox.hidden){ fixBox.hidden=false; fixBox.append(el('div','sub','Verbeter deze stap:')); qBlock(fixBox, st, save, id+'_fix', {noCL:true, html:e.fix, check:e.fixCheck, sol:e.fixSol, mode:e.mode}); }
     }
   }
   if(quiz){
@@ -1116,7 +1122,7 @@ const emptyIs = v => { const s=String(v[0]).replace(/\s+/g,''); if(s==='∅'||s=
 
 /* meerdere juiste antwoorden aanduiden */
 function multiQ(parent, st, save, id, q){
-  const row = el('div','q'); CLvraag(id);
+  const row = el('div','q'); const qid = QID(id); CLvraag(qid);
   row.append(el('div','q-text', (q.nr?`<span class="q-num">${q.nr}</span>`:'') + `<span>${q.html}</span>`));
   const wrap = el('div','choices');
   const btns = q.opts.map((lab,i)=>{ const b=el('button','opt',lab); b.type='button'; b.dataset.i=i; wrap.append(b); return b; });
@@ -1133,7 +1139,7 @@ function multiQ(parent, st, save, id, q){
     const missed = q.ans.filter(i=>!s.sel.includes(i)).length;
     fb.className = 'fb '+(ok?'ok':'bad');
     fb.innerHTML = ok ? '✅ Juist! ' + (q.why||'') : '❌ Nog niet juist. ' + (missed ? `Je mist nog ${missed===1?'een juist antwoord':missed+' juiste antwoorden'}. ` : '') + (s.sel.some(i=>!q.ans.includes(i)) ? 'De rode keuzes zijn fout.' : '');
-    s.checked = true; save(); CLres(id, ok);
+    s.checked = true; save(); CLres(qid, ok);
   }
   go.addEventListener('click', run);
   paint(); if(s.checked) run();
@@ -1544,7 +1550,7 @@ SECTIONS.forEach((sec, si)=>{
     ch.append(rb); c.append(ch);
     if(card.instr) c.append(el('p','instructions', card.instr));
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
-    renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st);
+    renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
       try{ card.build(body, st, save, key); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij deze oefening. Klik op “Opnieuw beginnen”.')); } };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
