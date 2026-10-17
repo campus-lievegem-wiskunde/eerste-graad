@@ -257,6 +257,7 @@ function viewBeheer(body){
   importKaart(body);
   leerkrachtenKaart(body);
   groepenKaart(body);
+  leerlingenKaart(body);
   wisKaart(body);
 }
 const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s'’`-]+/g, '');
@@ -309,7 +310,7 @@ function importKaart(body){
     { const _r = el('div', 'rij'); _r.append(opt); out.append(_r); const _r2 = el('div', 'rij'); _r2.append(vervang); out.append(_r2); } const r = el('div', 'rij'); r.append(ok, m); out.append(r);
     ok.onclick = async ()=>{ ok.disabled = true; m.className = 'mini'; m.textContent = 'Bezig…';
       try{ await importeer(P, opt.querySelector('input').checked, t=>m.textContent = t);
-        if(vervang.querySelector('input').checked){ const keep = new Set(P.leerlingen.map(l=>l.mail)); await wisCollectie('leerlingen', d=>!keep.has(d.id), t=>m.textContent = 'Opruimen… ' + t); } m.className = 'okmsg'; m.textContent = 'Klaar! Alles is ingelezen.'; await laadAlles(); setTimeout(render, 1200); }
+        if(vervang.querySelector('input').checked){ const keep = new Set(P.leerlingen.map(l=>l.mail)); await wisCollectie('leerlingen', d=>!keep.has(d.id), t=>m.textContent = 'Opruimen… ' + t); } m.className = 'okmsg'; m.textContent = 'Klaar! Alles is ingelezen.'; ST.leerlingen = null; await laadAlles(); setTimeout(render, 1200); }
       catch(e){ console.error(e); m.className = 'errmsg'; m.textContent = 'Importeren lukte niet: ' + (e.message || e); ok.disabled = false; } };
   };
 }
@@ -341,7 +342,10 @@ function leerkrachtenKaart(body){
   const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Naam</th><th>E-mail</th><th>Groepen</th><th></th></tr></thead>';
   const tb = el('tbody');
   ST.leerkrachten.forEach(l=>{ const tr = el('tr', '', `<td>${esc(l.naam)}</td><td>${esc(l.id)}</td><td>${ST.groepen.filter(g=>g.leerkrachten.includes(l.id)).map(g=>esc(g.naam)).join(', ') || '<span class="mini">nog geen</span>'}</td>`);
-    const td = el('td'); if(l.id !== ST.me){ const rm = el('button', 'btn gevaar klein', 'Toegang intrekken'); rm.type = 'button';
+    const td = el('td');
+    const ed = el('button', 'btn ghost klein', 'Naam wijzigen'); ed.type = 'button'; td.append(ed, ' ');
+    ed.onclick = ()=>{ const c = tr.children[0]; c.innerHTML = ''; const i = el('input'); i.type = 'text'; i.value = l.naam || ''; const ok = el('button', 'btn klein', 'Bewaren'); ok.type = 'button'; c.append(i, ' ', ok); i.focus();
+      ok.onclick = async ()=>{ const n = i.value.trim(); if(!n) return; await F.updateDoc(F.doc(db, 'leerkrachten', l.id), { naam:n }); await laadLeerkrachten(); render(); }; }; if(l.id !== ST.me){ const rm = el('button', 'btn gevaar klein', 'Toegang intrekken'); rm.type = 'button';
       rm.onclick = async ()=>{ if(!confirm(`Toegang van ${l.naam} intrekken?`)) return; await F.deleteDoc(F.doc(db, 'leerkrachten', l.id)); await laadLeerkrachten(); render(); }; td.append(rm); }
     tr.append(td); tb.append(tr); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); card.append(w);
@@ -366,6 +370,57 @@ function groepenKaart(body){
   ok.onclick = async ()=>{ const naam = n.value.trim(); if(!naam) return;
     await F.setDoc(F.doc(db, 'groepen', groepId(naam)), { naam, jaar:j.value[0], stroom:j.value[1], soort:'', leerkrachten:[], leerlingen:[], aan:{} }, { merge:true }); await laadGroepen(); render(); };
   body.append(card);
+}
+
+/* ---------- leerling opzoeken en wijzigen ---------- */
+function leerlingenKaart(body){
+  const card = el('div', 'dash-card', '<h3>Leerling opzoeken en wijzigen</h3><p class="mini">Zoek op naam, klas of e-mailadres. Wijzig je het e-mailadres, dan verhuist de leerling mee in zijn groepen.</p>');
+  const r = el('div', 'rij'); const z = el('input'); z.type = 'search'; z.placeholder = 'Zoek een leerling'; r.append(z); card.append(r);
+  const out = el('div'); card.append(out); body.append(card);
+  const teken = async ()=>{
+    if(!ST.leerlingen){ out.innerHTML = '<p class="mini">Lijst ophalen…</p>'; await laadLeerlingen(); }
+    out.innerHTML = ''; const q = z.value.trim().toLowerCase(); if(q.length < 2){ out.append(el('p', 'mini', `${ST.leerlingen.size} leerlingen in de lijst. Typ minstens 2 letters.`)); return; }
+    const hits = [...ST.leerlingen.entries()].filter(([e, l])=>`${l.familienaam} ${l.voornaam} ${l.klas} ${e}`.toLowerCase().includes(q)).slice(0, 40);
+    if(!hits.length){ out.append(el('p', 'mini', 'Geen leerling gevonden.')); return; }
+    const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Familienaam</th><th>Voornaam</th><th>Klas</th><th>Jaar</th><th>E-mail</th><th></th></tr></thead>'; const tb = el('tbody');
+    hits.forEach(([e, l])=>{
+      const tr = el('tr', '', `<td>${esc(l.familienaam)}</td><td>${esc(l.voornaam)}</td><td>${esc(l.klas)}</td><td>${esc(l.jaar)}${esc(l.stroom)}</td><td>${esc(e)}</td>`);
+      const td = el('td'); const ed = el('button', 'btn ghost klein', 'Wijzigen'); ed.type = 'button'; td.append(ed); tr.append(td); tb.append(tr);
+      ed.onclick = ()=>{
+        const vals = [l.familienaam, l.voornaam, l.klas, `${l.jaar}${l.stroom}`, e];
+        [...tr.children].slice(0, 5).forEach((c, i)=>{ c.innerHTML = ''; if(i === 3){ const sl = el('select', '', ['1A','2A','1B','2B'].map(x=>`<option ${x === vals[3] ? 'selected' : ''}>${x}</option>`).join('')); c.append(sl); } else { const inp = el('input'); inp.type = 'text'; inp.value = vals[i] || ''; inp.size = i === 4 ? 26 : i === 2 ? 4 : 12; c.append(inp); } });
+        td.innerHTML = ''; const ok = el('button', 'btn klein', 'Bewaren'), rm = el('button', 'btn gevaar klein', 'Verwijderen'); ok.type = rm.type = 'button'; td.append(ok, ' ', rm);
+        ok.onclick = async ()=>{
+          const v = [...tr.querySelectorAll('input, select')].map(x=>x.value.trim());
+          const nieuw = v[4].toLowerCase();
+          if(!v[0] || !v[1] || !nieuw.endsWith('@' + C.DOMEIN)){ alert(`Vul familienaam, voornaam en een @${C.DOMEIN}-adres in.`); return; }
+          const data = Object.assign({}, l, { familienaam:v[0], voornaam:v[1], klas:v[2].toUpperCase(), jaar:v[3][0], stroom:v[3][1] });
+          ok.disabled = true;
+          await F.setDoc(F.doc(db, 'leerlingen', nieuw), data);
+          if(nieuw !== e){
+            await F.deleteDoc(F.doc(db, 'leerlingen', e));
+            for(const g of ST.groepen.filter(g=>g.leerlingen.includes(e))){ await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen:F.arrayRemove(e) }); await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen:F.arrayUnion(nieuw) }); g.leerlingen = g.leerlingen.map(x=>x === e ? nieuw : x); }
+            ST.leerlingen.delete(e);
+          }
+          ST.leerlingen.set(nieuw, data); teken();
+        };
+        rm.onclick = async ()=>{ if(!confirm(`${l.voornaam} ${l.familienaam} uit de lijst en uit alle groepen verwijderen? De voortgang blijft bewaard.`)) return;
+          for(const g of ST.groepen.filter(g=>g.leerlingen.includes(e))){ await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen:F.arrayRemove(e) }); g.leerlingen = g.leerlingen.filter(x=>x !== e); }
+          await F.deleteDoc(F.doc(db, 'leerlingen', e)); ST.leerlingen.delete(e); teken(); };
+      };
+    });
+    t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); out.append(w);
+  };
+  let tm = 0; z.oninput = ()=>{ clearTimeout(tm); tm = setTimeout(teken, 250); }; teken();
+  /* nieuwe leerling */
+  card.append(el('h4', '', 'Nieuwe leerling toevoegen'));
+  const r2 = el('div', 'rij'); const f = ['Familienaam', 'Voornaam', 'Klas'].map(ph=>{ const i = el('input'); i.type = 'text'; i.placeholder = ph; i.size = ph === 'Klas' ? 5 : 14; return i; });
+  const ok = el('button', 'btn', 'Toevoegen'); ok.type = 'button'; const m = el('span', 'mini'); r2.append(...f, ok, m); card.append(r2);
+  ok.onclick = async ()=>{ const [fam, voor, klas] = f.map(i=>i.value.trim()); if(!fam || !voor || !/^[12][A-Z]$/i.test(klas)){ m.className = 'errmsg'; m.textContent = 'Vul familienaam, voornaam en een klas (bv. 1E) in.'; return; }
+    const K = klas.toUpperCase(), mail = maakMail(fam, voor);
+    await F.setDoc(F.doc(db, 'leerlingen', mail), { familienaam:fam, voornaam:voor, klas:K, jaar:K[0], stroom:K[1] === 'B' ? 'B' : 'A', schooljaar:C.SCHOOLJAAR });
+    if(ST.leerlingen) ST.leerlingen.set(mail, { familienaam:fam, voornaam:voor, klas:K, jaar:K[0], stroom:K[1] === 'B' ? 'B' : 'A' });
+    m.className = 'okmsg'; m.textContent = `Toegevoegd als ${mail}. Een leerkracht kan hem nu in een groep zetten.`; f.forEach(i=>i.value = ''); };
 }
 
 /* ---------- opnieuw beginnen ---------- */
