@@ -1,5 +1,5 @@
-/* Overzicht van alle sites en hun onderdelen (automatisch gemaakt).
-   Een nieuwe site: hier toevoegen. vragen = aantal controleerbare vragen per onderdeel. */
+/* Overzicht van alle sites en hun onderdelen (automatisch gemaakt met test/catalogus.js).
+   Een nieuwe site: hier toevoegen met onderdelen:[] en het script opnieuw draaien. vragen = aantal controleerbare vragen per onderdeel. */
 export const SITES = [
  {
   "id": "m1",
