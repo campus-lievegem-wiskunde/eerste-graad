@@ -124,6 +124,11 @@ function verwerk(site, d){
   const tScore = {}; Object.entries(toets).forEach(([key, t])=>{ const o = site.onderdelen.find(x=>key.startsWith(x.id + '_')); if(o) tScore[o.id] = t; });
   return { per, totaal, toets:tScore, bijgewerkt:d.bijgewerkt };
 }
+/* knop "Bekijk": opent de module in een nieuw tabblad (leerkrachten zien er altijd alle onderdelen) */
+const OOG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const moduleUrl = (s, ond)=>`../${s.pad}${ond ? '#' + encodeURIComponent(ond) : ''}`;
+function bekijkKnop(s){ const a = el('a', 'btn ghost klein bekijk', OOG + 'Bekijk'); a.href = moduleUrl(s); a.target = '_blank'; a.rel = 'noopener'; a.title = `${s.titel} openen in een nieuw tabblad`; return a; }
+
 async function paneVoortgang(pane, g){
   const sites = sitesVoor(g);
   if(!sites.length){ pane.append(el('p', 'mini', `Er zijn nog geen sites voor ${jaarcode(g)}.`)); return; }
@@ -133,7 +138,7 @@ async function paneVoortgang(pane, g){
   sites.forEach(s=>{ const o = el('option', '', esc(s.titel)); o.value = s.id; o.selected = s === ST.site; sel.append(o); });
   sel.onchange = ()=>{ ST.site = sites.find(s=>s.id === sel.value); render(); };
   const vern = el('button', 'btn ghost klein', '↻ Vernieuwen'); vern.type = 'button'; vern.onclick = render;
-  r.append(sel, vern); pane.append(r);
+  r.append(sel, bekijkKnop(ST.site), vern); pane.append(r);
   if(!g.leerlingen.length){ pane.append(el('p', 'mini', 'Deze groep heeft nog geen leerlingen. Voeg ze toe bij het tabblad Leerlingen.')); return; }
   if(!ST.leerlingen) await laadLeerlingen().catch(()=>{});
   const wacht = el('p', 'mini', 'Voortgang ophalen…'); pane.append(wacht);
@@ -142,7 +147,7 @@ async function paneVoortgang(pane, g){
   wacht.remove();
   const ond = site.onderdelen;
   const wrap = el('div', 'tbl-wrap'); const t = el('table', 'dt');
-  t.innerHTML = `<thead><tr><th>Leerling</th><th>Werktijd</th>${ond.map(o=>`<th class="rot" title="${esc(o.naam)}">${esc(o.naam)}</th>`).join('')}</tr></thead>`;
+  t.innerHTML = `<thead><tr><th>Leerling</th><th>Werktijd</th>${ond.map(o=>`<th class="rot"><a class="th-link" href="${moduleUrl(site, o.id)}" target="_blank" rel="noopener" title="${esc(o.naam)} bekijken">${esc(o.naam)}</a></th>`).join('')}</tr></thead>`;
   const tb = el('tbody');
   const lln = [...g.leerlingen].sort((a,b)=>naamVan(a).localeCompare(naamVan(b), 'nl'));
   lln.forEach(e=>{
@@ -244,9 +249,9 @@ function paneAanUit(pane, g){
     const blok = el('div', 'site-blok');
     const sw = el('label', 'switch', `<input type="checkbox" ${a.on ? 'checked' : ''}> ${esc(s.titel)}`);
     const st = el('span', 'mini'); sw.append(st);
-    blok.append(sw);
+    const kop = el('div', 'site-kop'); kop.append(sw, bekijkKnop(s)); blok.append(kop);
     const lijst = el('div', 'onderdelen'); lijst.hidden = !a.on;
-    s.onderdelen.forEach(o=>{ const l = el('label', '', `<input type="checkbox" value="${esc(o.id)}" ${(a.uit || []).includes(o.id) ? '' : 'checked'}> ${esc(o.naam)}`); lijst.append(l); });
+    s.onderdelen.forEach(o=>{ const l = el('label', '', `<input type="checkbox" value="${esc(o.id)}" ${(a.uit || []).includes(o.id) ? '' : 'checked'}> ${esc(o.naam)} <a class="ond-link" href="${moduleUrl(s, o.id)}" target="_blank" rel="noopener" title="${esc(o.naam)} bekijken" aria-label="${esc(o.naam)} bekijken">${OOG}</a>`); lijst.append(l); });
     const knoppen = el('div', 'rij'); knoppen.style.marginLeft = '3.1rem'; knoppen.hidden = !a.on;
     const allesAan = el('button', 'btn ghost klein', 'Alle onderdelen aan'), allesUit = el('button', 'btn ghost klein', 'Alle onderdelen uit');
     allesAan.type = allesUit.type = 'button'; knoppen.append(allesAan, allesUit);

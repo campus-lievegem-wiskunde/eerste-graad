@@ -57,3 +57,11 @@ td.s1{ background:#fde4e1; } td.s2{ background:#fdf1d3; } td.s3{ background:#e3f
 .lk-chip button{ border:none; background:none; color:var(--bad); font:inherit; font-weight:800; cursor:pointer; padding:0 .35rem; border-radius:999px; }
 .lk-chip button:hover{ background:var(--bad-bg); }
 select.lk-add{ font-size:.82rem; padding:.15rem .4rem; }
+.btn.bekijk{ display:inline-flex; align-items:center; gap:.35rem; text-decoration:none; }
+.btn.bekijk svg, .ond-link svg{ width:1.05em; height:1.05em; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.site-kop{ display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
+.site-kop .bekijk{ margin-left:auto; }
+.ond-link{ display:inline-flex; color:var(--accent-dark); opacity:.55; padding:0 .15rem; border-radius:.3rem; }
+.ond-link:hover, .ond-link:focus-visible{ opacity:1; color:var(--ink); background:var(--or-soft); }
+table.dt th .th-link{ color:inherit; text-decoration:none; }
+table.dt th .th-link:hover{ color:var(--accent-dark); text-decoration:underline; }
