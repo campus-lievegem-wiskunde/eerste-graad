@@ -18,7 +18,8 @@ async function laadGroepen(){ const s = await F.getDocs(F.collection(db, 'groepe
 /* volgorde: per jaar eerst de B-klas, dan de klasgroepen (1C, 1D), dan de niveaugroepen (1ANg1 … 1ANg3) */
 const groepRang = g => /^\d\s*B$/i.test(g.naam) ? 0 : /^\d\s*[A-Z]$/i.test(g.naam) ? 1 : 2;
 function groepVolgorde(a, b){ return (String(a.jaar).localeCompare(String(b.jaar))) || (groepRang(a) - groepRang(b)) || a.naam.localeCompare(b.naam, 'nl', { numeric:true, sensitivity:'base' }); }
-async function laadLeerkrachten(){ const s = await F.getDocs(F.collection(db, 'leerkrachten')); ST.leerkrachten = s.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.naam||'').localeCompare(b.naam||'')); }
+async function laadLeerkrachten(){ if(ST.rol === 'beheerder'){ const b = await F.getDocs(F.collection(db, 'beheerders')).catch(()=>null); ST.beheerders = new Set(b ? b.docs.map(d=>d.id) : []); }
+  const s = await F.getDocs(F.collection(db, 'leerkrachten')); ST.leerkrachten = s.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.naam||'').localeCompare(b.naam||'')); }
 async function laadLeerlingen(){ const s = await F.getDocs(F.collection(db, 'leerlingen')); ST.leerlingen = new Map(s.docs.map(d=>[d.id, d.data()])); }
 async function updGroep(g, data){ await F.updateDoc(F.doc(db, 'groepen', g.id), data); Object.entries(data).forEach(([k, v])=>{ if(!k.includes('.')) g[k] = v; }); }
 
@@ -355,9 +356,17 @@ async function importeer(P, vullen, meld){
 }
 function leerkrachtenKaart(body){
   const card = el('div', 'dash-card', '<h3>Leerkrachten met toegang</h3>');
-  const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Naam</th><th>E-mail</th><th>Groepen</th><th></th></tr></thead>';
+  const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Naam</th><th>E-mail</th><th>Groepen</th><th>Beheer</th><th></th></tr></thead>';
   const tb = el('tbody');
   ST.leerkrachten.forEach(l=>{ const tr = el('tr', '', `<td>${esc(l.naam)}</td><td>${esc(l.id)}</td><td>${ST.groepen.filter(g=>g.leerkrachten.includes(l.id)).map(g=>esc(g.naam)).join(', ') || '<span class="mini">nog geen</span>'}</td>`);
+    const isB = ST.beheerders && ST.beheerders.has(l.id);
+    const bh = el('td', 'c', `<label class="switch" title="${l.id === ST.me ? 'Je kan je eigen beheerrecht niet afnemen' : 'Beheerrecht aan of uit'}"><input type="checkbox" ${isB ? 'checked' : ''} ${l.id === ST.me ? 'disabled' : ''} aria-label="Beheer voor ${esc(l.naam || l.id)}"></label>`);
+    bh.querySelector('input').onchange = async e=>{ const aan = e.target.checked;
+      if(!confirm(aan ? `${l.naam} beheerrecht geven? Die kan dan leerlingenlijsten opladen, leerkrachten en groepen beheren en alles wissen.` : `Beheerrecht van ${l.naam} afnemen? Die blijft gewone leerkracht.`)){ e.target.checked = !aan; return; }
+      try{ if(aan) await F.setDoc(F.doc(db, 'beheerders', l.id), { naam:l.naam || '' }); else await F.deleteDoc(F.doc(db, 'beheerders', l.id)); }
+      catch(err){ alert('Mislukt: ' + (err.message || err)); }
+      await laadLeerkrachten(); render(); };
+    tr.append(bh);
     const td = el('td');
     const ed = el('button', 'btn ghost klein', 'Wijzigen'); ed.type = 'button'; td.append(ed, ' ');
     ed.onclick = ()=>{ const c = tr.children[0], c2 = tr.children[1]; c.innerHTML = ''; c2.innerHTML = '';
@@ -384,7 +393,7 @@ function leerkrachtenKaart(body){
           await Promise.all([laadLeerkrachten(), laadGroepen()]); render();
         }catch(e){ ok.disabled = false; msg.className = 'errmsg'; msg.textContent = 'Mislukt: ' + (e.message || e); }
       }; }; if(l.id !== ST.me){ const rm = el('button', 'btn gevaar klein', 'Toegang intrekken'); rm.type = 'button';
-      rm.onclick = async ()=>{ if(!confirm(`Toegang van ${l.naam} intrekken?`)) return; await F.deleteDoc(F.doc(db, 'leerkrachten', l.id)); await laadLeerkrachten(); render(); }; td.append(rm); }
+      rm.onclick = async ()=>{ if(!confirm(`Toegang van ${l.naam} intrekken?`)) return; await F.deleteDoc(F.doc(db, 'leerkrachten', l.id)); if(ST.beheerders && ST.beheerders.has(l.id)) await F.deleteDoc(F.doc(db, 'beheerders', l.id)); await laadLeerkrachten(); render(); }; td.append(rm); }
     tr.append(td); tb.append(tr); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); card.append(w);
   const r = el('div', 'rij'); const n = el('input'); n.type = 'text'; n.placeholder = 'Voornaam Familienaam'; const m = el('input'); m.type = 'email'; m.placeholder = `adres@${C.DOMEIN}`;
