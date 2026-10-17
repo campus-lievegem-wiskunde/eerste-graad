@@ -303,10 +303,88 @@ export const SITES = [
   "prefix": "2a_m1_transfo_v1_",
   "onderdelen": [
    {
+    "id": "herken",
+    "naam": "Herkennen",
+    "toets": false,
+    "vragen": 23
+   },
+   {
+    "id": "as",
+    "naam": "Spiegelen om een as",
+    "toets": false,
+    "vragen": 9
+   },
+   {
+    "id": "trans",
+    "naam": "Translatie",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "rot",
+    "naam": "Rotatie",
+    "toets": false,
+    "vragen": 25
+   },
+   {
+    "id": "punt",
+    "naam": "Spiegelen om een punt",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "notatie",
+    "naam": "Notatie",
+    "toets": false,
+    "vragen": 30
+   },
+   {
     "id": "coord",
     "naam": "Coördinaten",
     "toets": false,
     "vragen": 49
+   },
+   {
+    "id": "eig",
+    "naam": "Eigenschappen",
+    "toets": false,
+    "vragen": 23
+   },
+   {
+    "id": "symv",
+    "naam": "Symmetrie in het vlak",
+    "toets": false,
+    "vragen": 33
+   },
+   {
+    "id": "symr",
+    "naam": "Symmetrie in de ruimte",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "fout",
+    "naam": "Foutenjager",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
    }
   ]
  }
