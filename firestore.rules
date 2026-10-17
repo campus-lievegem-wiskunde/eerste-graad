@@ -5,19 +5,41 @@ service cloud.firestore {
     function aangemeld() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.matches('.*@svsl[.]be$');
+        && request.auth.token.email.lower().matches('.*@svsl[.]be$');
     }
+    function mail() { return request.auth.token.email.lower(); }
     function beheerder() {
-      return aangemeld() && exists(/databases/$(database)/documents/beheerders/$(request.auth.token.email));
+      return aangemeld() && exists(/databases/$(database)/documents/beheerders/$(mail()));
+    }
+    function leerkracht() {
+      return aangemeld() && (beheerder() || exists(/databases/$(database)/documents/leerkrachten/$(mail())));
+    }
+
+    // beheerders: jij beheert de lijst; iedereen mag nagaan of hij zelf beheerder is
+    match /beheerders/{email} {
+      allow read: if aangemeld() && (mail() == email || beheerder());
+      allow write: if beheerder();
+    }
+    // leerkrachten met toegang tot het dashboard
+    match /leerkrachten/{email} {
+      allow read: if leerkracht() || (aangemeld() && mail() == email);
+      allow write: if beheerder();
+    }
+    // jaarlijkse leerlingenlijst (uit Smartschool)
+    match /leerlingen/{email} {
+      allow read: if leerkracht() || (aangemeld() && mail() == email);
+      allow write: if beheerder();
+    }
+    // niveaugroepen: leerkrachten kiezen hun groepen, leerlingen en wat openstaat
+    match /groepen/{groep} {
+      allow read: if leerkracht() || (aangemeld() && mail() in resource.data.leerlingen);
+      allow create, delete: if beheerder();
+      allow update: if leerkracht();
     }
     // voortgang: document <uid>_<site>; een leerling leest en schrijft enkel zijn eigen documenten
     match /voortgang/{docId} {
       allow read, write: if aangemeld() && docId.matches(request.auth.uid + '_.*');
-      allow read: if beheerder();
-    }
-    // lijst van beheerders: iedereen mag enkel nagaan of hij zelf beheerder is
-    match /beheerders/{email} {
-      allow read: if aangemeld() && request.auth.token.email == email;
+      allow read, delete: if leerkracht();
     }
   }
 }

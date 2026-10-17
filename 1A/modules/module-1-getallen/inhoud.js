@@ -1,6 +1,10 @@
 /* ============================================================
    HULPFUNCTIES
    ============================================================ */
+/* koppeling met het platform (voortgang per vraag); doet niets zonder aanmelding */
+const CLres = (id, ok, info) => { try{ window.CL && window.CL.res(id, ok, info); }catch(e){} };
+const CLvraag = id => { try{ window.CL && window.CL.vraag(id); }catch(e){} };
+const CLtoets = (key, score, n) => { try{ window.CL && window.CL.toets(key, score, n); }catch(e){} };
 const PREFIX = 'm1_herh_v2_';
 let QZ = null; /* verzamelt beoordelaars tijdens het opbouwen van een proeftoetsvraag */
 function load(k){ try{ const r = localStorage.getItem(PREFIX+k); if(r){ const p = JSON.parse(r); if(p && typeof p === 'object') return p; } }catch(e){} return {}; }
@@ -115,7 +119,7 @@ document.addEventListener('click', e=>{
 });
 
 function qBlock(parent, st, save, id, q){
-  const row = el('div','q');
+  const row = el('div','q'); if(!QZ) CLvraag(id);
   row.append(el('div', 'q-text'+(q.block?' block':''), (q.nr?`<span class="q-num">${q.nr}</span>`:'') + (q.help?helpHTML(q.help)+' ':'') + fillInputs(q.html, id, q.size, q.mode)));
   let optBtns = [], wrap = null;
   if(q.choice){
@@ -161,7 +165,7 @@ function qBlock(parent, st, save, id, q){
       else if(r.ok) inp.classList.add('ok'); else if(!r.info) inp.classList.add('bad'); });
     if(q.choice && r.choiceOk!=null){ optBtns.forEach(b=>{ if(b.dataset.val===s.c) b.classList.add(r.choiceOk?'good':'wrong'); }); }
     if(!r.ok && q.sol) solBtn.hidden = false;
-    s.checked = true; save();
+    s.checked = true; save(); CLres(id, !!r.ok, !!r.info);
   }
   btn.addEventListener('click', ()=>run());
   solBtn.addEventListener('click', ()=>{ sol.hidden=!sol.hidden; solBtn.textContent = sol.hidden ? 'Toon oplossing' : 'Verberg oplossing'; });
@@ -179,7 +183,7 @@ function qBlock(parent, st, save, id, q){
 }
 
 function qChoice(parent, st, save, id, q){
-  const row = el('div','q');
+  const row = el('div','q'); if(!QZ) CLvraag(id);
   row.append(el('div','q-text', (q.nr?`<span class="q-num">${q.nr}</span>`:'') + `<span class="stmt">${q.html}</span>`));
   const wrap = el('div','choices');
   const btns = q.opts.map(([val,label])=>{ const b=el('button','opt',label); b.type='button'; b.dataset.val=val; wrap.append(b); return b; });
@@ -192,7 +196,7 @@ function qChoice(parent, st, save, id, q){
     btns.forEach(b=>{ b.classList.remove('chosen','good','wrong'); if(b.dataset.val===val) b.classList.add('chosen', ok?'good':'wrong'); });
     fb.className = 'fb ' + (ok?'ok':'bad');
     fb.innerHTML = (ok ? '✅ Juist! ' : '❌ Niet juist. ') + (q.why||'');
-    if(doSave){ st[id]=val; save(); }
+    if(doSave){ st[id]=val; save(); CLres(id, ok); }
   }
   btns.forEach(b=> b.addEventListener('click', ()=>apply(b.dataset.val, true)));
   if(st[id]) apply(st[id], false);
@@ -504,7 +508,7 @@ function proeftoets(b, st, save, key, items){
     const n = items.length, pct = score/n;
     const lvl = pct>=.9?'prima':pct>=.7?'goed':pct>=.5?'voldoende':'onvoldoende';
     const html = `<div class="score"><span class="big">${score} / ${n}</span><span>Ik ken de leerstof:</span><span class="lvl">${lvl}</span></div>`;
-    scoreTop.innerHTML = html; scoreBottom.innerHTML = html;
+    scoreTop.innerHTML = html; scoreBottom.innerHTML = html; CLtoets(key, score, n);
     bGrade.disabled = true;
     st.done = true; save();
   }
@@ -1112,7 +1116,7 @@ const emptyIs = v => { const s=String(v[0]).replace(/\s+/g,''); if(s==='∅'||s=
 
 /* meerdere juiste antwoorden aanduiden */
 function multiQ(parent, st, save, id, q){
-  const row = el('div','q');
+  const row = el('div','q'); CLvraag(id);
   row.append(el('div','q-text', (q.nr?`<span class="q-num">${q.nr}</span>`:'') + `<span>${q.html}</span>`));
   const wrap = el('div','choices');
   const btns = q.opts.map((lab,i)=>{ const b=el('button','opt',lab); b.type='button'; b.dataset.i=i; wrap.append(b); return b; });
@@ -1129,7 +1133,7 @@ function multiQ(parent, st, save, id, q){
     const missed = q.ans.filter(i=>!s.sel.includes(i)).length;
     fb.className = 'fb '+(ok?'ok':'bad');
     fb.innerHTML = ok ? '✅ Juist! ' + (q.why||'') : '❌ Nog niet juist. ' + (missed ? `Je mist nog ${missed===1?'een juist antwoord':missed+' juiste antwoorden'}. ` : '') + (s.sel.some(i=>!q.ans.includes(i)) ? 'De rode keuzes zijn fout.' : '');
-    s.checked = true; save();
+    s.checked = true; save(); CLres(id, ok);
   }
   go.addEventListener('click', run);
   paint(); if(s.checked) run();
@@ -1492,6 +1496,8 @@ function ROM_PARSE(r){ const V={I:1,V:5,X:10,L:50,C:100,D:500,M:1000}; let s=0; 
 /* ============================================================
    OPBOUW
    ============================================================ */
+/* onderdelen die de leerkracht uitzette, verbergen */
+if(window.CL_VERBORGEN){ for(let i = SECTIONS.length - 1; i >= 0; i--) if(window.CL_VERBORGEN.has(SECTIONS[i].id)) SECTIONS.splice(i, 1); }
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
 const pager = document.getElementById('pager');
