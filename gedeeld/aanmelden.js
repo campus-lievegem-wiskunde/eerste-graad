@@ -24,18 +24,44 @@ const gate = el('div', 'login-gate', `<div class="login-card">
   <h2>Meld je aan</h2>
   <p>Gebruik je schoolaccount (<b>@${C.DOMEIN}</b>). Zo wordt je werk bewaard en kan je leerkracht je voortgang zien.</p>
   <button type="button" class="btn big" id="loginBtn">Aanmelden met Google</button>
-  <p class="login-msg" role="status"></p></div>`);
+  <p class="login-msg" role="status"></p><div class="login-hulp" hidden></div></div>`);
 const msg = gate.querySelector('.login-msg');
 function lock(on){ B.classList.toggle('needs-login', on); gate.hidden = !on; }
 main.prepend(gate); lock(true);
 const provider = new A.GoogleAuthProvider();
 provider.setCustomParameters({ hd: C.DOMEIN, prompt: 'select_account' });
+/* Aanmelden gebeurt altijd met een pop-upvenster. De omleidingsmethode (redirect) werkt niet op iPhone en in
+   Chrome/Safari met afgeschermde opslag, omdat het aanmeldvenster op firebaseapp.com staat en de site op github.io. */
+const hulp = gate.querySelector('.login-hulp');
+const ua = navigator.userAgent || '';
+const IOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+/* ingebouwde browser van een app (Smartschool, Gmail, Instagram …): Google laat daar niet aanmelden */
+const INAPP = (IOS && !/Safari\//.test(ua)) || /; wv\)/.test(ua) || /FBAN|FBAV|Instagram|Line\/|Smartschool/i.test(ua);
+function toonHulp(titel){
+  const browser = IOS ? 'Safari' : 'Chrome';
+  hulp.hidden = false;
+  hulp.innerHTML = `<p><b>${titel}</b></p><ol>
+    <li>Kopieer de link met de knop hieronder.</li>
+    <li>Open <b>${browser}</b> en plak de link in de adresbalk.</li>
+    <li>Tik daar op <b>Aanmelden met Google</b>.</li></ol>
+    <button type="button" class="btn ghost" id="kopieerLink">Kopieer de link</button> <span class="mini" id="kopieerOk"></span>`;
+  hulp.querySelector('#kopieerLink').onclick = async ()=>{
+    const ok = hulp.querySelector('#kopieerOk');
+    try{ await navigator.clipboard.writeText(location.href); ok.textContent = 'Gekopieerd!'; }
+    catch(e){ ok.textContent = location.href; }
+  };
+}
+if(INAPP) toonHulp(`Je opent deze pagina in de browser van een app. Aanmelden lukt het best in ${IOS ? 'Safari' : 'Chrome'}.`);
 gate.querySelector('#loginBtn').addEventListener('click', async ()=>{
   msg.textContent = '';
   try{ await A.signInWithPopup(auth, provider); }
   catch(e){
-    if(e && /popup-blocked|operation-not-supported/.test(e.code||'')) return A.signInWithRedirect(auth, provider);
-    if(e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') msg.textContent = 'Aanmelden lukte niet. Probeer opnieuw.';
+    const c = (e && e.code) || '';
+    if(c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+    if(c === 'auth/popup-blocked'){ msg.textContent = 'Je browser hield het aanmeldvenster tegen. Tik nog een keer op de knop.'; toonHulp('Lukt het nog niet? Open de site in een gewone browser.'); return; }
+    if(/operation-not-supported|web-storage-unsupported|disallowed/.test(c)){ msg.textContent = 'Aanmelden kan niet in deze browser.'; toonHulp('Open de site in een gewone browser:'); return; }
+    if(c === 'auth/network-request-failed'){ msg.textContent = 'Geen internetverbinding. Probeer opnieuw.'; return; }
+    msg.textContent = 'Aanmelden lukte niet. Probeer opnieuw.' + (c ? ` (${c.replace('auth/', '')})` : '');
   }
 });
 
@@ -193,4 +219,4 @@ A.onAuthStateChanged(auth, async u=>{
   }
   lock(false); start(u);
 });
-A.getRedirectResult(auth).catch(()=>{});
+
