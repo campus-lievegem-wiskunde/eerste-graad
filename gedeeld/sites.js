@@ -292,5 +292,22 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "2a-m1",
+  "titel": "Module 1 · Transformaties van het vlak en symmetrie",
+  "kort": "Module 1",
+  "jaar": "2A",
+  "rubriek": "modules",
+  "pad": "2A/modules/module-1-transformaties/",
+  "prefix": "2a_m1_transfo_v1_",
+  "onderdelen": [
+   {
+    "id": "coord",
+    "naam": "Coördinaten",
+    "toets": false,
+    "vragen": 49
+   }
+  ]
  }
 ];
