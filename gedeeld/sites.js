@@ -292,5 +292,148 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "m3",
+  "titel": "Module 3 · Data en onzekerheid",
+  "kort": "Module 3",
+  "jaar": "1A",
+  "rubriek": "modules",
+  "pad": "1A/modules/module-3-data/",
+  "prefix": "m3_data_v1_",
+  "onderdelen": [
+   {
+    "id": "coord",
+    "naam": "Coördinaten",
+    "toets": false,
+    "vragen": 29
+   },
+   {
+    "id": "lijn",
+    "naam": "Lijndiagrammen",
+    "toets": false,
+    "vragen": 11
+   },
+   {
+    "id": "soort",
+    "naam": "Soorten data",
+    "toets": false,
+    "vragen": 22
+   },
+   {
+    "id": "freq",
+    "naam": "Frequentietabel",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "diagram",
+    "naam": "Diagrammen",
+    "toets": false,
+    "vragen": 26
+   },
+   {
+    "id": "mislei",
+    "naam": "Misleidende grafieken",
+    "toets": false,
+    "vragen": 11
+   },
+   {
+    "id": "modus",
+    "naam": "Modus en variatiebreedte",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "gem",
+    "naam": "Het gemiddelde",
+    "toets": false,
+    "vragen": 15
+   },
+   {
+    "id": "med",
+    "naam": "De mediaan",
+    "toets": false,
+    "vragen": 14
+   },
+   {
+    "id": "interp",
+    "naam": "Data interpreteren",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "toestel",
+    "naam": "Met het rekentoestel",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "rekenblad",
+    "naam": "Rekenblad: formules",
+    "toets": false,
+    "vragen": 5
+   },
+   {
+    "id": "rbgraf",
+    "naam": "Rekenblad: grafieken",
+    "toets": false,
+    "vragen": 6
+   },
+   {
+    "id": "onderzoek",
+    "naam": "Een onderzoek opzetten",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "experiment",
+    "naam": "Experimenten",
+    "toets": false,
+    "vragen": 10
+   },
+   {
+    "id": "kritisch",
+    "naam": "Kritisch lezen",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "datalab",
+    "naam": "Datalab: mijn onderzoek",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "fout",
+    "naam": "Zoek de fout",
+    "toets": false,
+    "vragen": 6
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets4",
+    "naam": "Proeftoets rekenblad",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
  }
 ];

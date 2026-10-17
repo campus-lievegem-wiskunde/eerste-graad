@@ -2112,10 +2112,8 @@ function makeSheet(parent, opts){
     const [a,b] = ch.range.split(':'); const p = parseRef(a), q = parseRef(b||a);
     const c0=Math.min(p.c,q.c), c1=Math.max(p.c,q.c), r0=Math.min(p.r,q.r), r1=Math.max(p.r,q.r);
     const isNum = v => typeof v==='number';
-    let hasLabels = c1>c0 && !isNum(val(refName(c0, r0+1<=r1?r0+1:r0))) ;
-    if(c1>c0 && [...Array(r1-r0+1)].every((_,i)=>isNum(val(refName(c0,r0+i)))) ) hasLabels = (c1-c0>=1) && false;
-    /* eerste kolom als labels als ze tekst bevat of als er meer dan één kolom is */
-    hasLabels = c1>c0;
+    /* eerste kolom = labels zodra er meer dan één kolom geselecteerd is */
+    const hasLabels = c1>c0;
     const firstRowHead = [...Array(c1-c0+1)].some((_,j)=>{ const v = val(refName(c0+j, r0)); return v!=='' && !isNum(v); }) && r1>r0;
     const dr0 = firstRowHead ? r0+1 : r0;
     const labels = [], series = [];
@@ -2155,7 +2153,7 @@ function makeSheet(parent, opts){
     const d = chartData(ch); chartHolder.innerHTML='';
     if(!d.series.length || d.series.every(s=>s.values.every(isNaN))){ chartHolder.textContent = 'Er staan geen getallen in de geselecteerde cellen.'; return; }
     const ym = String(ch.yMin).trim()==='' ? null : parseLoose(ch.yMin);
-    chartHolder.append(drawChart(ch.type, {labels:d.labels, series:d.series.map(s=>({name:s.name, values:s.values.map(v=>isNaN(v)?0:v)})), title:ch.title, xTitle:ch.xTitle, yTitle:ch.yTitle, yMin: (ym==null||isNaN(ym))?0:ym, values:ch.type!=='lijn', anim:false}));
+    chartHolder.append(drawChart(ch.type, {labels:d.labels, series:d.series.map(s=>({name:s.name, values:s.values.map(v=>isNaN(v)?0:v)})), title:ch.title, xTitle:ch.xTitle, yTitle:ch.yTitle, yMin: (ym==null||isNaN(ym))?0:ym, values:ch.type!=='lijn', anim:false, brk:false}));
   }
   paint();
   return {
@@ -2212,7 +2210,7 @@ SECTIONS.push({ id:'rekenblad', ic:'rekenblad', nav:'Rekenblad: formules', title
         checks:[
           {say:'Typ in cel A5 het woord <b>gom</b> en in B5 de prijs <b>1,2</b>.', test:allOf(tIs('A5','gom'), vIs('B5',1.2)), hint:'Klik op A5, typ gom en druk Enter. Doe hetzelfde in B5 (met een komma).'},
           {say:'Bereken in C2 de prijs van 4 pennen met de formule <span class="formula">=B2*4</span>.', test:allOf(isF('C2'), vIs('C2',10)), hint:'Typ in C2: =B2*4 en druk Enter. Een formule begint altijd met =.'},
-          {say:'Bereken in B6 de totale prijs van de vijf artikels met een formule.', test:allOf(isF('B6'), vIs('B6',9.7)), hint:'Bv. =B2+B3+B4+B5 of =SOM(B2:B5).'}
+          {say:'Bereken in B6 de totale prijs van de vier artikels met een formule.', test:allOf(isF('B6'), vIs('B6',8.2)), hint:'Bv. =B2+B3+B4+B5 of =SOM(B2:B5).'}
         ], why:'Je gebruikte een formule: verander je een prijs, dan rekent het rekenblad alles opnieuw uit.' }) },
     { title:'De functie SOM en doortrekken', lvl:1, instr:'Vijf leerlingen spaarden drie maanden. Gebruik formules en trek ze door met de vulgreep.',
       build:(b,st,save,key)=>sheetTask(b,st,save,key,{ cols:6, rows:8, init:{A1:'naam', B1:'jan', C1:'feb', D1:'mrt', E1:'totaal', A2:'Arne', B2:'12', C2:'8', D2:'15', A3:'Bo', B3:'5', C3:'5', D3:'5', A4:'Chloë', B4:'20', C4:'0', D4:'10', A5:'Daan', B5:'7', C5:'14', D5:'9', A6:'Emma', B6:'10', C6:'12', D6:'11'},
@@ -2297,6 +2295,539 @@ SECTIONS.push({ id:'rbgraf', ic:'rbgraf', nav:'Rekenblad: grafieken', title:'Gra
     { title:'Vrij rekenblad', lvl:2, instr:'Een leeg rekenblad om zelf te oefenen. Je kan ook gegevens plakken (bv. uit een Google Formulier): klik op een cel en plak. Dit telt niet mee.',
       build:(b,st,save,key)=>sheetTask(b,st,save,key,{ cols:8, rows:30, init:{} }) }
   ]});
+/* ============================================================
+   HOOFDSTUK ONDERZOEK
+   Vervangt de papieren bundel (onderzoek van Frank) en p. 17 nr. 11.
+   ============================================================ */
+(function(){
+  const css = `
+  .order-list{ list-style:none; padding:0; margin:.4rem 0; display:grid; gap:.35rem; max-width:620px; }
+  .order-list li{ display:flex; align-items:center; gap:.5rem; border:2px solid var(--tq); border-radius:.6rem; background:var(--card); padding:.35rem .5rem; transition:transform .25s ease; }
+  .order-list li .nr{ font-weight:800; color:var(--accent-dark); min-width:1.4rem; }
+  .order-list li .tx{ flex:1; }
+  .order-list li button{ border:1.5px solid var(--tq); background:var(--tq-soft); color:var(--ink); border-radius:.4rem; width:2rem; height:1.8rem; cursor:pointer; font:inherit; font-weight:700; }
+  .order-list li.ok{ border-color:var(--ok); background:var(--ok-bg); } .order-list li.bad{ border-color:var(--bad); background:var(--bad-bg); }
+  .school svg{ width:100%; max-width:520px; display:block; }
+  .school .p{ transition:all .35s ease; }
+  .school .p.f{ fill:var(--orange); } .school .p.n{ fill:#b9c7c8; }
+  .school .p.pick{ stroke:var(--accent-dark); stroke-width:3.5; }
+  .school .p.dim{ opacity:.25; }
+  .meter{ display:flex; align-items:center; gap:.6rem; margin:.25rem 0; font-weight:700; }
+  .meter .bar{ flex:1; max-width:340px; height:18px; border-radius:9px; background:var(--tq-soft); overflow:hidden; border:1.5px solid var(--border); }
+  .meter .bar i{ display:block; height:100%; width:0; background:var(--orange); transition:width .6s ease; }
+  .meter .bar.true i{ background:var(--accent-dark); }
+  .btnrow{ display:flex; flex-wrap:wrap; gap:.4rem; margin:.4rem 0; }
+  .btnrow .btn.on{ outline:3px solid var(--orange); }
+  .avatar .face{ font-size:1.6rem; display:block; }
+  .avatar .nm{ display:block; font-size:.72rem; color:var(--muted, #557); }
+  .timebar{ height:10px; border-radius:5px; background:var(--tq-soft); overflow:hidden; margin:.4rem 0; max-width:620px; }
+  .timebar i{ display:block; height:100%; background:var(--orange); width:100%; transition:width 1s linear; }
+  .rt-times{ display:flex; flex-wrap:wrap; gap:.35rem; margin:.5rem 0; }
+  .lab-out{ margin-top:.8rem; }
+  .lab-out .two > div{ min-width:0; }
+  .lab-measures td:first-child{ font-weight:700; color:var(--accent-dark); }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* --- volgorde: zet de stappen in de juiste volgorde (pijltjes, ook op een tablet) --- */
+function orderEx(b, st, save, key, cfg){
+  const quiz = QZ; const qid = QID('o'); if(!quiz) CLvraag(qid);
+  if(!st.ord){ let o; do{ o = shuffle(cfg.items.map((_,i)=>i)); }while(o.every((x,i)=>x===i)); st.ord = o; }
+  const ol = el('ol','order-list'); b.append(ol);
+  const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn); const fb = el('div','fb'); b.append(act, fb);
+  if(quiz) act.hidden = true;
+  let locked = false;
+  function paint(show){
+    ol.innerHTML='';
+    st.ord.forEach((it,pos)=>{
+      const li = el('li', show ? (it===pos?'ok':'bad') : '', `<span class="nr">${pos+1}</span><span class="tx">${cfg.items[it]}</span>`);
+      const up = el('button','', '▲'); up.type='button'; up.setAttribute('aria-label','hoger'); up.disabled = pos===0 || locked;
+      const dn = el('button','', '▼'); dn.type='button'; dn.setAttribute('aria-label','lager'); dn.disabled = pos===st.ord.length-1 || locked;
+      up.addEventListener('click', ()=>swap(pos, pos-1)); dn.addEventListener('click', ()=>swap(pos, pos+1));
+      li.append(up, dn); ol.append(li);
+    });
+  }
+  function swap(i,j){ [st.ord[i], st.ord[j]] = [st.ord[j], st.ord[i]]; st.checked=false; save(); paint(false); fb.textContent=''; fb.className='fb'; }
+  const good = () => st.ord.every((x,i)=>x===i);
+  btn.addEventListener('click', ()=>{ const ok = good(); paint(true); fb.className='fb '+(ok?'ok':'bad'); fb.innerHTML = ok ? '✅ Juist! '+(cfg.why||'') : '❌ Nog niet. De groene stappen staan al goed. '+(cfg.hint||''); CLres(qid, ok); st.checked=true; save(); });
+  paint(!!st.checked && !quiz);
+  if(quiz) quiz.push({ grade:good, reveal:()=>paint(true), lock:()=>{ locked=true; paint(true); } });
+}
+
+/* --- meerkeuze met eigen knoppen per vraag --- */
+const choiceEach = items => (b, st, save, key) => items.forEach((q,i)=> qChoice(b, st, save, key+'_'+i, {html:q.html, ans:q.ans, why:q.why, opts:q.opts, nr:items.length>1?(i+1)+'.':''}));
+
+/* --- steekproef: wie vraag je het? --- */
+const SCHOOL_N = 120;
+const SCHOOL = (()=>{ /* 48 van de 120 leerlingen (40 %) komen met de fiets; vast patroon zodat iedereen hetzelfde ziet */
+  const f = Array(SCHOOL_N).fill(false); let seed = 7; const rnd = () => (seed = (seed*9301+49297)%233280)/233280;
+  const idx = [...Array(SCHOOL_N).keys()].sort(()=>rnd()-.5).slice(0,48); idx.forEach(i=>f[i]=true); return f; })();
+function sampleDemo(b){
+  const box = el('div','viz mid school'); b.append(box);
+  const W=520, H=250, cols=15, rows=8, gx=W/cols, gy=(H-10)/rows;
+  const svg = newSvg(W, H); box.append(svg);
+  const dots = SCHOOL.map((f,i)=>{ const c=svgEl('circle',{cx:gx*(i%cols)+gx/2, cy:gy*Math.floor(i/cols)+gy/2+5, r:Math.min(gx,gy)*.36, class:'p '+(f?'f':'n')}, svg); return c; });
+  box.append(el('div','sub', '<span class="pill" style="background:var(--orange)">●</span> komt met de fiets &nbsp; <span class="pill" style="background:#b9c7c8">●</span> komt niet met de fiets'));
+  const bar = el('div','btnrow'); b.append(bar);
+  const out = el('div'); b.append(out);
+  const fiets = SCHOOL.map((f,i)=>f?i:-1).filter(i=>i>=0), niet = SCHOOL.map((f,i)=>f?-1:i).filter(i=>i>=0);
+  const pickR = (arr,n) => shuffle(arr).slice(0,n);
+  const ways = [
+    ['Aan de fietsenstalling', ()=>[...pickR(fiets,18), ...pickR(niet,2)], 'Aan de fietsenstalling staan vooral fietsers: je overschat het aantal fietsers.'],
+    ['Aan de bushalte', ()=>[...pickR(fiets,2), ...pickR(niet,18)], 'Aan de bushalte staan vooral busreizigers: je onderschat het aantal fietsers.'],
+    ['Enkel je 4 beste vrienden', ()=>[...pickR(fiets,3), ...pickR(niet,1)], 'Vier leerlingen is veel te weinig: toevallig fietsen er 3 van de 4.'],
+    ['20 leerlingen, willekeurig gekozen', ()=>pickR([...Array(SCHOOL_N).keys()],20), 'Willekeurig kiezen geeft een resultaat dicht bij de werkelijkheid. Probeer het een paar keer: het schommelt een beetje.'],
+    ['60 leerlingen, willekeurig gekozen', ()=>pickR([...Array(SCHOOL_N).keys()],60), 'Hoe meer leerlingen je willekeurig kiest, hoe dichter je bij de echte 40 % komt.']
+  ];
+  let busy = false;
+  ways.forEach(([lab, fn, why])=>{ const bt = el('button','btn ghost', lab); bt.type='button'; bar.append(bt);
+    bt.addEventListener('click', async ()=>{ if(busy) return; busy = true; bar.querySelectorAll('.btn').forEach(x=>x.classList.toggle('on', x===bt));
+      const pick = fn(); const set = new Set(pick);
+      dots.forEach((d,i)=>{ d.classList.remove('pick'); d.classList.toggle('dim', !set.has(i)); });
+      for(const i of pick){ dots[i].classList.add('pick'); await sleep(pick.length>30?25:80); }
+      const k = pick.filter(i=>SCHOOL[i]).length, pct = k/pick.length*100;
+      out.innerHTML = `<div class="meter"><span style="min-width:9rem">jouw steekproef</span><span class="bar"><i></i></span><span>${k} van ${pick.length} = ${nf(pct,0)} %</span></div>
+        <div class="meter"><span style="min-width:9rem">de hele school</span><span class="bar true"><i></i></span><span>48 van 120 = 40 %</span></div><div class="fb info">${why}</div>`;
+      requestAnimationFrame(()=>{ const is = out.querySelectorAll('.bar i'); is[0].style.width = pct+'%'; is[1].style.width = '40%'; });
+      busy = false; });
+  });
+  out.append(el('div','sub','Kies hierboven hoe je de leerlingen ondervraagt.'));
+}
+
+/* --- virtuele klas: tik elke leerling aan om het antwoord te horen --- */
+const KLAS_NAMEN = ['Arne','Bo','Chloë','Daan','Emma','Finn','Gust','Hanne','Ilias','Jana','Kobe','Lina','Mats','Nora','Oscar','Paulien','Ruben','Sara','Tibo','Ulla','Vic','Wout','Yara','Zoë'];
+const KLAS_SPORT = ['voetbal','dansen','zwemmen','voetbal','hockey','tennis','voetbal','dansen','voetbal','zwemmen','hockey','dansen','voetbal','tennis','voetbal','dansen','hockey','zwemmen','voetbal','dansen','tennis','hockey','zwemmen','dansen'];
+const SPORT_CATS = ['voetbal','dansen','zwemmen','hockey','tennis'];
+const FACES = ['🧑','👧','👦','🧒','👩','🧑‍🦱','👧🏽','👦🏻','🧑🏾','👩‍🦰','🧒🏼','👦🏽'];
+function classSurvey(b, st, save, key){
+  const asked = st.asked || (st.asked = []);
+  b.append(el('div','sub','Tik elke leerling aan en noteer in gedachten (of op een blad) wat ze antwoorden.'));
+  const grid = el('div','avatars'); b.append(grid);
+  const cnt = el('div','sub'); b.append(cnt);
+  KLAS_NAMEN.forEach((nm,i)=>{ const a = el('button','avatar'+(asked.includes(i)?' done':''), `<span class="face">${FACES[i%FACES.length]}</span><span class="nm">${nm}</span><span class="say">${asked.includes(i)?KLAS_SPORT[i]:''}</span>`); a.type='button'; grid.append(a);
+    a.addEventListener('click', ()=>{ if(!asked.includes(i)){ asked.push(i); save(); } a.classList.add('done'); a.querySelector('.say').textContent = KLAS_SPORT[i]; paintCnt(); }); });
+  function paintCnt(){ cnt.innerHTML = asked.length<24 ? `Je ondervroeg <b>${asked.length}</b> van de 24 leerlingen.` : '✅ Je ondervroeg de hele klas. Vul nu de tabel in.'; }
+  paintCnt();
+}
+
+/* --- geheugenexperiment (het onderzoek van Frank, nu digitaal) --- */
+const MEM_SHOW = ['🍎','🚲','🐶','⚽','🎸','🌵','🚀','🍕','🐢','⏰','🎈','🔑','🦋','🍩','📚','🌈','🐘','🧲','🎩','🚗'];
+const MEM_DECOY = ['🍌','🛴','🐱','🏀','🎺','🌻','✈️','🍔','🐸','⌚','🎁','🔒','🐝','🍪','📷','☀️','🦒','🔦','👟','🚌'];
+const MEM_KLAS = [8,11,9,12,10,7,13,9,11,10,14,6,9,12,10,11,8,15,9,10,12,9,11,13];
+function memoryExp(b, st, save, key){
+  const box = el('div'); b.append(box);
+  let timer = null;
+  function stage(){
+    clearInterval(timer); box.innerHTML='';
+    if(st.mem==null){
+      box.append(el('div','sub','Je krijgt <b>1 minuut</b> om 20 afbeeldingen te bekijken. Daarna zie je 40 afbeeldingen en tik je aan welke je gezien hebt. Een fout aangetikte afbeelding kost een punt.'));
+      const go = el('button','btn','Start het experiment'); go.type='button'; box.append(go);
+      go.addEventListener('click', ()=>{ st.phase='kijk'; save(); look(); });
+      if(st.phase==='kijk' || st.phase==='kies') { st.phase=null; save(); }
+      return;
+    }
+    result();
+  }
+  function look(){
+    box.innerHTML='';
+    const tb = el('div','timebar','<i></i>'); const lab = el('div','sub'); box.append(lab, tb);
+    const g = el('div','memgrid'); MEM_SHOW.forEach(e=>g.append(el('div','mi', e))); box.append(g);
+    const done = el('button','btn ghost','Ik ben klaar'); done.type='button'; box.append(done);
+    let left = 60; const bar = tb.querySelector('i');
+    const tick = ()=>{ lab.innerHTML = `Prent ze in je geheugen! Nog <b>${left}</b> seconden.`; bar.style.width = (left/60*100)+'%'; };
+    tick(); timer = setInterval(()=>{ left--; tick(); if(left<=0) choose(); }, 1000);
+    done.addEventListener('click', choose);
+  }
+  function choose(){
+    clearInterval(timer); box.innerHTML='';
+    box.append(el('div','sub','Tik alle afbeeldingen aan die je daarnet gezien hebt. Tik nog eens om het te herstellen.'));
+    const order = shuffle([...MEM_SHOW, ...MEM_DECOY]); const sel = new Set();
+    const g = el('div','memgrid'); box.append(g);
+    order.forEach(e=>{ const bt = el('button','mi', e); bt.type='button'; g.append(bt); bt.addEventListener('click', ()=>{ sel.has(e)?sel.delete(e):sel.add(e); bt.classList.toggle('sel', sel.has(e)); }); });
+    const ok = el('button','btn','Klaar: toon mijn score'); ok.type='button'; box.append(ok);
+    ok.addEventListener('click', ()=>{
+      const good = [...sel].filter(e=>MEM_SHOW.includes(e)).length, bad = sel.size-good;
+      st.mem = Math.max(0, good-bad); st.memDetail = {good, bad}; st.phase=null; save();
+      g.querySelectorAll('.mi').forEach(bt=>{ const e=bt.textContent; const shown=MEM_SHOW.includes(e);
+        bt.disabled = true; bt.classList.remove('sel'); if(sel.has(e)) bt.classList.add(shown?'ok':'bad'); else if(shown) bt.classList.add('miss'); });
+      ok.remove(); const r = el('div'); box.append(r); result(r);
+    });
+  }
+  function result(into){
+    const host = into || box;
+    const {good, bad} = st.memDetail || {good:st.mem, bad:0};
+    host.append(el('div','fb ok', `Je herkende <b>${good}</b> afbeeldingen juist en tikte er <b>${bad}</b> fout aan. Jouw score: <b>${st.mem}</b>.`));
+    const all = [...MEM_KLAS, st.mem]; const lo = Math.min(5, st.mem), hi = Math.max(16, st.mem);
+    const v = el('div','viz mid'); const P = numPlot(all, lo, hi, {xTitle:'score geheugenexperiment (oranje = jij)', hi:new Set([all.length-1])}); v.append(P.svg); host.append(v);
+    const lower = MEM_KLAS.filter(x=>x<st.mem).length, same = MEM_KLAS.filter(x=>x===st.mem).length;
+    host.append(el('div','sub', `Van de 24 leerlingen van de klas scoorden er <b>${lower}</b> lager dan jij${same?` en <b>${same}</b> evenveel`:''}. De mediaan van de klas is 10.`));
+    const again = el('button','linkbtn','Doe het experiment opnieuw'); again.type='button'; host.append(again);
+    again.addEventListener('click', ()=>{ st.mem=null; st.memDetail=null; save(); stage(); });
+  }
+  stage();
+}
+
+/* --- reactietijd: klik zodra het vak oranje wordt --- */
+function reactionExp(b, st, save, key){
+  const times = st.rt || (st.rt = []);
+  const boxEl = el('div','rt-box'); b.append(boxEl);
+  const row = el('div','rt-times'); b.append(row);
+  const ctl = el('div','btnrow'); const reset = el('button','linkbtn','Begin opnieuw'); reset.type='button'; ctl.append(reset); b.append(ctl);
+  let state = 'idle', t0 = 0, to = null;
+  function paint(){
+    row.innerHTML = times.map((t,i)=>`<span class="dv">${t}</span>`).join('') || '<span class="sub">Nog geen metingen.</span>';
+    if(times.length>=10){ boxEl.className='rt-box'; boxEl.textContent = '✅ 10 metingen klaar. Werk ze hieronder verder uit.'; state='done'; }
+    else if(state==='idle'){ boxEl.className='rt-box'; boxEl.textContent = `Meting ${times.length+1} van 10: tik hier om te starten.`; }
+  }
+  boxEl.addEventListener('pointerdown', ()=>{
+    if(state==='done') return;
+    if(state==='idle'){ state='wait'; boxEl.className='rt-box'; boxEl.textContent='Wacht tot het vak oranje wordt ...'; to = setTimeout(()=>{ state='go'; boxEl.className='rt-box go'; boxEl.textContent='NU!'; t0 = performance.now(); }, 1200+Math.random()*2300); return; }
+    if(state==='wait'){ clearTimeout(to); state='idle'; boxEl.textContent='Te vroeg! Tik om opnieuw te proberen.'; return; }
+    if(state==='go'){ const t = Math.round(performance.now()-t0); times.push(t); save(); state='idle'; paint(); if(st.onMeasure) st.onMeasure(); }
+  });
+  reset.addEventListener('click', ()=>{ clearTimeout(to); times.length=0; state='idle'; save(); paint(); });
+  paint();
+}
+const rtCheck = (st, f, tol, what) => v => {
+  const t = st.rt || []; if(t.length<10) return {ok:false, info:true, msg:'Doe eerst de 10 metingen hierboven.'};
+  const x = parseLoose(v[0]); if(isNaN(x)) return {ok:false, msg:'Typ enkel een getal.'};
+  const want = f(t); const ok = Math.abs(x-want)<=tol; return {ok, msg: ok?`${what} = ${nf(want, Number.isInteger(want)?0:1)} ms.`:'Kijk je berekening nog eens na. Gebruik je rekentoestel met lijsten.'};
+};
+
+/* --- datalab: eigen gegevens verwerken (telt niet mee) --- */
+function dataLab(b, st, save, key){
+  const box = el('div','labbox'); b.append(box);
+  box.append(el('div','sub','Plak hier de antwoorden op één vraag (bv. een kolom uit de antwoorden van je Google Formulier), of typ ze: één antwoord per regel, of gescheiden door komma\'s of puntkomma\'s. Getallen met een komma mogen: 1,5.'));
+  const ta = el('textarea'); ta.value = st.txt || ''; ta.placeholder = 'voetbal\ndansen\nvoetbal\n...'; box.append(ta);
+  const opt = el('div','btnrow'); box.append(opt);
+  const qIn = el('input','inp'); qIn.placeholder='je onderzoeksvraag'; qIn.value = st.q || ''; qIn.style.minWidth='18rem'; qIn.style.flex='1';
+  const ex = el('button','btn ghost','Voorbeeld laden'); ex.type='button';
+  opt.append(qIn, ex);
+  const out = el('div','lab-out'); b.append(out);
+  ex.addEventListener('click', ()=>{ ta.value = '2;1;0;3;1;2;2;1;0;1;4;2;1;3;2;1;0;2;1;1;2;3'; qIn.value = 'Hoeveel huisdieren hebben de leerlingen van onze klas?'; st.txt=ta.value; st.q=qIn.value; save(); run(); });
+  ta.addEventListener('input', ()=>{ st.txt = ta.value; save(); run(); });
+  qIn.addEventListener('input', ()=>{ st.q = qIn.value; save(); run(); });
+  function parse(){
+    const t = ta.value.trim(); if(!t) return [];
+    const parts = /[\n;\t]/.test(t) ? t.split(/[\n;\t]+/) : t.split(/,\s+|,(?=\D)|(?<=\D),/);
+    return parts.map(x=>x.trim()).filter(x=>x!=='');
+  }
+  function run(){
+    out.innerHTML='';
+    const raw = parse(); if(raw.length<2){ out.append(el('div','sub','Vul minstens twee antwoorden in.')); return; }
+    const numsV = raw.map(parseLoose); const numeric = numsV.every(x=>!isNaN(x));
+    const vals = numeric ? numsV : raw.map(x=>x.toLowerCase());
+    const cats = numeric ? [...new Set(vals)].sort((a,b)=>a-b) : [...new Set(vals)].sort((a,b)=>countOf(vals,b)-countOf(vals,a));
+    const n = vals.length;
+    const fr = cats.map(c=>countOf(vals,c));
+    const head = el('div','sub', `<b>${n}</b> antwoorden · ${numeric?'<b>numerieke</b> data: je kan ermee rekenen.':'<b>categorische</b> data: je kan ze tellen, niet uitrekenen.'}`);
+    out.append(head);
+    const two = el('div'); out.append(two);
+    const left = el('div'), right = el('div'); two.append(left, right);
+    left.innerHTML = ftabHTML([numeric?'waarde':'antwoord','absolute frequentie','relatieve frequentie'], [...cats.map((c,i)=>[numeric?nf(c,6):c, fr[i], nf(fr[i]/n*100,1)+' %']), ['<b>totaal</b>', '<b>'+n+'</b>', '<b>100 %</b>']]);
+    const m = [['aantal gegevens', n], ['modus', modes(vals).map(x=>numeric?nf(x,6):x).join(' en ') + (Math.max(...fr)===1?' (elk gegeven komt één keer voor: geen modus)':'')]];
+    if(numeric){ const s=sorted(vals); m.push(['gemiddelde', nf(mean(vals),2)], ['mediaan', nf(median(vals),2)], ['kleinste · grootste', nf(s[0],6)+' · '+nf(s[s.length-1],6)], ['variatiebreedte', nf(s[s.length-1]-s[0],6)]); }
+    left.insertAdjacentHTML('beforeend', '<h4 style="margin:.8rem 0 .2rem">Maten</h4>'+ftabHTML(['maat','waarde'], m).replace('class="ftab"','class="ftab lab-measures"'));
+    const types = numeric ? [['kolom','staafdiagram'],['dot','stippendiagram'],['lijn','lijndiagram']] : [['kolom','staafdiagram'],['staaf','liggend staafdiagram'],['cirkel','cirkeldiagram'],['strook','strookdiagram']];
+    if(!types.some(t=>t[0]===st.type)) st.type = types[0][0];
+    const tb = el('div','btnrow'); right.append(tb);
+    types.forEach(([t,lab])=>{ const bt=el('button','btn ghost'+(st.type===t?' on':''), lab); bt.type='button'; tb.append(bt); bt.addEventListener('click', ()=>{ st.type=t; save(); run(); }); });
+    right.style.marginTop='1rem'; const v = el('div','viz mid'); right.append(v);
+    const labels = cats.map(c=>numeric?nf(c,6):c);
+    v.append(drawChart(st.type, {labels, series:[{name:'aantal', values:fr}], title: st.q || '', xTitle: numeric?'waarde':'', yTitle: (st.type==='cirkel'||st.type==='strook')?'':'aantal', anim:false}));
+    if(st.type==='lijn') right.append(el('div','fb info','Let op: een lijndiagram past bij gegevens die in de tijd veranderen. Voor een frequentietabel kies je beter een staaf- of stippendiagram.'));
+    const top = cats[fr.indexOf(Math.max(...fr))];
+    const besluit = numeric
+      ? `Besluit: we ondervroegen ${n} leerlingen. Gemiddeld is het antwoord ${nf(mean(vals),1)}, de mediaan is ${nf(median(vals),1)}. Het meest gegeven antwoord is ${nf(top,6)}.`
+      : `Besluit: we ondervroegen ${n} leerlingen. Het meest gekozen antwoord is "${top}" (${fr[cats.indexOf(top)]} van de ${n}, dat is ${nf(Math.max(...fr)/n*100,0)} %).`;
+    out.append(el('div','headline', besluit));
+    out.append(el('div','sub','Schrijf dit besluit in je eigen woorden en vul aan: wat had je verwacht? Is je groep groot genoeg om iets te besluiten over alle leerlingen van de school?'));
+  }
+  run();
+}
+
+/* ============================================================
+   ONDERDEEL 14 · EEN ONDERZOEK OPZETTEN
+   ============================================================ */
+const CHEAT_OZ = `<h3>Spiekbriefje · statistisch onderzoek</h3><table>
+<tr><td>1. vraag</td><td>Een duidelijke onderzoeksvraag: wat wil je te weten komen, en over wie?</td></tr>
+<tr><td>2. plan</td><td>Wie ondervraag je (een goede steekproef) en hoe (enquête, meting, experiment)?</td></tr>
+<tr><td>3. verzamelen</td><td>De ruwe data noteren of laten invullen (Google Formulier).</td></tr>
+<tr><td>4. verwerken</td><td>Frequentietabel, diagram, centrummaten (rekentoestel of rekenblad).</td></tr>
+<tr><td>5. besluit</td><td>Een antwoord op je vraag, met getallen erbij. Kan je het besluit vertrouwen?</td></tr>
+<tr><td>goede vraag</td><td>niet vaag, niet sturend, antwoorden die niet overlappen en alle mogelijkheden dekken</td></tr>
+<tr><td>steekproef</td><td>groot genoeg en willekeurig gekozen, niet enkel je vrienden of één plek</td></tr></table>`;
+const VQ = [['v','vaag'],['s','sturend'],['o','antwoorden overlappen'],['g','goede vraag']];
+SECTIONS.push({ id:'onderzoek', ic:'onderzoek', nav:'Een onderzoek opzetten', title:'Een statistisch onderzoek opzetten', cheat:CHEAT_OZ,
+  tip:'Een onderzoek doorloopt altijd dezelfde stappen: vraag, plan, data verzamelen, verwerken en besluit. Het besluit is maar zo goed als je vraag en je steekproef.',
+  cards:[
+    { title:'De onderzoekscyclus', lvl:1, instr:'Lien wil weten hoe de leerlingen van het eerste jaar naar school komen. Zet haar stappen in de juiste volgorde met de pijltjes.',
+      build:(b,st,save,key)=>orderEx(b,st,save,key,{ items:[
+        'Ze schrijft haar vraag op: "Hoe komen de leerlingen van het eerste jaar naar school?"',
+        'Ze beslist wie ze ondervraagt (alle 1ste jaars) en maakt een Google Formulier.',
+        'De leerlingen vullen het formulier in: ze heeft de ruwe data.',
+        'Ze maakt een frequentietabel en een staafdiagram.',
+        'Ze schrijft: "45 % komt met de fiets, de fiets is het meest gebruikte vervoermiddel."'
+      ], hint:'Begin bij de vraag en eindig bij het besluit.', why:'Vraag, plan, verzamelen, verwerken, besluit: de onderzoekscyclus.' }) },
+    { title:'Wat is er mis met de vraag?', lvl:1, instr:'Sorteer de enquêtevragen. Sleep of tik elke vraag naar de juiste bak.',
+      build:(b,st,save,key)=>sortBins(b,st,save,key,{bins:[['v','Vaag'],['s','Sturend'],['o','Antwoorden overlappen'],['g','Goede vraag']], items:[
+        {t:'Sport je veel?', a:'v', why:'Wat is "veel"? Iedereen bedoelt iets anders.'},
+        {t:'Vind jij ook dat de pauze te kort is?', a:'s', why:'"Ook" duwt je naar het antwoord ja.'},
+        {t:'Hoeveel uur gamen? 0-2 u · 2-4 u · 4-6 u', a:'o', why:'Wie 2 uur gamet, past in twee vakjes.'},
+        {t:'Hoeveel broers en zussen heb je?', a:'g', why:'Duidelijk, en het antwoord is een getal.'},
+        {t:'Eet je gezond?', a:'v', why:'Wat is gezond? De antwoorden zeggen weinig.'},
+        {t:'De nieuwe schoolbel is toch veel te luid, niet?', a:'s', why:'De vraag geeft het antwoord al.'},
+        {t:'Hoe oud ben je? 10-12 · 12-14 · 14-16', a:'o', why:'Wie 12 is, past in twee vakjes.'},
+        {t:'Met welk vervoermiddel kom je meestal naar school?', a:'g', why:'Duidelijk en niet sturend.'}
+      ]}) },
+    { title:'Verbeter de vraag', lvl:2, instr:'Kies telkens de beste versie van de vraag.',
+      build:choiceEach([
+        {html:'Lees je veel?', opts:[['a','Lees je heel veel?'],['b','Hoeveel boeken las je de voorbije maand?'],['c','Lees jij ook graag?']], ans:'b', why:'Met een getal weet je precies wat iemand bedoelt.'},
+        {html:'Vind jij ook dat er te veel huiswerk is?', opts:[['a','Hoeveel minuten per dag besteed je aan huiswerk?'],['b','Er is toch te veel huiswerk?'],['c','Haat je huiswerk?']], ans:'a', why:'Een neutrale vraag die je kan meten.'},
+        {html:'Hoeveel zakgeld krijg je per week? 0-5 € · 5-10 € · 10-20 €', opts:[['a','0-5 € · 5-10 € · 10-20 € · meer dan 20 €'],['b','minder dan 5 € · 5 € tot minder dan 10 € · 10 € tot minder dan 20 € · 20 € of meer'],['c','weinig · gemiddeld · veel']], ans:'b', why:'Geen overlap (5 € hoort maar bij één vakje) en alle bedragen passen ergens.'}
+      ]) },
+    { title:'Wie vraag je het?', lvl:1, instr:'In deze school komen 48 van de 120 leerlingen met de fiets: 40 %. Een onderzoeker weet dat niet en ondervraagt een deel van de leerlingen. Probeer de manieren uit en vergelijk met de echte 40 %.',
+      build:combo(b=>sampleDemo(b), choiceList([
+        ['Je ondervraagt enkel leerlingen aan de fietsenstalling. Wat gebeurt er met het percentage fietsers?', 'h', 'Je ondervraagt vooral fietsers: het percentage is te hoog.'],
+        ['Je ondervraagt willekeurig 60 leerlingen. Wat gebeurt er met het percentage fietsers?', 'j', 'Bij een grote, willekeurige steekproef kom je dicht bij de echte 40 %.']
+      ], [['h','te hoog'],['l','te laag'],['j','ongeveer juist']])) },
+    { title:'Ondervraag de klas', lvl:2, instr:'Wat is de favoriete sport van de 24 leerlingen van 1C? Ondervraag ze allemaal en verwerk de antwoorden.',
+      build:combo((b,st,save,key)=>classSurvey(b,st,save,key), list([
+        {html:'voetbal: [[0]] · dansen: [[1]] · zwemmen: [[2]] · hockey: [[3]] · tennis: [[4]]', size:'xs', mode:'numeric', check:nums(SPORT_CATS.map(c=>countOf(KLAS_SPORT,c)), 0, 'Tel opnieuw. Samen moet het 24 zijn.'), sol:'voetbal 7, dansen 6, zwemmen 4, hockey 4, tennis 3: samen 24.'},
+        {html:'Welk percentage van de klas koos voetbal? Rond af op een geheel getal. [[0]] %', mode:'numeric', check:approx(29.17, 0.5), sol:'7 : 24 · 100 = 29,17 % ≈ <b>29 %</b>.'}
+      ], {letters:true}), choiceEach([
+        {html:'Welk diagram past het best om te tonen welk deel van de klas elke sport koos?', opts:[['k','staafdiagram'],['c','cirkeldiagram'],['l','lijndiagram']], ans:'c', why:'Een cirkeldiagram toont hoe het geheel (de klas) verdeeld is. Een staafdiagram mag ook, een lijndiagram niet: er is geen verloop in de tijd.'},
+        {html:'Welk besluit is juist?', opts:[['a','De meeste leerlingen van de school spelen voetbal.'],['b','In 1C is voetbal de favoriete sport: 7 van de 24 leerlingen kozen het.'],['c','Meer dan de helft van 1C koos voetbal.']], ans:'b', why:'Je ondervroeg enkel 1C, dus je besluit gaat over 1C. 7 van 24 is minder dan de helft.'}
+      ])) }
+  ]});
+
+/* ============================================================
+   ONDERDEEL 15 · EXPERIMENTEN
+   ============================================================ */
+SECTIONS.push({ id:'experiment', ic:'experiment', nav:'Experimenten', title:'Zelf data verzamelen met een experiment', cheat:CHEAT_OZ,
+  tip:'Bij een experiment verzamel je zelf de data door te meten. Daarna verwerk je ze zoals altijd: tabel, diagram, centrummaten.',
+  cards:[
+    { title:'Het geheugenexperiment', lvl:1, instr:'Hoeveel afbeeldingen onthoud je in één minuut? Doe het experiment en vergelijk jezelf met de 24 leerlingen van 1B.',
+      build:combo((b,st,save,key)=>memoryExp(b,st,save,key),
+        '<h4 style="margin:1rem 0 .3rem">De scores van 1B</h4>'+ftabHTML(['score','6','7','8','9','10','11','12','13','14','15'], [['aantal leerlingen','1','1','2','5','4','4','3','2','1','1']]),
+        list([
+          {html:'Hoeveel leerlingen deden mee? [[0]]', mode:'numeric', check:exact(24), sol:'1 + 1 + 2 + 5 + 4 + 4 + 3 + 2 + 1 + 1 = 24.'},
+          {html:'Modus = [[0]]', mode:'numeric', check:exact(9), sol:'Score 9 komt het vaakst voor (5 keer).'},
+          {html:'Mediaan = [[0]]', check:exact(10), sol:'24 gegevens: de mediaan ligt tussen het 12de en het 13de gegeven. Beide zijn 10, dus Me = <b>10</b>.'},
+          {html:'Gemiddelde (afgerond op 0,1) = [[0]]', check:approx(10.4, 0.05), sol:'(6 + 7 + 2 · 8 + 5 · 9 + 4 · 10 + 4 · 11 + 3 · 12 + 2 · 13 + 14 + 15) : 24 = 249 : 24 = 10,375 ≈ <b>10,4</b>.'},
+          {html:'Variatiebreedte = [[0]]', mode:'numeric', check:exact(9), sol:'15 − 6 = <b>9</b>.'}
+        ], {letters:true})) },
+    { title:'Het reactietijdexperiment', lvl:2, instr:'Hoe snel reageer jij? Tik op het vak zodra het oranje wordt. Je reactietijd wordt gemeten in milliseconden (1000 ms = 1 s). Doe 10 metingen.',
+      build:(b,st,save,key)=>{ reactionExp(b,st,save,key);
+        b.append(el('div','sub','Werk je eigen 10 metingen uit met je rekentoestel (of met het rekenblad).'));
+        list([
+          {html:'Gemiddelde (afgerond op 1 ms) = [[0]] ms', check:rtCheck(st, mean, 1, 'Het gemiddelde'), sol:'Tel de 10 tijden op en deel door 10.'},
+          {html:'Mediaan = [[0]] ms', check:rtCheck(st, median, 0.5, 'De mediaan'), sol:'Orden de 10 tijden. De mediaan is het gemiddelde van het 5de en het 6de gegeven.'},
+          {html:'Variatiebreedte = [[0]] ms', check:rtCheck(st, t=>Math.max(...t)-Math.min(...t), 0, 'De variatiebreedte'), sol:'De traagste tijd min de snelste tijd.'}
+        ], {letters:true})(b,st,save,key+'_m');
+        choiceEach([
+          {html:'Stel dat je één keer zat te dromen en pas na 2000 ms tikte. Welke maat verandert dan het meest?', opts:[['g','het gemiddelde'],['m','de mediaan'],['n','geen van beide']], ans:'g', why:'Eén uitschieter trekt het gemiddelde mee omhoog. De mediaan schuift hoogstens een plaatsje op.'},
+          {html:'Welke maat geeft dan het beste beeld van jouw gewone reactietijd?', opts:[['g','het gemiddelde'],['m','de mediaan']], ans:'m', why:'De mediaan trekt zich weinig aan van één uitschieter.'}
+        ])(b,st,save,key+'_c'); } }
+  ]});
+
+/* ============================================================
+   ONDERDEEL 16 · KRITISCH LEZEN
+   ============================================================ */
+const KRIT = [['as','misleidende as'],['weinig','te weinig mensen ondervraagd'],['groep','verkeerde groep ondervraagd'],['uit','gemiddelde met een uitschieter'],['ok','het besluit klopt']];
+const krantEx = items => (b, st, save, key) => items.forEach((it,i)=>{
+  const wrap = el('div','q'); b.append(wrap);
+  wrap.append(el('div','headline', (items.length>1?`${LET[i]}. `:'')+it.kop));
+  if(it.info) wrap.append(el('div','sub', it.info));
+  if(it.chart){ const v=el('div','viz narrow'); v.append(drawChart(it.chart[0], Object.assign({anim:false}, it.chart[1]), 460, 280)); wrap.append(v); }
+  qChoice(wrap, st, save, key+'_'+i, {html:'Wat is er aan de hand?', ans:it.ans, why:it.why, opts:KRIT});
+});
+SECTIONS.push({ id:'kritisch', ic:'mislei', nav:'Kritisch lezen', title:'Kritisch lezen: klopt het besluit?', cheat:CHEAT_OZ,
+  tip:'Lees een krantenkop met statistiek altijd kritisch. Waar begint de as? Hoeveel mensen werden ondervraagd, en wie? Is het gemiddelde eerlijk, of zit er een uitschieter in?',
+  cards:[
+    { title:'Krantenkoppen', lvl:1, instr:'Lees elke krantenkop en de uitleg erbij. Wat is er aan de hand?',
+      build:krantEx([
+        {kop:'Leerlingen slapen steeds minder!', chart:['kolom',{labels:['2022','2023','2024'], series:[{values:[8.6,8.5,8.4]}], yMin:8.3, title:'Gemiddeld aantal uren slaap', brk:false}], ans:'as', why:'De as begint bij 8,3 uur. In werkelijkheid slapen de leerlingen maar 12 minuten minder dan in 2022.'},
+        {kop:'90 % van de jongeren wil een zwembad in Lievegem', info:'Het onderzoek werd gedaan bij 50 leden van de zwemclub.', ans:'groep', why:'Leden van een zwemclub willen natuurlijk een zwembad. Ze zijn geen goede steekproef van alle jongeren.'},
+        {kop:'Drie op vier leerlingen eten liever frietjes dan pasta', info:'De journalist vroeg het aan 4 leerlingen.', ans:'weinig', why:'Met 4 leerlingen kan je niets besluiten over alle leerlingen.'},
+        {kop:'Leerlingen van 1A krijgen gemiddeld 28 euro zakgeld per week!', info:'21 leerlingen krijgen tussen 0 en 10 euro. Eén leerling kreeg een week 500 euro voor zijn verjaardag.', ans:'uit', why:'Die ene uitschieter trekt het gemiddelde omhoog. De mediaan (ongeveer 6 euro) geeft een eerlijker beeld.'},
+        {kop:'Steeds meer leerlingen komen met de fiets', info:'Alle 600 leerlingen van de school werden twee jaar na elkaar bevraagd.', chart:['kolom',{labels:['2023','2024'], series:[{values:[180,240]}], title:'Aantal leerlingen met de fiets', yTitle:'aantal'}], ans:'ok', why:'Iedereen werd bevraagd, de as begint bij 0 en de stijging van 180 naar 240 is echt.'}
+      ]) },
+    { title:'Zelf een kop schrijven', lvl:2, instr:'Op 200 ondervraagde 1ste jaars kozen er 84 voor een schoolreis naar zee, 70 voor een pretpark en 46 voor de Ardennen.',
+      build:combo(list([
+        {html:'Welk percentage koos voor zee? [[0]] %', check:exact(42), sol:'84 : 200 · 100 = <b>42 %</b>.'}
+      ], {}), choiceEach([
+        {html:'Welke krantenkop is eerlijk?', opts:[['a','Bijna alle leerlingen willen naar zee!'],['b','Meer dan 4 op 10 eerstejaars kiezen voor zee'],['c','De Ardennen zijn saai volgens leerlingen']], ans:'b', why:'42 % is iets meer dan 4 op 10. "Bijna alle" overdrijft, en over saai werd niets gevraagd.'}
+      ])) }
+  ]});
+
+/* ============================================================
+   ONDERDEEL 17 · DATALAB (telt niet mee)
+   ============================================================ */
+SECTIONS.push({ id:'datalab', ic:'datalab', nav:'Datalab: mijn onderzoek', title:'Datalab: verwerk je eigen onderzoek', cheat:CHEAT_OZ,
+  tip:'Hier verwerk je de antwoorden van je eigen onderzoek, bijvoorbeeld uit een Google Formulier. Het datalab maakt de frequentietabel, de diagrammen en de maten. Jij schrijft het besluit. Dit telt niet mee.',
+  cards:[
+    { title:'Mijn eigen onderzoek', lvl:1, instr:'Plak of typ de antwoorden op één vraag van je onderzoek.',
+      build:(b,st,save,key)=>dataLab(b,st,save,key) }
+  ]});
+/* ============================================================
+   ZOEK DE FOUT
+   ============================================================ */
+SECTIONS.push({ id:'fout', ic:'fout', nav:'Zoek de fout', title:'Zoek de fout',
+  tip:'In elke oplossing zit precies één fout. Klik op de eerste stap die fout is. Daarna verbeter je die stap.',
+  cards:[
+    { title:'Foute oplossingen', build:(b,st,save,key)=>{
+        const E = [
+          {task:'Bepaal de mediaan van 7, 3, 9, 4, 6.', lines:['Er zijn 5 gegevens.','Het middelste gegeven is het 3de.','Het 3de gegeven is 9, dus Me = 9.'], wrong:2,
+            why:'Je moet de gegevens eerst ordenen: 3, 4, 6, 7, 9.', fix:'Me = [[0:xs]]', mode:'numeric', fixCheck:exact(6), fixSol:'Geordend: 3, 4, <b>6</b>, 7, 9. Me = 6.'},
+          {task:'Bereken het gemiddelde van 4, 0, 6, 2.', lines:['4 + 0 + 6 + 2 = 12','Er zijn 3 gegevens, want 0 telt niet mee.','12 : 3 = 4'], wrong:1,
+            why:'0 is ook een gegeven. Er zijn 4 gegevens.', fix:'12 : [[0:xs]] = [[1:xs]]', fixCheck:nums([4,3]), fixSol:'12 : 4 = <b>3</b>.'},
+          {task:'Punt P ligt 3 eenheden links van de y-as en 2 eenheden boven de x-as. Noteer P.', lines:['3 naar links: de x-coördinaat is −3.','2 naar boven: de y-coördinaat is 2.','P(2, −3)'], wrong:2,
+            why:'Eerst de x-coördinaat, dan de y-coördinaat.', fix:'P( [[0:xs]] , [[1:xs]] )', fixCheck:nums([-3,2]), fixSol:'P(−3, 2).'},
+          {task:'6 van de 24 leerlingen kiezen tennis. Welk percentage is dat?', lines:['6 van de 24 leerlingen','6 : 24 = 0,25','0,25 = 2,5 %'], wrong:2,
+            why:'0,25 = 25 honderdsten = 25 %.', fix:'0,25 = [[0:xs]] %', mode:'numeric', fixCheck:exact(25), fixSol:'0,25 · 100 = <b>25 %</b>.'},
+          {task:'Bepaal de variatiebreedte van 8, 12, 5, 15, 9.', lines:['Het grootste gegeven is 15.','Het eerste gegeven is 8.','15 − 8 = 7'], wrong:1,
+            why:'Je neemt het kleinste gegeven, niet het eerste.', fix:'Variatiebreedte = 15 − [[0:xs]] = [[1:xs]]', fixCheck:nums([5,10]), fixSol:'15 − 5 = <b>10</b>.'},
+          {task:'Bereken het gemiddelde uit de tabel: 3 leerlingen hebben 1 huisdier, 2 leerlingen hebben 4 huisdieren.', lines:['Er zijn 3 + 2 = 5 leerlingen.','Samen hebben ze 1 + 4 = 5 huisdieren.','5 : 5 = 1 huisdier per leerling.'], wrong:1,
+            why:'Je moet elke waarde vermenigvuldigen met haar frequentie.', fix:'3 · 1 + 2 · 4 = [[0:xs]], dus x̄ = [[1:xs]]', fixCheck:nums([11,2.2]), fixSol:'3 · 1 + 2 · 4 = 11 huisdieren. 11 : 5 = <b>2,2</b>.'}
+        ];
+        E.forEach((e,i)=>errBlock(b, st, save, 'e'+i, Object.assign({nr:LET[i]+'.'}, e)));
+      }}
+  ]});
+
+/* ============================================================
+   PROEFTOETSEN
+   ============================================================ */
+const PQ = {
+  place: targets => ({sec:'Coördinaten', prompt:'Klik de punten aan in het assenstelsel.',
+    build:(b,st,save,key)=>coordPlace(b,st,save,key,targets), show:targets.map(t=>`${t[2]}${coStr(t[0],t[1])}`).join(', ')}),
+  kw: pts => ({sec:'Kwadranten', prompt:'Waar ligt het punt?',
+    build:choiceList(pts.map(([n,x,y])=>[`${n}${coStr(x,y)}`, kwAns(x,y)]), KW), show:pts.map(([n,x,y])=>`${n}: ${kwadrant(x,y)}`).join(' · ')}),
+  q: (sec, prompt, items, show, pre) => ({sec, prompt:(prompt||'')+(pre?pre:''), build:list(items, {letters:items.length>1}), show}),
+  qc: (sec, prompt, chart, items, show) => ({sec, prompt, build:combo(chartBox(chart[0], Object.assign({anim:false}, chart[1]), 'mid'), list(items, {letters:items.length>1})), show}),
+  ch: (sec, prompt, items, opts, show) => ({sec, prompt, build:choiceList(items, opts), show}),
+  sort: (sec, prompt, items) => ({sec, prompt, build:(b,st,save,key)=>sortBins(b,st,save,key,{bins:[['c','Categorische data'],['n','Numerieke data']], items}), show:items.map(i=>`${i.t}: ${i.a==='c'?'categorisch':'numeriek'}`).join(' · ')}),
+  bars: cfg => ({sec:'Diagram tekenen', prompt:`Sleep de staven tot de juiste hoogte. ${cfg.ask}`, build:(b,st,save,key)=>barBuilder(b,st,save,key,cfg), show:cfg.labels.map((l,i)=>`${l}: ${cfg.values[i]}`).join(', ')}),
+  dot: cfg => ({sec:'Modus', prompt:'', build:(b,st,save,key)=>dotPick(b,st,save,key,cfg), show:`de modus is ${cfg.ans.join(' en ')}`}),
+  oz: (items) => ({sec:'Onderzoeksvraag', prompt:'Wat is er mis met de vraag?', build:choiceList(items, VQ), show:items.map(([h,a])=>`${h}: ${VQ.find(o=>o[0]===a)[1]}`).join(' · ')}),
+  krant: it => ({sec:'Kritisch lezen', prompt:'', build:krantEx([it]), show:KRIT.find(o=>o[0]===it.ans)[1]+'. '+it.why}),
+  err: e => ({sec:'Zoek de fout', prompt:'Klik op de stap die fout is.', build:(b,st,save)=>errBlock(b,st,save,'e',Object.assign({nr:''},e)), show:`stap ${e.wrong+1}`})
+};
+const rawRow = vals => `<div class="data-row">${vals.map(v=>`<span class="dv">${fmt(v)}</span>`).join('')}</div>`;
+
+const TOETSEN = [
+  [ PQ.place([[3,-2,'A'],[-4,5,'B'],[0,-3,'C']]),
+    PQ.kw([['P',-3,-5],['Q',4,0]]),
+    PQ.qc('Lijndiagram', 'Een bergwandeling: de hoogte op elk uur.', ['lijn', HOOGTE], [
+      {html:'Na 2 uur is de wandelaar op [[0]] m hoogte.', mode:'numeric', check:exact(1100)},
+      {html:'Tussen uur 4 en uur 7 daalt hij [[0]] m.', mode:'numeric', check:exact(600)}], 'a. 1100 m · b. 1300 − 700 = 600 m'),
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [
+      {t:'haarkleur', a:'c'}, {t:'aantal broers', a:'n'}, {t:'postcode', a:'c'}, {t:'lengte in cm', a:'n'}, {t:'favoriete vak', a:'c'}, {t:'zakgeld per week', a:'n'}]),
+    PQ.q('Frequentietabel', 'Het aantal kinderen in het gezin van 10 leerlingen:', [
+      {html:'Absolute frequentie van 3 kinderen: [[0]]', mode:'numeric', check:exact(4)},
+      {html:'Relatieve frequentie van 2 kinderen: [[0]] %', mode:'numeric', check:exact(30)}], 'a. 4 · b. 3 van de 10 = 30 %', rawRow([3,2,4,3,3,1,2,3,4,2])),
+    PQ.bars({labels:['rood','blauw','groen','geel'], values:[6,8,3,5], yMax:10, step:1, title:'Lievelingskleur', ask:'Rood 6, blauw 8, groen 3, geel 5.'}),
+    PQ.qc('Misleidende grafiek', 'De verkoop van twee winkels.', ['kolom', {labels:['winkel A','winkel B'], series:[{values:[52,56]}], yMin:50, title:'Verkochte fietsen', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(3)},
+      {html:'B verkocht 4 fietsen meer dan A. Dat is ongeveer [[0]] % meer (rond af op een geheel getal).', mode:'numeric', check:approx(8,0.5)}], 'a. 6 tegenover 2 hokjes: 3 keer · b. 4 : 52 · 100 ≈ 8 %'),
+    PQ.dot({vals:[2,3,3,1,4,3,2,5,3,2,1,3], lo:0, hi:6, xTitle:'Aantal keer sporten per week', ask:'Klik op de kolom van de <b>modus</b>.', ans:[3], why:'', hint:''}),
+    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 4, 7, 7, 9, 13. &nbsp;x̄ = [[0]]', check:exact(8)}], '40 : 5 = 8'),
+    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 12, 5, 9, 15, 7, 10. &nbsp;Me = [[0]]', check:exact(9.5)}], 'geordend 5, 7, 9, 10, 12, 15: (9 + 10) : 2 = 9,5'),
+    PQ.ch('Interpreteren', 'Kies de beste maat.', [['De lonen in een klein bedrijf: 9 werknemers verdienen ongeveer 2500 euro, de baas verdient 15 000 euro. Welke maat geeft het beste beeld van een gewoon loon?','m']], [['g','gemiddelde'],['m','mediaan'],['v','variatiebreedte']], 'de mediaan, want de baas is een uitschieter'),
+    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([2.6,3])}], 'x̄ = 52 : 20 = 2,6 · Med = 3', ftabHTML(['aantal boeken','1','2','3','4','5'], [['aantal leerlingen','3','6','8','2','1']])),
+    PQ.oz([['Vind jij ook dat de les te lang duurt?','s'],['Hoeveel minuten fiets je naar school?','g']]),
+    PQ.krant({kop:'80 % van de leerlingen wil meer frietjes in de refter', info:'Gevraagd aan 5 leerlingen in de rij aan het frietkraam.', ans:'groep', why:'Wie aan het frietkraam staat, eet graag frietjes (en 5 leerlingen is ook erg weinig).'}),
+    PQ.err({task:'Bepaal de mediaan van 7, 3, 9, 4, 6.', lines:['Er zijn 5 gegevens.','Het middelste gegeven is het 3de.','Het 3de gegeven is 9, dus Me = 9.'], wrong:2})
+  ],
+  [ PQ.place([[-2,-4,'A'],[5,1,'B'],[-3,0,'C']]),
+    PQ.kw([['R',2,-6],['S',0,3]]),
+    PQ.qc('Lijndiagram', 'Een fietstocht: de afgelegde afstand op elk uur.', ['lijn', FIETS], [
+      {html:'Na 3 uur heeft hij [[0]] km gefietst.', mode:'numeric', check:exact(30)},
+      {html:'Hij pauzeert tussen uur [[0]] en uur [[1]].', size:'xs', check:nums([2,3])}], 'a. 30 km · b. tussen uur 2 en 3 (de lijn is vlak)'),
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [
+      {t:'schoenmaat', a:'n'}, {t:'merk van je gsm', a:'c'}, {t:'temperatuur', a:'n'}, {t:'geboorteland', a:'c'}, {t:'aantal sms\'jes per dag', a:'n'}, {t:'lievelingsdier', a:'c'}]),
+    PQ.q('Frequentietabel', 'Toetsresultaten op 10 van 10 leerlingen:', [
+      {html:'Absolute frequentie van 5: [[0]]', mode:'numeric', check:exact(4)},
+      {html:'Relatieve frequentie van 7: [[0]] %', mode:'numeric', check:exact(30)}], 'a. 4 · b. 3 van de 10 = 30 %', rawRow([5,7,6,5,8,7,5,6,5,7])),
+    PQ.bars({labels:['hond','kat','vis','konijn'], values:[9,7,2,4], yMax:10, step:1, title:'Huisdieren in 1B', ask:'Hond 9, kat 7, vis 2, konijn 4.'}),
+    PQ.qc('Misleidende grafiek', 'Bezoekers van twee musea op één dag.', ['kolom', {labels:['museum A','museum B'], series:[{values:[102,108]}], yMin:100, title:'Aantal bezoekers', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(4)},
+      {html:'In werkelijkheid had B [[0]] bezoekers meer.', mode:'numeric', check:exact(6)}], 'a. 8 tegenover 2 hokjes: 4 keer · b. 108 − 102 = 6'),
+    PQ.dot({vals:[1,2,2,0,3,2,4,1,2,3,1,2,5], lo:0, hi:6, xTitle:'Aantal huisdieren', ask:'Klik op de kolom van de <b>modus</b>.', ans:[2], why:'', hint:''}),
+    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 15, 11, 18, 12, 14, 8. &nbsp;x̄ = [[0]]', check:exact(13)}], '78 : 6 = 13'),
+    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 21, 17, 25, 19, 30. &nbsp;Me = [[0]]', check:exact(21)}], 'geordend 17, 19, 21, 25, 30: Me = 21'),
+    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['"De meeste leerlingen van 1B hebben schoenmaat 38." Welke maat wordt hier gebruikt?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: het gegeven dat het vaakst voorkomt'),
+    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([1.95,2])}], 'x̄ = 39 : 20 = 1,95 · Med = 2', ftabHTML(['aantal fouten','0','1','2','3','4'], [['aantal leerlingen','2','5','7','4','2']])),
+    PQ.oz([['Hoe oud ben je? 11-12 · 12-13 · 13-14','o'],['Eet je veel snoep?','v']]),
+    PQ.krant({kop:'Onze school scoort steeds beter op de fietstest!', chart:['kolom',{labels:['2022','2023','2024'], series:[{values:[71,72,74]}], yMin:70, title:'Gemiddelde score fietstest (op 100)', brk:false}], ans:'as', why:'De as begint bij 70: een stijging van 3 punten op 100 lijkt enorm.'}),
+    PQ.err({task:'Bereken het gemiddelde van 4, 0, 6, 2.', lines:['4 + 0 + 6 + 2 = 12','Er zijn 3 gegevens, want 0 telt niet mee.','12 : 3 = 4'], wrong:1})
+  ],
+  [ PQ.place([[1,-5,'A'],[-6,3,'B'],[0,4,'C']]),
+    PQ.kw([['T',-1,7],['U',-5,0]]),
+    PQ.qc('Lijndiagram', 'De temperatuur op een lentedag.', ['lijn', {labels:['8 u','10 u','12 u','14 u','16 u','18 u'], series:[{values:[6,9,13,15,12,8]}], xTitle:'Tijdstip', yTitle:'Temperatuur (°C)', yMin:0, yMax:16, step:2}], [
+      {html:'Om [[0]] u is het het warmst.', mode:'numeric', check:exact(14)},
+      {html:'Tussen 8 u en 14 u stijgt de temperatuur [[0]] °C.', mode:'numeric', check:exact(9)}], 'a. 14 u · b. 15 − 6 = 9 °C'),
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [
+      {t:'gewicht van je boekentas', a:'n'}, {t:'kleur van je fiets', a:'c'}, {t:'aantal punten op een toets', a:'n'}, {t:'muziekstijl', a:'c'}, {t:'tijd op de 100 m', a:'n'}, {t:'rugnummer van een voetballer', a:'c'}]),
+    PQ.q('Frequentietabel', 'Het aantal keer dat 12 leerlingen deze week te laat kwamen:', [
+      {html:'Absolute frequentie van 1: [[0]]', mode:'numeric', check:exact(5)},
+      {html:'Relatieve frequentie van 2: [[0]] %', mode:'numeric', check:exact(25)}], 'a. 5 · b. 3 van de 12 = 25 %', rawRow([2,0,1,3,1,0,2,1,1,4,1,2])),
+    PQ.bars({labels:['ma','di','wo','do','vr'], values:[5,8,2,7,4], yMax:10, step:1, title:'Afwezigen per dag', ask:'Maandag 5, dinsdag 8, woensdag 2, donderdag 7, vrijdag 4.'}),
+    PQ.qc('Misleidende grafiek', 'De prijs van een bioscoopticket.', ['kolom', {labels:['2020','2025'], series:[{values:[31,35]}], yMin:30, title:'Prijs van een gezinsticket (euro)', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van 2025 [[0]] keer zo hoog als die van 2020.', mode:'numeric', check:exact(5)},
+      {html:'In werkelijkheid steeg de prijs met [[0]] euro.', mode:'numeric', check:exact(4)}], 'a. 5 tegenover 1 hokje: 5 keer · b. 35 − 31 = 4 euro'),
+    PQ.dot({vals:[5,6,6,7,8,6,7,5,6,9,7,6], lo:4, hi:10, xTitle:'Punten op 10', ask:'Klik op de kolom van de <b>modus</b>.', ans:[6], why:'', hint:''}),
+    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 2,5 · 3 · 4,5 · 6. &nbsp;x̄ = [[0]]', check:exact(4)}], '16 : 4 = 4'),
+    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 8, 3, 11, 6, 9, 14, 2, 10. &nbsp;Me = [[0]]', check:exact(8.5)}], 'geordend 2, 3, 6, 8, 9, 10, 11, 14: (8 + 9) : 2 = 8,5'),
+    PQ.ch('Interpreteren', 'Waar of niet waar?', [['Als je één gegeven heel groot maakt, verandert de mediaan veel.','n'],['Het gemiddelde hoeft geen gegeven uit de reeks te zijn.','w']], WN, '1. niet waar · 2. waar'),
+    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([12.3,12])}], 'x̄ = 246 : 20 = 12,3 · Med = 12', ftabHTML(['leeftijd','10','11','12','13','14'], [['aantal deelnemers','1','4','6','6','3']])),
+    PQ.oz([['Je speelt toch ook graag buiten?','s'],['Hoeveel uur slaap je per nacht? minder dan 7 · 7 tot minder dan 9 · 9 of meer','g']]),
+    PQ.krant({kop:'Gemiddelde klas leest 15 boeken per jaar', info:'In een klas van 20 lezen 19 leerlingen 0 tot 5 boeken. Eén leerling las 250 boeken.', ans:'uit', why:'Eén uitschieter trekt het gemiddelde omhoog. De mediaan geeft een eerlijker beeld.'}),
+    PQ.err({task:'Bepaal de variatiebreedte van 8, 12, 5, 15, 9.', lines:['Het grootste gegeven is 15.','Het eerste gegeven is 8.','15 − 8 = 7'], wrong:1})
+  ]
+];
+
+/* --- proeftoets rekenblad (zoals de KT met Excel) --- */
+const DIEREN20 = ['hond','kat','hond','vis','konijn','hond','kat','kat','hond','konijn','vis','hond','kat','konijn','hond','kat','vis','hond','konijn','kat'];
+const TOETS_RB = [
+  {sec:'Frequentietabel', prompt:'20 leerlingen gaven hun lievelingsdier (A2:A21). Vul D2:D5 met AANTAL.ALS en D6 met SOM.',
+    build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:5, rows:21, init:Object.assign({A1:'dier', C1:'dier', D1:'aantal', C2:'hond', C3:'kat', C4:'vis', C5:'konijn', C6:'totaal'}, ...DIEREN20.map((d,i)=>({['A'+(i+2)]:d}))),
+      checks:[ {say:'D2 tot D5 met AANTAL.ALS', test:allOf(...['D2','D3','D4','D5'].map(r=>fIs(r,'AANTAL.ALS')), vIs('D2',7), vIs('D3',6), vIs('D4',3), vIs('D5',4))},
+               {say:'D6: het totaal met SOM', test:allOf(fIs('D6','SOM'), vIs('D6',20))} ]}),
+    show:'hond 7, kat 6, vis 3, konijn 4, totaal 20 (bv. =AANTAL.ALS($A$2:$A$21;C2) en =SOM(D2:D5))'},
+  {sec:'Percentages', prompt:'Bereken in C2 tot C5 het percentage met een formule en trek door.',
+    build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:4, rows:7, init:{A1:'sport', B1:'aantal', C1:'percentage', A2:'voetbal', B2:'12', A3:'dans', B3:'9', A4:'tennis', B4:'6', A5:'hockey', B5:'3', A6:'totaal', B6:'30'},
+      checks:[ {say:'C2 tot C5 met een formule', test:allOf(isF('C2'), isF('C5'), vIs('C2',40), vIs('C3',30), vIs('C4',20), vIs('C5',10))} ]}),
+    show:'=B2/$B$6*100, doorgetrokken: 40, 30, 20, 10'},
+  {sec:'Cirkeldiagram', prompt:'Maak een cirkeldiagram van de tabel (zonder totaal) met als titel <b>Favoriete sport</b>.',
+    build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:3, rows:7, init:{A1:'sport', B1:'aantal', A2:'voetbal', B2:'12', A3:'dans', B3:'9', A4:'tennis', B4:'6', A5:'hockey', B5:'3', A6:'totaal', B6:'30'},
+      checks:[ {say:'cirkeldiagram van A1:B5 met de juiste titel', test:sh=>chartIs(['cirkel'], (ch,d)=>sameArr(d.series[0].values,[12,9,6,3]))(sh) && /favoriete sport/i.test(sh.chart().title)} ]}),
+    show:'selecteer A1:B5, Invoegen cirkel, titel Favoriete sport'},
+  {sec:'Centrummaten', prompt:'Sprongen bij verspringen (in m). Bereken met functies: E2 gemiddelde, E3 mediaan, E4 variatiebreedte.',
+    build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:5, rows:10, init:Object.assign({A1:'sprong (m)', D2:'gemiddelde', D3:'mediaan', D4:'variatiebreedte'}, ...[3.4,2.9,4.1,3.6,3.0,3.8,3.2,4.0].map((v,i)=>({['A'+(i+2)]:String(v).replace('.',',')}))),
+      checks:[ {say:'E2: GEMIDDELDE', test:allOf(fIs('E2','GEMIDDELDE'), vIs('E2',3.5))},
+               {say:'E3: MEDIAAN', test:allOf(fIs('E3','MEDIAAN'), vIs('E3',3.5))},
+               {say:'E4: een formule met MAX en MIN', test:allOf(isF('E4'), vIs('E4',1.2))} ]}),
+    show:'=GEMIDDELDE(A2:A9) = 3,5 · =MEDIAAN(A2:A9) = 3,5 · =MAX(A2:A9)-MIN(A2:A9) = 1,2'},
+  {sec:'Staafdiagram', prompt:'Maak een kolomdiagram van A1:B6 met titel, astitel <b>aantal</b> op de verticale as, en de verticale as vanaf 0.',
+    build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:3, rows:7, init:{A1:'maand', B1:'regendagen', A2:'jan', B2:'18', A3:'feb', B3:'15', A4:'mrt', B4:'16', A5:'apr', B5:'14', A6:'mei', B6:'13'},
+      checks:[ {say:'kolomdiagram van A1:B6 met titel en astitel aantal, as vanaf 0', test:sh=>chartIs(['kolom','staaf'], (ch,d)=>sameArr(d.series[0].values,[18,15,16,14,13]))(sh) && String(sh.chart().title).trim().length>2 && /aantal/i.test(sh.chart().yTitle) && (String(sh.chart().yMin).trim()==='' || parseLoose(sh.chart().yMin)===0)} ]}),
+    show:'selecteer A1:B6, Invoegen kolom, vul een titel en de astitel in, laat de as bij 0 beginnen'}
+];
+
+const PT_TIP = n => `${n} vragen: één per onderdeel. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk op kladpapier, met je rekentoestel en zonder spiekbriefje.`;
+TOETSEN.forEach((items,i)=> SECTIONS.push({ id:'toets'+(i+1), ic:'toets', nav:'Proeftoets '+(i+1), title:'Proeftoets '+(i+1), tip:PT_TIP(items.length),
+  cards:[ { title:'Proeftoets '+(i+1), build:(b,st,save,key)=>proeftoets(b,st,save,key,items) } ] }));
+SECTIONS.push({ id:'toets4', ic:'toets', nav:'Proeftoets rekenblad', title:'Proeftoets rekenblad',
+  tip:'Vijf opdrachten in het rekenblad, zoals de toets met Excel. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Gebruik altijd formules.',
+  cards:[ { title:'Proeftoets rekenblad', build:(b,st,save,key)=>proeftoets(b,st,save,key,TOETS_RB) } ] });
+
+/* --- volgorde en lijnen tussen de hoofdstukken --- */
+(function(){
+  const SEP = new Set(['soort','modus','toestel','onderzoek','fout','toets1']);
+  SECTIONS.forEach(s=>{ s.sepBefore = SEP.has(s.id); });
+})();
 /* onderdelen die de leerkracht uitzette, verbergen */
 if(window.CL_VERBORGEN){ for(let i = SECTIONS.length - 1; i >= 0; i--) if(window.CL_VERBORGEN.has(SECTIONS[i].id)) SECTIONS.splice(i, 1); }
 const app = document.getElementById('app');
