@@ -340,8 +340,9 @@ function proeftoets(b, st, save, key, items){
   .data-row .dv.mid{ border-color:var(--orange); background:var(--orange); color:#173436; transform:scale(1.12); }
   .data-row button.dv{ cursor:pointer; font:inherit; font-weight:700; color:var(--ink); }
   .data-row button.dv:hover:not(:disabled){ border-color:var(--orange); }
-  .ftab{ border-collapse:collapse; margin:.4rem 0; font-variant-numeric:tabular-nums; }
+  .ftab{ border-collapse:collapse; margin:.4rem 0; font-variant-numeric:tabular-nums; display:block; max-width:100%; overflow-x:auto; width:max-content; }
   .ftab th, .ftab td{ border:2px solid var(--tq); padding:.35rem .7rem; text-align:center; }
+  @media (max-width:520px){ .ftab th, .ftab td{ padding:.3rem .45rem; } }
   .ftab th{ background:var(--tq-soft); color:var(--accent-dark); }
   .ftab td.l{ text-align:left; }
   .ftab td.drop{ min-width:9rem; cursor:pointer; text-align:left; }
@@ -919,10 +920,10 @@ const rPick = (r, arr) => arr[Math.floor(r()*arr.length)];
 const rNZ = (r, lo, hi) => { let v; do{ v = rInt(r, lo, hi); }while(v===0); return v; };
 /* kaart met de knop "Nieuwe opgave": make(rnd) maakt de gegevens, render tekent de oefening */
 const fresh = (make, render) => (b, st, save, key) => {
-  if(st.seed==null){ st.seed = Math.floor(Math.random()*1e9); }
+  if(st.seed==null){ st.seed = Math.floor(Math.random()*1e9); save(); }
   const box = el('div'); b.append(box);
   const bar = el('div','gen-bar'); const nb = el('button','btn ghost','↻ Nieuwe opgave'); nb.type='button'; bar.append(nb);
-  function draw(){ box.innerHTML=''; st.s = st.s || {}; render(box, st.s, save, key, make(rng(st.seed))); }
+  function draw(){ box.innerHTML=''; st.s = st.s || {}; const old = CURKEY; CURKEY = key; try{ render(box, st.s, save, key, make(rng(st.seed))); } finally { CURKEY = old; } }
   nb.addEventListener('click', ()=>{ st.seed = (st.seed + 7919) >>> 0; st.s = {}; save(); draw(); box.scrollIntoView({block:'nearest', behavior:'smooth'}); });
   if(!QZ) b.prepend(bar);
   draw();
@@ -964,24 +965,20 @@ function whichPoint(b, st, save, key, cfg){
     if(quiz){ done[c] = i; save(); paint(); return; }
     if(i===want){ done[c] = i; save(); fb.className='fb ok'; fb.innerHTML = `✅ Juist! Dat is <b>${t[2]}${coStr(t[0],t[1])}</b>.`; CLres(ids[c], true); paint(); const cl = await P.project(t[0], t[1], t[2], 2.2); setTimeout(cl, 1200); }
     else { fb.className='fb bad'; let m = `${p[2]} is ${coStr(p[0],p[1])}. `;
-      if(p[0]===t[1] && p[1]===t[0]) m += 'Je wisselde x en y om: het eerste getal is de horizontale stap.';
-      else if(Math.abs(p[0])===Math.abs(t[0]) && Math.abs(p[1])===Math.abs(t[1])) m += 'Kijk naar de tekens: negatief is links of onder.';
-      else m += `Start in de oorsprong: ${Math.abs(t[0])} ${t[0]<0?'naar links':'naar rechts'}, dan ${Math.abs(t[1])} ${t[1]<0?'naar onder':'naar boven'}.`;
+      m += t[0]===0 ? `x = 0: het punt ligt op de y-as, ${Math.abs(t[1])} ${t[1]<0?'onder':'boven'} de oorsprong.` : t[1]===0 ? `y = 0: het punt ligt op de x-as, ${Math.abs(t[0])} ${t[0]<0?'links':'rechts'} van de oorsprong.` : `Start in de oorsprong: ${Math.abs(t[0])} ${t[0]<0?'naar links':'naar rechts'}, dan ${Math.abs(t[1])} ${t[1]<0?'naar onder':'naar boven'}.`;
       fb.textContent = '❌ '+m; CLres(ids[c], false); }
   }));
   paint();
   if(quiz) quiz.push({ grade:()=>asks.every((a,k)=>done[k]===a), reveal:()=>{}, lock:()=>{ P.svg.dataset.locked='1'; } });
 }
-/* punten met lokvogels: een punt met x en y omgewisseld en een punt met een ander teken */
+/* negen punten; geen lokpunten met omgewisselde x en y of een ander teken */
 const whichGen = r => {
-  const pts = []; const used = new Set(); const add = (x,y) => { const k=x+','+y; if(used.has(k) || Math.abs(x)>6 || Math.abs(y)>6) return false; used.add(k); pts.push([x,y]); return true; };
-  const asks = [];
-  for(let k=0;k<3;k++){ let x, y; do{ x = rNZ(r,-5,5); y = rNZ(r,-5,5); }while(Math.abs(x)===Math.abs(y) || used.has(x+','+y) || used.has(y+','+x) || used.has((-x)+','+y)); add(x,y); asks.push(pts.length-1); }
-  asks.slice().forEach(i=>{ const [x,y] = pts[i]; add(y,x); add(r()<.5?-x:x, r()<.5?y:-y); });
-  while(pts.length<9){ add(rNZ(r,-6,6), rNZ(r,-6,6)); }
-  const order = shuffle(pts.map((_,i)=>i)); const names = 'ABCDEFGHKLMN';
-  const out = order.map((i,k)=>[pts[i][0], pts[i][1], names[k]]);
-  return { pts: out, asks: asks.map(i=>order.indexOf(i)) };
+  const pts = []; const used = new Set();
+  const twin = (x,y) => [[y,x],[-x,y],[x,-y],[-x,-y]].some(([u,v])=>used.has(u+','+v));
+  let guard = 0;
+  while(pts.length<9 && guard++<2000){ const x = rInt(r,-6,6), y = rInt(r,-6,6); if(used.has(x+','+y) || twin(x,y)) continue; used.add(x+','+y); pts.push([x,y]); }
+  const names = 'ABCDEFGHKLMN'; const out = pts.map((p,k)=>[p[0], p[1], names[k]]);
+  return { pts: out, asks: out.map((_,i)=>[i, r()]).sort((a,b)=>a[1]-b[1]).slice(0,3).map(x=>x[0]) };
 };
 
 /* --- het vierde punt: parallellogram, rechthoek, ruit of vierkant --- */
@@ -1146,13 +1143,13 @@ function battleship(b, st, save, key){
 const RAKET = [[0,6],[2,3],[2,-2],[4,-5],[1,-4],[-1,-4],[-4,-5],[-2,-2],[-2,3]];
 const VIS = [[-6,0],[-4,3],[0,4],[3,2],[5,4],[5,-4],[3,-2],[0,-4],[-4,-3]];
 SECTIONS.find(s=>s.id==='coord').cards.push(
-  { title:'Welk punt is het?', lvl:1, instr:'Klik op het punt met de gevraagde coördinaat. Let op: sommige punten lijken erg op elkaar.',
+  { title:'Welk punt is het?', lvl:1, instr:'Klik op het punt met de gevraagde coördinaat. Met "Nieuwe opgave" krijg je nieuwe punten.',
     build:fresh(whichGen, (b,st,save,key,d)=>whichPoint(b,st,save,key,d)) },
   { title:'Wat is de coördinaat?', lvl:1, instr:'Lees de coördinaat van elk punt af. Met "Nieuwe opgave" krijg je nieuwe punten.',
     build:fresh(ptsGen(4, {oneAxis:true}), (b,st,save,key,pts)=>coordRead(b,st,save,key,pts)) },
   { title:'Punten plaatsen', lvl:1, instr:'Klik de punten aan in het assenstelsel. Met "Nieuwe opgave" krijg je nieuwe punten.',
     build:fresh(ptsGen(5, {oneAxis:true, names:'KLMNPQRS'}), (b,st,save,key,pts)=>coordPlace(b,st,save,key,pts)) },
-  { title:'Een tekening met coördinaten', lvl:1, instr:'Klik de punten in de juiste volgorde aan. De lijnen verschijnen vanzelf.',
+  { title:'Een tekening met coördinaten', lvl:3, instr:'Klik de punten in de juiste volgorde aan. De lijnen verschijnen vanzelf.',
     build:(b,st,save,key)=>connectDots(b,st,save,key,{pts:RAKET, close:true, what:'een raket'}) },
   { title:'Het vierde punt: rechthoek en vierkant', lvl:2, instr:'Drie hoekpunten zijn gegeven. Klik op de plaats van het vierde hoekpunt. De figuur verschijnt.',
     build:fresh(r=>quadGen(rPick(r,['rh','vk']), false)(r), (b,st,save,key,d)=>fourthPoint(b,st,save,key,d)) },
@@ -1160,7 +1157,7 @@ SECTIONS.find(s=>s.id==='coord').cards.push(
     build:fresh(r=>quadGen(rPick(r,['par','ruit']), false)(r), (b,st,save,key,d)=>fourthPoint(b,st,save,key,d)) },
   { title:'Verschuiven', lvl:2, instr:'Een punt schuift op in het rooster. Bereken de coördinaat van het beeldpunt.',
     build:fresh(moveGen, (b,st,save,key,d)=>moveEx(b,st,save,key,d)) },
-  { title:'Spiegelen tegenover een as', lvl:2, instr:'Spiegel het punt. Kijk wat er met de tekens gebeurt.',
+  { title:'Spiegelen tegenover een as', lvl:3, instr:'Spiegel het punt. Kijk wat er met de tekens gebeurt.',
     build:fresh(mirrorGen(['x','y']), (b,st,save,key,d)=>moveEx(b,st,save,key,d)) },
   { title:'Zeeslag', lvl:2, instr:'Een spel om de coördinaten te oefenen. Het telt niet mee.',
     build:(b,st,save,key)=>battleship(b,st,save,key) },
@@ -1711,6 +1708,355 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
         ], {letters:true}),
         choiceList([['Klopt de krantenkop?', 'n', 'De as begint bij 117 g. Boven 117 is staaf C 8 hokjes en staaf A 4: hij lijkt dubbel zo hoog, maar de tomaat is maar 3,3 % zwaarder.']], [['j','Ja'],['n','Nee']])) }
   ]});
+/* ============================================================
+   EXTRA: FREQUENTIETABELLEN (NIEUWE OPGAVE) EN DIAGRAMMEN ZELF MAKEN
+   ============================================================ */
+(function(){
+  const css = `
+  .dx-drag{ cursor:grab; }
+  .dx-drag:active{ cursor:grabbing; }
+  .ch .dx-hd{ fill:var(--orange); stroke:var(--card); stroke-width:3; }
+  .ch .dx-hdhit{ fill:transparent; cursor:grab; }
+  .ch .dx-col{ fill:transparent; cursor:pointer; }
+  .ch .dx-col:hover{ fill:var(--or-soft); fill-opacity:.45; }
+  .ch .dx-ring{ fill:none; stroke:var(--border); stroke-width:1; }
+  .ch .dx-tick{ stroke:var(--ink-soft); stroke-width:1; }
+  .dx-legend{ display:flex; flex-wrap:wrap; gap:.3rem .9rem; margin:.3rem 0; }
+  .dx-legend span{ display:inline-flex; align-items:center; gap:.35rem; font-variant-numeric:tabular-nums; }
+  .dx-legend i{ width:.95rem; height:.95rem; border-radius:.2rem; display:inline-block; }
+  .dx-match{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.6rem; margin:.5rem 0; }
+  .dx-tile{ position:relative; border:2px solid var(--border); border-radius:.8rem; background:var(--card); padding:.45rem; cursor:pointer; font:inherit; color:var(--ink); text-align:center; min-width:0; }
+  .dx-tile:hover{ border-color:var(--tq); }
+  .dx-tile.sel{ border-color:var(--orange); background:var(--or-soft); }
+  .dx-tile.ok{ border-color:var(--ok); background:var(--ok-bg); cursor:default; }
+  .dx-tile .ftab{ margin:.2rem auto; font-size:.92rem; }
+  .dx-tile .ftab th, .dx-tile .ftab td{ padding:.2rem .45rem; }
+  .dx-tile .tag{ position:absolute; top:.3rem; left:.4rem; font-weight:700; font-size:.8rem; color:var(--ink-soft); }
+  .dx-tile .pair{ position:absolute; top:.25rem; right:.4rem; font-weight:700; color:var(--ok); }
+  .dx-raw{ display:flex; flex-wrap:wrap; gap:.3rem; margin:.4rem 0; }
+  .dx-raw .dv{ cursor:pointer; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* fresh() uit de coördinaten, maar de vraag-id's blijven bij deze kaart, ook na "Nieuwe opgave", en dezelfde opgave na herladen */
+const DXfresh = fresh; /* fresh zet nu zelf CURKEY en bewaart de seed meteen */
+
+/* contexten voor de opgaven */
+const DX_NUM = [
+  {head:'aantal huisdieren', vals:['0','1','2','3','4','5'], wie:'leerlingen'},
+  {head:'aantal broers en zussen', vals:['0','1','2','3','4'], wie:'leerlingen'},
+  {head:'schoenmaat', vals:['36','37','38','39','40','41'], wie:'leerlingen'},
+  {head:'punten op 10', vals:['5','6','7','8','9','10'], wie:'leerlingen'},
+  {head:'doelpunten per match', vals:['0','1','2','3','4','5'], wie:'matchen'}
+];
+const DX_CAT = [
+  {head:'vervoer', vals:['fiets','bus','te voet','auto'], wie:'leerlingen'},
+  {head:'favoriete fruit', vals:['appel','banaan','peer','kiwi','aardbei'], wie:'leerlingen'},
+  {head:'favoriete sport', vals:['voetbal','dans','tennis','zwemmen','judo'], wie:'leerlingen'},
+  {head:'kledingstijl', vals:['casual','sportief','formeel','streetwear','andere'], wie:'leerlingen'},
+  {head:'huisdier', vals:['hond','kat','konijn','vis','geen'], wie:'leerlingen'}
+];
+/* n gehele getallen (elk tussen lo en hi) met som tot */
+function DXsplit(r, n, tot, lo=0, hi=99){
+  const a = Array(n).fill(lo); let rest = tot - lo*n, guard = 0;
+  while(rest>0 && guard++<5000){ const i = rInt(r, 0, n-1); if(a[i]<hi){ a[i]++; rest--; } }
+  return a;
+}
+const DXrows = (labels, cells) => labels.map((l,i)=>`<tr><td class="l">${l}</td><td>${cells[i]}</td></tr>`).join('');
+const DXtab = (head, col, labels, cells, totCell, col2) => `<table class="ftab"><thead><tr><th>${head}</th><th>${col}</th>${col2?`<th>${col2}</th>`:''}</tr></thead><tbody>`
+  + labels.map((l,i)=>`<tr><td class="l">${l}</td><td>${cells[i]}</td>${col2?`<td>${col2 && cells.c2 ? cells.c2[i] : ''}</td>`:''}</tr>`).join('')
+  + (totCell!=null ? `<tr><td class="l"><b>totaal</b></td><td>${totCell}</td>${col2?`<td>${cells.t2||''}</td>`:''}</tr>` : '') + '</tbody></table>';
+/* welke vakjes fout zijn, in woorden */
+const DXwrong = (labels, f) => labels.filter((l,i)=>f[i]===false);
+
+/* ---------- 1. van dotplot naar tabel ---------- */
+const DXgenDot = r => { const c = rPick(r, DX_NUM); const fr = DXsplit(r, c.vals.length, rInt(r, 15, 24), 0, 7); return {c, fr}; };
+function DXdotToTab(b, s, save, key, d){
+  const {c, fr} = d, tot = sum(fr);
+  const v = el('div','viz mid'); v.append(drawChart('dot', {labels:c.vals, series:[{values:fr}], xTitle:c.head})); b.append(v);
+  const labs = c.vals.concat(['totaal']);
+  qBlock(b, s, save, 'tab', {block:true, size:'xs', mode:'numeric',
+    html: `<table class="ftab"><thead><tr><th>${c.head}</th><th>absolute frequentie</th></tr></thead><tbody>${DXrows(c.vals, c.vals.map((x,i)=>`[[${i}]]`))}<tr><td class="l"><b>totaal</b></td><td>[[${c.vals.length}]]</td></tr></tbody></table>`,
+    check: v => { const r = nums(fr.concat([tot]))(v); if(!r.ok && r.fields){ const w = DXwrong(labs, r.fields);
+        r.msg = (w.includes('totaal') && w.length===1) ? `Het totaal is het aantal bolletjes samen: tel alle absolute frequenties op.` : `Tel opnieuw de bolletjes boven ${w.filter(x=>x!=='totaal').join(', ')}. Geen bolletje? Dan is de frequentie 0.`; } return r; },
+    sol: `${c.vals.map((x,i)=>`${x}: ${fr[i]}`).join(' · ')} · totaal: ${fr.join(' + ')} = <b>${tot}</b>`});
+}
+
+/* ---------- 2. van staafdiagram naar tabel ---------- */
+const DXgenBar = r => { const c = rPick(r, DX_CAT.concat(DX_NUM)); const big = r()<.5; const n = c.vals.length;
+  const fr = big ? DXsplit(r, n, rInt(r, 12, 25), 1, 9).map(x=>2*x) : DXsplit(r, n, rInt(r, 15, 28), 1, 10);
+  return {c, fr, step: big?2:1}; };
+function DXbarToTab(b, s, save, key, d){
+  const {c, fr, step} = d, tot = sum(fr), yMax = Math.ceil((Math.max(...fr)+1)/step)*step;
+  const v = el('div','viz mid'); v.append(drawChart('kolom', {labels:c.vals, series:[{values:fr}], xTitle:c.head, yTitle:'aantal '+c.wie, step, yMax})); b.append(v);
+  const labs = c.vals.concat(['totaal']);
+  qBlock(b, s, save, 'tab', {block:true, size:'xs', mode:'numeric',
+    html: `<table class="ftab"><thead><tr><th>${c.head}</th><th>absolute frequentie</th></tr></thead><tbody>${DXrows(c.vals, c.vals.map((x,i)=>`[[${i}]]`))}<tr><td class="l"><b>totaal</b></td><td>[[${c.vals.length}]]</td></tr></tbody></table>`,
+    check: v => { const r = nums(fr.concat([tot]))(v); if(!r.ok && r.fields){ const w = DXwrong(labs, r.fields).filter(x=>x!=='totaal');
+        r.msg = w.length ? `Kijk nog eens naar ${w.join(', ')}. Volg de bovenkant van de staaf horizontaal naar de verticale as.${step>1?' Let op: één hokje is '+step+'.':''}` : 'Tel alle absolute frequenties op voor het totaal.'; } return r; },
+    sol: `${c.vals.map((x,i)=>`${x}: ${fr[i]}`).join(' · ')} · totaal: <b>${tot}</b>`});
+}
+
+/* ---------- 3. ontbrekende frequentie ---------- */
+const DXgenMiss = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [20, 25, 40, 50]); const fr = DXsplit(r, c.vals.length, tot, 1, Math.round(tot*0.45)); return {c, fr, tot, miss:rInt(r, 0, c.vals.length-1)}; };
+function DXmissing(b, s, save, key, d){
+  const {c, fr, tot, miss} = d, cells = fr.map((x,i)=> i===miss ? '?' : x);
+  b.append(el('div','', `<p>${tot} ${c.wie} antwoordden. Eén frequentie is weggevallen.</p>` + DXtab(c.head, 'absolute frequentie', c.vals, cells, `<b>${tot}</b>`)));
+  const known = fr.filter((x,i)=>i!==miss);
+  qBlock(b, s, save, 'a', {nr:'a.', mode:'numeric', html:`Wat is de absolute frequentie van <b>${c.vals[miss]}</b>? [[0]]`, check:exact(fr[miss], 'Trek alle gekende frequenties af van het totaal.'),
+    sol:`${tot} − ${known.join(' − ')} = <b>${fr[miss]}</b>`});
+  const p = fr[miss]/tot*100;
+  qBlock(b, s, save, 'b', {nr:'b.', html:`Hoeveel procent is dat? [[0]] %`, check:approx(p, 0.01, 'Percentage = absolute frequentie : totaal · 100.'),
+    sol:`${fr[miss]} : ${tot} · 100 = <b>${nf(p)} %</b>`});
+}
+/* twee ontbrekende frequenties met een extra aanwijzing (verdieping) */
+const DXgenMiss2 = r => { for(let t=0;t<200;t++){ const c = rPick(r, DX_CAT); const n = c.vals.length; const tot = rPick(r, [24, 30, 36, 40]);
+    const i = rInt(r, 0, n-1); let j = rInt(r, 0, n-2); if(j>=i) j++;
+    const k = rPick(r, [2, 3]); const y = rInt(r, 2, 5); const x = k*y;
+    const restN = n-2, rest = tot - x - y; if(rest < restN*2 || rest > restN*9) continue;
+    const fr = Array(n); const o = DXsplit(r, restN, rest, 2, 9); let m = 0; for(let q=0;q<n;q++){ fr[q] = q===i ? x : q===j ? y : o[m++]; }
+    return {c, fr, tot, i, j, k}; }
+  return {c:DX_CAT[0], fr:[10,5,3,2], tot:20, i:0, j:1, k:2}; };
+function DXmissing2(b, s, save, key, d){
+  const {c, fr, tot, i, j, k} = d, cells = fr.map((x,q)=> q===i||q===j ? '?' : x);
+  b.append(el('div','', `<p>${tot} ${c.wie} antwoordden. <b>${c.vals[i]}</b> werd ${k===2?'dubbel':'drie keer'} zo vaak gekozen als <b>${c.vals[j]}</b>.</p>` + DXtab(c.head, 'absolute frequentie', c.vals, cells, `<b>${tot}</b>`)));
+  const known = fr.filter((x,q)=>q!==i && q!==j), samen = fr[i]+fr[j];
+  qBlock(b, s, save, 'a', {mode:'numeric', html:`${c.vals[i]}: [[0]] &nbsp; ${c.vals[j]}: [[1]]`, size:'xs',
+    check: v => { const r = nums([fr[i], fr[j]])(v); if(!r.ok){ const a = parseLoose(v[0]), bb = parseLoose(v[1]); r.msg = (a+bb===samen) ? `De som klopt (${samen}), maar ${c.vals[i]} moet ${k===2?'het dubbel':'drie keer zoveel'} zijn.` : `Samen zijn ze ${tot} − ${known.join(' − ')} = ${samen}. Verdeel dat in ${k+1} gelijke delen.`; } return r; },
+    sol:`Samen: ${tot} − ${known.join(' − ')} = ${samen}. ${c.vals[j]} is 1 deel, ${c.vals[i]} is ${k} delen: ${k+1} delen = ${samen}, 1 deel = ${samen} : ${k+1} = <b>${fr[j]}</b>. ${c.vals[i]} = ${k} · ${fr[j]} = <b>${fr[i]}</b>.`});
+}
+
+/* ---------- 4. kolom percentage ---------- */
+const DXgenPct = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [20, 25, 50]); const fr = DXsplit(r, c.vals.length, tot, 1, Math.round(tot*0.5)); return {c, fr, tot}; };
+function DXpctCol(b, s, save, key, d){
+  const {c, fr, tot} = d, n = c.vals.length, pc = fr.map(x=>x/tot*100);
+  const mult = 100/tot;
+  qBlock(b, s, save, 'tab', {block:true, size:'xs',
+    html: `<p>${tot} ${c.wie} antwoordden. Vul de kolom percentage in.</p><table class="ftab"><thead><tr><th>${c.head}</th><th>absolute frequentie</th><th>percentage</th></tr></thead><tbody>`
+      + c.vals.map((l,i)=>`<tr><td class="l">${l}</td><td>${fr[i]}</td><td>[[${i}]] %</td></tr>`).join('') + `<tr><td class="l"><b>totaal</b></td><td><b>${tot}</b></td><td>[[${n}]] %</td></tr></tbody></table>`,
+    check: v => { const r = nums(pc.concat([100]), 0.01)(v); if(!r.ok && r.fields){ const w = DXwrong(c.vals.concat(['totaal']), r.fields);
+        r.msg = (w.length===1 && w[0]==='totaal') ? 'Alle percentages samen zijn altijd 100 %.' : `Kijk nog eens naar ${w.join(', ')}. Deel door ${tot} en vermenigvuldig met 100 (of: vermenigvuldig meteen met ${nf(mult)}).`; } return r; },
+    sol: c.vals.map((l,i)=>`${l}: ${fr[i]} : ${tot} · 100 = ${nf(pc[i])} %`).join(' · ') + ' · samen <b>100 %</b>'});
+}
+
+/* ---------- 5. van percentage naar aantal (verdieping) ---------- */
+const DXgenPctBack = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [40, 60, 80, 120, 160, 200, 240]); const n = c.vals.length; const p = DXsplit(r, n, 20, 1, 9).map(x=>x*5); return {c, tot, p, fr:p.map(x=>x*tot/100)}; };
+function DXpctBack(b, s, save, key, d){
+  const {c, tot, p, fr} = d, n = c.vals.length;
+  qBlock(b, s, save, 'tab', {block:true, size:'xs', mode:'numeric',
+    html: `<p>Een enquête bij <b>${tot}</b> ${c.wie} leverde deze percentages op. Bereken de absolute frequenties.</p><table class="ftab"><thead><tr><th>${c.head}</th><th>percentage</th><th>absolute frequentie</th></tr></thead><tbody>`
+      + c.vals.map((l,i)=>`<tr><td class="l">${l}</td><td>${p[i]} %</td><td>[[${i}]]</td></tr>`).join('') + `<tr><td class="l"><b>totaal</b></td><td><b>100 %</b></td><td>[[${n}]]</td></tr></tbody></table>`,
+    check: v => { const r = nums(fr.concat([tot]))(v); if(!r.ok && r.fields){ const w = DXwrong(c.vals.concat(['totaal']), r.fields);
+        r.msg = `Kijk nog eens naar ${w.join(', ')}. ${p[0]} % van ${tot} = ${p[0]} : 100 · ${tot}. Tip: 10 % van ${tot} is ${nf(tot/10)}. Controle: alle aantallen samen zijn ${tot}.`; } return r; },
+    sol: c.vals.map((l,i)=>`${l}: ${p[i]} : 100 · ${tot} = ${fr[i]}`).join(' · ') + ` · samen <b>${tot}</b>`});
+}
+
+/* ============================================================
+   DIAGRAMMEN ZELF MAKEN
+   ============================================================ */
+/* gemeenschappelijk: grenzen slepen in een cirkel of een strook. U = aantal eenheden (stappen) van het geheel */
+function DXdivide(b, st, save, key, cfg){
+  const {labels, target, U, kind} = cfg, n = labels.length;
+  const quiz = QZ; const qid = QID(kind==='cirkel'?'cirkel':'strook'); if(!quiz) CLvraag(qid);
+  /* grenzen: cum[0..n-2] in eenheden, oplopend */
+  if(!st.cum || st.cum.length!==n-1){ st.cum = labels.slice(1).map((l,i)=>Math.round((i+1)*U/n)); save(); }
+  const cum = st.cum;
+  const v = el('div','viz '+(kind==='cirkel'?'narrow':'mid')); b.append(v);
+  const leg = el('div','dx-legend'); b.append(leg);
+  const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
+  const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
+  const W = kind==='cirkel' ? 360 : 440, H = kind==='cirkel' ? 330 : 170;
+  const svg = newSvg(W, H); v.append(svg);
+  const cx = W/2, cy = H/2, R = 140;
+  const sx0 = 22, sx1 = W-22, sy = 44, sh = 80;
+  const parts = () => { const c = [0, ...cum, U]; return labels.map((l,i)=>c[i+1]-c[i]); };
+  const pct = k => k/U*100;
+  const ang = u => -Math.PI/2 + u/U*2*Math.PI;
+  const pos = u => kind==='cirkel' ? [cx+R*Math.cos(ang(u)), cy+R*Math.sin(ang(u))] : [sx0+(sx1-sx0)*u/U, sy+sh/2];
+  function draw(show){
+    svg.innerHTML = ''; const c = [0, ...cum, U], pr = parts();
+    if(kind==='cirkel'){
+      for(let u=0;u<U;u++){ const [x1,y1] = [cx+R*Math.cos(ang(u)), cy+R*Math.sin(ang(u))], [x2,y2] = [cx+(R+6)*Math.cos(ang(u)), cy+(R+6)*Math.sin(ang(u))]; svgEl('line',{x1,y1,x2,y2,class:'dx-tick'}, svg); }
+      labels.forEach((l,i)=>{ const a0 = ang(c[i]), a1 = ang(c[i+1]); if(c[i+1]<=c[i]) return; const col = PAL[i%PAL.length];
+        if(c[i+1]-c[i]>=U) svgEl('circle',{cx,cy,r:R,fill:col,class:'sec'}, svg);
+        else svgEl('path',{d:`M${cx},${cy} L${cx+R*Math.cos(a0)},${cy+R*Math.sin(a0)} A${R},${R} 0 ${(a1-a0)>Math.PI?1:0} 1 ${cx+R*Math.cos(a1)},${cy+R*Math.sin(a1)} Z`, fill:col, class:'sec'}, svg);
+        const am = (a0+a1)/2; if(pr[i]/U>0.04){ const t = svgText(svg, cx+R*0.62*Math.cos(am), cy+R*0.62*Math.sin(am)+5, nf(pct(pr[i]),1)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
+    } else {
+      for(let u=0;u<=U;u++){ const x = sx0+(sx1-sx0)*u/U; svgEl('line',{x1:x, y1:sy+sh, x2:x, y2:sy+sh+(u%(U/4)===0||u%(U/5)===0?10:5), class:'dx-tick'}, svg); }
+      [0,25,50,75,100].forEach(p=>svgText(svg, sx0+(sx1-sx0)*p/100, sy+sh+26, p+' %', {'text-anchor':'middle', class:'t-soft'}));
+      labels.forEach((l,i)=>{ const x = sx0+(sx1-sx0)*c[i]/U, w = (sx1-sx0)*pr[i]/U; const col = PAL[i%PAL.length]; svgEl('rect',{x, y:sy, width:Math.max(0,w), height:sh, fill:col, class:'sec'}, svg);
+        if(pr[i]/U>0.06){ const t = svgText(svg, x+w/2, sy+sh/2+6, nf(pct(pr[i]),1)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
+    }
+    cum.forEach((u,k)=>{ const [x,y] = pos(u);
+      if(kind!=='cirkel') svgEl('line',{x1:x, y1:sy-14, x2:x, y2:sy+sh+8, stroke:'var(--orange)', 'stroke-width':3}, svg);
+      svgEl('circle',{cx:x, cy:kind==='cirkel'?y:sy-14, r:kind==='cirkel'?9:11, class:'dx-hd'}, svg);
+      const h = svgEl('circle',{cx:x, cy:kind==='cirkel'?y:sy-14, r:kind==='cirkel'?22:26, class:'dx-hdhit'}, svg); h.dataset.k = k; });
+    if(kind==='cirkel'){ const [x,y] = pos(0); svgEl('circle',{cx:x, cy:y, r:5, fill:'var(--ink)'}, svg); }
+    leg.innerHTML = labels.map((l,i)=>`<span><i style="background:${PAL[i%PAL.length]}"></i>${l}: <b>${nf(pct(pr[i]),1)} %</b>${show&&!quiz ? (Math.abs(pr[i]-target[i])<1e-9?' ✅':' ❌') : ''}</span>`).join('');
+  }
+  function unitAt(ev){ const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    if(kind==='cirkel'){ let a = Math.atan2(p.y-cy, p.x-cx) + Math.PI/2; if(a<0) a += 2*Math.PI; return Math.round(a/(2*Math.PI)*U); }
+    return Math.round((p.x-sx0)/(sx1-sx0)*U); }
+  let drag = -1;
+  svg.addEventListener('pointerdown', ev=>{ const h = ev.target.closest('.dx-hdhit'); if(!h || v.dataset.locked) return; ev.preventDefault(); drag = +h.dataset.k; try{ svg.setPointerCapture(ev.pointerId); }catch(e){} });
+  svg.addEventListener('pointermove', ev=>{ if(drag<0) return; let u = unitAt(ev);
+    const lo = drag>0 ? cum[drag-1] : 0, hi = drag<cum.length-1 ? cum[drag+1] : U;
+    if(kind==='cirkel'){ u = [u-U, u, u+U].reduce((a,x)=>Math.abs(x-cum[drag])<Math.abs(a-cum[drag])?x:a); }
+    u = Math.max(lo, Math.min(hi, u)); if(u!==cum[drag]){ cum[drag] = u; save(); draw(false); fb.textContent=''; } });
+  const end = ()=>{ drag = -1; }; svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  const okAll = () => parts().every((k,i)=>k===target[i]);
+  btn.addEventListener('click', ()=>{ const ok = okAll(); draw(true); fb.className = 'fb '+(ok?'ok':'bad');
+    const w = labels.filter((l,i)=>parts()[i]!==target[i]);
+    fb.innerHTML = ok ? `✅ Juist! ${cfg.why||''}` : `❌ Nog niet juist: kijk naar ${w.join(', ')}. ${cfg.hint||''}`; CLres(qid, ok); st.checked = true; save(); });
+  draw(!!st.checked);
+  if(quiz) quiz.push({grade:okAll, reveal:()=>draw(true), lock:()=>{ v.dataset.locked='1'; }});
+}
+/* cirkeldiagram: aantallen gegeven, totaal 20, 24, 30 of 40 (één leerling = één stap) */
+const DXgenPie = r => { const c = rPick(r, DX_CAT.filter(x=>x.vals.length<=5)); const n = rPick(r, [3, 4, 4]); const tot = rPick(r, [20, 20, 24, 30, 40]);
+  const vals = c.vals.slice(0, n); return {c, vals, fr:DXsplit(r, n, tot, 2, Math.round(tot*0.5)), tot}; };
+function DXpieBuild(b, st, save, key, d){
+  const {c, vals, fr, tot} = d;
+  b.append(el('div','', DXtab(c.head, 'absolute frequentie', vals, fr, `<b>${tot}</b>`)));
+  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'} (${nf(100/tot,1)} %).`));
+  DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
+    hint:`Elk deel krijgt zoveel stukjes als zijn absolute frequentie. Of: bereken eerst het percentage (frequentie : ${tot} · 100).`,
+    why:'Elk deel is even groot als zijn deel van het totaal: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*1000/tot)?"=":"≈"} ${nf(fr[i]/tot*100,1)} %`).join(', ') + '.'});
+}
+/* strookdiagram: percentages gegeven, stappen van 5 % */
+const DXgenStrip = r => { const c = rPick(r, DX_CAT); const n = rPick(r, [3, 4, 5]); const p = DXsplit(r, n, 20, 1, 9); return {c, vals:c.vals.slice(0,n), p}; };
+function DXstripBuild(b, st, save, key, d){
+  const {c, vals, p} = d;
+  b.append(el('div','', `<table class="ftab"><thead><tr><th>${c.head}</th><th>percentage</th></tr></thead><tbody>${DXrows(vals, p.map(x=>x*5+' %'))}<tr><td class="l"><b>totaal</b></td><td><b>100 %</b></td></tr></tbody></table>`));
+  b.append(el('div','sub', 'Sleep de oranje grenzen. Eén streepje onder de strook is 5 %.'));
+  DXdivide(b, st, save, key, {kind:'strook', labels:vals, target:p, U:20,
+    hint:'De hele strook is 100 %. Tel de streepjes: elk streepje is 5 %.', why:'Een strookdiagram toont welk deel van het geheel elke categorie is.'});
+}
+/* graden: middelpuntshoek uit de tabel, dan de cirkel verdelen (verdieping) */
+const DXgenDeg = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [24, 30, 36, 40, 60]); const n = 4; const vals = c.vals.slice(0,n);
+  const unit = 360/tot; const fr = DXsplit(r, n, tot, 2, Math.round(tot*0.5)); return {c, vals, fr, tot, unit}; };
+function DXdegBuild(b, st, save, key, d){
+  const {c, vals, fr, tot} = d, deg = fr.map(x=>x/tot*360);
+  const q = st.q || (st.q = {});
+  qBlock(b, q, save, 'g', {block:true, size:'xs', mode:'numeric',
+    html:`<table class="ftab"><thead><tr><th>${c.head}</th><th>absolute frequentie</th><th>middelpuntshoek</th></tr></thead><tbody>${vals.map((l,i)=>`<tr><td class="l">${l}</td><td>${fr[i]}</td><td>[[${i}]] °</td></tr>`).join('')}<tr><td class="l"><b>totaal</b></td><td><b>${tot}</b></td><td>[[${vals.length}]] °</td></tr></tbody></table>`,
+    check: v => { const r = nums(deg.concat([360]), 0.01)(v); if(!r.ok) r.msg = `Middelpuntshoek = absolute frequentie : ${tot} · 360°. Eén ${c.wie==='leerlingen'?'leerling':'antwoord'} is 360° : ${tot} = ${nf(360/tot,2)}°.`; return r; },
+    sol: vals.map((l,i)=>`${l}: ${fr[i]} : ${tot} · 360° = ${nf(deg[i],2)}°`).join(' · ') + ' · samen <b>360°</b>'});
+  b.append(el('div','sub', `Verdeel nu de cirkel. Eén stukje op de rand is ${nf(360/tot,2)}°.`));
+  DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot, hint:'Gebruik de middelpuntshoeken uit je tabel.', why:'De middelpuntshoeken samen zijn 360°.'});
+}
+
+/* ---------- dotplot opbouwen ---------- */
+const DXgenDotBuild = r => { const c = rPick(r, DX_NUM); const n = rInt(r, 12, 16); const fr = DXsplit(r, c.vals.length, n, 0, 5); const raw = []; fr.forEach((k,i)=>{ for(let j=0;j<k;j++) raw.push(c.vals[i]); });
+  for(let i=raw.length-1;i>0;i--){ const j = Math.floor(r()*(i+1)); [raw[i],raw[j]] = [raw[j],raw[i]]; } return {c, fr, raw}; };
+function DXdotBuild(b, st, save, key, d){
+  const {c, fr, raw} = d, n = c.vals.length;
+  const quiz = QZ; const qid = QID('dotplot'); if(!quiz) CLvraag(qid);
+  b.append(el('div','sub', `De ruwe gegevens (${raw.length} ${c.wie}). Tik een gegeven aan om het af te vinken, als hulp.`));
+  const rawBox = el('div','data-row dx-raw'); b.append(rawBox);
+  const ticked = st.t || (st.t = []);
+  raw.forEach((x,i)=>{ const k = el('button','dv', x); k.type='button'; k.classList.toggle('gone', !!ticked[i]); rawBox.append(k);
+    k.addEventListener('click', ()=>{ ticked[i] = !ticked[i]; k.classList.toggle('gone', !!ticked[i]); save(); }); });
+  b.append(el('div','sub', 'Klik in een kolom om er een bolletje bij te zetten. Klik op het bovenste bolletje om het weg te halen.'));
+  const v = el('div','viz mid'); b.append(v);
+  const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
+  const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
+  const cnt = st.c || (st.c = Array(n).fill(0));
+  const W = 560, H = 300, L = 30, R = 16, T = 14, base = H-46, pw = W-L-R, xs = i => L + pw*(i+0.5)/n, rr = 11;
+  const svg = newSvg(W, H); v.append(svg);
+  function draw(show){
+    svg.innerHTML = '';
+    svgEl('line',{x1:L-10, y1:base, x2:L+pw+6, y2:base, class:'ax'}, svg);
+    c.vals.forEach((l,i)=>{ svgEl('line',{x1:xs(i), y1:base, x2:xs(i), y2:base+5, class:'ax'}, svg); svgText(svg, xs(i), base+21, l, {'text-anchor':'middle'});
+      for(let k=0;k<cnt[i];k++) svgEl('circle',{cx:xs(i), cy:base-rr-2-k*rr*2.15, r:rr, class:'dot'+(show && !quiz && cnt[i]!==fr[i] ? ' hi':'')}, svg);
+      const col = svgEl('rect',{x:xs(i)-pw/n/2, y:T, width:pw/n, height:base-T+28, class:'dx-col'}, svg); col.dataset.i = i; });
+    svgText(svg, L+pw/2, H-4, c.head, {'text-anchor':'middle', class:'t-soft'});
+  }
+  svg.addEventListener('click', ev=>{ if(v.dataset.locked) return; const col = ev.target.closest('.dx-col'); if(!col) return; const i = +col.dataset.i;
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const topY = base-rr-2-(cnt[i]-1)*rr*2.15;
+    if(cnt[i]>0 && Math.abs(p.y-topY)<=rr+3) cnt[i]--; else if(cnt[i]<9) cnt[i]++;
+    save(); draw(false); fb.textContent=''; });
+  const okAll = () => cnt.every((k,i)=>k===fr[i]);
+  btn.addEventListener('click', ()=>{ const ok = okAll(); draw(true); fb.className='fb '+(ok?'ok':'bad');
+    const w = c.vals.filter((l,i)=>cnt[i]!==fr[i]);
+    fb.innerHTML = ok ? `✅ Juist! Elk gegeven is één bolletje: ${sum(fr)} bolletjes voor ${sum(fr)} ${c.wie}.` : `❌ Nog niet juist bij ${w.join(', ')} (oranje). Tel in de ruwe gegevens hoeveel keer dat gegeven voorkomt.`;
+    CLres(qid, ok); st.checked = true; save(); });
+  draw(!!st.checked);
+  if(quiz) quiz.push({grade:okAll, reveal:()=>{}, lock:()=>{ v.dataset.locked='1'; }});
+}
+
+/* ---------- koppelspel: welke tabel hoort bij welk diagram? ---------- */
+const DXgenMatch = r => {
+  /* numerieke data: dan passen staafdiagram, cirkel, strook én dotplot */
+  const c = rPick(r, DX_NUM); const k0 = rInt(r, 0, c.vals.length-4); const labs = c.vals.slice(k0, k0+4);
+  const base = rPick(r, [[2,4,6,8],[1,3,5,11],[2,3,5,10],[1,4,6,9]]);
+  const perms = [], seen = new Set(); let guard = 0;
+  while(perms.length<4 && guard++<500){ const p = base.map(x=>[x, r()]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]); const k = p.join(','); if(!seen.has(k)){ seen.add(k); perms.push(p); } }
+  const types = ['kolom','cirkel','strook','dot']; for(let i=3;i>0;i--){ const j = Math.floor(r()*(i+1)); [types[i],types[j]] = [types[j],types[i]]; }
+  const order = [0,1,2,3].map(i=>[i, r()]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
+  return {c, labs, perms, types, order};
+};
+function DXmatch(b, st, save, key, d){
+  const {c, labs, perms, types, order} = d;
+  const quiz = QZ; const qid = QID('koppel'); if(!quiz) CLvraag(qid);
+  b.append(el('div','sub', 'Klik een tabel aan en dan het diagram dat erbij hoort. Let op: dezelfde getallen, maar telkens anders verdeeld!'));
+  const grid = el('div','dx-match'); b.append(grid);
+  const fb = el('div','fb'); b.append(fb);
+  const done = st.done || (st.done = {}); let errs = st.errs || 0; let sel = null;
+  const NAMES = {kolom:'het staafdiagram', cirkel:'het cirkeldiagram', strook:'het strookdiagram', dot:'de dotplot'};
+  const tiles = [];
+  perms.forEach((p,i)=>{ const t = el('button','dx-tile', `<span class="tag">tabel ${'ABCD'[i]}</span>` + `<table class="ftab"><thead><tr><th>${c.head}</th><th>aantal</th></tr></thead><tbody>${DXrows(labs, p)}</tbody></table>`); t.type='button'; t.dataset.k='t'; t.dataset.i=i; tiles.push(t); });
+  perms.forEach((p,i)=>{ const t = el('button','dx-tile', `<span class="tag">${'1234'[order.indexOf(i)]}</span>`); t.type='button'; t.dataset.k='d'; t.dataset.i=i;
+    t.append(drawChart(types[i], {labels:labs, series:[{values:p}], anim:false, step:2, yMax:12}, 360, 250)); tiles.push(t); });
+  /* tabellen bovenaan, diagrammen in een andere volgorde eronder */
+  tiles.filter(t=>t.dataset.k==='t').forEach(t=>grid.append(t));
+  order.forEach(i=>grid.append(tiles[4+i]));
+  function paint(){ tiles.forEach(t=>{ const i = +t.dataset.i; t.classList.toggle('ok', !!done[i]); t.classList.toggle('sel', t===sel);
+    let pr = t.querySelector('.pair'); if(done[i] && !pr){ pr = el('span','pair', '✓ '+'ABCD'[i]); t.append(pr); } }); }
+  tiles.forEach(t=>t.addEventListener('click', ()=>{
+    const i = +t.dataset.i; if(done[i] || b.dataset.locked) return;
+    if(!sel || sel.dataset.k===t.dataset.k){ sel = (sel===t) ? null : t; paint(); return; }
+    const a = sel, ok = +a.dataset.i===i; sel = null;
+    if(ok){ done[i] = 1; save(); const ty = types[i];
+      fb.className='fb ok'; fb.innerHTML = `✅ Juist! Tabel ${'ABCD'[i]} hoort bij ${NAMES[ty]}.` + (ty==='cirkel'||ty==='strook' ? ` Het grootste deel (${Math.max(...perms[i])} van de ${sum(perms[i])}) hoort bij ${c.head} ${labs[perms[i].indexOf(Math.max(...perms[i]))]}.` : '');
+      if(Object.keys(done).length===4 && !quiz){ fb.innerHTML += errs===0 ? ' 🎉 Alles gekoppeld zonder fout!' : ` Alles gekoppeld, met ${errs} ${errs===1?'fout':'fouten'}.`; CLres(qid, errs===0); } }
+    else { errs++; st.errs = errs; save(); [a,t].forEach(x=>{ x.classList.add('shake'); setTimeout(()=>x.classList.remove('shake'), 400); });
+      fb.className='fb bad'; fb.textContent = '❌ Die horen niet samen. Zoek in de tabel het grootste getal en kijk welk deel van het diagram het grootst is. Dan het kleinste.'; }
+    paint(); }));
+  paint();
+  if(quiz) quiz.push({grade:()=>Object.keys(done).length===4 && errs===0, reveal:()=>{}, lock:()=>{ b.dataset.locked='1'; }});
+}
+
+/* ============================================================
+   KAARTEN
+   ============================================================ */
+SECTIONS.find(s=>s.id==='freq').cards.push(
+  { title:'Van dotplot naar tabel (nieuwe opgave)', lvl:1, instr:'Tel de bolletjes per kolom. Met "Nieuwe opgave" krijg je een nieuwe dotplot.',
+    build:DXfresh(DXgenDot, DXdotToTab) },
+  { title:'Van staafdiagram naar tabel', lvl:1, instr:'Lees de hoogte van elke staaf af op de verticale as. Met "Nieuwe opgave" krijg je een nieuw diagram.',
+    build:DXfresh(DXgenBar, DXbarToTab) },
+  { title:'Een frequentie is weggevallen', lvl:2, instr:'Het totaal is gegeven. Zoek de ontbrekende absolute frequentie.',
+    build:DXfresh(DXgenMiss, DXmissing) },
+  { title:'De kolom percentage', lvl:2, instr:'Percentage = absolute frequentie : totaal · 100. Met "Nieuwe opgave" krijg je nieuwe getallen.',
+    build:DXfresh(DXgenPct, DXpctCol) },
+  { title:'Twee frequenties zijn weggevallen', lvl:3, instr:'Gebruik het totaal én de aanwijzing.',
+    build:DXfresh(DXgenMiss2, DXmissing2) },
+  { title:'Van percentage naar aantal', lvl:3, instr:'Je kent het totaal en de percentages. Hoeveel is dat in aantallen?',
+    build:DXfresh(DXgenPctBack, DXpctBack) }
+);
+SECTIONS.find(s=>s.id==='diagram').cards.push(
+  { title:'Bouw de dotplot', lvl:1, instr:'Zet voor elk gegeven één bolletje in de juiste kolom.',
+    build:DXfresh(DXgenDotBuild, DXdotBuild) },
+  { title:'Verdeel het cirkeldiagram', lvl:2, instr:'Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
+    build:DXfresh(DXgenPie, DXpieBuild) },
+  { title:'Bouw het strookdiagram', lvl:2, instr:'Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
+    build:DXfresh(DXgenStrip, DXstripBuild) },
+  { title:'Welke tabel hoort bij welk diagram?', lvl:2, instr:'Vier tabellen, vier diagrammen. Koppel ze.',
+    build:DXfresh(DXgenMatch, DXmatch) },
+  { title:'Middelpuntshoeken en cirkeldiagram', lvl:3, instr:'Bereken eerst de middelpuntshoeken, verdeel dan de cirkel.',
+    build:DXfresh(DXgenDeg, DXdegBuild) }
+);
 
 /* ============================================================
    DOTPLOT OP EEN GETALLENAS
@@ -2055,6 +2401,540 @@ SECTIONS.push({ id:'interp', ic:'interp', nav:'Data interpreteren', title:'Alle 
         ['Wat stel je vast als je die ene leerling weglaat?', 'a', 'Het gemiddelde daalt merkbaar, de mediaan blijft 1.']
       ], [['a','Het gemiddelde daalt, de mediaan blijft gelijk.'],['b','Beide dalen evenveel.'],['c','Er verandert niets.']])) }
   ]});
+/* ============================================================
+   CENTRUMMATEN EXTRA: NIEUWE OPGAVEN, TOON MIJ HOE, DENKOPDRACHTEN, RAAD MIJN GETALLEN
+   ============================================================ */
+(function(){
+  const css = `
+  .mx-how{ margin:.7rem 0 .2rem; }
+  .mx-how-panel{ border:2px solid var(--or-line); border-left:6px solid var(--orange); border-radius:.8rem; background:var(--zone-bg); padding:.7rem .9rem; margin-top:.3rem; }
+  .mx-stage{ overflow-x:auto; }
+  .mx-stage:empty{ display:none; }
+  .mx-steps{ list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.4rem; }
+  .mx-steps li{ display:flex; gap:.55rem; align-items:flex-start; line-height:1.5; }
+  .mx-steps li.mx-in{ animation:m3fade .45s ease both; }
+  .mx-steps .nr{ flex:none; width:1.6rem; height:1.6rem; border-radius:50%; background:var(--tq); color:var(--on-accent); font-weight:700; display:inline-flex; align-items:center; justify-content:center; font-size:.9rem; }
+  .mx-steps b{ color:var(--accent-dark); }
+  .mx-stage .ftab td{ transition:background .35s ease; min-width:3.2rem; white-space:nowrap; }
+  .mx-stage .ftab th{ white-space:nowrap; }
+  .mx-stage .ftab td.new{ background:var(--or-soft); }
+  .mx-stage .ftab tr.on td{ background:var(--or-soft); font-weight:700; }
+  .mx-strip{ display:flex; height:1.6rem; border:2px solid var(--tq); border-radius:.4rem; overflow:hidden; margin:.5rem 0 .2rem; max-width:620px; background:var(--card); }
+  .mx-strip span{ display:block; width:0; transition:width .6s ease; font-size:.75rem; font-weight:700; color:#173436; text-align:center; line-height:1.45rem; overflow:hidden; white-space:nowrap; }
+  .mx-sum{ font-size:1.1rem; margin:.35rem 0; min-height:1.5em; }
+  .mx-goal{ display:flex; flex-wrap:wrap; gap:.4rem; margin:.3rem 0 .5rem; }
+  .mx-goal .pill.ok{ background:var(--ok-bg); border-color:var(--ok); }
+  .mx-clues{ display:flex; flex-wrap:wrap; gap:.45rem; margin:.4rem 0 .6rem; }
+  .mx-clue{ border:2px solid var(--tq); border-radius:.7rem; padding:.35rem .7rem; background:var(--card); font-weight:700; }
+  .mx-clue small{ display:block; font-weight:400; color:var(--ink-soft); }
+  .mx-guess{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; margin:.4rem 0; }
+  .mx-guess .inp{ width:3.6rem; }
+  .mx-tries{ display:grid; gap:.3rem; margin:.5rem 0; }
+  .mx-try{ display:flex; flex-wrap:wrap; gap:.4rem .9rem; align-items:center; padding:.3rem .5rem; border:1px solid var(--border); border-radius:.5rem; background:var(--card); }
+  .mx-try .g{ font-weight:700; font-variant-numeric:tabular-nums; min-width:7.5rem; }
+  .mx-try .ok{ color:var(--ok); font-weight:700; } .mx-try .no{ color:var(--bad); font-weight:700; }
+  .mx-tbl{ border-collapse:collapse; margin:.4rem 0; font-variant-numeric:tabular-nums; }
+  .mx-tbl th, .mx-tbl td{ border:1px solid var(--border); padding:.25rem .6rem; text-align:center; }
+  .mx-tbl th{ background:var(--tq-soft); color:var(--accent-dark); }
+  .mx-tbl td.up{ color:var(--ok); font-weight:700; } .mx-tbl td.dn{ color:var(--bad); font-weight:700; }
+  .mx-lvl{ display:flex; gap:.4rem; flex-wrap:wrap; margin:.2rem 0 .5rem; }
+  .mx-lvl .opt.chosen{ border-color:var(--orange); background:var(--or-soft); }
+  .ch .mx-dot{ fill:var(--tq); stroke:var(--card); stroke-width:1.5; cursor:grab; }
+  .ch .mx-dot.or{ fill:var(--orange); }
+  .ch .mx-dot:focus{ outline:none; stroke:var(--ink); stroke-width:3; }
+  @media (prefers-reduced-motion: reduce){ .mx-steps li.mx-in{ animation:none; } .mx-strip span, .mx-stage .ftab td{ transition:none; } }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+const MXFAST = () => { try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } };
+const MXn = x => x<0 ? '('+nf(x)+')' : nf(x);           /* negatief getal tussen haakjes in een som */
+const MXlist = a => a.map(x=>nf(x)).join(', ');
+const MXr2 = x => Math.round(x*100)/100;
+
+/* ============================================================
+   TOON MIJ HOE: korte stap-voor-stap animatie met de getallen van de oefening
+   MXshowHow(parent, soort, data)
+     soort 'gem'      data {vals}                     gemiddelde van een lijst
+           'mediaan'  data {vals}                     ordenen en wegstrepen
+           'gemTabel' data {head, vals, freq}         gemiddelde uit een frequentietabel
+           'medTabel' data {head, vals, freq}         mediaan uit een frequentietabel
+           'percent'  data {head, cats, freq}         percentages uit een frequentietabel
+   ============================================================ */
+function MXshowHow(parent, soort, data){
+  if(QZ || !MXHOW[soort]) return null;
+  const wrap = el('div','mx-how');
+  const bar = el('div','viz-bar');
+  const go = el('button','btn ghost','▶ Toon mij hoe'); go.type='button';
+  const again = el('button','linkbtn','↺ Nog eens'); again.type='button'; again.hidden = true;
+  bar.append(go, again);
+  const panel = el('div','mx-how-panel'); panel.hidden = true;
+  wrap.append(bar, panel); parent.append(wrap);
+  let run = 0;
+  async function play(){
+    const my = ++run, fast = MXFAST();
+    panel.innerHTML = ''; panel.hidden = false;
+    const stage = el('div','mx-stage'), ol = el('ol','mx-steps'); panel.append(stage, ol);
+    const c = { stage, fast, alive:()=>my===run, wait: ms => fast ? Promise.resolve() : sleep(ms) };
+    const steps = MXHOW[soort](data);
+    for(let i=0;i<steps.length;i++){
+      if(!c.alive()) return;
+      ol.append(el('li', fast?'':'mx-in', `<span class="nr">${i+1}</span><div>${steps[i].t}</div>`));
+      if(steps[i].go) await steps[i].go(c);
+      if(!c.alive()) return;
+      if(i<steps.length-1) await c.wait(steps[i].pause ?? 1000);
+    }
+  }
+  go.addEventListener('click', ()=>{
+    if(panel.hidden){ go.textContent = '✕ Verberg'; again.hidden = false; play(); }
+    else { run++; panel.hidden = true; panel.innerHTML = ''; go.textContent = '▶ Toon mij hoe'; again.hidden = true; }
+  });
+  again.addEventListener('click', play);
+  return wrap;
+}
+/* vakjes in een rij ordenen met een schuif-animatie (FLIP); geeft de vakjes in de nieuwe volgorde */
+async function MXflip(row, boxes, vals, fast){
+  const order = vals.map((x,i)=>i).sort((a,c)=>vals[a]-vals[c] || a-c);
+  const first = boxes.map(k=>k.getBoundingClientRect());
+  order.forEach(i=>row.append(boxes[i]));
+  if(!fast){
+    boxes.forEach((k,i)=>{ const r1 = k.getBoundingClientRect(); k.style.transition='none'; k.style.transform=`translate(${first[i].left-r1.left}px,${first[i].top-r1.top}px)`; });
+    await new Promise(r=>requestAnimationFrame(r)); await new Promise(r=>requestAnimationFrame(r));
+    boxes.forEach(k=>{ k.style.transition='transform .8s ease'; k.style.transform=''; });
+    await sleep(850);
+  }
+  boxes.forEach(k=>{ k.style.transition=''; });
+  return order.map(i=>boxes[i]);
+}
+/* tabel voor de animaties: kolommen head, rijen rows (arrays), geeft de td's per rij terug */
+function MXtable(stage, head, rows){
+  const t = el('table','ftab'); t.innerHTML = `<thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`;
+  const tb = el('tbody'); t.append(tb);
+  const tds = rows.map(r=>{ const tr = el('tr'); tb.append(tr); return r.map((c,i)=>{ const td = el('td', i===0?'l':'', c); tr.append(td); return td; }); });
+  stage.append(t); return tds;
+}
+async function MXfill(td, html, c, ms=450){ td.innerHTML = html; td.classList.add('new'); await c.wait(ms); }
+
+const MXHOW = {
+  gem: d => {
+    const v = d.vals, n = v.length, S = sum(v), m = S/n, ex = MXr2(m)===Math.round(m*1e6)/1e6;
+    let boxes = [], out;
+    return [
+      { t:`Schrijf de ${n} gegevens op.`, go:c=>{ const row = el('div','data-row'); c.stage.append(row); boxes = v.map(x=>{ const k = el('span','dv', nf(x)); row.append(k); return k; }); out = el('div','mx-sum'); c.stage.append(out); } },
+      { t:'Tel ze allemaal op.', go:async c=>{ let s = 0; for(let i=0;i<n;i++){ s += v[i]; boxes[i].classList.add('hi'); out.innerHTML = `som = <b>${nf(s)}</b>`; await c.wait(380); } out.innerHTML = `${v.map(MXn).join(' + ')} = <b>${nf(S)}</b>`; } },
+      { t:`Tel hoeveel gegevens er zijn: <b>${n}</b>.` },
+      { t:`Deel de som door het aantal: ${nf(S)} : ${n} = ${ex ? `<b>${nf(m)}</b>` : `${nf(m,4)}… ≈ <b>${nf(m,1)}</b> (afgerond op 0,1)`}. Dat is het gemiddelde x̄.`,
+        go:c=>{ c.stage.append(el('div','mx-sum', `x̄ = ${nf(S)} : ${n} = <b>${ex?nf(m):'≈ '+nf(m,1)}</b>`)); } }
+    ];
+  },
+  mediaan: d => {
+    const v = d.vals, n = v.length, s = sorted(v), me = median(v);
+    let row, boxes, ord;
+    return [
+      { t:`Schrijf de ${n} gegevens op.`, go:c=>{ row = el('div','data-row'); c.stage.append(row); boxes = v.map(x=>{ const k = el('span','dv', nf(x)); row.append(k); return k; }); } },
+      { t:'Orden ze van klein naar groot.', go:async c=>{ ord = await MXflip(row, boxes, v, c.fast); } },
+      { t:`Streep telkens het kleinste én het grootste getal weg, tot er ${n%2?'één getal overblijft':'twee getallen overblijven'}.`,
+        go:async c=>{ for(let i=0;i<Math.floor((n-1)/2);i++){ ord[i].classList.add('gone'); ord[n-1-i].classList.add('gone'); await c.wait(500); } } },
+      { t: n%2 ? `Het getal in het midden is de mediaan: <b>Me = ${nf(me)}</b>.` : `De mediaan ligt midden tussen ${nf(s[n/2-1])} en ${nf(s[n/2])}: (${nf(s[n/2-1])} + ${nf(s[n/2])}) : 2 = <b>${nf(me)}</b>.`,
+        go:c=>{ (n%2 ? [ord[(n-1)/2]] : [ord[n/2-1], ord[n/2]]).forEach(k=>k.classList.add('mid')); } }
+    ];
+  },
+  gemTabel: d => {
+    const P = d.vals.map((x,i)=>x*d.freq[i]), S = sum(P), n = sum(d.freq), m = S/n, ex = Math.abs(MXr2(m)-m)<1e-9;
+    let tds;
+    return [
+      { t:'Elk gegeven komt meerdere keren voor. Vermenigvuldig elk gegeven met zijn frequentie.',
+        go:async c=>{ tds = MXtable(c.stage, [d.head, 'frequentie', d.head+' · frequentie'], [...d.vals.map((x,i)=>[nf(x), String(d.freq[i]), '']), ['<b>totaal</b>', '', '']]);
+          for(let i=0;i<d.vals.length;i++) await MXfill(tds[i][2], `${MXn(d.vals[i])} · ${d.freq[i]} = <b>${nf(P[i])}</b>`, c); } },
+      { t:`Tel de producten op: ${P.map(MXn).join(' + ')} = <b>${nf(S)}</b>. Dat is de som van alle gegevens.`, go:c=>MXfill(tds[d.vals.length][2], `<b>${nf(S)}</b>`, c, 0) },
+      { t:`Tel de frequenties op. Zo weet je hoeveel gegevens er zijn: <b>${n}</b>.`, go:c=>MXfill(tds[d.vals.length][1], `<b>${n}</b>`, c, 0) },
+      { t:`Deel de som door het aantal gegevens (niet door het aantal rijen!): ${nf(S)} : ${n} = ${ex ? `<b>${nf(m)}</b>` : `${nf(m,4)}… ≈ <b>${nf(m,2)}</b>`}.` }
+    ];
+  },
+  medTabel: d => {
+    const n = sum(d.freq), odd = n%2===1, k1 = odd ? (n+1)/2 : n/2, k2 = odd ? k1 : n/2+1;
+    const all = expand(d.vals, d.freq), me = median(all);
+    let tds, rows = [];
+    let a = 1; d.freq.forEach((f,i)=>{ rows.push([a, a+f-1]); a += f; });
+    const hit = k => rows.findIndex(([p,q])=>k>=p && k<=q);
+    return [
+      { t:`Tel de frequenties op: er zijn <b>${n}</b> gegevens.`, go:c=>{ tds = MXtable(c.stage, [d.head, 'frequentie', 'welke gegevens?'], d.vals.map((x,i)=>[nf(x), String(d.freq[i]), ''])); } },
+      { t: odd ? `${n} is oneven. Het middelste gegeven is het (${n} + 1) : 2 = <b>${k1}de</b> gegeven.` : `${n} is even. De twee middelste gegevens zijn het <b>${k1}de</b> en het <b>${k2}de</b>.` },
+      { t:'De tabel is al geordend. Tel af: welke gegevens staan in elke rij?',
+        go:async c=>{ for(let i=0;i<rows.length;i++){ const [p,q] = rows[i]; await MXfill(tds[i][2], p===q ? `het ${p}de` : `${p}de tot ${q}de`, c, 500); if(i>=hit(k2)) break; }
+          [hit(k1), hit(k2)].forEach(i=>tds[i][0].parentElement.classList.add('on')); } },
+      { t: odd ? `Het ${k1}de gegeven is <b>${nf(me)}</b>: Me = <b>${nf(me)}</b>.` :
+          (all[k1-1]===all[k2-1] ? `Het ${k1}de en het ${k2}de gegeven zijn allebei ${nf(all[k1-1])}: Me = <b>${nf(me)}</b>.` : `Het ${k1}de gegeven is ${nf(all[k1-1])}, het ${k2}de is ${nf(all[k2-1])}: Me = (${nf(all[k1-1])} + ${nf(all[k2-1])}) : 2 = <b>${nf(me)}</b>.`) }
+    ];
+  },
+  percent: d => {
+    const T = sum(d.freq);
+    let tds, segs;
+    return [
+      { t:`Tel alle antwoorden op: ${d.freq.join(' + ')} = <b>${T}</b>. Dat is het totaal.`,
+        go:c=>{ tds = MXtable(c.stage, [d.head, 'aantal', 'deel van het totaal', 'percentage'], [...d.cats.map((x,i)=>[x, String(d.freq[i]), '', '']), ['<b>totaal</b>', `<b>${T}</b>`, '', '']]);
+          const strip = el('div','mx-strip'); segs = d.cats.map((x,i)=>{ const s = el('span'); const col = PAL[i%PAL.length]; s.style.background = col; if(DARKPAL.has(col)) s.style.color = '#fff'; strip.append(s); return s; }); c.stage.append(strip); } },
+      { t:`Deel elk aantal door het totaal ${T}.`, go:async c=>{ for(let i=0;i<d.cats.length;i++) await MXfill(tds[i][2], `${d.freq[i]} : ${T} = ${nf(d.freq[i]/T,4)}`, c); } },
+      { t:'Vermenigvuldig met 100: dan heb je het percentage.',
+        go:async c=>{ for(let i=0;i<d.cats.length;i++){ const p = d.freq[i]/T*100; await MXfill(tds[i][3], `<b>${nf(p,1)} %</b>`, c, 0); segs[i].style.width = p+'%'; segs[i].textContent = p>=8 ? nf(p,1)+' %' : ''; await c.wait(500); } } },
+      { t:'Controle: samen is dat <b>100 %</b>. De hele strook is vol.', go:c=>MXfill(tds[d.cats.length][3], '<b>100 %</b>', c, 0) }
+    ];
+  }
+};
+
+/* ============================================================
+   GENERATOREN
+   ============================================================ */
+/* n gehele getallen met één duidelijke modus */
+function MXmodeList(r, n, lo, hi){
+  for(let t=0;t<500;t++){
+    const v = []; for(let i=0;i<n;i++) v.push(rInt(r, lo, hi));
+    const m = rInt(r, lo, hi); for(let k=0;k<3;k++) v[rInt(r,0,n-1)] = m;
+    const md = modes(v); if(md.length===1 && countOf(v, md[0])>=3 && range(v)>=3) return v;
+  }
+  return [3,5,5,7,5,2,8,6,4].slice(0,n);
+}
+/* n gehele getallen met een geheel gemiddelde */
+function MXintMean(r, n, lo, hi){
+  for(let t=0;t<500;t++){
+    const v = []; for(let i=0;i<n-1;i++) v.push(rInt(r, lo, hi));
+    const s = sum(v); const m = rInt(r, Math.ceil((s+lo)/n), Math.floor((s+hi)/n));
+    const last = m*n - s; if(last>=lo && last<=hi){ v.splice(rInt(r,0,n-1), 0, last); return v; }
+  }
+  return [4,6,8,5,7].slice(0,n);
+}
+const MXCTX = [
+  { t:'Punten op een toets (op 10)', lo:2, hi:10, u:'' },
+  { t:'Minuten wachten aan de bushalte', lo:1, hi:15, u:' min' },
+  { t:'Aantal boeken gelezen dit jaar', lo:0, hi:12, u:'' },
+  { t:'Temperatuur om 7 uur ’s morgens', lo:-5, hi:8, u:' °C' },
+  { t:'Aantal berichtjes gisteren', lo:2, hi:30, u:'' }
+];
+const MXTCTX = [
+  { t:'Hoeveel huisdieren heb je?', head:'aantal huisdieren', vals:[0,1,2,3,4] },
+  { t:'Hoeveel broers en zussen heb je?', head:'broers en zussen', vals:[0,1,2,3,4] },
+  { t:'Score op een quiz (op 5)', head:'score', vals:[1,2,3,4,5] },
+  { t:'Welke schoenmaat heb je?', head:'schoenmaat', vals:[36,37,38,39,40,41] },
+  { t:'Hoeveel keer per week sport je?', head:'keer sporten', vals:[0,1,2,3,4,5] }
+];
+const MXPCTX = [
+  { t:'Wat is je favoriete sport?', head:'sport', cats:['voetbal','basket','zwemmen','dans'] },
+  { t:'Welk huisdier heb je?', head:'huisdier', cats:['hond','kat','vis','geen'] },
+  { t:'Hoe kom je naar school?', head:'vervoer', cats:['fiets','te voet','bus','auto'] },
+  { t:'Wat drink je bij het ontbijt?', head:'drank', cats:['melk','sap','water','thee'] }
+];
+function MXtab(r){ const c = rPick(r, MXTCTX); for(let t=0;t<200;t++){ const f = c.vals.map(()=>rInt(r,1,8)); const n = sum(f); if(n>=15 && n<=30) return { t:c.t, head:c.head, vals:c.vals, freq:f }; } return { t:c.t, head:c.head, vals:c.vals, freq:c.vals.map(()=>4) }; }
+
+/* modus */
+const MXgenDot = r => { const v = MXmodeList(r, rInt(r,15,20), 0, 6); const m = modes(v)[0];
+  return { vals:v, lo:0, hi:6, xTitle:'Aantal keer naar de film dit jaar', ask:'Klik op de kolom van de <b>modus</b>.', ans:[m], why:`${m} komt het meest voor (${countOf(v,m)} keer): de hoogste stapel.`, hint:'De modus is het gegeven dat het vaakst voorkomt: zoek de hoogste stapel.' }; };
+const MXgenModus = r => [0,1].map(k=>{ const c = k ? rPick(r, [MXCTX[3], MXCTX[0]]) : rPick(r, [MXCTX[1], MXCTX[2], MXCTX[4]]); const v = MXmodeList(r, rInt(r,8,11), c.lo, c.hi); return { c, v, m:modes(v)[0], vb:range(v) }; });
+/* gemiddelde */
+const MXgenGem1 = r => { const c = rPick(r, MXCTX.filter(x=>x.lo>=0)); return { c, v:MXintMean(r, 5, c.lo, c.hi) }; };
+const MXgenGem2 = r => { for(let t=0;t<200;t++){ const c = rPick(r, MXCTX); const n = rInt(r,6,7); const v = []; for(let i=0;i<n;i++) v.push(rInt(r, c.lo, c.hi)); const m = mean(v); if(Math.abs(m*10-Math.round(m*10))>1e-9 && Math.abs(Math.abs(m*100%10)-5)>1e-6) return { c, v }; } return { c:MXCTX[0], v:[7,8,5,9,6,10] }; };
+/* mediaan */
+const MXgenMed = even => r => { const c = rPick(r, MXCTX); const n = even ? rPick(r,[6,8,10]) : rPick(r,[7,9]); const v = []; const used = new Set();
+  while(v.length<n){ const x = rInt(r, c.lo, c.hi); if(used.has(x) && r()<.7) continue; used.add(x); v.push(x); } return { c, v }; };
+/* percentages */
+const MXgenPct = r => { const c = rPick(r, MXPCTX); const T = rPick(r, [20,25,40,50]);
+  let f; do{ const cuts = [rInt(r,1,T-1), rInt(r,1,T-1), rInt(r,1,T-1)].sort((a,b)=>a-b); f = [cuts[0], cuts[1]-cuts[0], cuts[2]-cuts[1], T-cuts[2]]; }while(f.some(x=>x<1));
+  return { t:c.t, head:c.head, cats:c.cats, freq:f }; };
+
+/* ============================================================
+   RENDERS VOOR DE NIEUWE OPGAVEN
+   ============================================================ */
+function MXmodusEx(b, st, save, key, d){
+  list(d.map(({c,v,m,vb})=>({ html:`${c.t}: ${MXlist(v)}.<br>Modus = [[0]]${c.u} · variatiebreedte = [[1]]${c.u}`, size:'sm', check:nums([m, vb], 1e-9, 'Modus: tel hoe vaak elk getal voorkomt. Variatiebreedte: grootste − kleinste.'),
+    sol:`${nf(m)} komt ${countOf(v,m)} keer voor: modus <b>${nf(m)}${c.u}</b>. Grootste ${nf(Math.max(...v))}, kleinste ${nf(Math.min(...v))}: ${nf(Math.max(...v))} − ${MXn(Math.min(...v))} = <b>${nf(vb)}${c.u}</b>.` })), {letters:true})(b, st, save, key);
+}
+function MXgemEx(b, st, save, key, d, round){
+  const m = mean(d.v), S = sum(d.v), n = d.v.length;
+  list([{ html:`${d.c.t}: ${MXlist(d.v)}.<br>Het gemiddelde is x̄ = [[0]]${d.c.u}${round?' (rond af op 0,1)':''}`,
+    check: round ? approx(Math.round(m*10)/10, 0.0001, 'Tel alles op, deel door het aantal gegevens en rond af op 0,1.') : exact(m, 'Tel alles op en deel door het aantal gegevens.'),
+    sol:`(${d.v.map(MXn).join(' + ')}) : ${n} = ${nf(S)} : ${n} = ${round ? `${nf(m,4)}… ≈ <b>${nf(m,1)}${d.c.u}</b>` : `<b>${nf(m)}${d.c.u}</b>`}.` }])(b, st, save, key);
+  MXshowHow(b, 'gem', {vals:d.v});
+}
+function MXgemTabEx(b, st, save, key, d){
+  const P = d.vals.map((x,i)=>x*d.freq[i]), S = sum(P), n = sum(d.freq), m = S/n;
+  b.append(el('p','', `${n} leerlingen antwoordden op de vraag: <i>${d.t}</i>`));
+  list([
+    { html:`<table class="ftab"><thead><tr><th>${d.head}</th><th>frequentie</th><th>${d.head} · frequentie</th></tr></thead><tbody>
+      ${d.vals.map((x,i)=>`<tr><td>${x}</td><td>${d.freq[i]}</td><td>[[${i}]]</td></tr>`).join('')}
+      <tr><td><b>totaal</b></td><td><b>${n}</b></td><td>[[${d.vals.length}]]</td></tr></tbody></table>`, block:true, size:'sm', mode:'numeric',
+      check:nums([...P, S], 1e-9, 'Vermenigvuldig in elke rij het gegeven met de frequentie. Tel dan de producten op.'), sol:`${d.vals.map((x,i)=>`${x} · ${d.freq[i]} = ${P[i]}`).join(' · ')} · samen <b>${S}</b>.` },
+    { html:'Het gemiddelde is x̄ = [[0]] (rond af op 0,01)', check:approx(MXr2(m), 0.0001, `Deel de som door ${n}, het aantal leerlingen.`), sol:`${S} : ${n} = ${Math.abs(MXr2(m)-m)<1e-9 ? `<b>${nf(m)}</b>` : `${nf(m,4)}… ≈ <b>${nf(m,2)}</b>`}. Deel door ${n} (het aantal leerlingen), niet door ${d.vals.length} (het aantal rijen)!` }
+  ], {letters:true})(b, st, save, key);
+  MXshowHow(b, 'gemTabel', d);
+}
+function MXmedEx(b, st, save, key, d){
+  const v = d.v, n = v.length, s = sorted(v), me = median(v);
+  list([{ html:`${d.c.t}: ${MXlist(v)}.<br>De mediaan is Me = [[0]]${d.c.u}`, check:exact(me, n%2 ? 'Orden eerst. Het middelste getal is de mediaan.' : 'Orden eerst. Neem het gemiddelde van de twee middelste getallen.'),
+    sol:`Geordend: ${MXlist(s)}. ${n%2 ? `Het ${(n+1)/2}de getal is het middelste: <b>${nf(me)}</b>.` : `De middelste zijn ${nf(s[n/2-1])} en ${nf(s[n/2])}: (${nf(s[n/2-1])} + ${MXn(s[n/2])}) : 2 = <b>${nf(me)}</b>.`}` }])(b, st, save, key);
+  MXshowHow(b, 'mediaan', {vals:v});
+}
+function MXmedTabEx(b, st, save, key, d){
+  const n = sum(d.freq), me = median(expand(d.vals, d.freq));
+  b.append(el('p','', `Een klas antwoordde op de vraag: <i>${d.t}</i>`));
+  b.append(el('div','', ftabHTML([d.head, ...d.vals.map(String)], [['frequentie', ...d.freq.map(String)]])));
+  list([
+    { html:'Hoeveel gegevens zijn er? n = [[0]]', mode:'numeric', check:exact(n, 'Tel alle frequenties op.'), sol:`${d.freq.join(' + ')} = <b>${n}</b>.` },
+    { html:'De mediaan is Me = [[0]]', check:exact(me, n%2 ? `Zoek het ${(n+1)/2}de gegeven.` : `Zoek het ${n/2}de en het ${n/2+1}de gegeven.`), sol:`${n%2 ? `Het ${(n+1)/2}de gegeven` : `Het gemiddelde van het ${n/2}de en het ${n/2+1}de gegeven`}: Me = <b>${nf(me)}</b>. Bekijk "Toon mij hoe".` }
+  ], {letters:true})(b, st, save, key);
+  MXshowHow(b, 'medTabel', d);
+}
+function MXpctEx(b, st, save, key, d){
+  const T = sum(d.freq), p = d.freq.map(f=>f/T*100);
+  b.append(el('p','', `${T} leerlingen antwoordden op de vraag: <i>${d.t}</i> Bereken voor elk antwoord het percentage.`));
+  list([{ html:`<table class="ftab"><thead><tr><th>${d.head}</th><th>aantal</th><th>percentage</th></tr></thead><tbody>
+      ${d.cats.map((x,i)=>`<tr><td class="l">${x}</td><td>${d.freq[i]}</td><td>[[${i}]] %</td></tr>`).join('')}
+      <tr><td class="l"><b>totaal</b></td><td><b>${T}</b></td><td><b>100 %</b></td></tr></tbody></table>`, block:true, size:'sm',
+    check:nums(p, 0.0001, `Deel elk aantal door het totaal ${T} en vermenigvuldig met 100.`), sol:d.cats.map((x,i)=>`${x}: ${d.freq[i]} : ${T} · 100 = <b>${nf(p[i],1)} %</b>`).join('<br>') }])(b, st, save, key);
+  MXshowHow(b, 'percent', d);
+}
+
+/* ============================================================
+   DENKOPDRACHT: MAAK ZELF EEN RIJ (sleep de bolletjes)
+   ============================================================ */
+function MXline(lo, hi, H, o={}){
+  const W = 600, L = 30, pw = W-60, base = o.base || 110, lab = o.lab || 1, R = o.r || 11;
+  const svg = newSvg(W, H||190); const X = v => L + pw*(v-lo)/(hi-lo);
+  svgEl('line',{x1:L-12, y1:base, x2:L+pw+12, y2:base, class:'ax'}, svg);
+  for(let v=lo; v<=hi; v++){ const big = (v-lo)%lab===0; svgEl('line',{x1:X(v), y1:base, x2:X(v), y2:base+(big?6:3), class:'ax'}, svg); if(big) svgText(svg, X(v), base+21, nf(v), {'text-anchor':'middle'}); }
+  if(o.xTitle) svgText(svg, W/2, 16, o.xTitle, {'text-anchor':'middle', class:'t-soft'});
+  const g = svgEl('g', {}, svg), mk = svgEl('g', {}, svg);
+  const P = { svg, X, base, L, pw, W, g, mk, lo, hi };
+  P.valAt = ev => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse()); return Math.max(lo, Math.min(hi, Math.round(lo + (p.x-L)/pw*(hi-lo)))); };
+  /* bolletjes tekenen; items [{v, cls, i}] stapelen bij gelijke waarden */
+  P.dots = items => { g.innerHTML = ''; const c = {}; const r = R;
+    items.forEach(it=>{ c[it.v] = (c[it.v]||0)+1; const k = c[it.v]-1;
+      const d = svgEl('circle',{cx:X(it.v), cy:base-r-2-k*r*2.15, r, class:'mx-dot '+(it.cls||''), tabindex: it.i!=null ? '0' : '-1'}, g);
+      if(it.i!=null){ d.dataset.i = it.i; d.setAttribute('aria-label', 'bolletje '+(it.i+1)+': '+it.v); } }); };
+  P.marks = list => { mk.innerHTML = ''; let prev = null;
+    list.forEach(([v, txt, cls])=>{ const x = X(v); const off = prev!=null && Math.abs(prev-x)<70 ? 26 : 0; prev = x;
+      svgEl('path',{d:`M${x},${base+28} l-8,12 h16 z`, fill: cls==='or'?'var(--orange)':'var(--accent-dark)'}, mk);
+      svgText(mk, x, base+56+off, txt, {'text-anchor':'middle', class: cls==='or'?'t-or':'t-acc'}); }); };
+  return P;
+}
+function MXbuildRow(b, st, save, key, d){
+  const lo = 0, hi = 15, n = 5;
+  if(!st.v) st.v = [1,4,7,10,13];
+  const goals = [['x̄', d.mean, a=>Math.abs(mean(a)-d.mean)<1e-9], ['Me', d.med, a=>median(a)===d.med]];
+  if(d.mode!=null) goals.push(['modus', d.mode, a=>{ const m = modes(a); return m.length===1 && m[0]===d.mode && countOf(a, m[0])>1; }]);
+  b.append(el('div','readout bigq', `Sleep de ${n} bolletjes zodat ${goals.map(([k,v])=>`<b>${k} = ${nf(v)}</b>`).join(' en ')}.`));
+  const goalBox = el('div','mx-goal'); b.append(goalBox);
+  const P = MXline(lo, hi, 230); const v = el('div','viz mid'); v.append(P.svg); b.append(v);
+  const row = el('div','data-row'); b.append(row);
+  b.append(el('div','sub','Sleep een bolletje, of klik erop en gebruik de pijltjestoetsen. Bolletjes mogen op elkaar liggen.'));
+  const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn); const fb = el('div','fb'); b.append(act, fb);
+  const quiz = QZ; const qid = QID('rij'); if(!quiz) CLvraag(qid); else act.hidden = true;
+  const okAll = () => goals.every(g=>g[2](st.v));
+  function paint(focusI){
+    const a = st.v, m = mean(a), me = median(a);
+    P.dots(a.map((x,i)=>({v:x, i, cls: i===focusI?'or':''})));
+    P.marks([[m, 'x̄ = '+nf(m,2), 'or'], [me, 'Me = '+nf(me,2)]].sort((p,q)=>p[0]-q[0]));
+    const md = modes(a), mdTxt = md.length===1 && countOf(a, md[0])>1 ? nf(md[0]) : 'geen';
+    const now = { 'x̄':nf(m,2), 'Me':nf(me,2), 'modus':mdTxt };
+    goalBox.innerHTML = goals.map(([k,val,f])=>`<span class="pill${f(a)?' ok':''}">${k} nu ${now[k]} · doel ${nf(val)}${f(a)?' ✓':''}</span>`).join('');
+    row.innerHTML = sorted(a).map(x=>`<span class="dv">${nf(x)}</span>`).join('');
+    if(focusI!=null){ const c = P.g.querySelector(`[data-i="${focusI}"]`); if(c) c.focus({preventScroll:true}); }
+  }
+  let drag = null;
+  P.svg.addEventListener('pointerdown', e=>{ if(v.dataset.locked) return; const c = e.target.closest('[data-i]'); if(!c) return; drag = +c.dataset.i; try{ P.svg.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); paint(drag); });
+  P.svg.addEventListener('pointermove', e=>{ if(drag==null) return; const x = P.valAt(e); if(x!==st.v[drag]){ st.v[drag] = x; save(); paint(drag); } });
+  const end = ()=>{ if(drag!=null){ drag = null; fb.textContent=''; fb.className='fb'; } };
+  P.svg.addEventListener('pointerup', end); P.svg.addEventListener('pointercancel', end);
+  P.svg.addEventListener('keydown', e=>{ if(v.dataset.locked) return; const c = e.target.closest('[data-i]'); if(!c) return; const i = +c.dataset.i;
+    const dx = e.key==='ArrowRight'||e.key==='ArrowUp' ? 1 : e.key==='ArrowLeft'||e.key==='ArrowDown' ? -1 : 0; if(!dx) return; e.preventDefault();
+    st.v[i] = Math.max(lo, Math.min(hi, st.v[i]+dx)); save(); paint(i); });
+  btn.addEventListener('click', ()=>{ const ok = okAll(); fb.className = 'fb '+(ok?'ok':'bad');
+    const a = st.v, S = sum(a);
+    fb.innerHTML = ok ? `✅ Juist! ${MXlist(sorted(a))}: som ${S}, dus x̄ = ${S} : 5 = ${nf(mean(a))}; het middelste getal is ${nf(median(a))}.`
+      : `❌ Nog niet. ${Math.abs(mean(a)-d.mean)>1e-9 ? `Voor x̄ = ${nf(d.mean)} moet de som ${nf(d.mean*5)} zijn (nu ${S}). ` : ''}${median(a)!==d.med ? `Het middelste bolletje moet op ${nf(d.med)} liggen. ` : ''}${d.mode!=null && !goals[2][2](a) ? `${nf(d.mode)} moet het vaakst voorkomen (minstens 2 keer).` : ''}`;
+    CLres(qid, ok); });
+  paint(null);
+  if(quiz) quiz.push({ grade:okAll, reveal:()=>{}, lock:()=>{ v.dataset.locked='1'; } });
+}
+const MXgenRow = withMode => r => {
+  for(let t=0;t<2000;t++){
+    const a = sorted([0,1,2,3,4].map(()=>rInt(r,0,15))); const m = mean(a), me = median(a);
+    if(m%1 || Math.abs(m-me)<1) continue;
+    if(withMode){ const md = modes(a); if(md.length!==1 || countOf(a, md[0])<2 || md[0]===me) continue; return { mean:m, med:me, mode:md[0] }; }
+    return { mean:m, med:me };
+  }
+  return withMode ? { mean:6, med:4, mode:3 } : { mean:6, med:4 };
+};
+
+/* ============================================================
+   DENKOPDRACHT: ÉÉN GETAL ERBIJ
+   ============================================================ */
+function MXaddOne(b, st, save, key, d){
+  const v = d.v, n = v.length, m = mean(v), S = sum(v), ans = (n+1)*(m+1) - S;
+  b.append(el('div','readout bigq', `Lotte haalde op ${n} toetsen: <b>${MXlist(v)}</b> (op 20). Welke score moet ze op de volgende toets halen, zodat haar gemiddelde <b>1 punt hoger</b> wordt?`));
+  const P = MXline(0, 20, 230); const viz = el('div','viz mid'); viz.append(P.svg); b.append(viz);
+  const out = el('div','readout'); b.append(out);
+  b.append(el('div','sub','Proberen mag: sleep het oranje bolletje (de nieuwe toets) en kijk wat het gemiddelde doet.'));
+  function paint(){
+    const items = v.map(x=>({v:x})); if(st.x!=null) items.push({v:st.x, i:0, cls:'or'});
+    P.dots(items);
+    const all = st.x!=null ? [...v, st.x] : v, mm = mean(all);
+    P.marks([[mm, 'x̄ = '+nf(mm,2), 'or']]);
+    out.innerHTML = st.x==null ? `Nu: x̄ = <b>${nf(m,2)}</b>. Klik of sleep op de getallenas om de nieuwe toets te plaatsen.` : `Met een ${st.x} erbij: x̄ = <b>${nf(mm,2)}</b> ${Math.abs(mm-(m+1))<1e-9 ? '✓ precies 1 hoger!' : mm>m+1 ? '(meer dan 1 hoger)' : '(nog niet 1 hoger)'}`;
+  }
+  let drag = false;
+  if(!QZ){
+    P.svg.addEventListener('pointerdown', e=>{ drag = true; try{ P.svg.setPointerCapture(e.pointerId); }catch(_){} st.x = P.valAt(e); save(); paint(); });
+    P.svg.addEventListener('pointermove', e=>{ if(!drag) return; const x = P.valAt(e); if(x!==st.x){ st.x = x; save(); paint(); } });
+    P.svg.addEventListener('pointerup', ()=>drag=false); P.svg.addEventListener('pointercancel', ()=>drag=false);
+    P.svg.tabIndex = 0; P.svg.setAttribute('aria-label','getallenas: pijltjestoetsen verplaatsen de nieuwe toets');
+    P.svg.addEventListener('keydown', e=>{ const dx = e.key==='ArrowRight' ? 1 : e.key==='ArrowLeft' ? -1 : 0; if(!dx) return; e.preventDefault(); st.x = Math.max(0, Math.min(20, (st.x ?? 10)+dx)); save(); paint(); });
+  }
+  paint();
+  list([
+    { html:'Het gemiddelde van de eerste toetsen is x̄ = [[0]]', mode:'numeric', check:exact(m), sol:`${S} : ${n} = <b>${nf(m)}</b>.` },
+    { html:`Welke score moet ze halen zodat haar gemiddelde ${nf(m+1)} wordt? [[0]]`, mode:'numeric', check:exact(ans, 'Werk met de som: hoeveel moeten alle toetsen samen zijn?'),
+      sol:`Nu is de som ${nf(m)} · ${n} = ${S}. Straks ${n+1} toetsen met gemiddelde ${nf(m+1)}: som ${n+1} · ${nf(m+1)} = ${(n+1)*(m+1)}. De nieuwe toets: ${(n+1)*(m+1)} − ${S} = <b>${ans}</b>. Dat is niet ${nf(m+1)}: de nieuwe toets moet ook de vorige toetsen "optrekken".` }
+  ], {letters:true})(b, st, save, key);
+}
+const MXgenAdd = r => { for(let t=0;t<500;t++){ const n = rInt(r,4,6); const v = MXintMean(r, n, 6, 16); const ans = (n+1)*(mean(v)+1) - sum(v); if(ans<=20 && ans>=mean(v)+3) return { v }; } return { v:[12,10,14,12] }; };
+
+/* ============================================================
+   WAT ALS? SCHUIFREGELAARS
+   ============================================================ */
+function MXwhatIf(b, st, save, key){
+  const base = [4,6,6,7,8,9,10,12], last = base.length-1;
+  if(st.k==null) st.k = 0; if(st.u==null) st.u = base[last];
+  const bar1 = el('div','viz-bar', '<span class="lbl">Iedereen wacht extra:</span>');
+  const s1 = el('input'); s1.type='range'; s1.min=-3; s1.max=5; s1.step=1; s1.value=st.k; s1.setAttribute('aria-label','iedereen wacht extra minuten');
+  const o1 = el('span','pill'); bar1.append(s1, o1);
+  const bar2 = el('div','viz-bar', '<span class="lbl">Wachttijd van de laatste klant:</span>');
+  const s2 = el('input'); s2.type='range'; s2.min=3; s2.max=40; s2.step=1; s2.value=st.u; s2.setAttribute('aria-label','wachttijd van de laatste klant');
+  const o2 = el('span','pill'); bar2.append(s2, o2);
+  const viz = el('div','viz mid'); const tbl = el('div'); tbl.style.overflowX = 'auto';
+  b.append(bar1, bar2, viz, tbl);
+  const M = a => ({ 'gemiddelde':mean(a), 'mediaan':median(a), 'modus':modes(a).length===1 ? modes(a)[0] : null, 'variatiebreedte':range(a) });
+  const m0 = M(base);
+  function paint(){
+    const a = base.map((x,i)=>(i===last ? st.u : x) + st.k);
+    o1.textContent = (st.k>0?'+':'') + st.k + ' min'; o2.textContent = (st.u + st.k) + ' min';
+    const mm = M(a), keys = Object.keys(mm);
+    const P = MXline(0, 45, 220, {lab:5, r:5.5, base:120, xTitle:'Wachttijd aan de kassa (minuten)'});
+    P.dots(a.map((x,i)=>({v:x, cls:i===last?'or':''})));
+    P.marks([[mm['gemiddelde'], 'x̄ = '+nf(mm['gemiddelde'],2), 'or'], [mm['mediaan'], 'Me = '+nf(mm['mediaan'],2)]].sort((p,q)=>p[0]-q[0]));
+    viz.innerHTML = ''; viz.append(P.svg);
+    tbl.innerHTML = `<table class="mx-tbl"><thead><tr><th>maat</th><th>begin</th><th>nu</th><th>verschil</th></tr></thead><tbody>${keys.map(k=>{ const a0 = m0[k], a1 = mm[k]; const dd = a0==null||a1==null ? null : a1-a0;
+      return `<tr><td>${k}</td><td>${a0==null?'geen':nf(a0,2)}</td><td>${a1==null?'geen':nf(a1,2)}</td><td class="${dd>0?'up':dd<0?'dn':''}">${dd==null?'·':(dd>0?'+':'')+nf(dd,2)}</td></tr>`; }).join('')}</tbody></table>`;
+  }
+  s1.addEventListener('input', ()=>{ st.k = +s1.value; save(); paint(); });
+  s2.addEventListener('input', ()=>{ st.u = +s2.value; save(); paint(); });
+  paint();
+}
+
+/* ============================================================
+   SPEL: RAAD MIJN GETALLEN (telt niet mee)
+   ============================================================ */
+function MXsecret(r, lv){
+  for(let t=0;t<3000;t++){
+    const a = sorted(Array.from({length:lv}, ()=>rInt(r,1,10))); const s = sum(a);
+    if(s%lv) continue;
+    if(lv===3){ if(range(a)<2) continue; return { a, clues:[['x̄','gemiddelde',s/lv], ['Me','mediaan',median(a)], ['vb','variatiebreedte',range(a)]] }; }
+    const md = modes(a); if(md.length!==1 || countOf(a, md[0])!==2) continue;
+    return { a, clues:[['x̄','gemiddelde',s/lv], ['Me','mediaan',median(a)], ['Mo','modus',md[0]], ['vb','variatiebreedte',range(a)]] };
+  }
+  return lv===3 ? { a:[2,5,8], clues:[['x̄','gemiddelde',5],['Me','mediaan',5],['vb','variatiebreedte',6]] } : { a:[2,4,4,7,8], clues:[['x̄','gemiddelde',5],['Me','mediaan',4],['Mo','modus',4],['vb','variatiebreedte',6]] };
+}
+function MXguess(b, st, save, key){
+  if(QZ) return;
+  if(st.seed==null){ st.seed = Math.floor(Math.random()*1e9); save(); }
+  if(!st.lv) st.lv = 3; if(!st.tries) st.tries = []; if(st.wins==null) st.wins = 0;
+  const lvBox = el('div','mx-lvl'); const box = el('div'); b.append(lvBox, box);
+  [[3,'3 getallen'],[5,'5 getallen (moeilijker)']].forEach(([k,t])=>{ const o = el('button','opt',t); o.type='button'; o.dataset.k = k; lvBox.append(o);
+    o.addEventListener('click', ()=>{ if(st.lv===k) return; st.lv = k; st.tries = []; st.won = false; st.seed = (st.seed + 104729)>>>0; save(); draw(); }); });
+  function measure(a, k){ if(k==='Mo'){ const m = modes(a); return m.length===1 && countOf(a,m[0])>1 ? m[0] : null; } return k==='x̄' ? mean(a) : k==='Me' ? median(a) : range(a); }
+  function draw(){
+    lvBox.querySelectorAll('.opt').forEach(o=>o.classList.toggle('chosen', +o.dataset.k===st.lv));
+    const S = MXsecret(rng(st.seed), st.lv), lv = st.lv;
+    box.innerHTML = '';
+    box.append(el('div','readout bigq', `Ik denk aan <b>${lv} gehele getallen</b> van 1 tot en met 10. Dit zijn mijn hints:`));
+    box.append(el('div','mx-clues', S.clues.map(([k,name,val])=>`<span class="mx-clue"><small>${name}</small>${k} = ${nf(val)}</span>`).join('')));
+    const g = el('div','mx-guess'); const ins = [];
+    for(let i=0;i<lv;i++){ const inp = el('input','inp'); inp.type='text'; inp.inputMode='numeric'; inp.autocomplete='off'; inp.setAttribute('aria-label','getal '+(i+1)); g.append(inp); ins.push(inp); }
+    const tryB = el('button','btn','Probeer'); tryB.type='button'; g.append(tryB);
+    const newB = el('button','btn ghost','↻ Nieuw spel'); newB.type='button'; g.append(newB);
+    box.append(g); const fb = el('div','fb'); const log = el('div','mx-tries'); box.append(fb, log);
+    box.append(el('div','sub', `Gewonnen spelletjes: <b>${st.wins}</b>. Dit spel telt niet mee.`));
+    function showTry(a){
+      const parts = S.clues.map(([k,name,val])=>{ const x = measure(a,k); const ok = x!=null && Math.abs(x-val)<1e-9;
+        return `<span class="${ok?'ok':'no'}">${k} ${x==null?'geen':nf(x,2)} ${ok?'✓':x==null?'✗':x>val?'↓ te groot':'↑ te klein'}</span>`; });
+      log.prepend(el('div','mx-try', `<span class="g">${a.map(x=>nf(x)).join(', ')}</span>${parts.join('')}`));
+    }
+    st.tries.forEach(showTry);
+    function finish(){ fb.className = 'fb ok'; fb.innerHTML = `🎉 Geraden in ${st.tries.length} ${st.tries.length===1?'poging':'pogingen'}! Jouw getallen kloppen met alle hints.${st.lv===5 ? ` Ik dacht aan ${MXlist(S.a)}. Er zijn soms meer oplossingen.` : ''}`; ins.forEach(i=>i.disabled = true); tryB.disabled = true; }
+    if(st.won) finish();
+    function go(){
+      if(st.won) return;
+      const a = ins.map(i=>parseLoose(i.value));
+      if(a.some(x=>isNaN(x))){ fb.className='fb info'; fb.textContent = `Typ in elk vakje een geheel getal van 1 tot 10.`; return; }
+      if(a.some(x=>x<1 || x>10 || x%1)){ fb.className='fb info'; fb.textContent = 'Enkel gehele getallen van 1 tot en met 10.'; return; }
+      st.tries.push(a); showTry(a);
+      const ok = S.clues.every(([k,,val])=>{ const x = measure(a,k); return x!=null && Math.abs(x-val)<1e-9; });
+      if(ok){ st.won = true; st.wins++; save(); finish(); }
+      else { save(); fb.className = 'fb bad'; fb.innerHTML = '❌ Nog niet alle hints kloppen. Tip: begin met de som. Die is gemiddelde · ' + lv + ' = <b>' + nf(S.clues[0][2]*lv) + '</b>.'; }
+    }
+    tryB.addEventListener('click', go);
+    ins.forEach(i=>i.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }));
+    newB.addEventListener('click', ()=>{ st.seed = (st.seed + 7919)>>>0; st.tries = []; st.won = false; save(); draw(); });
+  }
+  draw();
+}
+
+/* ============================================================
+   KAARTEN
+   ============================================================ */
+const MXsec = id => SECTIONS.find(s=>s.id===id).cards;
+MXsec('modus').push(
+  { title:'Klik op de modus (nieuwe opgave)', lvl:1, instr:'Een klas zei hoe vaak ze dit jaar naar de film gingen. Met "Nieuwe opgave" krijg je een nieuwe klas.',
+    build:fresh(MXgenDot, (b,st,save,key,d)=>dotPick(b,st,save,key,d)) },
+  { title:'Modus en variatiebreedte (nieuwe opgave)', lvl:2, instr:'Met "Nieuwe opgave" krijg je nieuwe getallen.',
+    build:fresh(MXgenModus, MXmodusEx) }
+);
+MXsec('gem').push(
+  { title:'Bereken het gemiddelde (nieuwe opgave)', lvl:1, instr:'Lukt het niet? Klik op "Toon mij hoe".',
+    build:fresh(MXgenGem1, (b,st,save,key,d)=>MXgemEx(b,st,save,key,d,false)) },
+  { title:'Gemiddelde met afronden (nieuwe opgave)', lvl:2, instr:'Rond af op 0,1.',
+    build:fresh(MXgenGem2, (b,st,save,key,d)=>MXgemEx(b,st,save,key,d,true)) },
+  { title:'Gemiddelde uit een frequentietabel (nieuwe opgave)', lvl:2, instr:'Vermenigvuldig eerst elk gegeven met zijn frequentie.',
+    build:fresh(MXtab, MXgemTabEx) },
+  { title:'Eén toets erbij', lvl:3, instr:'Een denkopdracht: de nieuwe score is niet gewoon "1 meer dan het gemiddelde".',
+    build:fresh(MXgenAdd, MXaddOne) }
+);
+MXsec('med').push(
+  { title:'De mediaan (nieuwe opgave)', lvl:1, instr:'Een oneven aantal gegevens. Lukt het niet? Klik op "Toon mij hoe".',
+    build:fresh(MXgenMed(false), MXmedEx) },
+  { title:'Mediaan bij een even aantal (nieuwe opgave)', lvl:2, instr:'Bij een even aantal gegevens zijn er twee middelste getallen.',
+    build:fresh(MXgenMed(true), MXmedEx) },
+  { title:'Mediaan uit een frequentietabel (nieuwe opgave)', lvl:2, instr:'De tabel is al geordend: tel af tot het middelste gegeven.',
+    build:fresh(MXtab, MXmedTabEx) }
+);
+MXsec('interp').push(
+  { title:'Maak zelf een rij', lvl:2, instr:'Vijf getallen van 0 tot 15. Kijk hoe het gemiddelde en de mediaan meeschuiven terwijl je sleept.',
+    build:fresh(MXgenRow(false), MXbuildRow) },
+  { title:'Wat als ...?', lvl:2, instr:'Acht klanten wachten aan de kassa. Verschuif de schuifregelaars en kijk welke maten veranderen.',
+    build:combo(MXwhatIf, (b,st,save,key)=>{
+      const o = [['a','blijft gelijk'],['b','stijgt met 2'],['c','stijgt met 16']];
+      choiceList([['Iedereen wacht 2 minuten langer. Wat gebeurt er met het gemiddelde?', 'b', 'Elk gegeven stijgt met 2, de som stijgt met 8 · 2 = 16 en 16 : 8 = 2. Het gemiddelde stijgt dus ook met 2.']], o)(b, st, save, key+'_a');
+      choiceList([['Iedereen wacht 2 minuten langer. Wat gebeurt er met de mediaan?', 'b', 'De volgorde blijft dezelfde: de middelste schuiven ook 2 op.']], o)(b, st, save, key+'_b');
+      choiceList([['Iedereen wacht 2 minuten langer. Wat gebeurt er met de variatiebreedte?', 'a', 'Grootste en kleinste stijgen allebei met 2: het verschil blijft gelijk.']], o)(b, st, save, key+'_c');
+      choiceList([['De laatste klant wacht plots 40 minuten. Welke maat verandert het minst?', 'm', 'De mediaan blijft gelijk: de uitschieter schuift enkel verder naar rechts. Het gemiddelde en de variatiebreedte stijgen sterk.']], [['g','het gemiddelde'],['m','de mediaan'],['v','de variatiebreedte']])(b, st, save, key+'_d');
+    }) },
+  { title:'Raad mijn getallen', lvl:2, instr:'Een spel: de computer denkt aan een paar getallen. Raad ze met de hints. Het telt niet mee.',
+    build:MXguess },
+  { title:'Maak zelf een rij met een modus', lvl:3, instr:'Nu moet ook de modus kloppen: dat getal komt het vaakst voor.',
+    build:fresh(MXgenRow(true), MXbuildRow) }
+);
+MXsec('freq').push(
+  { title:'Percentages berekenen (nieuwe opgave)', lvl:2, instr:'Deel door het totaal en vermenigvuldig met 100. Lukt het niet? Klik op "Toon mij hoe".',
+    build:fresh(MXgenPct, MXpctEx) }
+);
 
 /* ============================================================
    NAGEBOOTST REKENTOESTEL (zoals de TI-30XS MultiView)
@@ -2255,6 +3135,153 @@ SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'S
         {html:'Hoeveel eieren wegen meer dan het gemiddelde? [[0]]', mode:'numeric', check:exact(14), sol:'Meer dan 54,5 g: 56, 58, 60 en 62 g: 6 + 4 + 3 + 1 = <b>14</b>.'}
       ], {letters:true})) }
   ]});
+/* ============================================================
+   EXTRA BIJ HET REKENTOESTEL: spiekkaart, toetsenquiz, foutenjacht, nieuwe opgaven
+   ============================================================ */
+(function(){
+  const css = `
+  .tx-mini{ width:250px; padding:10px 10px 12px; border-radius:16px; }
+  .tx-mini .scr{ height:auto; min-height:5.4em; }
+  .tx-row{ display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-start; margin:.4rem 0; }
+  .tx-row > div:last-child{ flex:1; min-width:220px; }
+  .tx-keys{ border-collapse:collapse; margin:.2rem 0; }
+  .tx-keys td{ padding:.35rem .5rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .tx-keys tr{ cursor:pointer; }
+  .tx-keys tr:hover td, .tx-keys tr.on td{ background:var(--or-soft); }
+  .tx-keys td:first-child{ white-space:nowrap; }
+  .tx-seq{ font-size:1.05rem; min-height:1.6em; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+/* een stilstaand scherm van het toestel */
+const TXscr = lines => `<div class="tcalc tx-mini"><div class="brand">TI-30XS MultiView</div><div class="scr">${lines.join('\n')}</div></div>`;
+
+/* --- spiekkaart: klik op een rij en de toets licht op --- */
+const TX_KEYS = [
+  [['data'], 'De lijsten L1, L2 en L3 openen.'],
+  [['enter'], 'Een getal in de lijst bevestigen, of een keuze in een menu.'],
+  [['right'], 'Naar de volgende lijst (van L1 naar L2).'],
+  [['up','down'], 'In een lijst of menu naar boven of naar onder.'],
+  [['2nd','data'], 'Het menu STAT: kies 1:1-Var Stats.'],
+  [['clear'], 'In een lijst: het getal of de lijst wissen.'],
+  [['delete'], 'Eén getal uit de lijst verwijderen.'],
+  [['2nd','mode'], 'QUIT: terug naar het gewone rekenscherm.']
+];
+const TX_LAB = { data:K('data'), enter:K('enter'), right:K('▶'), up:K('▲'), down:K('▼'), '2nd':K('2nd','sec'), clear:K('clear'), delete:K('del'), mode:K('mode') };
+function txCheat(b){
+  const row = el('div','tx-row'); b.append(row);
+  const cw = el('div'); row.append(cw); const C = makeCalc(cw);
+  const right = el('div'); row.append(right);
+  const tb = el('table','tx-keys'); right.append(tb);
+  TX_KEYS.forEach(([ks, say])=>{
+    const tr = el('tr', '', `<td>${ks.map(k=>TX_LAB[k]).join(' ')}</td><td>${say}</td>`); tb.append(tr);
+    tr.addEventListener('click', ()=>{
+      tb.querySelectorAll('tr').forEach(t=>t.classList.toggle('on', t===tr));
+      Object.values(C.btn).forEach(x=>x.classList.remove('hot'));
+      ks.forEach(k=>C.btn[k] && C.btn[k].classList.add('hot'));
+    });
+  });
+  right.append(el('p','', '<b>Let op:</b> de modus geeft het toestel niet. Die zoek je zelf in de tabel: het gegeven met de grootste frequentie.'));
+}
+
+/* --- welke toetsen druk je in? de leerling drukt ze in op het toestel --- */
+function txKeyQuiz(b, st, save, key, tasks){
+  const row = el('div','tx-row'); b.append(row);
+  const cw = el('div'); row.append(cw); const C = makeCalc(cw);
+  const right = el('div'); row.append(right);
+  const prompt = el('div','readout bigq'); const seq = el('div','tx-seq'); const fb = el('div','fb');
+  right.append(prompt, seq, fb);
+  const ids = tasks.map((t,i)=>QID('toets'+i)); ids.forEach(id=>CLvraag(id));
+  st.done = st.done || 0; let typed = [], missed = false;
+  function paint(){
+    const t = tasks[st.done];
+    prompt.innerHTML = t ? `<b>${st.done+1}/${tasks.length}.</b> ${t.say}` : '✅ Alles juist. Je kent de toetsen!';
+    seq.innerHTML = typed.length ? 'Jij drukte: ' + typed.map(k=>TX_LAB[k]||k).join(' ') : '';
+  }
+  cw.addEventListener('click', e=>{
+    const k = e.target.closest('.k'); if(!k) return; const t = tasks[st.done]; if(!t) return;
+    typed.push(k.dataset.code);
+    const alts = t.keys; const okPrefix = alts.some(a=>typed.every((x,i)=>a[i]===x));
+    if(!okPrefix){ fb.className='fb bad'; fb.innerHTML = '❌ Dat is niet de juiste toets. ' + t.hint; missed = true; typed = []; paint(); return; }
+    if(alts.some(a=>a.length===typed.length)){
+      CLres(ids[st.done], !missed); fb.className='fb ok'; fb.innerHTML = '✅ Juist! ' + (t.why||'');
+      st.done++; save(); typed = []; missed = false; setTimeout(()=>{ C.reset(); paint(); }, 900); return;
+    }
+    paint();
+  });
+  paint();
+}
+const TX_TASKS = [
+  {say:'Open de lijsten om gegevens in te typen.', keys:[['data']], hint:'Zoek de toets met het woord data.'},
+  {say:'Je typte een getal in L1. Bevestig het.', keys:[['enter']], hint:'Na elk getal druk je op dezelfde toets.'},
+  {say:'Ga van L1 naar L2 om de frequenties te typen.', keys:[['right']], hint:'L2 staat rechts van L1.'},
+  {say:'Open het menu STAT.', keys:[['2nd','data']], hint:'STAT staat in het blauw boven een toets: eerst 2nd.', why:'2nd data = stat.'},
+  {say:'Wis een verkeerd getal uit de lijst.', keys:[['clear'],['delete']], hint:'Gebruik clear of del.'},
+  {say:'Ga terug naar het gewone rekenscherm (QUIT).', keys:[['2nd','mode']], hint:'QUIT staat in het blauw boven mode.', why:'2nd mode = quit.'}
+];
+
+/* --- foutenjacht: wat ging er mis op het toestel? --- */
+const TX_OORZAAK = [['one','FRQ stond op ONE'],['verg','Er is een gegeven vergeten'],['typ','Er is een getal verkeerd getypt'],['frq','Er ontbreekt een frequentie in L2'],['ok','Alles klopt']];
+function txHunt(b, st, save, key, cases){
+  cases.forEach((c,i)=>{
+    const box = el('div','q'); b.append(box);
+    box.append(el('div','q-text block', `<span class="q-num">${i+1}.</span>${c.task}`));
+    const row = el('div','tx-row'); row.innerHTML = TXscr(c.scr); const r2 = el('div'); row.append(r2); box.append(row);
+    qChoice(r2, st, save, key+'_'+i, {html:'Wat ging er mis?', ans:c.ans, why:c.why, opts:TX_OORZAAK});
+  });
+}
+const TX_CASES = [
+  {task:`Schoenmaat van 20 jongeren: ${ftabHTML(['maat','37','38','39','40','41','42','43','45'], [['aantal','1','3','5','1','4','3','2','1']])} Ruben zette de maten in L1 en de aantallen in L2. Zijn toestel toont:`,
+    scr:['1-Var:L1','1:n=8','2:x̄=40.625','5:Σx=325'], ans:'one', why:'Er zijn 20 jongeren, maar n = 8: het toestel telde elke maat maar één keer. Bij FRQ moet L2 staan in plaats van ONE. Dan krijg je n = 20 en x̄ = 40,35.'},
+  {task:'Wachttijden in minuten: 12, 7, 15, 9, 7, 20, 11, 8. Lies typte alles in L1 (FRQ: ONE). Haar toestel toont:',
+    scr:['1-Var:L1','1:n=7','2:x̄=9.857143','11:maxX=15'], ans:'verg', why:'Er zijn 8 wachttijden, maar n = 7. Het maximum is 15 in plaats van 20: Lies vergat 20 te typen.'},
+  {task:'Dezelfde wachttijden: 12, 7, 15, 9, 7, 20, 11, 8. Arne typte alles in L1 (FRQ: ONE). Zijn toestel toont:',
+    scr:['1-Var:L1','1:n=8','2:x̄=15.625','11:maxX=51'], ans:'typ', why:'n = 8 klopt, maar het maximum is 51. Dat getal staat niet in de lijst: Arne typte 51 in plaats van 15.'},
+  {task:`Punten op 10: ${ftabHTML(['punten','5','6','7','8','9'], [['aantal','2','4','7','5','3']])} Yara typte de punten in L1 en de aantallen in L2, en koos FRQ: L2. Haar toestel toont:`,
+    scr:['','FOUT: DIM MISMATCH','(lijsten niet even lang)'], ans:'frq', why:'L1 heeft 5 getallen. Als L2 er maar 4 heeft, zijn de lijsten niet even lang. Bij elk gegeven hoort één frequentie.'},
+  {task:`Aantal broers en zussen: ${ftabHTML(['aantal','3','4','5'], [['frequentie','2','5','3']])} Noor typte 3, 4, 5 in L1 en 2, 5, 3 in L2, met FRQ: L2. Haar toestel toont:`,
+    scr:['1-Var:L1,L2','1:n=10','2:x̄=4.1','5:Σx=41'], ans:'ok', why:'n = 2 + 5 + 3 = 10 en Σx = 2·3 + 5·4 + 3·5 = 41. Het gemiddelde 41 : 10 = 4,1 klopt.'}
+];
+
+/* --- nieuwe opgave: een lijst getallen, het toestel rekent --- */
+const txGen = r => { const n = rInt(r,6,9); const v = []; for(let i=0;i<n;i++) v.push(rInt(r,4,30)); const what = rPick(r, [['wachttijden','min'],['punten op 30',''],['temperaturen','°C'],['leeftijden','jaar']]); return {v, what}; };
+function txGenEx(b, st, save, key, d){
+  const v = d.v, m = mean(v), me = median(v), u = d.what[1] ? ' '+d.what[1] : '';
+  b.append(el('div','readout bigq', `${d.what[0][0].toUpperCase()+d.what[0].slice(1)}: <b>${v.join(', ')}</b>`));
+  const row = el('div','tx-row'); b.append(row); const cw = el('div'), qs = el('div'); row.append(cw, qs); makeCalc(cw);
+  const exactM = Math.abs(m*100-Math.round(m*100))<1e-9;
+  list([
+    {html:'n = [[0]]', mode:'numeric', check:exact(v.length), sol:`Er zijn ${v.length} getallen.`},
+    {html:`x̄ = [[0]]${u} ${exactM?'':'(rond af op 0,01)'}`, check:approx(m, exactM?1e-9:0.006), sol:`Σx = ${sum(v)} en ${sum(v)} : ${v.length} = ${nf(m,4)}${exactM?'':' ≈ <b>'+nf(m,2)+'</b>'}.`},
+    {html:`Med = [[0]]${u}`, check:exact(me), sol:`Geordend: ${sorted(v).join(', ')}. De mediaan is <b>${nf(me)}</b>.`},
+    {html:`variatiebreedte = [[0]]${u}`, mode:'numeric', check:exact(range(v)), sol:`maxX − minX = ${Math.max(...v)} − ${Math.min(...v)} = <b>${range(v)}</b>.`}
+  ], {letters:true})(qs, st, save, key);
+}
+
+SECTIONS.find(s=>s.id==='toestel').cards.push(
+  { title:'Spiekkaart: de toetsen voor statistiek', lvl:1, instr:'Klik op een rij: de toets licht op het toestel op.',
+    build:b=>txCheat(b) },
+  { title:'Welke toets druk je in?', lvl:1, instr:'Druk de juiste toetsen in op het toestel.',
+    build:(b,st,save,key)=>txKeyQuiz(b,st,save,key,TX_TASKS) },
+  { title:'Foutenjacht op het toestel', lvl:2, instr:'Vijf leerlingen gebruikten hun rekentoestel. Kijk naar het scherm: wat ging er mis?',
+    build:(b,st,save,key)=>txHunt(b,st,save,key,TX_CASES) },
+  { title:'Toetspunten met het toestel', lvl:2, instr:'22 leerlingen kregen hun punten op 10. Zet de punten in L1 en de aantallen in L2.',
+    build:combo(html(ftabHTML(['punten','4','5','6','7','8','9','10'], [['aantal','1','2','4','6','5','3','1']])), b=>{ const w=el('div','calc-wrap'); b.append(w); makeCalc(w); }, list([
+      {html:'n = [[0]]', mode:'numeric', check:exact(22), sol:'1 + 2 + 4 + 6 + 5 + 3 + 1 = 22.'},
+      {html:'x̄ = [[0]] (rond af op 0,01)', check:approx(7.14, 0.006), sol:'Σx = 157 en 157 : 22 = 7,136… ≈ <b>7,14</b>.'},
+      {html:'Med = [[0]]', check:exact(7), sol:'Het 11de en het 12de gegeven zijn allebei 7: Me = <b>7</b>.'},
+      {html:'variatiebreedte = [[0]] · modus = [[1]]', size:'sm', check:nums([6,7]), sol:'10 − 4 = <b>6</b>. De grootste frequentie (6) hoort bij <b>7</b>.'}
+    ], {letters:true})) },
+  { title:'Nieuwe opgave op het toestel', lvl:2, instr:'Typ de getallen in L1 (FRQ: ONE). Met "Nieuwe opgave" krijg je nieuwe getallen.',
+    build:fresh(txGen, (b,st,save,key,d)=>txGenEx(b,st,save,key,d)) },
+  { title:'Terugrekenen vanaf het scherm', lvl:3, instr:'Het toestel geeft n, x̄ en Σx. Met twee ervan vind je de derde.',
+    build:combo(html(TXscr(['1-Var:L1','1:n=25','2:x̄=?','5:Σx=450'])), list([
+      {html:'Het scherm toont n = 25 en Σx = 450. Dan is x̄ = [[0]]', check:exact(18), sol:'x̄ = Σx : n = 450 : 25 = <b>18</b>.'},
+      {html:'Een ander scherm toont n = 15 en x̄ = 7,2. Dan is Σx = [[0]]', check:exact(108), sol:'Σx = x̄ · n = 7,2 · 15 = <b>108</b>.'},
+      {html:'n = 12 en x̄ = 15. Je voegt nog het getal 28 toe. Het nieuwe gemiddelde is [[0]]', check:exact(16), sol:'De som was 12 · 15 = 180. Nu 180 + 28 = 208 en 208 : 13 = <b>16</b>.'},
+      {html:'Klas A: n = 20 en x̄ = 14. Klas B: n = 25 en x̄ = 15,8. Het gemiddelde van alle 45 leerlingen is [[0]]', check:exact(15), sol:'20 · 14 = 280 en 25 · 15,8 = 395. (280 + 395) : 45 = 675 : 45 = <b>15</b>. Let op: het is niet (14 + 15,8) : 2.'}
+    ], {letters:true})) }
+);
 
 /* ============================================================
    REKENBLAD: een klein werkend rekenblad (zoals Excel of Google Spreadsheets)
@@ -3247,6 +4274,277 @@ SECTIONS.push({ id:'datalab', ic:'datalab', nav:'Datalab: mijn onderzoek', title
       build:(b,st,save,key)=>dataLab(b,st,save,key) }
   ]});
 /* ============================================================
+   DE VERWERKINGSOPDRACHTEN UIT HET WERKBOEK, MET ANDERE GETALLEN
+   + VERDIEPING ZOALS HET DIFFERENTIATIETRAJECT (pepers)
+   ============================================================ */
+const WBref = (nr, p) => `Zoals opdracht ${nr} op p. ${p} van je werkboek, maar met andere getallen.`;
+const WBdif = nr => `Uitdaging zoals opdracht D${nr} van het differentiatietraject.`;
+const WBsec = id => SECTIONS.find(s=>s.id===id).cards;
+/* letters als antwoord: volgorde, spaties en komma's maken niet uit */
+const WBletters = (ans, hint) => v => { const got = String(v[0]).toUpperCase().replace(/[^A-Z]/g,'').split('').sort().join(''); const ok = got===ans.split('').sort().join(''); return {ok, msg:ok?'':(hint||'')}; };
+
+/* --- coördinaten --- */
+WBsec('coord').push(
+  { title:'Werkboek: coördinaten aflezen', lvl:2, instr:WBref(1, 6),
+    build:combo((b,st,save,key)=>coordRead(b,st,save,key, [[2,4,'A'],[-5,1,'B'],[0,-3,'C'],[4,-2,'D'],[-3,-4,'E'],[-2,0,'F']]),
+      choiceList([
+        ['D ligt in kwadrant II.', 'n', 'D(4, −2): x positief en y negatief, dus kwadrant IV.'],
+        ['F ligt op de x-as.', 'w', 'F(−2, 0): het tweede coördinaatgetal is 0, dus F ligt op de x-as.'],
+        ['C ligt op de y-as.', 'w', 'C(0, −3): het eerste coördinaatgetal is 0, dus C ligt op de y-as.']
+      ], WN)) },
+  { title:'Werkboek: punten plaatsen', lvl:2, instr:WBref(2, 6),
+    build:combo((b,st,save,key)=>coordPlace(b,st,save,key, [[4,2,'J'],[0,-3,'K'],[-2,-5,'L'],[-3,3,'M'],[5,-1,'N'],[-6,0,'P']]), list([
+      {html:'Welke punten hebben een strikt negatieve y-coördinaat? Typ de letters: [[0]]', size:'sm', check:WBletters('KLN', 'Kijk naar het tweede getal: kleiner dan 0, dus onder de x-as.'), sol:'K(0, −3), L(−2, −5) en N(5, −1): <b>K, L en N</b>. P(−6, 0) ligt op de x-as: 0 is niet negatief.'}
+    ]))},
+  { title:'Werkboek: waar of niet waar?', lvl:2, instr:WBref(3, 7),
+    build:choiceList([
+      ['Als het tweede coördinaatgetal 0 is, dan ligt het punt op de x-as.', 'w', 'Bv. (5, 0): je gaat 5 naar rechts en 0 naar boven, je blijft op de x-as.'],
+      ['P(−4, 1) en Q(4, −1) liggen in hetzelfde kwadrant.', 'n', 'P ligt in kwadrant II, Q in kwadrant IV.'],
+      ['Als een punt in kwadrant IV ligt, is het eerste coördinaatgetal positief en het tweede negatief.', 'w', 'Kwadrant IV: rechts van de y-as (x > 0) en onder de x-as (y < 0).'],
+      ['Als R(a, −3) en S(2, b) in hetzelfde kwadrant liggen, dan liggen ze in kwadrant IV.', 'w', 'S heeft x = 2 > 0: kwadrant I of IV. R heeft y = −3 < 0: kwadrant III of IV. Samen kan enkel IV.']
+    ], WN) }
+);
+/* verdieping zoals D5, D7, D8 en D9 */
+WBsec('coord').push(
+  { title:'Uitdaging: speurtocht naar A, B en C', lvl:3, instr:WBdif(7),
+    build:list([
+      {html:'A ligt in kwadrant IV. Het product van de coördinaatgetallen is −12 en hun som is 1. A( [[0]] , [[1]] )', size:'xs', check:nums([4,-3]), sol:'Kwadrant IV: x > 0 en y < 0. 4 · (−3) = −12 en 4 + (−3) = 1. Dus <b>A(4, −3)</b>.'},
+      {html:'B ligt op de x-as, 3 eenheden links van de oorsprong. B( [[0]] , [[1]] )', size:'xs', check:nums([-3,0]), sol:'Op de x-as is y = 0. Links van O is x negatief: <b>B(−3, 0)</b>.'},
+      {html:'C ligt in kwadrant II. Het product van de coördinaatgetallen is −8 en hun som is 2. C( [[0]] , [[1]] )', size:'xs', check:nums([-2,4]), sol:'Kwadrant II: x < 0 en y > 0. (−2) · 4 = −8 en −2 + 4 = 2. Dus <b>C(−2, 4)</b>.'},
+      {html:'ABCD is een parallellogram. D( [[0]] , [[1]] )', size:'xs', check:nums([5,1]), sol:'Van B naar A: 7 naar rechts en 3 naar onder. Zet die stap ook vanaf C: (−2 + 7, 4 − 3) = <b>D(5, 1)</b>.'}
+    ], {letters:true}) },
+  { title:'Uitdaging: een vlieger', lvl:3, instr:WBdif(8) + ' A(1, 4), B(4, 1) en C(1, −2). ABCD is een vlieger met AC als symmetrieas.',
+    build:combo(b=>{ const P = plane(); [[1,4,'A'],[4,1,'B'],[1,-2,'C']].forEach(p=>P.point(p[0],p[1],p[2])); svgEl('line',{x1:P.X(1), y1:P.Y(4), x2:P.X(1), y2:P.Y(-2), class:'proj'}, P.layer); b.append(planeBox(P.svg)); }, list([
+      {html:'D is het spiegelbeeld van B tegenover de as AC. D( [[0]] , [[1]] )', size:'xs', check:nums([-2,1]), sol:'B ligt 3 rechts van de as x = 1. D ligt 3 links ervan, op dezelfde hoogte: <b>D(−2, 1)</b>.'},
+      {html:'Is AC geen symmetrieas maar BD? Dan ligt D op de rechte door B, evenwijdig met de x-as. Welk coördinaatgetal van D ligt dan vast? y = [[0]]', size:'xs', check:exact(1), sol:'BD staat loodrecht op AC en gaat door het midden (1, 1) van AC. Dus y = <b>1</b>, en D ligt links van AC (x < 1).'}
+    ], {letters:true})) },
+  { title:'Uitdaging: een gelijkbenige driehoek', lvl:3, instr:WBdif(9) + ' A(−3, −2) en B(5, −2). ∆ABC is gelijkbenig met |AC| = |BC| en heeft een oppervlakte van 24.',
+    build:list([
+      {html:'Het eerste coördinaatgetal van C is [[0]]', size:'xs', check:exact(1), sol:'C ligt even ver van A als van B: recht boven of onder het midden van [AB]. (−3 + 5) : 2 = <b>1</b>.'},
+      {html:'De basis |AB| = [[0]] en de hoogte is [[1]]', size:'xs', check:nums([8,6]), sol:'|AB| = 5 − (−3) = <b>8</b>. Oppervlakte = 8 · h : 2 = 24, dus h = <b>6</b>.'},
+      {html:'Er zijn twee mogelijkheden: C(1, [[0]]) of C(1, [[1]])', size:'xs', check:v=>{ const a=parseLoose(v[0]), c=parseLoose(v[1]); const ok = (a===4&&c===-8)||(a===-8&&c===4); return {ok, msg:ok?'':'De hoogte 6 kan je naar boven en naar onder tellen vanaf y = −2.'}; }, sol:'−2 + 6 = <b>4</b> en −2 − 6 = <b>−8</b>.'}
+    ], {letters:true}) }
+);
+
+/* --- lijndiagram --- */
+const WB_BALLON = {labels:['0','10','20','30','40','50','60','70'], series:[{values:[0,200,450,600,600,500,300,0]}], xTitle:'Tijd (in minuten)', yTitle:'Hoogte (in m)', step:100, yMax:700};
+WBsec('lijn').push(
+  { title:'Werkboek: een ballonvaart', lvl:2, instr:WBref(4, 7) + ' Een luchtballon stijgt op en landt weer.',
+    build:combo(lineHint(WB_BALLON),
+      choiceList([['Van welke twee grootheden toont dit lijndiagram het verband?', 'b', 'Op de horizontale as staat de tijd, op de verticale as de hoogte.']], [['a','hoogte en snelheid'],['b','tijd en hoogte'],['c','tijd en afstand']]),
+      choiceList([['Wat betekent het punt (30, 600)?', 'a', 'Eerst de tijd (30 min), dan de hoogte (600 m).']], [['a','Na 30 minuten vliegt de ballon op 600 m.'],['b','Na 600 minuten vliegt de ballon op 30 m.'],['c','De ballon stijgt 30 m per minuut.']]),
+      list([
+        {html:'Op welke hoogte vliegt de ballon na 50 minuten? [[0]] m', mode:'numeric', check:exact(500), sol:'Bij 50 min staat de grafiek op <b>500 m</b>.'},
+        {html:'Hoeveel minuten blijft de ballon op dezelfde hoogte? [[0]] min', mode:'numeric', check:exact(10), sol:'Van 30 tot 40 minuten blijft hij op 600 m: <b>10 minuten</b>.'}
+      ], {letters:true})) },
+  { title:'Werkboek: een tweede ballon', lvl:2, instr:'Een tweede ballon vliegt dezelfde dag. Plaats de punten uit de tabel.',
+    build:combo(html(ftabHTML(['tijd (in min)','0','10','20','30','40','50','60','70'], [['hoogte (in m)','0','100','300','500','700','700','400','0']])),
+      (b,st,save,key)=>linePlot(b,st,save,key,{labels:['0','10','20','30','40','50','60','70'], values:[0,100,300,500,700,700,400,0], chart:{xTitle:'Tijd (in minuten)', yTitle:'Hoogte (in m)', step:100, yMin:0, yMax:800}, snap:100, hint:'Elk hokje op de verticale as is 100 m.', why:'Deze ballon gaat hoger (700 m) maar landt ook na 70 minuten.'})) }
+);
+
+/* --- soorten data --- */
+WBsec('soort').push(
+  { title:'Werkboek: numeriek of categorisch?', lvl:2, instr:WBref(8, 12),
+    build:choiceList([
+      ['Hoeveel minuten fiets je naar school?', 'n', 'Een tijdsduur: je kan ermee rekenen.'],
+      ['Welke kleur heeft je fiets?', 'c', 'Een kleur is een categorie.'],
+      ['Hoeveel broers en zussen heb je?', 'n', 'Een aantal: je kan er een gemiddelde van nemen.'],
+      ['Welke sport doe je het liefst?', 'c', 'Een sport is een categorie.'],
+      ['Wat is je postcode?', 'c', 'Een postcode is een getal, maar rekenen ermee is niet zinvol.'],
+      ['Hoeveel kilogram weegt je boekentas?', 'n', 'Een massa: je kan ermee rekenen.'],
+      ['In welke klas zit je (bv. 1Ab)?', 'c', 'Een klas is een groep, geen getal.'],
+      ['Hoeveel berichtjes stuur je per dag?', 'n', 'Een aantal: numeriek.']
+    ], CN) }
+);
+
+/* --- diagrammen --- */
+WBsec('diagram').push(
+  { title:'Werkboek: het openluchtzwembad', lvl:2, instr:WBref(5, 11),
+    build:combo(chartBox('lijn', {title:'Bezoekers van een openluchtzwembad', labels:['apr','mei','jun','jul','aug','sep','okt'], series:[{values:[0,12,30,52,48,15,0]}], xTitle:'Maand', yTitle:'Bezoekers (· 100)', step:10, yMax:60}),
+      choiceList([['Hoe noemen we deze grafiek?', 'l', 'De punten zijn verbonden met lijnstukken.']], [['l','lijndiagram'],['s','staafdiagram'],['d','dotplot'],['c','cirkeldiagram']]),
+      list([
+        {html:'Hoeveel bezoekers kwamen er in juli? [[0]]', mode:'numeric', check:exact(5200), sol:'De grafiek staat op 52 en de as telt per 100: 52 · 100 = <b>5200</b>.'},
+        {html:'In welke maand kwamen de meeste bezoekers? [[0]]', check:words(['juli','jul']), sol:'Het hoogste punt staat bij <b>juli</b>.'}
+      ], {letters:true}),
+      choiceList([['"Er zijn maar twee maanden zonder bezoekers." Klopt dit?', 'n', 'In april en oktober zijn er geen bezoekers. Maar van november tot maart staat er niets op de grafiek: dan is het zwembad ook dicht.']], WN)) },
+  { title:'Werkboek: naar de sportclub', lvl:2, instr:WBref(6, 11) + ' 20 leden vertelden hoe ze naar de sportclub komen.',
+    build:combo(chartBox('dot', {labels:['fiets','te voet','bus','auto','trein','step'], series:[{values:[7,3,2,6,0,2]}], xTitle:'Vervoer'}),
+      choiceList([['Hoe noemen we deze voorstelling?', 'd', 'Per gegeven een bolletje, gestapeld boven de categorie.']], [['s','staafdiagram'],['d','dotplot'],['l','lijndiagram']]),
+      choiceList([['Waarom staat er geen bolletje bij trein?', 'b', 'Een categorie zonder bolletjes heeft frequentie 0.']], [['a','Die gegevens zijn verloren gegaan.'],['b','Geen enkel lid komt met de trein.'],['c','De trein telt niet mee.']]),
+      list([
+        {html:'Hoeveel procent van de leden komt <b>niet</b> met de auto? [[0]] %', mode:'numeric', check:exact(70), sol:'20 − 6 = 14 leden. 14 / 20 = 70 / 100 = <b>70 %</b>.'}
+      ])) },
+  { title:'Uitdaging: de ontbrekende week', lvl:3, instr:WBdif(14) + ' De staaf van week 4 is weg. Je weet: in week 4 liep Jana dubbel zoveel als in week 1.',
+    build:combo(chartBox('kolom', {title:'Gelopen afstand per week', labels:['week 1','week 2','week 3','week 4','week 5'], series:[{values:[18,24,15,NaN,21]}], yTitle:'Afstand (in km)', step:10, yMax:40, values:true}), list([
+      {html:'In week 4 liep Jana [[0]] km.', mode:'numeric', check:exact(36), sol:'2 · 18 km = <b>36 km</b>.'},
+      {html:'In de vijf weken samen liep ze [[0]] km.', mode:'numeric', check:exact(114), sol:'18 + 24 + 15 + 36 + 21 = <b>114 km</b>.'},
+      {html:'Gemiddeld liep ze [[0]] km per week.', check:exact(22.8), sol:'114 : 5 = <b>22,8 km</b>.'}
+    ], {letters:true})) },
+  { title:'Uitdaging: overnachtingen in percent', lvl:3, instr:WBdif(29) + ' Een kuststad telde in 2025 1 450 000 overnachtingen in het centrum en 550 000 buiten het centrum.',
+    build:list([
+      {html:'Percentage in het centrum: [[0]] % · buiten het centrum: [[1]] %', size:'sm', check:nums([72.5, 27.5]), sol:'Totaal 2 000 000. 1 450 000 / 2 000 000 = 0,725 = <b>72,5 %</b>. 100 % − 72,5 % = <b>27,5 %</b>.'},
+      {html:'Hoeveel overnachtingen waren er gemiddeld per dag (2025 telt 365 dagen)? Rond af op een geheel getal: [[0]]', mode:'numeric', check:exact(5479), sol:'2 000 000 : 365 = 5479,45… ≈ <b>5479</b>.'},
+      {html:'Hoe groot wordt de middelpuntshoek van het stuk "centrum" in een cirkeldiagram? [[0]]°', check:exact(261), sol:'72,5 % van 360° = 0,725 · 360° = <b>261°</b>.'}
+    ], {letters:true}) }
+);
+
+/* --- misleidende grafieken --- */
+WBsec('mislei').push(
+  { title:'Werkboek: zonnebloemen en potgrond', lvl:2, instr:WBref(7, 12) + ' Een onderzoek naar de gemiddelde hoogte van zonnebloemen bij vier soorten potgrond.',
+    build:combo(chartBox('kolom', {title:'Effect van potgrond', labels:['grond A','grond B','grond C','grond D'], series:[{values:[152,151,154,156]}], yTitle:'Hoogte (in cm)', yMin:150, yMax:157, step:1, values:true, brk:false}),
+      list([
+        {html:'Hoeveel keer zo hoog lijkt staaf D in de grafiek als staaf B? [[0]] keer', mode:'numeric', check:exact(6), sol:'Staaf D is 6 hokjes hoog (156 − 150), staaf B 1 hokje (151 − 150): <b>6 keer</b>.'},
+        {html:'Hoeveel cm zijn de zonnebloemen bij D echt hoger dan bij B? [[0]] cm', mode:'numeric', check:exact(5), sol:'156 cm − 151 cm = <b>5 cm</b>. Dat is weinig op 151 cm.'}
+      ], {letters:true}),
+      choiceList([['Waarom is deze grafiek misleidend?', 'b', 'De verticale as begint bij 150 cm. Kleine verschillen lijken daardoor heel groot. Een eerlijk staafdiagram start bij 0.']], [['a','Er staan te weinig staven op.'],['b','De verticale as start niet bij 0.'],['c','De staven hebben geen kleur.']])) }
+);
+
+/* --- centrummaten interpreteren --- */
+const WB_RIT = [12,15,8,20,15,25,10,15,30,12,18,15,22,8,10,15,35,12,20,13];
+WBsec('interp').push(
+  { title:'Werkboek: de weg naar school', lvl:2, instr:WBref(9, 16) + ' 20 leerlingen noteerden hoeveel minuten ze onderweg zijn naar school.',
+    build:combo(html(`<div class="data-row">${WB_RIT.map(v=>`<span class="dv">${v}</span>`).join('')}</div>`), list([
+      {html:'De modus is [[0]] min.', mode:'numeric', check:exact(15), sol:'15 komt 5 keer voor, meer dan elk ander gegeven.'},
+      {html:'Het gemiddelde is [[0]] min.', check:exact(16.5), sol:'De som is 330. 330 : 20 = <b>16,5 min</b>.'},
+      {html:'De mediaan is [[0]] min.', check:exact(15), sol:'Geordend: 8, 8, 10, 10, 12, 12, 12, 13, 15, <b>15</b>, <b>15</b>, 15, 15, 18, 20, 20, 22, 25, 30, 35. Het 10de en 11de gegeven zijn 15: Me = <b>15</b>.'},
+      {html:'De variatiebreedte is [[0]] min.', mode:'numeric', check:exact(27), sol:'35 − 8 = <b>27 min</b>.'}
+    ], {letters:true}),
+    choiceList([['Wat betekent de mediaan 15 min?', 'b', 'De mediaan verdeelt de geordende gegevens in twee gelijke groepen.']], [['a','De meeste leerlingen zijn 15 minuten onderweg.'],['b','De helft van de leerlingen is 15 minuten of minder onderweg, de andere helft 15 minuten of meer.'],['c','Als iedereen even lang onderweg was, zou dat 15 minuten zijn.']])) },
+  { title:'Werkboek: uren sport per week', lvl:2, instr:WBref(10, 17) + ' 20 jongeren vertelden hoeveel uur ze per week sporten.',
+    build:combo(chartBox('dot', {labels:['0','1','2','3','4','5','6','7','8'], series:[{values:[1,2,4,5,3,2,1,0,2]}], xTitle:'Aantal uren sport per week'}), list([
+      {html:'De modus is [[0]] uur.', mode:'numeric', check:exact(3), sol:'Boven 3 staan de meeste bolletjes (5).'},
+      {html:'Het gemiddelde is [[0]] uur.', check:exact(3.45), sol:'1·0 + 2·1 + 4·2 + 5·3 + 3·4 + 2·5 + 1·6 + 2·8 = 69. 69 : 20 = <b>3,45 uur</b>.'},
+      {html:'De mediaan is [[0]] uur.', check:exact(3), sol:'Tel de bolletjes van links: het 10de en het 11de bolletje staan allebei bij 3. Me = <b>3</b>.'},
+      {html:'De variatiebreedte is [[0]] uur.', mode:'numeric', check:exact(8), sol:'8 − 0 = <b>8 uur</b>.'}
+    ], {letters:true})) }
+);
+
+/* --- verdieping bij het gemiddelde --- */
+WBsec('gem').push(
+  { title:'Uitdaging: één meting erbij', lvl:3, instr:WBdif(44),
+    build:list([
+      {html:'Van 15 metingen is het gemiddelde 12. Er komt één meting bij en het gemiddelde wordt 12,5. De nieuwe meting is [[0]]', check:exact(20), sol:'Voor: 15 · 12 = 180. Na: 16 · 12,5 = 200. De nieuwe meting is 200 − 180 = <b>20</b>.'},
+      {html:'Het gemiddelde van 6, 10, 9, 5, 7, 12 en x is 8. Dan is x = [[0]]', check:exact(7), sol:'7 · 8 = 56. 56 − (6 + 10 + 9 + 5 + 7 + 12) = 56 − 49 = <b>7</b>.'}
+    ], {letters:true}) },
+  { title:'Uitdaging: punten omrekenen', lvl:3, instr:WBdif(42) + ' Zeven vrienden beantwoordden 9, 12, 14, 8, 11, 16 en 13 vragen juist. Per juist antwoord krijg je 4 punten.',
+    build:list([
+      {html:'De gemiddelde score is [[0]] punten (rond af op 0,01).', check:approx(47.43, 0.006), sol:'Gemiddeld aantal juiste antwoorden: 83 : 7 = 11,857… Maal 4: 332 : 7 = 47,428… ≈ <b>47,43</b>.'},
+      {html:'De mediaan van de scores is [[0]] punten.', check:exact(48), sol:'Geordend: 8, 9, 11, <b>12</b>, 13, 14, 16. Me = 12 juiste antwoorden, dus 12 · 4 = <b>48 punten</b>.'}
+    ], {letters:true}) }
+);
+/* ============================================================
+   SIGNAALOEFENINGEN: korte instaptoets per hoofdstuk, met advies
+   ============================================================ */
+(function(){
+  const css = `
+  .sg-adv{ border:2px solid var(--or-line); background:var(--or-soft); border-radius:.8rem; padding:.7rem .9rem; margin:.6rem 0; }
+  .sg-adv h4{ margin:0 0 .4rem; }
+  .sg-adv ul{ margin:.2rem 0; padding-left:1.2rem; }
+  .sg-adv li{ margin:.25rem 0; }
+  .sg-adv .linkbtn{ font-weight:700; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+/* items: {sec, go (id van het onderdeel), adv (wat oefenen), prompt, build, show} */
+function sgTest(b, st, save, key, items){
+  const top = el('div'); b.append(top);
+  const rows = [];
+  items.forEach((q,i)=>{
+    const row = el('div','q pt-q');
+    row.append(el('div','pt-sec', `Vraag ${i+1} · ${q.sec}`));
+    if(q.prompt) row.append(el('div','q-text block', q.prompt));
+    const body = el('div'); row.append(body);
+    const fb = el('div','fb'); row.append(fb);
+    b.append(row);
+    const sub = st['q'+i] || (st['q'+i] = {});
+    QZ = [];
+    try{ q.build(body, sub, save, key+'_q'+i); } finally { rows.push({q, row, fb, graders:QZ}); QZ = null; }
+  });
+  const actions = el('div','pt-actions');
+  const bGrade = el('button','btn big','Verbeter en geef advies'); bGrade.type='button';
+  const bReset = el('button','btn ghost big','Begin opnieuw'); bReset.type='button';
+  actions.append(bGrade, bReset); b.append(actions);
+  const bottom = el('div'); b.append(bottom);
+  function grade(){
+    let score = 0; const weak = [];
+    rows.forEach(({q,row,fb,graders})=>{
+      const res = graders.map(g=>{ try{ return !!g.grade(); }catch(e){ return false; } });
+      const ok = res.length>0 && res.every(Boolean);
+      if(ok) score++; else if(!weak.some(w=>w.go===q.go && w.adv===q.adv)) weak.push(q);
+      graders.forEach((g,k)=>{ g.reveal && g.reveal(res[k]); g.lock && g.lock(); });
+      row.classList.toggle('right', ok); row.classList.toggle('wrongq', !ok);
+      fb.className = 'fb '+(ok?'ok':'bad');
+      fb.innerHTML = ok ? '✅ Juist.' : '❌ Nog niet juist. Juist antwoord: ' + q.show;
+    });
+    const n = items.length;
+    const mk = () => {
+      const adv = el('div','sg-adv');
+      if(!weak.length){ adv.innerHTML = `<h4>🎉 ${score} / ${n}: je bent klaar voor dit hoofdstuk.</h4><p>Probeer de oefeningen bij <b>Verdieping</b> of maak een proeftoets.</p>`; return adv; }
+      adv.innerHTML = `<h4>${score} / ${n}. Mijn advies: oefen nog</h4>`;
+      const ul = el('ul'); adv.append(ul);
+      weak.forEach(q=>{
+        const sec = SECTIONS.find(s=>s.id===q.go);
+        const li = el('li', '', `${q.adv} `); ul.append(li);
+        if(sec && secEls[q.go]){ const a = el('button','linkbtn', `→ ${sec.nav}`); a.type='button'; a.addEventListener('click', ()=>show(q.go, true)); li.append(a); }
+      });
+      return adv;
+    };
+    top.innerHTML = ''; bottom.innerHTML = ''; top.append(mk()); bottom.append(mk());
+    bGrade.disabled = true; st.done = true; save();
+  }
+  bGrade.addEventListener('click', ()=>{ grade(); top.scrollIntoView({behavior:'smooth', block:'start'}); });
+  bReset.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
+  if(st.done) grade();
+}
+
+const SG_COORD = [
+  {sec:'coördinaten', go:'coord', adv:'punten plaatsen in een assenstelsel', prompt:'Klik de punten aan.',
+    build:(b,st,save,key)=>coordPlace(b,st,save,key, [[-3,4,'J'],[-1,2,'K'],[4,-3,'L'],[0,-5,'P'],[5,0,'Q']]), show:'J(−3, 4), K(−1, 2), L(4, −3), P(0, −5) en Q(5, 0).'},
+  {sec:'kwadranten', go:'coord', adv:'de kwadranten', build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'In welk kwadrant ligt R(5, −2)?', ans:'IV', opts:KW}), show:'kwadrant IV (x positief, y negatief).'},
+  {sec:'coördinaten', go:'coord', adv:'de tekens van de coördinaatgetallen',
+    build:list([{html:'Bij welke punten is het eerste coördinaatgetal strikt positief en het tweede negatief? A(2, −3), B(−2, −3), C(3, 0), D(4, −1). Typ de letters: [[0]]', size:'sm', check:WBletters('AD')}]), show:'A en D. C(3, 0) heeft y = 0, en 0 is niet negatief.'},
+  {sec:'lijndiagram', go:'lijn', adv:'een punt in een lijndiagram lezen', prompt:'Het lijndiagram toont hoeveel ijsjes een kraam per week verkocht.',
+    build:combo(chartBox('lijn', {labels:['1','2','3','4','5','6','7'], series:[{values:[40,80,80,60,100,70,50]}], xTitle:'Week', yTitle:'Aantal ijsjes', step:20, yMax:120, anim:false}),
+      (b,st,save,key)=>qChoice(b,st,save,key, {html:'Wat betekent het punt (3, 80)?', ans:'a', opts:[['a','In week 3 werden 80 ijsjes verkocht.'],['b','In week 80 werden 3 ijsjes verkocht.'],['c','Er werden 3 keer 80 ijsjes verkocht.']]})),
+    show:'In week 3 werden 80 ijsjes verkocht.'},
+  {sec:'gemiddelde', go:'gem', adv:'het gemiddelde berekenen', prompt:'In week 8 verkocht de kraam 30 ijsjes.',
+    build:list([{html:'Hoeveel ijsjes werden er gemiddeld per week verkocht in de 8 weken? [[0]]', check:exact(63.75)}]), show:'(40 + 80 + 80 + 60 + 100 + 70 + 50 + 30) : 8 = 510 : 8 = 63,75.'}
+];
+const SG_DATA = [
+  {sec:'frequentietabel', go:'freq', adv:'totalen in een tabel', prompt:ftabHTML(['lievelingsfruit','meisjes','jongens'], [['appel','12','18'],['banaan','9','6'],['peer','4','11'],['kiwi','15','5']]),
+    build:list([{html:'Hoeveel leerlingen deden mee? [[0]]', mode:'numeric', check:exact(80)}]), show:'30 + 15 + 15 + 20 = 80.'},
+  {sec:'percentages', go:'freq', adv:'een percentage berekenen uit een tabel',
+    build:list([{html:'Hoeveel procent van de leerlingen kiest kiwi? [[0]] %', mode:'numeric', check:exact(25)}]), show:'15 + 5 = 20 en 20 / 80 = 25 / 100 = 25 %.'},
+  {sec:'diagram kiezen', go:'diagram', adv:'de juiste voorstelling kiezen',
+    build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'Je wil meisjes en jongens vergelijken. Welke voorstelling past het best?', ans:'s', opts:[['l','lijndiagram'],['s','staafdiagram met twee kleuren'],['c','één cirkeldiagram']]}), show:'een staafdiagram met twee kleuren: zo staan de staven van meisjes en jongens naast elkaar.'},
+  {sec:'misleidend', go:'mislei', adv:'misleidende grafieken herkennen', prompt:'Het gemiddelde jaarloon in drie bedrijven.',
+    build:combo(chartBox('kolom', {labels:['bedrijf A','bedrijf B','bedrijf C'], series:[{values:[41500,42500,41000]}], yTitle:'Jaarloon (in €)', yMin:40000, yMax:43000, step:500, values:true, brk:false, anim:false}),
+      (b,st,save,key)=>qChoice(b,st,save,key, {html:'Waarom is deze grafiek misleidend?', ans:'b', opts:[['a','Er staan maar drie bedrijven op.'],['b','De verticale as start niet bij 0.'],['c','Er staan getallen boven de staven.']]})),
+    show:'De as start bij 40 000 €: het verschil (hoogstens 1500 €) lijkt veel groter dan het is.'},
+  {sec:'soorten data', go:'soort', adv:'numerieke en categorische data',
+    build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'Welke vraag levert <b>numerieke</b> data op?', ans:'b', opts:[['a','Wat is je lievelingskleur?'],['b','Hoeveel minuten sport je per dag?'],['c','In welke maand ben je jarig?']]}), show:'Hoeveel minuten sport je per dag? Met minuten kan je rekenen.'}
+];
+const SG_BAG = [16,15,18,18,21,17,19,18,22,20,19,18,23,16,17,20,18,19,21,25];
+const SG_BAGHTML = `Van 20 reizigers werd de bagage gewogen (in kg):<div class="data-row">${SG_BAG.map(v=>`<span class="dv">${v}</span>`).join('')}</div>`;
+const SG_MATEN = [
+  {sec:'modus', go:'modus', adv:'de modus', prompt:SG_BAGHTML, build:list([{html:'De modus is [[0]] kg.', mode:'numeric', check:exact(18)}]), show:'18 kg (5 keer).'},
+  {sec:'gemiddelde', go:'gem', adv:'het gemiddelde', build:list([{html:'Het gemiddelde is [[0]] kg.', check:exact(19)}]), show:'380 : 20 = 19 kg.'},
+  {sec:'mediaan', go:'med', adv:'de mediaan bij een even aantal gegevens', build:list([{html:'De mediaan is [[0]] kg.', check:exact(18.5)}]), show:'Het 10de gegeven is 18 en het 11de is 19: (18 + 19) : 2 = 18,5 kg.'},
+  {sec:'variatiebreedte', go:'modus', adv:'de variatiebreedte', build:list([{html:'De variatiebreedte is [[0]] kg.', mode:'numeric', check:exact(10)}]), show:'25 − 15 = 10 kg.'},
+  {sec:'betekenis', go:'interp', adv:'de betekenis van een centrummaat',
+    build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'Wat betekent de variatiebreedte van 10 kg?', ans:'c', opts:[['a','De meeste reizigers hebben 10 kg bagage.'],['b','Gemiddeld heeft een reiziger 10 kg bagage.'],['c','De zwaarste bagage weegt 10 kg meer dan de lichtste.']]}), show:'De zwaarste bagage weegt 10 kg meer dan de lichtste.'}
+];
+SECTIONS.push({ id:'signaal', ic:'toets', nav:'Signaaloefeningen', title:'Signaaloefeningen: ben je klaar?',
+  tip:'Maak per hoofdstuk een korte instaptoets, zoals de signaaloefeningen in je werkboek. Daarna krijg je advies: welke onderdelen oefen je best nog?',
+  cards:[
+    { title:'Instaptoets coördinaten', lvl:1, instr:'Vijf vragen over coördinaten en lijndiagrammen. Klik op het einde op "Verbeter en geef advies".',
+      build:(b,st,save,key)=>sgTest(b,st,save,key,SG_COORD) },
+    { title:'Instaptoets data voorstellen', lvl:1, instr:'Vijf vragen over tabellen en diagrammen.',
+      build:(b,st,save,key)=>sgTest(b,st,save,key,SG_DATA) },
+    { title:'Instaptoets centrummaten', lvl:1, instr:'Vijf vragen over modus, gemiddelde, mediaan en variatiebreedte.',
+      build:(b,st,save,key)=>sgTest(b,st,save,key,SG_MATEN) }
+  ]});
+/* ============================================================
    ZOEK DE FOUT
    ============================================================ */
 SECTIONS.push({ id:'fout', ic:'fout', nav:'Zoek de fout', title:'Zoek de fout',
@@ -3291,77 +4589,231 @@ const PQ = {
 };
 const rawRow = vals => `<div class="data-row">${vals.map(v=>`<span class="dv">${fmt(v)}</span>`).join('')}</div>`;
 
-const TOETSEN = [
-  [ PQ.place([[3,-2,'A'],[-4,5,'B'],[0,-3,'C']]),
-    PQ.kw([['P',-3,-5],['Q',4,0]]),
+/* --- vragenpool: per onderdeel vaste vragen en/of een generator met toevalsgetallen --- */
+const PXshuf = (r, arr) => { const a = arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const PXnames = 'ABCDEFGHKLMNPQRSTUVW';
+/* een samenstelling van n in k delen, elk deel minstens lo */
+function PXparts(r, n, k, lo=1){ const p = Array(k).fill(lo); for(let i=0;i<n-k*lo;i++) p[rInt(r,0,k-1)]++; return p; }
+const PXsec = (sec, item) => Object.assign({}, item, {sec});
+const PXlist = arr => arr.map(x=>fmt(String(x).replace('.',','))).join(', ');
+const PXnum = x => nf(x, 2);
+
+/* coördinaten: drie punten, één op een as, de andere in verschillende kwadranten */
+function PXpts(r, n){
+  const out = [], used = new Set(), quads = PXshuf(r, [[1,1],[-1,1],[-1,-1],[1,-1]]);
+  for(let i=0;i<n-1;i++){ let x, y; do{ x = quads[i][0]*rInt(r,1,6); y = quads[i][1]*rInt(r,1,6); }while(used.has(x+','+y) || Math.abs(x)===Math.abs(y)); used.add(x+','+y); out.push([x,y]); }
+  const v = rNZ(r,-6,6); out.push(r()<.5 ? [0,v] : [v,0]);
+  const o = PXshuf(r, out); const st = rInt(r, 0, 10);
+  return o.map((p,i)=>[p[0], p[1], PXnames[st+i]]);
+}
+const PXread = pts => ({sec:'Coördinaten', prompt:'Lees de coördinaat van elk punt af.',
+  build:(b,st,save,key)=>coordRead(b,st,save,key,pts), show:pts.map(t=>`${t[2]}${coStr(t[0],t[1])}`).join(', ')});
+
+const PX_SORT = [['haarkleur','c'],['postcode','c'],['favoriete vak','c'],['merk van je gsm','c'],['geboorteland','c'],['lievelingsdier','c'],['kleur van je fiets','c'],['muziekstijl','c'],['rugnummer van een voetballer','c'],['soort ontbijt','c'],['taal die je thuis spreekt','c'],['telefoonnummer','c'],
+  ['aantal broers','n'],['lengte in cm','n'],['zakgeld per week','n'],['schoenmaat','n'],['temperatuur','n'],['aantal sms\'jes per dag','n'],['gewicht van je boekentas','n'],['aantal punten op een toets','n'],['tijd op de 100 m','n'],['aantal huisdieren','n'],['leeftijd in jaren','n'],['minuten fietsen naar school','n']];
+
+const PX_FREQ = [
+  {t:'Het aantal kinderen in het gezin van', lo:1, vals:5},
+  {t:'Het aantal keer sporten per week van', lo:0, vals:5},
+  {t:'Toetsresultaten op 10 van', lo:4, vals:5},
+  {t:'Het aantal huisdieren van', lo:0, vals:4},
+  {t:'Het aantal keer dat deze week te laat kwamen:', lo:0, vals:4, after:true}
+];
+const PX_BARS = [
+  {title:'Lievelingskleur', labels:['rood','blauw','groen','geel']},
+  {title:'Huisdieren in 1B', labels:['hond','kat','vis','konijn']},
+  {title:'Afwezigen per dag', labels:['ma','di','wo','do','vr']},
+  {title:'Favoriete sport', labels:['voetbal','dans','tennis','zwemmen']},
+  {title:'Vervoer naar school', labels:['fiets','te voet','bus','auto']},
+  {title:'Lievelingsfruit', labels:['appel','banaan','peer','kiwi','druif']}
+];
+const PX_DOT = [
+  {xTitle:'Aantal keer sporten per week', lo:0, hi:6},
+  {xTitle:'Aantal huisdieren', lo:0, hi:5},
+  {xTitle:'Punten op 10', lo:4, hi:10},
+  {xTitle:'Aantal broers en zussen', lo:0, hi:5},
+  {xTitle:'Aantal boeken gelezen deze maand', lo:0, hi:6}
+];
+const PX_TOESTEL = [['aantal boeken','aantal leerlingen'],['aantal fouten','aantal leerlingen'],['leeftijd','aantal deelnemers'],['aantal broers en zussen','aantal leerlingen'],['doelpunten per match','aantal matchen'],['aantal keer sporten','aantal leerlingen']];
+const PX_OZ = [['Vind jij ook dat de les te lang duurt?','s'],['Hoeveel minuten fiets je naar school?','g'],['Hoe oud ben je? 11-12 · 12-13 · 13-14','o'],['Eet je veel snoep?','v'],
+  ['Je speelt toch ook graag buiten?','s'],['Hoeveel uur slaap je per nacht? minder dan 7 · 7 tot minder dan 9 · 9 of meer','g'],['Wat vind je van school?','v'],['Hoeveel uur per week speel je videogames?','g'],
+  ['Iedereen weet dat sporten gezond is. Hoe vaak sport jij?','s'],['Hoeveel broers en zussen heb je? 0-1 · 1-2 · 3 of meer','o'],['Hoe kom je meestal naar school? te voet · fiets · bus · auto · anders','g'],['Ben je vaak moe?','v'],
+  ['Vind je ook niet dat de refter te duur is?','s'],['Hoeveel zakgeld krijg je per week? 0-5 euro · 5-10 euro · 10-15 euro','o'],['Hoeveel minuten lees je per dag in een boek?','g'],['Sport je veel?','v']];
+
+const POOL = [
+  /* 1 coördinaten */
+  { fixed:[PQ.place([[3,-2,'A'],[-4,5,'B'],[0,-3,'C']]), PQ.place([[-2,-4,'A'],[5,1,'B'],[-3,0,'C']]), PQ.place([[1,-5,'A'],[-6,3,'B'],[0,4,'C']])],
+    gen:r => r()<.5 ? PQ.place(PXpts(r,3)) : PXread(PXpts(r,3)) },
+  /* 2 kwadranten */
+  { fixed:[PQ.kw([['P',-3,-5],['Q',4,0]]), PQ.kw([['R',2,-6],['S',0,3]]), PQ.kw([['T',-1,7],['U',-5,0]])],
+    gen:r => { const p = PXpts(r,3); const a = p.find(q=>q[0]!==0 && q[1]!==0), b = r()<.5 ? p.find(q=>q[0]===0 || q[1]===0) : p.filter(q=>q[0]!==0 && q[1]!==0)[1]; return PQ.kw([[a[2],a[0],a[1]],[b[2],b[0],b[1]]]); } },
+  /* 3 lijndiagram */
+  { fixed:[
     PQ.qc('Lijndiagram', 'Een bergwandeling: de hoogte op elk uur.', ['lijn', HOOGTE], [
       {html:'Na 2 uur is de wandelaar op [[0]] m hoogte.', mode:'numeric', check:exact(1100)},
       {html:'Tussen uur 4 en uur 7 daalt hij [[0]] m.', mode:'numeric', check:exact(600)}], 'a. 1100 m · b. 1300 − 700 = 600 m'),
-    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [
-      {t:'haarkleur', a:'c'}, {t:'aantal broers', a:'n'}, {t:'postcode', a:'c'}, {t:'lengte in cm', a:'n'}, {t:'favoriete vak', a:'c'}, {t:'zakgeld per week', a:'n'}]),
-    PQ.q('Frequentietabel', 'Het aantal kinderen in het gezin van 10 leerlingen:', [
-      {html:'Absolute frequentie van 3 kinderen: [[0]]', mode:'numeric', check:exact(4)},
-      {html:'Relatieve frequentie van 2 kinderen: [[0]] %', mode:'numeric', check:exact(30)}], 'a. 4 · b. 3 van de 10 = 30 %', rawRow([3,2,4,3,3,1,2,3,4,2])),
-    PQ.bars({labels:['rood','blauw','groen','geel'], values:[6,8,3,5], yMax:10, step:1, title:'Lievelingskleur', ask:'Rood 6, blauw 8, groen 3, geel 5.'}),
-    PQ.qc('Misleidende grafiek', 'De verkoop van twee winkels.', ['kolom', {labels:['winkel A','winkel B'], series:[{values:[52,56]}], yMin:50, title:'Verkochte fietsen', brk:false}], [
-      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(3)},
-      {html:'B verkocht 4 fietsen meer dan A. Dat is ongeveer [[0]] % meer (rond af op een geheel getal).', mode:'numeric', check:approx(8,0.5)}], 'a. 6 tegenover 2 hokjes: 3 keer · b. 4 : 52 · 100 ≈ 8 %'),
-    PQ.dot({vals:[2,3,3,1,4,3,2,5,3,2,1,3], lo:0, hi:6, xTitle:'Aantal keer sporten per week', ask:'Klik op de kolom van de <b>modus</b>.', ans:[3], why:'', hint:''}),
-    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 4, 7, 7, 9, 13. &nbsp;x̄ = [[0]]', check:exact(8)}], '40 : 5 = 8'),
-    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 12, 5, 9, 15, 7, 10. &nbsp;Me = [[0]]', check:exact(9.5)}], 'geordend 5, 7, 9, 10, 12, 15: (9 + 10) : 2 = 9,5'),
-    PQ.ch('Interpreteren', 'Kies de beste maat.', [['De lonen in een klein bedrijf: 9 werknemers verdienen ongeveer 2500 euro, de baas verdient 15 000 euro. Welke maat geeft het beste beeld van een gewoon loon?','m']], [['g','gemiddelde'],['m','mediaan'],['v','variatiebreedte']], 'de mediaan, want de baas is een uitschieter'),
-    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([2.6,3])}], 'x̄ = 52 : 20 = 2,6 · Med = 3', ftabHTML(['aantal boeken','1','2','3','4','5'], [['aantal leerlingen','3','6','8','2','1']])),
-    PQ.oz([['Vind jij ook dat de les te lang duurt?','s'],['Hoeveel minuten fiets je naar school?','g']]),
-    PQ.krant({kop:'80 % van de leerlingen wil meer frietjes in de refter', info:'Gevraagd aan 5 leerlingen in de rij aan het frietkraam.', ans:'groep', why:'Wie aan het frietkraam staat, eet graag frietjes (en 5 leerlingen is ook erg weinig).'}),
-    PQ.err({task:'Bepaal de mediaan van 7, 3, 9, 4, 6.', lines:['Er zijn 5 gegevens.','Het middelste gegeven is het 3de.','Het 3de gegeven is 9, dus Me = 9.'], wrong:2})
-  ],
-  [ PQ.place([[-2,-4,'A'],[5,1,'B'],[-3,0,'C']]),
-    PQ.kw([['R',2,-6],['S',0,3]]),
     PQ.qc('Lijndiagram', 'Een fietstocht: de afgelegde afstand op elk uur.', ['lijn', FIETS], [
       {html:'Na 3 uur heeft hij [[0]] km gefietst.', mode:'numeric', check:exact(30)},
       {html:'Hij pauzeert tussen uur [[0]] en uur [[1]].', size:'xs', check:nums([2,3])}], 'a. 30 km · b. tussen uur 2 en 3 (de lijn is vlak)'),
-    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [
-      {t:'schoenmaat', a:'n'}, {t:'merk van je gsm', a:'c'}, {t:'temperatuur', a:'n'}, {t:'geboorteland', a:'c'}, {t:'aantal sms\'jes per dag', a:'n'}, {t:'lievelingsdier', a:'c'}]),
-    PQ.q('Frequentietabel', 'Toetsresultaten op 10 van 10 leerlingen:', [
-      {html:'Absolute frequentie van 5: [[0]]', mode:'numeric', check:exact(4)},
-      {html:'Relatieve frequentie van 7: [[0]] %', mode:'numeric', check:exact(30)}], 'a. 4 · b. 3 van de 10 = 30 %', rawRow([5,7,6,5,8,7,5,6,5,7])),
-    PQ.bars({labels:['hond','kat','vis','konijn'], values:[9,7,2,4], yMax:10, step:1, title:'Huisdieren in 1B', ask:'Hond 9, kat 7, vis 2, konijn 4.'}),
-    PQ.qc('Misleidende grafiek', 'Bezoekers van twee musea op één dag.', ['kolom', {labels:['museum A','museum B'], series:[{values:[102,108]}], yMin:100, title:'Aantal bezoekers', brk:false}], [
-      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(4)},
-      {html:'In werkelijkheid had B [[0]] bezoekers meer.', mode:'numeric', check:exact(6)}], 'a. 8 tegenover 2 hokjes: 4 keer · b. 108 − 102 = 6'),
-    PQ.dot({vals:[1,2,2,0,3,2,4,1,2,3,1,2,5], lo:0, hi:6, xTitle:'Aantal huisdieren', ask:'Klik op de kolom van de <b>modus</b>.', ans:[2], why:'', hint:''}),
-    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 15, 11, 18, 12, 14, 8. &nbsp;x̄ = [[0]]', check:exact(13)}], '78 : 6 = 13'),
-    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 21, 17, 25, 19, 30. &nbsp;Me = [[0]]', check:exact(21)}], 'geordend 17, 19, 21, 25, 30: Me = 21'),
-    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['"De meeste leerlingen van 1B hebben schoenmaat 38." Welke maat wordt hier gebruikt?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: het gegeven dat het vaakst voorkomt'),
-    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([1.95,2])}], 'x̄ = 39 : 20 = 1,95 · Med = 2', ftabHTML(['aantal fouten','0','1','2','3','4'], [['aantal leerlingen','2','5','7','4','2']])),
-    PQ.oz([['Hoe oud ben je? 11-12 · 12-13 · 13-14','o'],['Eet je veel snoep?','v']]),
-    PQ.krant({kop:'Onze school scoort steeds beter op de fietstest!', chart:['kolom',{labels:['2022','2023','2024'], series:[{values:[71,72,74]}], yMin:70, title:'Gemiddelde score fietstest (op 100)', brk:false}], ans:'as', why:'De as begint bij 70: een stijging van 3 punten op 100 lijkt enorm.'}),
-    PQ.err({task:'Bereken het gemiddelde van 4, 0, 6, 2.', lines:['4 + 0 + 6 + 2 = 12','Er zijn 3 gegevens, want 0 telt niet mee.','12 : 3 = 4'], wrong:1})
-  ],
-  [ PQ.place([[1,-5,'A'],[-6,3,'B'],[0,4,'C']]),
-    PQ.kw([['T',-1,7],['U',-5,0]]),
     PQ.qc('Lijndiagram', 'De temperatuur op een lentedag.', ['lijn', {labels:['8 u','10 u','12 u','14 u','16 u','18 u'], series:[{values:[6,9,13,15,12,8]}], xTitle:'Tijdstip', yTitle:'Temperatuur (°C)', yMin:0, yMax:16, step:2}], [
       {html:'Om [[0]] u is het het warmst.', mode:'numeric', check:exact(14)},
       {html:'Tussen 8 u en 14 u stijgt de temperatuur [[0]] °C.', mode:'numeric', check:exact(9)}], 'a. 14 u · b. 15 − 6 = 9 °C'),
-    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [
-      {t:'gewicht van je boekentas', a:'n'}, {t:'kleur van je fiets', a:'c'}, {t:'aantal punten op een toets', a:'n'}, {t:'muziekstijl', a:'c'}, {t:'tijd op de 100 m', a:'n'}, {t:'rugnummer van een voetballer', a:'c'}]),
+    PQ.qc('Lijndiagram', 'De hoogte van een plant, elke week gemeten.', ['lijn', {labels:['0','1','2','3','4','5','6'], series:[{values:[2,5,9,12,14,15,15]}], xTitle:'Tijd (in weken)', yTitle:'Hoogte (in cm)', yMin:0, yMax:16, step:1}], [
+      {html:'Na 3 weken is de plant [[0]] cm hoog.', mode:'numeric', check:exact(12)},
+      {html:'Tussen week 1 en week 4 groeit de plant [[0]] cm.', mode:'numeric', check:exact(9)}], 'a. 12 cm · b. 14 − 5 = 9 cm'),
+    PQ.qc('Lijndiagram', 'Een tas thee koelt af.', ['lijn', {labels:['0','5','10','15','20','25'], series:[{values:[80,64,52,44,38,34]}], xTitle:'Tijd (in minuten)', yTitle:'Temperatuur (°C)', yMin:0, yMax:90, step:10}], [
+      {html:'Na 10 minuten is de thee [[0]] °C.', mode:'numeric', check:exact(52)},
+      {html:'In de eerste 5 minuten daalt de temperatuur [[0]] °C.', mode:'numeric', check:exact(16)}], 'a. 52 °C · b. 80 − 64 = 16 °C'),
+    PQ.qc('Lijndiagram', 'Het geld in de spaarpot van Noor, telkens op de eerste dag van de maand.', ['lijn', {labels:['jan','feb','mrt','apr','mei','jun'], series:[{values:[10,25,25,40,30,50]}], xTitle:'Maand', yTitle:'Bedrag (in euro)', yMin:0, yMax:60, step:5}], [
+      {html:'Tussen april en mei haalde Noor [[0]] euro uit de spaarpot.', mode:'numeric', check:exact(10)},
+      {html:'Van januari tot juni kwam er in totaal [[0]] euro bij.', mode:'numeric', check:exact(40)}], 'a. 40 − 30 = 10 euro · b. 50 − 10 = 40 euro')
+  ]},
+  /* 4 soorten data */
+  { fixed:[
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'haarkleur', a:'c'}, {t:'aantal broers', a:'n'}, {t:'postcode', a:'c'}, {t:'lengte in cm', a:'n'}, {t:'favoriete vak', a:'c'}, {t:'zakgeld per week', a:'n'}]),
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'schoenmaat', a:'n'}, {t:'merk van je gsm', a:'c'}, {t:'temperatuur', a:'n'}, {t:'geboorteland', a:'c'}, {t:'aantal sms\'jes per dag', a:'n'}, {t:'lievelingsdier', a:'c'}]),
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'gewicht van je boekentas', a:'n'}, {t:'kleur van je fiets', a:'c'}, {t:'aantal punten op een toets', a:'n'}, {t:'muziekstijl', a:'c'}, {t:'tijd op de 100 m', a:'n'}, {t:'rugnummer van een voetballer', a:'c'}])],
+    gen:r => { const c = PXshuf(r, PX_SORT.filter(x=>x[1]==='c')).slice(0,3), n = PXshuf(r, PX_SORT.filter(x=>x[1]==='n')).slice(0,3);
+      return PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', PXshuf(r, c.concat(n)).map(([t,a])=>({t, a}))); } },
+  /* 5 frequentietabel */
+  { fixed:[
+    PQ.q('Frequentietabel', 'Het aantal kinderen in het gezin van 10 leerlingen:', [
+      {html:'Absolute frequentie van 3 kinderen: [[0]]', mode:'numeric', check:exact(4)},
+      {html:'Relatieve frequentie van 2 kinderen: [[0]] %', mode:'numeric', check:exact(30)}], 'a. 4 · b. 3 van de 10 = 30 %', rawRow([3,2,4,3,3,1,2,3,4,2])),
+    PQ.q('Frequentietabel', 'Toetsresultaten op 10 van 10 leerlingen:', [
+      {html:'Absolute frequentie van 5: [[0]]', mode:'numeric', check:exact(4)},
+      {html:'Relatieve frequentie van 7: [[0]] %', mode:'numeric', check:exact(30)}], 'a. 4 · b. 3 van de 10 = 30 %', rawRow([5,7,6,5,8,7,5,6,5,7])),
     PQ.q('Frequentietabel', 'Het aantal keer dat 12 leerlingen deze week te laat kwamen:', [
       {html:'Absolute frequentie van 1: [[0]]', mode:'numeric', check:exact(5)},
-      {html:'Relatieve frequentie van 2: [[0]] %', mode:'numeric', check:exact(25)}], 'a. 5 · b. 3 van de 12 = 25 %', rawRow([2,0,1,3,1,0,2,1,1,4,1,2])),
+      {html:'Relatieve frequentie van 2: [[0]] %', mode:'numeric', check:exact(25)}], 'a. 5 · b. 3 van de 12 = 25 %', rawRow([2,0,1,3,1,0,2,1,1,4,1,2]))],
+    gen:r => { const c = rPick(r, PX_FREQ), n = rPick(r, [10, 20]); const fr = PXparts(r, n, c.vals, 1); const vals = fr.map((_,i)=>c.lo+i);
+      const raw = PXshuf(r, expand(vals, fr)); const [i, j] = PXshuf(r, vals.map((_,k)=>k)).slice(0,2);
+      const pr = c.after ? `Het aantal keer dat ${n} leerlingen deze week te laat kwamen:` : `${c.t} ${n} leerlingen:`;
+      return PQ.q('Frequentietabel', pr, [
+        {html:`Absolute frequentie van ${vals[i]}: [[0]]`, mode:'numeric', check:exact(fr[i])},
+        {html:`Relatieve frequentie van ${vals[j]}: [[0]] %`, mode:'numeric', check:exact(fr[j]/n*100)}],
+        `a. ${fr[i]} · b. ${fr[j]} van de ${n} = ${nf(fr[j]/n*100)} %`, rawRow(raw)); } },
+  /* 6 diagram tekenen of kiezen */
+  { fixed:[
+    PQ.bars({labels:['rood','blauw','groen','geel'], values:[6,8,3,5], yMax:10, step:1, title:'Lievelingskleur', ask:'Rood 6, blauw 8, groen 3, geel 5.'}),
+    PQ.bars({labels:['hond','kat','vis','konijn'], values:[9,7,2,4], yMax:10, step:1, title:'Huisdieren in 1B', ask:'Hond 9, kat 7, vis 2, konijn 4.'}),
     PQ.bars({labels:['ma','di','wo','do','vr'], values:[5,8,2,7,4], yMax:10, step:1, title:'Afwezigen per dag', ask:'Maandag 5, dinsdag 8, woensdag 2, donderdag 7, vrijdag 4.'}),
+    PQ.ch('Diagram kiezen', 'Welk diagram past het best?', [['De temperatuur elk uur van een dag.','l'],['Welk deel van de klas met de fiets, te voet of met de bus komt.','c'],['Het aantal leerlingen per lievelingssport vergelijken.','k']], [['k','staafdiagram'],['c','cirkeldiagram'],['l','lijndiagram']], '1. lijndiagram (verloop in de tijd) · 2. cirkeldiagram (delen van een geheel) · 3. staafdiagram (aantallen vergelijken)'),
+    PQ.ch('Diagram kiezen', 'Welk diagram past het best?', [['Hoe je zakgeld besteed wordt: welk deel aan snoep, kleren en sparen.','c'],['Het aantal bezoekers van het zwembad elke maand van het jaar, om de evolutie te zien.','l'],['Het aantal punten van vijf leerlingen op een toets vergelijken.','k']], [['k','staafdiagram'],['c','cirkeldiagram'],['l','lijndiagram']], '1. cirkeldiagram · 2. lijndiagram · 3. staafdiagram')],
+    gen:r => { const c = rPick(r, PX_BARS); const v = c.labels.map(()=>rInt(r,1,9));
+      return PQ.bars({labels:c.labels, values:v, yMax:10, step:1, title:c.title, ask:c.labels.map((l,i)=>`${l} ${v[i]}`).join(', ')+'.'}); } },
+  /* 7 misleidende grafiek */
+  { fixed:[
+    PQ.qc('Misleidende grafiek', 'De verkoop van twee winkels.', ['kolom', {labels:['winkel A','winkel B'], series:[{values:[52,56]}], yMin:50, title:'Verkochte fietsen', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(3)},
+      {html:'B verkocht 4 fietsen meer dan A. Dat is ongeveer [[0]] % meer (rond af op een geheel getal).', mode:'numeric', check:approx(8,0.5)}], 'a. 6 tegenover 2 hokjes: 3 keer · b. 4 : 52 · 100 ≈ 8 %'),
+    PQ.qc('Misleidende grafiek', 'Bezoekers van twee musea op één dag.', ['kolom', {labels:['museum A','museum B'], series:[{values:[102,108]}], yMin:100, title:'Aantal bezoekers', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(4)},
+      {html:'In werkelijkheid had B [[0]] bezoekers meer.', mode:'numeric', check:exact(6)}], 'a. 8 tegenover 2 hokjes: 4 keer · b. 108 − 102 = 6'),
     PQ.qc('Misleidende grafiek', 'De prijs van een bioscoopticket.', ['kolom', {labels:['2020','2025'], series:[{values:[31,35]}], yMin:30, title:'Prijs van een gezinsticket (euro)', brk:false}], [
       {html:'Op de grafiek lijkt de staaf van 2025 [[0]] keer zo hoog als die van 2020.', mode:'numeric', check:exact(5)},
       {html:'In werkelijkheid steeg de prijs met [[0]] euro.', mode:'numeric', check:exact(4)}], 'a. 5 tegenover 1 hokje: 5 keer · b. 35 − 31 = 4 euro'),
-    PQ.dot({vals:[5,6,6,7,8,6,7,5,6,9,7,6], lo:4, hi:10, xTitle:'Punten op 10', ask:'Klik op de kolom van de <b>modus</b>.', ans:[6], why:'', hint:''}),
+    PQ.qc('Misleidende grafiek', 'Leden van twee sportclubs.', ['kolom', {labels:['club A','club B'], series:[{values:[41,45]}], yMin:40, step:1, title:'Aantal leden', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(5)},
+      {html:'In werkelijkheid heeft B [[0]] leden meer.', mode:'numeric', check:exact(4)}], 'a. 5 tegenover 1 hokje: 5 keer · b. 45 − 41 = 4'),
+    PQ.qc('Misleidende grafiek', 'Verkochte ijsjes op twee dagen.', ['kolom', {labels:['zaterdag','zondag'], series:[{values:[203,206]}], yMin:200, step:1, title:'Aantal ijsjes', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van zondag [[0]] keer zo hoog als die van zaterdag.', mode:'numeric', check:exact(2)},
+      {html:'In werkelijkheid werden er op zondag [[0]] ijsjes meer verkocht.', mode:'numeric', check:exact(3)}], 'a. 6 tegenover 3 hokjes: 2 keer · b. 206 − 203 = 3'),
+    PQ.qc('Misleidende grafiek', 'Het aantal leerlingen op twee scholen.', ['kolom', {labels:['school A','school B'], series:[{values:[74,80]}], yMin:72, step:1, title:'Aantal leerlingen in het 1ste jaar', brk:false}], [
+      {html:'Op de grafiek lijkt de staaf van B [[0]] keer zo hoog als die van A.', mode:'numeric', check:exact(4)},
+      {html:'In werkelijkheid heeft school B [[0]] leerlingen meer.', mode:'numeric', check:exact(6)}], 'a. 8 tegenover 2 hokjes: 4 keer · b. 80 − 74 = 6')
+  ]},
+  /* 8 modus in een dotplot */
+  { fixed:[
+    PQ.dot({vals:[2,3,3,1,4,3,2,5,3,2,1,3], lo:0, hi:6, xTitle:'Aantal keer sporten per week', ask:'Klik op de kolom van de <b>modus</b>.', ans:[3], why:'', hint:''}),
+    PQ.dot({vals:[1,2,2,0,3,2,4,1,2,3,1,2,5], lo:0, hi:6, xTitle:'Aantal huisdieren', ask:'Klik op de kolom van de <b>modus</b>.', ans:[2], why:'', hint:''}),
+    PQ.dot({vals:[5,6,6,7,8,6,7,5,6,9,7,6], lo:4, hi:10, xTitle:'Punten op 10', ask:'Klik op de kolom van de <b>modus</b>.', ans:[6], why:'', hint:''})],
+    gen:r => { const c = rPick(r, PX_DOT); const k = c.hi-c.lo+1; const m = rInt(r, c.lo+1, c.hi-1); const top = rInt(r,4,5);
+      const fr = Array.from({length:k}, (_,i)=> c.lo+i===m ? top : rInt(r,0,top-1));
+      const vals = PXshuf(r, expand(fr.map((_,i)=>c.lo+i), fr));
+      return PQ.dot({vals, lo:c.lo, hi:c.hi, xTitle:c.xTitle, ask:'Klik op de kolom van de <b>modus</b>.', ans:[m], why:'', hint:''}); } },
+  /* 9 gemiddelde */
+  { fixed:[
+    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 4, 7, 7, 9, 13. &nbsp;x̄ = [[0]]', check:exact(8)}], '40 : 5 = 8'),
+    PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 15, 11, 18, 12, 14, 8. &nbsp;x̄ = [[0]]', check:exact(13)}], '78 : 6 = 13'),
     PQ.q('Gemiddelde', '', [{html:'Bereken het gemiddelde van 2,5 · 3 · 4,5 · 6. &nbsp;x̄ = [[0]]', check:exact(4)}], '16 : 4 = 4'),
-    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 8, 3, 11, 6, 9, 14, 2, 10. &nbsp;Me = [[0]]', check:exact(8.5)}], 'geordend 2, 3, 6, 8, 9, 10, 11, 14: (8 + 9) : 2 = 8,5'),
+    PQ.q('Gemiddelde', 'Het aantal huisdieren van 20 leerlingen.', [{html:'Bereken het gemiddeld aantal huisdieren per leerling. &nbsp;x̄ = [[0]]', check:exact(1.75)}], '(0 · 3 + 1 · 5 + 2 · 7 + 3 · 4 + 4 · 1) : 20 = 35 : 20 = 1,75', ftabHTML(['aantal huisdieren','0','1','2','3','4'], [['aantal leerlingen','3','5','7','4','1']])),
+    PQ.q('Gemiddelde', '', [{html:'Het gemiddelde van 5 getallen is 6. Hun som is [[0]].', mode:'numeric', check:exact(30)}], '5 · 6 = 30')],
+    gen:r => { const n = rPick(r,[4,5,5,6]); let vals;
+      do{ const m = rInt(r,5,14) + (n%2===0 && r()<.4 ? .5 : 0); vals = Array.from({length:n-1}, ()=>rInt(r,1,20)); const last = n*m - sum(vals); vals.push(last); }while(vals[n-1]<1 || vals[n-1]>25 || vals[n-1]!==Math.round(vals[n-1]));
+      vals = PXshuf(r, vals); const m = sum(vals)/n;
+      return PQ.q('Gemiddelde', '', [{html:`Bereken het gemiddelde van ${PXlist(vals)}. &nbsp;x̄ = [[0]]`, check:exact(m)}], `${sum(vals)} : ${n} = ${PXnum(m)}`); } },
+  /* 10 mediaan */
+  { fixed:[
+    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 12, 5, 9, 15, 7, 10. &nbsp;Me = [[0]]', check:exact(9.5)}], 'geordend 5, 7, 9, 10, 12, 15: (9 + 10) : 2 = 9,5'),
+    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 21, 17, 25, 19, 30. &nbsp;Me = [[0]]', check:exact(21)}], 'geordend 17, 19, 21, 25, 30: Me = 21'),
+    PQ.q('Mediaan', '', [{html:'Bepaal de mediaan van 8, 3, 11, 6, 9, 14, 2, 10. &nbsp;Me = [[0]]', check:exact(8.5)}], 'geordend 2, 3, 6, 8, 9, 10, 11, 14: (8 + 9) : 2 = 8,5')],
+    gen:r => { const n = rPick(r,[5,6,7,8]); const vals = Array.from({length:n}, ()=>rInt(r,1,30)); const s = sorted(vals), me = median(vals);
+      const how = n%2 ? `Me = ${fmt(me)}` : `(${s[n/2-1]} + ${s[n/2]}) : 2 = ${PXnum(me)}`;
+      return PQ.q('Mediaan', '', [{html:`Bepaal de mediaan van ${PXlist(vals)}. &nbsp;Me = [[0]]`, check:exact(me)}], `geordend ${PXlist(s)}: ${how}`); } },
+  /* 11 interpreteren */
+  { fixed:[
+    PQ.ch('Interpreteren', 'Kies de beste maat.', [['De lonen in een klein bedrijf: 9 werknemers verdienen ongeveer 2500 euro, de baas verdient 15 000 euro. Welke maat geeft het beste beeld van een gewoon loon?','m']], [['g','gemiddelde'],['m','mediaan'],['v','variatiebreedte']], 'de mediaan, want de baas is een uitschieter'),
+    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['"De meeste leerlingen van 1B hebben schoenmaat 38." Welke maat wordt hier gebruikt?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: het gegeven dat het vaakst voorkomt'),
     PQ.ch('Interpreteren', 'Waar of niet waar?', [['Als je één gegeven heel groot maakt, verandert de mediaan veel.','n'],['Het gemiddelde hoeft geen gegeven uit de reeks te zijn.','w']], WN, '1. niet waar · 2. waar'),
-    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([12.3,12])}], 'x̄ = 246 : 20 = 12,3 · Med = 12', ftabHTML(['leeftijd','10','11','12','13','14'], [['aantal deelnemers','1','4','6','6','3']])),
-    PQ.oz([['Je speelt toch ook graag buiten?','s'],['Hoeveel uur slaap je per nacht? minder dan 7 · 7 tot minder dan 9 · 9 of meer','g']]),
+    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['In een klas haalt iedereen 7 op 10, behalve één leerling die 1 op 10 haalt. Welke maat verandert door die ene leerling?','g']], [['g','gemiddelde'],['m','mediaan'],['mo','modus']], 'het gemiddelde: de mediaan en de modus blijven 7'),
+    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['Je wil weten welke frisdrank het populairst is in de klas. Welke maat kan je gebruiken?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: bij categorische data kan je geen gemiddelde of mediaan berekenen'),
+    PQ.ch('Interpreteren', 'Waar of niet waar?', [['De modus is altijd het grootste gegeven.','n'],['Bij een even aantal gegevens kan de mediaan een getal zijn dat niet in de reeks staat.','w']], WN, '1. niet waar · 2. waar'),
+    PQ.ch('Interpreteren', 'Waar of niet waar?', [['De variatiebreedte zegt hoe ver de gegevens uit elkaar liggen.','w'],['Als iedereen 2 punten bijkrijgt, stijgt het gemiddelde met 2.','w']], WN, '1. waar · 2. waar')
+  ]},
+  /* 12 rekentoestel */
+  { fixed:[
+    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([2.6,3])}], 'x̄ = 52 : 20 = 2,6 · Med = 3', ftabHTML(['aantal boeken','1','2','3','4','5'], [['aantal leerlingen','3','6','8','2','1']])),
+    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([1.95,2])}], 'x̄ = 39 : 20 = 1,95 · Med = 2', ftabHTML(['aantal fouten','0','1','2','3','4'], [['aantal leerlingen','2','5','7','4','2']])),
+    PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([12.3,12])}], 'x̄ = 246 : 20 = 12,3 · Med = 12', ftabHTML(['leeftijd','10','11','12','13','14'], [['aantal deelnemers','1','4','6','6','3']]))],
+    gen:r => { const [h1, h2] = rPick(r, PX_TOESTEL); const lo = h1==='leeftijd' ? rInt(r,10,12) : rInt(r,0,1); const vals = [0,1,2,3,4].map(i=>lo+i);
+      const fr = PXparts(r, 20, 5, 1); const all = expand(vals, fr); const m = mean(all), me = median(all);
+      return PQ.q('Rekentoestel', 'Gebruik je rekentoestel met lijsten.', [{html:'x̄ = [[0]] &nbsp; Med = [[1]]', size:'sm', check:nums([m, me])}],
+        `x̄ = ${sum(all)} : 20 = ${PXnum(m)} · Med = ${PXnum(me)}`, ftabHTML([h1, ...vals.map(String)], [[h2, ...fr.map(String)]])); } },
+  /* 13 onderzoeksvraag */
+  { fixed:[PQ.oz([PX_OZ[0], PX_OZ[1]]), PQ.oz([PX_OZ[2], PX_OZ[3]]), PQ.oz([PX_OZ[4], PX_OZ[5]])],
+    gen:r => { const a = rPick(r, PX_OZ); const b = rPick(r, PX_OZ.filter(x=>x[1]!==a[1])); return PQ.oz([a, b]); } },
+  /* 14 kritisch lezen */
+  { fixed:[
+    PQ.krant({kop:'80 % van de leerlingen wil meer frietjes in de refter', info:'Gevraagd aan 5 leerlingen in de rij aan het frietkraam.', ans:'groep', why:'Wie aan het frietkraam staat, eet graag frietjes (en 5 leerlingen is ook erg weinig).'}),
+    PQ.krant({kop:'Onze school scoort steeds beter op de fietstest!', chart:['kolom',{labels:['2022','2023','2024'], series:[{values:[71,72,74]}], yMin:70, title:'Gemiddelde score fietstest (op 100)', brk:false}], ans:'as', why:'De as begint bij 70: een stijging van 3 punten op 100 lijkt enorm.'}),
     PQ.krant({kop:'Gemiddelde klas leest 15 boeken per jaar', info:'In een klas van 20 lezen 19 leerlingen 0 tot 5 boeken. Eén leerling las 250 boeken.', ans:'uit', why:'Eén uitschieter trekt het gemiddelde omhoog. De mediaan geeft een eerlijker beeld.'}),
-    PQ.err({task:'Bepaal de variatiebreedte van 8, 12, 5, 15, 9.', lines:['Het grootste gegeven is 15.','Het eerste gegeven is 8.','15 − 8 = 7'], wrong:1})
-  ]
+    PQ.krant({kop:'Alle leerlingen haten wiskunde', info:'Twee leerlingen in de gang zeiden dat ze wiskunde niet leuk vinden.', ans:'weinig', why:'Met twee leerlingen kan je niets besluiten over alle leerlingen.'}),
+    PQ.krant({kop:'Leerlingen willen een langere middagpauze', info:'Gevraagd aan de 30 leerlingen van de voetbalclub die over de middag op het plein speelt.', ans:'groep', why:'Wie over de middag voetbalt, wil natuurlijk meer tijd. Ze zijn geen goede steekproef van alle leerlingen.'}),
+    PQ.krant({kop:'Een gemiddeld huis in onze straat kost bijna 1 miljoen euro', info:'In de straat staan 9 gewone huizen van ongeveer 300 000 euro en één kasteel van 7 miljoen euro.', ans:'uit', why:'Het kasteel is een uitschieter: (9 · 300 000 + 7 000 000) : 10 = 970 000 euro, terwijl bijna alle huizen 300 000 euro kosten.'}),
+    PQ.krant({kop:'Prijs van een schoolmaaltijd explodeert!', chart:['kolom',{labels:['2023','2024','2025'], series:[{values:[4.5,4.6,4.8]}], yMin:4.4, yMax:4.9, step:0.1, title:'Prijs van een schoolmaaltijd (euro)', brk:false}], ans:'as', why:'De as begint bij 4,40 euro: een stijging van 30 cent lijkt een explosie.'}),
+    PQ.krant({kop:'Meer dan de helft van de leerlingen komt met de fiets', info:'Alle 480 leerlingen van de school werden bevraagd: 260 komen met de fiets.', ans:'ok', why:'Iedereen werd bevraagd, en 260 is meer dan de helft van 480 (240).'})
+  ]},
+  /* 15 zoek de fout */
+  { fixed:[
+    PQ.err({task:'Bepaal de mediaan van 7, 3, 9, 4, 6.', lines:['Er zijn 5 gegevens.','Het middelste gegeven is het 3de.','Het 3de gegeven is 9, dus Me = 9.'], wrong:2}),
+    PQ.err({task:'Bereken het gemiddelde van 4, 0, 6, 2.', lines:['4 + 0 + 6 + 2 = 12','Er zijn 3 gegevens, want 0 telt niet mee.','12 : 3 = 4'], wrong:1}),
+    PQ.err({task:'Bepaal de variatiebreedte van 8, 12, 5, 15, 9.', lines:['Het grootste gegeven is 15.','Het eerste gegeven is 8.','15 − 8 = 7'], wrong:1}),
+    PQ.err({task:'6 van de 24 leerlingen kiezen tennis. Welk percentage is dat?', lines:['6 van de 24 leerlingen','6 : 24 = 0,25','0,25 = 2,5 %'], wrong:2}),
+    PQ.err({task:'Bepaal de mediaan van 4, 9, 2, 7, 5, 8.', lines:['Geordend: 2, 4, 5, 7, 8, 9.','Er zijn 6 gegevens, dus er zijn twee middelste: 5 en 7.','Me = 5 + 7 = 12'], wrong:2}),
+    PQ.err({task:'Q ligt op de x-as, 4 eenheden links van de oorsprong. Noteer Q.', lines:['Op de x-as is de y-coördinaat 0.','4 naar links: de x-coördinaat is −4.','Q(0, −4)'], wrong:2}),
+    PQ.err({task:'Bereken het gemiddelde uit de tabel: 3 leerlingen hebben 1 huisdier, 2 leerlingen hebben 4 huisdieren.', lines:['Er zijn 3 + 2 = 5 leerlingen.','Samen hebben ze 1 + 4 = 5 huisdieren.','5 : 5 = 1 huisdier per leerling.'], wrong:1})
+  ]}
 ];
+
+/* een toets trekken: per onderdeel een vaste vraag of een nieuwe met toevalsgetallen */
+function PXdraw(prev){
+  return POOL.map((slot,i)=>{
+    const p = prev && prev[i]; const seed = Math.floor(Math.random()*1e9);
+    if(slot.gen && (!slot.fixed.length || Math.random()<.7)) return {g:seed};
+    let f; do{ f = Math.floor(Math.random()*slot.fixed.length); }while(slot.fixed.length>1 && p && p.f===f);
+    return {f};
+  });
+}
+const PXitems = pick => POOL.map((slot,i)=>{ const p = pick[i] || {f:0};
+  if(p.g!=null && slot.gen){ try{ return slot.gen(rng(p.g)); }catch(e){ console.error(e); } }
+  return slot.fixed[Math.min(p.f||0, slot.fixed.length-1)]; });
+function PXtoets(b, st, save, key){
+  let pk = load(key+'_pick'); if(!Array.isArray(pk.s) || pk.s.length!==POOL.length){ pk = {s:PXdraw()}; store(key+'_pick', pk); }
+  const bar = el('div','gen-bar'); const nb = el('button','btn ghost','🎲 Nieuwe toets met andere vragen'); nb.type='button'; bar.append(nb); b.append(bar);
+  nb.addEventListener('click', ()=>{ store(key+'_pick', {s:PXdraw(pk.s)}); wipe(key); renderers[key](); b.scrollIntoView({block:'start', behavior:'smooth'}); });
+  proeftoets(b, st, save, key, PXitems(pk.s));
+}
 
 /* --- proeftoets rekenblad (zoals de KT met Excel) --- */
 const DIEREN20 = ['hond','kat','hond','vis','konijn','hond','kat','kat','hond','konijn','vis','hond','kat','konijn','hond','kat','vis','hond','konijn','kat'];
@@ -3391,9 +4843,9 @@ const TOETS_RB = [
     show:'selecteer A1:B6, Invoegen kolom, vul een titel en de astitel in, laat de as bij 0 beginnen'}
 ];
 
-const PT_TIP = n => `${n} vragen: één per onderdeel. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk op kladpapier, met je rekentoestel en zonder spiekbriefje.`;
-TOETSEN.forEach((items,i)=> SECTIONS.push({ id:'toets'+(i+1), ic:'toets', nav:'Proeftoets '+(i+1), title:'Proeftoets '+(i+1), tip:PT_TIP(items.length),
-  cards:[ { title:'Proeftoets '+(i+1), build:(b,st,save,key)=>proeftoets(b,st,save,key,items) } ] }));
+const PT_TIP = `${POOL.length} vragen: één per onderdeel, telkens getrokken uit een grote vragenpool. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk op kladpapier, met je rekentoestel en zonder spiekbriefje. Met <b>Begin opnieuw</b> maak je dezelfde toets opnieuw, met <b>Nieuwe toets</b> krijg je andere vragen.`;
+[1,2,3].forEach(i=> SECTIONS.push({ id:'toets'+i, ic:'toets', nav:'Proeftoets '+i, title:'Proeftoets '+i, tip:PT_TIP,
+  cards:[ { title:'Proeftoets '+i, build:PXtoets } ] }));
 SECTIONS.push({ id:'toets4', ic:'toets', nav:'Proeftoets rekenblad', title:'Proeftoets rekenblad',
   tip:'Vijf opdrachten in het rekenblad, zoals de toets met Excel. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Gebruik altijd formules.',
   cards:[ { title:'Proeftoets rekenblad', build:(b,st,save,key)=>proeftoets(b,st,save,key,TOETS_RB) } ] });
@@ -3403,6 +4855,235 @@ SECTIONS.push({ id:'toets4', ic:'toets', nav:'Proeftoets rekenblad', title:'Proe
   const SEP = new Set(['soort','modus','toestel','onderzoek','fout','toets1']);
   SECTIONS.forEach(s=>{ s.sepBefore = SEP.has(s.id); });
 })();
+/* ============================================================
+   BORDMODUS (elke kaart groot projecteren) EN SNELLE QUIZ PER HOOFDSTUK
+   ============================================================ */
+(function(){
+  const css = `
+  .px-hbtns{ display:inline-flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+  .px-bord-btn{ border:1.5px solid var(--border); background:var(--card); border-radius:.6rem; padding:.3rem .7rem; font-size:.78rem; font-weight:700; cursor:pointer; color:var(--ink-soft); white-space:nowrap; }
+  .px-bord-btn:hover{ border-color:var(--accent); color:var(--accent-dark); }
+  @media (max-width:700px){ .px-bord-btn{ display:none; } }
+  .px-board{ position:fixed; inset:0; z-index:3000; background:var(--bg); overflow:auto; padding:0 max(16px, env(safe-area-inset-right, 0px)) 2rem max(16px, env(safe-area-inset-left, 0px)); }
+  .px-board .px-bar{ position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; padding:.6rem 0; background:var(--bg); border-bottom:2px solid var(--border); margin-bottom:1rem; }
+  .px-board .px-bar .px-cnt{ font-weight:700; font-size:1.05rem; color:var(--accent-dark); margin-right:auto; }
+  .px-board .px-bar .px-none{ color:var(--ink-soft); font-size:.85rem; }
+  .px-board > .card{ max-width:1200px; margin:0 auto; }
+  .px-board .viz.narrow{ max-width:min(720px, 100%); }
+  .px-board .viz.mid{ max-width:min(1000px, 100%); }
+  .px-board .sol.px-shown{ animation:pxIn .35s ease-out; border-color:var(--orange); }
+  @keyframes pxIn{ from{ opacity:0; transform:translateY(6px); } }
+  @media (prefers-reduced-motion: reduce){ .px-board .sol.px-shown{ animation:none; } }
+
+  .px-quiz{ display:grid; gap:.7rem; }
+  .px-quiz .px-top{ display:flex; flex-wrap:wrap; gap:.6rem 1.2rem; align-items:center; font-weight:700; color:var(--accent-dark); }
+  .px-quiz .px-clock{ font-variant-numeric:tabular-nums; font-size:1.4rem; }
+  .px-quiz .px-clock.low{ color:var(--bad); }
+  .px-quiz .px-track{ height:.55rem; border-radius:999px; background:var(--accent-soft); overflow:hidden; }
+  .px-quiz .px-track span{ display:block; height:100%; background:var(--orange); transition:width 1s linear; }
+  .px-quiz .px-q{ font-size:1.2rem; }
+  .px-quiz .px-ans{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+  .px-quiz .px-ans .inp{ font-size:1.15rem; width:6.5em; }
+  .px-quiz .px-big{ font-size:2.2rem; font-weight:700; color:var(--accent-dark); }
+  .px-quiz .px-miss{ margin:.2rem 0 0; padding-left:1.2rem; }
+  .px-quiz .px-miss li{ margin:.2rem 0; }
+  .px-quiz > .btn{ justify-self:start; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+ICONS.quiz = '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M12 13.5l3 2M10 2.5h4M12 2.5V6M18.5 6.5l1.5-1.5"/>';
+
+/* ---------- bordmodus ---------- */
+let PXboard = null;
+function PXsteps(card){ return [...card.querySelectorAll('.sol, button')].filter(e=> e.classList.contains('sol') || (!e.closest('.px-bar') && !e.classList.contains('linkbtn') && /toon mij hoe|toon de oplossing|^\s*▶/i.test(e.textContent))); }
+function PXopen(card){
+  if(PXboard) PXclose();
+  const home = {parent:card.parentElement, next:card.nextSibling};
+  const ov = el('div','px-board'); ov.setAttribute('role','dialog'); ov.setAttribute('aria-label','Bordmodus');
+  const bar = el('div','px-bar');
+  const cnt = el('span','px-cnt');
+  const prev = el('button','btn ghost','◀ Vorige stap'), next = el('button','btn','Volgende stap ▶'), close = el('button','btn ghost','✕ Sluiten');
+  [prev,next,close].forEach(b=>b.type='button');
+  const none = el('span','px-none','Deze oefening heeft geen uitgeschreven oplossing. Los ze samen op en klik op Controleer.');
+  bar.append(cnt, none, prev, next, close); ov.append(bar, card);
+  document.body.append(ov);
+  const shown = []; /* elementen die de bordmodus zichtbaar maakte */
+  function paint(){
+    const steps = PXsteps(card); const n = steps.length;
+    none.hidden = n>0; prev.hidden = next.hidden = n===0;
+    const done = steps.filter(e=>shown.includes(e)).length;
+    cnt.textContent = n ? `Oplossing: stap ${done} van ${n}` : 'Bordmodus';
+    prev.disabled = !shown.some(e=>e.classList.contains('sol'));
+    next.disabled = done>=n;
+  }
+  function step(){
+    const st = PXsteps(card).find(e=>!shown.includes(e)); if(!st) return;
+    shown.push(st);
+    if(st.classList.contains('sol')){ st.hidden = false; st.classList.add('px-shown'); const lb = st.parentElement && st.parentElement.querySelector('.q-act .linkbtn'); if(lb){ lb.hidden = false; lb.textContent = 'Verberg oplossing'; } }
+    else st.click();
+    st.scrollIntoView({block:'center', behavior:'smooth'}); paint();
+  }
+  function back(){ for(let i=shown.length-1;i>=0;i--){ const e = shown[i]; if(e.classList.contains('sol')){ shown.splice(i,1); e.hidden = true; e.classList.remove('px-shown'); const lb = e.parentElement && e.parentElement.querySelector('.q-act .linkbtn'); if(lb) lb.textContent = 'Toon oplossing'; break; } } paint(); }
+  next.addEventListener('click', step); prev.addEventListener('click', back); close.addEventListener('click', ()=>PXclose());
+  const key = e=>{ if(e.key==='Escape'){ PXclose(); return; } if(e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return; if(e.key==='ArrowRight' || e.key==='PageDown'){ e.preventDefault(); step(); } else if(e.key==='ArrowLeft' || e.key==='PageUp'){ e.preventDefault(); back(); } };
+  document.addEventListener('keydown', key);
+  const mo = new MutationObserver(()=>paint()); mo.observe(card, {childList:true, subtree:true});
+  const html = document.documentElement; const fs0 = html.style.fontSize; html.style.fontSize = window.innerWidth>900 ? '150%' : '118%';
+  document.body.style.overflow = 'hidden';
+  PXboard = {card, home, ov, key, mo, fs0, shown};
+  try{ if(ov.requestFullscreen && window.innerWidth>900) ov.requestFullscreen().catch(()=>{}); }catch(e){}
+  paint(); close.focus();
+}
+function PXclose(){
+  const B = PXboard; if(!B) return; PXboard = null;
+  B.mo.disconnect(); document.removeEventListener('keydown', B.key);
+  B.shown.forEach(e=>{ if(e.classList.contains('sol') && e.isConnected){ e.hidden = true; e.classList.remove('px-shown'); const lb = e.parentElement && e.parentElement.querySelector('.q-act .linkbtn'); if(lb) lb.textContent = 'Toon oplossing'; } });
+  try{ if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); }catch(e){}
+  document.documentElement.style.fontSize = B.fs0; document.body.style.overflow = '';
+  if(B.home.next && B.home.next.parentElement===B.home.parent) B.home.parent.insertBefore(B.card, B.home.next); else B.home.parent.append(B.card);
+  B.ov.remove(); B.card.scrollIntoView({block:'start'});
+  const bb = B.card.querySelector('.px-bord-btn'); if(bb) bb.focus({preventScroll:true});
+}
+/* na het opbouwen van alle onderdelen: een knop "Bord" in elke kaartkop (niet in de proeftoetsen) */
+setTimeout(()=>{
+  document.querySelectorAll('#app section.group').forEach(sec=>{
+    if(/^toets/.test(sec.id)) return;
+    sec.querySelectorAll('.card > .card-head').forEach(ch=>{
+      if(ch.querySelector('.px-bord-btn')) return;
+      const wrap = el('span','px-hbtns'); const bb = el('button','px-bord-btn','⛶ Bord'); bb.type='button'; bb.title='Toon deze oefening groot op het bord, met de oplossing stap voor stap';
+      const rb = ch.querySelector('.refresh-btn'); wrap.append(bb); if(rb) wrap.append(rb); ch.append(wrap);
+      bb.addEventListener('click', ()=>PXopen(ch.parentElement));
+    });
+  });
+}, 0);
+
+/* ---------- snelle quiz met timer (telt niet mee) ---------- */
+const PXq = {
+  num:(q, ans, show, extra) => Object.assign({kind:'num', q, ans, show}, extra||{}),
+  pair:(q, ans, show, extra) => Object.assign({kind:'pair', q, ans, show}, extra||{}),
+  ch:(q, opts, ans, show) => ({kind:'ch', q, opts, ans, show})
+};
+const PXdir = (d, ax) => ax==='x' ? (d<0?'naar links':'naar rechts') : (d<0?'naar onder':'naar boven');
+const PX_QUIZ = {
+  coord:[
+    r => { const ax = r()<.15; const x = ax && r()<.5 ? 0 : rNZ(r,-7,7), y = ax && x!==0 ? 0 : rNZ(r,-7,7);
+      return PXq.ch(`Waar ligt het punt <b>${coStr(x,y)}</b>?`, KW.map(([v,l])=>[v, l==='op een as'?l:'kwadrant '+l]), kwAns(x,y), kwadrant(x,y)); },
+    r => { const x = rNZ(r,-9,9), y = rNZ(r,-9,9), w = r()<.5 ? 'x' : 'y'; const n = rPick(r, ['P','Q','R','S']);
+      return PXq.num(`Wat is de <b>${w}-coördinaat</b> van ${n}${coStr(x,y)}?`, w==='x'?x:y, fmt(w==='x'?x:y)); },
+    r => { const x = rInt(r,-5,5), y = rInt(r,-5,5), ax = r()<.5 ? 'x' : 'y', d = rNZ(r,-4,4); const X = ax==='x'?x+d:x, Y = ax==='y'?y+d:y;
+      return PXq.pair(`A${coStr(x,y)} schuift <b>${Math.abs(d)} ${PXdir(d,ax)}</b>. Waar komt het punt terecht?`, [X,Y], `A'${coStr(X,Y)}`); },
+    r => { const x = rNZ(r,-6,6), y = rNZ(r,-6,6);
+      return PXq.pair(`P ligt <b>${Math.abs(x)} ${x<0?'links':'rechts'}</b> van de y-as en <b>${Math.abs(y)} ${y<0?'onder':'boven'}</b> de x-as. Noteer P.`, [x,y], `P${coStr(x,y)}`); },
+    r => { const x = rInt(r,-6,6), y = x===0 ? rNZ(r,-6,6) : rInt(r,-6,6);
+      return PXq.pair('Lees de coördinaat van punt <b>K</b> af.', [x,y], `K${coStr(x,y)}`, {viz:b=>{ const P = plane(); P.point(x,y,'K'); b.append(planeBox(P.svg,'narrow')); }}); }
+  ],
+  data:[
+    r => { const [t,a] = rPick(r, PX_SORT); return PXq.ch(`Is <b>${t}</b> categorische of numerieke data?`, [['c','categorisch'],['n','numeriek']], a, a==='c'?'categorisch':'numeriek'); },
+    r => { const n = rPick(r,[10,20,25,50]), k = rInt(r,1,n-1); const what = rPick(r, ['komen met de fiets','hebben een hond','spelen een instrument','dragen een bril']);
+      return PXq.num(`${k} van de ${n} leerlingen ${what}. Welk percentage is dat? (in %)`, k/n*100, nf(k/n*100)+' %'); },
+    r => { const vals = Array.from({length:rInt(r,9,12)}, ()=>rInt(r,1,5)); const v = rPick(r, vals);
+      return PXq.num(`Hoe vaak komt <b>${v}</b> voor? &nbsp;${vals.join(', ')}`, countOf(vals,v), String(countOf(vals,v))); },
+    r => { const S = [['De temperatuur elk uur van een dag.','l'],['De lengte van een baby elke maand.','l'],['Welk deel van de klas met de fiets, te voet of met de bus komt.','c'],['Hoe je zakgeld verdeeld wordt over snoep, kleren en sparen.','c'],['Het aantal leerlingen per lievelingssport vergelijken.','k'],['De punten van vijf leerlingen op een toets vergelijken.','k']];
+      const [t,a] = rPick(r,S); const O = [['k','staafdiagram'],['c','cirkeldiagram'],['l','lijndiagram']]; return PXq.ch(`Welk diagram past het best? ${t}`, O, a, O.find(o=>o[0]===a)[1]); },
+    r => { const p = rPick(r,[5,10,20,25,30,40,50,75]); return PXq.num(`Een sector in een cirkeldiagram stelt <b>${p} %</b> voor. Hoeveel graden is de hoek?`, p*3.6, nf(p*3.6)+'°'); },
+    r => { const n = rPick(r,[20,25,40,50]); const p = rPick(r, n===25?[4,20,40,60,80]:n===40?[25,50,75,10,5]:[10,20,30,40,50,60]); const k = n*p/100;
+      return PXq.num(`${p} % van de ${n} leerlingen sport elke dag. Hoeveel leerlingen zijn dat?`, k, nf(k)); }
+  ],
+  maten:[
+    r => { const n = rPick(r,[3,4,5]), m = rInt(r,3,12); let v; do{ v = Array.from({length:n-1}, ()=>rInt(r,1,20)); v.push(n*m-sum(v)); }while(v[n-1]<1 || v[n-1]>20);
+      return PXq.num(`Het <b>gemiddelde</b> van ${PXlist(v)}?`, m, `${sum(v)} : ${n} = ${m}`); },
+    r => { const n = rPick(r,[4,5,5,6,7]); const v = Array.from({length:n}, ()=>rInt(r,1,20)); const me = median(v);
+      return PXq.num(`De <b>mediaan</b> van ${PXlist(v)}?`, me, `geordend ${PXlist(sorted(v))}: Me = ${nf(me)}`); },
+    r => { const m = rInt(r,1,9); const v = [m,m,m]; while(v.length<rInt(r,7,9)){ const x = rInt(r,1,9); if(x!==m && countOf(v,x)<2) v.push(x); }
+      const w = PXshuf(r, v); return PXq.num(`De <b>modus</b> van ${PXlist(w)}?`, m, `${m} komt ${countOf(w,m)} keer voor`); },
+    r => { const v = Array.from({length:rInt(r,5,7)}, ()=>rInt(r,1,30)); return PXq.num(`De <b>variatiebreedte</b> van ${PXlist(v)}?`, range(v), `${Math.max(...v)} − ${Math.min(...v)} = ${range(v)}`); },
+    r => { const n = rInt(r,3,8), m = rInt(r,4,12); return PXq.num(`Het gemiddelde van ${n} getallen is ${m}. Wat is hun <b>som</b>?`, n*m, `${n} · ${m} = ${n*m}`); }
+  ]
+};
+function PXquiz(gens, cfg){ return (b, st, save, key) => {
+  const N = cfg.n || 10, T = cfg.t || 180;
+  const root = el('div','px-quiz'); b.append(root);
+  let timer = null;
+  const stop = () => { if(timer){ clearInterval(timer); timer = null; } };
+  const mm = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  function intro(){
+    stop(); root.innerHTML = '';
+    root.append(el('div','readout bigq', `${N} vragen, ${mm(T)} minuten. Hoeveel krijg jij juist? Deze quiz telt niet mee.`));
+    if(st.best) root.append(el('div','sub', `Jouw beste score: <b>${st.best.score} / ${N}</b>${st.best.time!=null?` in ${mm(st.best.time)}`:''}.`));
+    const go = el('button','btn big','▶ Start de quiz'); go.type='button'; go.addEventListener('click', run); root.append(go);
+  }
+  function run(){
+    stop(); root.innerHTML = '';
+    const r = rng(Math.floor(Math.random()*1e9));
+    const order = []; while(order.length<N){ PXshuf(r, gens.map((_,i)=>i)).forEach(i=>{ if(order.length<N) order.push(i); }); }
+    const Q = []; order.forEach(i=>{ let q, t = 0; do{ q = gens[i](r); }while(t++<20 && Q.some(x=>x.q===q.q)); Q.push(q); });
+    const top = el('div','px-top'); const clock = el('span','px-clock', mm(T)); const prog = el('span'); const sc = el('span');
+    top.append(clock, prog, sc);
+    const track = el('div','px-track', '<span style="width:100%"></span>');
+    const area = el('div'); const fb = el('div','fb');
+    root.append(top, track, area, fb);
+    let k = 0, score = 0, left = T, busy = false; const miss = []; const t0 = Date.now();
+    timer = setInterval(()=>{ if(!root.isConnected){ stop(); return; } left--; clock.textContent = mm(Math.max(0,left)); clock.classList.toggle('low', left<=20); track.firstChild.style.width = Math.max(0, left/T*100)+'%'; if(left<=0) end(true); }, 1000);
+    function show(){
+      busy = false; fb.className = 'fb'; fb.textContent = '';
+      prog.textContent = `Vraag ${k+1} / ${N}`; sc.textContent = `✅ ${score}`;
+      const q = Q[k]; area.innerHTML = '';
+      area.append(el('div','px-q', q.q));
+      if(q.viz) q.viz(area);
+      const ans = el('div','px-ans'); area.append(ans);
+      if(q.kind==='ch'){ q.opts.forEach(([v,l])=>{ const bt = el('button','opt',l); bt.type='button'; bt.addEventListener('click', ()=>answer(v, bt)); ans.append(bt); }); }
+      else {
+        const ins = q.kind==='pair' ? [0,1].map(()=>el('input','inp xs')) : [el('input','inp')];
+        ins.forEach(i=>{ i.type='text'; i.autocomplete='off'; i.setAttribute('inputmode','text'); i.setAttribute('aria-label','antwoord'); });
+        if(q.kind==='pair'){ ans.append(el('span','bigq','(')); ans.append(ins[0]); ans.append(el('span','bigq',',')); ans.append(ins[1]); ans.append(el('span','bigq',')')); } else ans.append(ins[0]);
+        const ok = el('button','btn','OK'); ok.type='button'; ans.append(ok);
+        const go = () => { if(ins.some(i=>i.value.trim()==='')){ fb.className='fb info'; fb.textContent = 'Vul eerst je antwoord in.'; return; } answer(ins.map(i=>parseLoose(i.value))); };
+        ok.addEventListener('click', go); ins.forEach(i=>i.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }));
+        ins[0].focus({preventScroll:true});
+      }
+    }
+    function answer(v, bt){
+      if(busy) return; busy = true; const q = Q[k];
+      const good = q.kind==='ch' ? v===q.ans : q.kind==='pair' ? Math.abs(v[0]-q.ans[0])<1e-9 && Math.abs(v[1]-q.ans[1])<1e-9 : Math.abs(v[0]-q.ans)<1e-9;
+      if(good) score++; else miss.push(q);
+      if(bt) bt.classList.add(good?'good':'wrong');
+      area.querySelectorAll('input, .opt, .btn').forEach(x=>x.disabled = true);
+      fb.className = 'fb '+(good?'ok':'bad'); fb.innerHTML = good ? '✅ Juist!' : `❌ Juist was: <b>${q.show}</b>`;
+      sc.textContent = `✅ ${score}`;
+      setTimeout(()=>{ if(!timer) return; k++; if(k>=N) end(false); else show(); }, good ? 700 : 1800);
+    }
+    function end(timeUp){
+      if(!timer && !timeUp) return; stop(); const used = Math.min(T, Math.round((Date.now()-t0)/1000));
+      const best = !st.best || score>st.best.score || (score===st.best.score && used<(st.best.time||1e9));
+      if(best){ st.best = {score, time: timeUp ? null : used}; save(); }
+      root.innerHTML = '';
+      root.append(el('div','px-big', `${score} / ${N}`));
+      root.append(el('div','readout', (timeUp ? '⏰ De tijd is om. ' : `Klaar in ${mm(used)}. `) + (best && score>0 ? '🎉 Dat is jouw beste score!' : `Jouw beste score: ${st.best.score} / ${N}.`)));
+      if(miss.length){ root.append(el('div','sub','Dit ging nog mis:')); const ul = el('ul','px-miss'); miss.forEach(q=>ul.append(el('li','', `${q.q.replace(/<div[\s\S]*$/,'')} → <b>${q.show}</b>`))); root.append(ul); }
+      if(timeUp && k<N) root.append(el('div','sub', `${N-k} vragen kwamen niet meer aan bod.`));
+      const again = el('button','btn big','↻ Nog eens'); again.type='button'; again.addEventListener('click', run); root.append(again);
+    }
+    show();
+  }
+  intro();
+}; }
+(function(){
+  const at = SECTIONS.findIndex(s=>s.id==='fout');
+  const sec = { id:'quiz', ic:'quiz', nav:'Snelle quiz', title:'Snelle quiz: hoe snel ben jij?',
+    tip:'Tien korte vragen tegen de klok. De quiz telt niet mee: speel hem zo vaak je wil en probeer je beste score te verbeteren.',
+    cards:[
+      { title:'Quiz coördinaten', instr:'Kwadranten, coördinaten aflezen en punten verschuiven.', build:PXquiz(PX_QUIZ.coord, {}) },
+      { title:'Quiz data voorstellen', instr:'Soorten data, frequenties, percentages en diagrammen.', build:PXquiz(PX_QUIZ.data, {}) },
+      { title:'Quiz centrummaten', instr:'Gemiddelde, mediaan, modus en variatiebreedte, uit het hoofd.', build:PXquiz(PX_QUIZ.maten, {}) }
+    ]};
+  if(at<0) SECTIONS.push(sec); else SECTIONS.splice(at+1, 0, sec);
+})();
+/* ============================================================
+   KAARTEN ORDENEN: basis, dan oefenen, dan verdieping (stabiel)
+   ============================================================ */
+SECTIONS.forEach(s=>{ if(!s.cards || /^toets/.test(s.id)) return; s.cards = s.cards.map((c,i)=>[c,i]).sort((a,b)=>(a[0].lvl||1)-(b[0].lvl||1) || a[1]-b[1]).map(x=>x[0]); });
+/* signaaloefeningen (instaptoets) vlak voor Zoek de fout */
+(function(){ const i = SECTIONS.findIndex(s=>s.id==='signaal'); if(i<0) return; const [s] = SECTIONS.splice(i,1); const f = SECTIONS.findIndex(x=>x.id==='fout'); SECTIONS.splice(f<0?SECTIONS.length:f, 0, s); s.sepBefore = true; if(f>=0) SECTIONS[f+1].sepBefore = false; })();
 /* onderdelen die de leerkracht uitzette, verbergen */
 if(window.CL_VERBORGEN){ for(let i = SECTIONS.length - 1; i >= 0; i--) if(window.CL_VERBORGEN.has(SECTIONS[i].id)) SECTIONS.splice(i, 1); }
 const app = document.getElementById('app');

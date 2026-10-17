@@ -306,67 +306,67 @@ export const SITES = [
     "id": "coord",
     "naam": "Coördinaten",
     "toets": false,
-    "vragen": 50
+    "vragen": 79
    },
    {
     "id": "lijn",
     "naam": "Lijndiagrammen",
     "toets": false,
-    "vragen": 25
+    "vragen": 30
    },
    {
     "id": "soort",
     "naam": "Soorten data",
     "toets": false,
-    "vragen": 22
+    "vragen": 30
    },
    {
     "id": "freq",
     "naam": "Frequentietabel",
     "toets": false,
-    "vragen": 7
+    "vragen": 15
    },
    {
     "id": "diagram",
     "naam": "Diagrammen",
     "toets": false,
-    "vragen": 26
+    "vragen": 45
    },
    {
     "id": "mislei",
     "naam": "Misleidende grafieken",
     "toets": false,
-    "vragen": 11
+    "vragen": 14
    },
    {
     "id": "modus",
     "naam": "Modus en variatiebreedte",
     "toets": false,
-    "vragen": 13
+    "vragen": 16
    },
    {
     "id": "gem",
     "naam": "Het gemiddelde",
     "toets": false,
-    "vragen": 15
+    "vragen": 25
    },
    {
     "id": "med",
     "naam": "De mediaan",
     "toets": false,
-    "vragen": 14
+    "vragen": 18
    },
    {
     "id": "interp",
     "naam": "Data interpreteren",
     "toets": false,
-    "vragen": 12
+    "vragen": 27
    },
    {
     "id": "toestel",
     "naam": "Met het rekentoestel",
     "toets": false,
-    "vragen": 13
+    "vragen": 36
    },
    {
     "id": "rekenblad",
@@ -405,10 +405,22 @@ export const SITES = [
     "vragen": 0
    },
    {
+    "id": "signaal",
+    "naam": "Signaaloefeningen",
+    "toets": false,
+    "vragen": 0
+   },
+   {
     "id": "fout",
     "naam": "Zoek de fout",
     "toets": false,
     "vragen": 6
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
    },
    {
     "id": "toets1",
