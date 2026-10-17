@@ -306,13 +306,13 @@ export const SITES = [
     "id": "coord",
     "naam": "Coördinaten",
     "toets": false,
-    "vragen": 29
+    "vragen": 50
    },
    {
     "id": "lijn",
     "naam": "Lijndiagrammen",
     "toets": false,
-    "vragen": 11
+    "vragen": 25
    },
    {
     "id": "soort",

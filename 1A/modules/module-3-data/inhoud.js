@@ -458,7 +458,7 @@ const NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs={}, parent){ const e=document.createElementNS(NS, tag); for(const k in attrs) e.setAttribute(k, attrs[k]); if(parent) parent.append(e); return e; }
 function svgText(parent, x, y, txt, attrs={}){ const t=svgEl('text', Object.assign({x, y}, attrs), parent); t.textContent = txt; return t; }
 function newSvg(w, h, cls){ const s=svgEl('svg', {viewBox:`0 0 ${w} ${h}`, class:'ch '+(cls||''), role:'img'}); return s; }
-const DARKPAL = new Set(['#127a7f','#4f6668']);
+const DARKPAL = new Set(['#127a7f','#4f6668','#4472c4','#264478','#9e480e','#ed7d31','#70ad47']);
 const PAL = ['#3bc1c5','#fcaf17','#127a7f','#fdd27a','#8fd8db','#4f6668','#e8890c','#b3e3e5'];
 const sleep = ms => new Promise(r=>setTimeout(r, ms));
 /* mooie stap voor een as */
@@ -482,20 +482,20 @@ function drawChart(type, d, W=560, H=330){
       vals.forEach((v,i)=>{
         const a1 = a0 + v/tot*2*Math.PI;
         const large = (a1-a0)>Math.PI?1:0;
-        const p = v>=tot-1e-9 ? svgEl('circle',{cx,cy,r,fill:PAL[i%PAL.length],class:'sec'},svg)
-          : svgEl('path',{d:`M${cx},${cy} L${cx+r*Math.cos(a0)},${cy+r*Math.sin(a0)} A${r},${r} 0 ${large} 1 ${cx+r*Math.cos(a1)},${cy+r*Math.sin(a1)} Z`, fill:PAL[i%PAL.length], class:'sec'+(anim?' pop':'')}, svg);
+        const p = v>=tot-1e-9 ? svgEl('circle',{cx,cy,r,fill:(d.pal||PAL)[i%PAL.length],class:'sec'},svg)
+          : svgEl('path',{d:`M${cx},${cy} L${cx+r*Math.cos(a0)},${cy+r*Math.sin(a0)} A${r},${r} 0 ${large} 1 ${cx+r*Math.cos(a1)},${cy+r*Math.sin(a1)} Z`, fill:(d.pal||PAL)[i%PAL.length], class:'sec'+(anim?' pop':'')}, svg);
         if(anim) p.style.animationDelay = (i*0.12)+'s';
         const am = (a0+a1)/2;
-        if(v/tot>0.045){ const t = svgText(svg, cx+r*0.66*Math.cos(am), cy+r*0.66*Math.sin(am)+5, d.pct===false? nf(v):nf(v/tot*100,0)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill=DARKPAL.has(PAL[i%PAL.length])?'#ffffff':'#173436'; }
+        if(v/tot>0.045){ const t = svgText(svg, cx+r*0.66*Math.cos(am), cy+r*0.66*Math.sin(am)+5, d.pct===false? nf(v):nf(v/tot*100,0)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill=DARKPAL.has((d.pal||PAL)[i%PAL.length])?'#ffffff':'#173436'; }
         a0 = a1;
       });
-      labels.forEach((l,i)=>{ const y = 50+i*24; svgEl('rect',{x:W*0.7, y:y-12, width:16, height:16, rx:3, fill:PAL[i%PAL.length]}, svg); svgText(svg, W*0.7+22, y+1, l); });
+      labels.forEach((l,i)=>{ const y = 50+i*24; svgEl('rect',{x:W*0.7, y:y-12, width:16, height:16, rx:3, fill:(d.pal||PAL)[i%PAL.length]}, svg); svgText(svg, W*0.7+22, y+1, l); });
     } else {
       const x0 = 20, x1 = W-20, y = 70, h = 56; let x = x0;
-      vals.forEach((v,i)=>{ const w=(x1-x0)*v/tot; const r=svgEl('rect',{x, y, width:Math.max(0,w), height:h, fill:PAL[i%PAL.length], class:'sec'+(anim?' fade-in':'')}, svg); if(anim) r.style.animationDelay=(i*0.12)+'s';
-        if(v/tot>0.06){ const t=svgText(svg, x+w/2, y+h/2+6, nf(v/tot*100,0)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill=DARKPAL.has(PAL[i%PAL.length])?'#ffffff':'#173436'; }
+      vals.forEach((v,i)=>{ const w=(x1-x0)*v/tot; const r=svgEl('rect',{x, y, width:Math.max(0,w), height:h, fill:(d.pal||PAL)[i%PAL.length], class:'sec'+(anim?' fade-in':'')}, svg); if(anim) r.style.animationDelay=(i*0.12)+'s';
+        if(v/tot>0.06){ const t=svgText(svg, x+w/2, y+h/2+6, nf(v/tot*100,0)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill=DARKPAL.has((d.pal||PAL)[i%PAL.length])?'#ffffff':'#173436'; }
         x += w; });
-      labels.forEach((l,i)=>{ const col=i%3, row=Math.floor(i/3); const lx=x0+col*(W-40)/3, ly=y+h+36+row*24; svgEl('rect',{x:lx, y:ly-12, width:16, height:16, rx:3, fill:PAL[i%PAL.length]}, svg); svgText(svg, lx+22, ly+1, l); });
+      labels.forEach((l,i)=>{ const col=i%3, row=Math.floor(i/3); const lx=x0+col*(W-40)/3, ly=y+h+36+row*24; svgEl('rect',{x:lx, y:ly-12, width:16, height:16, rx:3, fill:(d.pal||PAL)[i%PAL.length]}, svg); svgText(svg, lx+22, ly+1, l); });
       svg.setAttribute('viewBox', `0 0 ${W} ${y+h+40+Math.ceil(labels.length/3)*24}`);
     }
     return svg;
@@ -536,8 +536,8 @@ function drawChart(type, d, W=560, H=330){
     const xs = i => L + (n===1? pw/2 : pw*i/(n-1));
     series.forEach((s,si)=>{
       const pts = s.values.map((v,i)=> (v===''||v==null||isNaN(+v))?null:[xs(i), T+ph*(1-vToP(+v))]).filter(Boolean);
-      if(pts.length>1){ const pl=svgEl('polyline',{points:pts.map(p=>p.join(',')).join(' '), class:(si%2?'ln2':'ln')+(anim?' draw':'')}, svg); if(ns>1 && si>1) pl.style.stroke=PAL[si%PAL.length]; }
-      pts.forEach(p=>{ const c=svgEl('circle',{cx:p[0], cy:p[1], r:4.5, class:'pt'+(si%2?' or':'')}, svg); if(ns>1 && si>1) c.style.fill=PAL[si%PAL.length]; });
+      if(pts.length>1){ const pl=svgEl('polyline',{points:pts.map(p=>p.join(',')).join(' '), class:(si%2?'ln2':'ln')+(anim?' draw':'')}, svg); if(ns>1 && si>1) pl.style.stroke=(d.pal||PAL)[si%PAL.length]; }
+      pts.forEach(p=>{ const c=svgEl('circle',{cx:p[0], cy:p[1], r:4.5, class:'pt'+(si%2?' or':'')}, svg); if(ns>1 && si>1) c.style.fill=(d.pal||PAL)[si%PAL.length]; });
     });
     labels.forEach((l,i)=> svgText(svg, xs(i), T+ph+20, l, {'text-anchor':'middle'}));
     svg._xs = xs;
@@ -550,7 +550,7 @@ function drawChart(type, d, W=560, H=330){
         let r;
         if(horiz){ const y = T+slot*i+slot*0.19+bw*si; r=svgEl('rect',{x:L, y, width:pw*p, height:bw, class:'bar'+((d.hi||[]).includes(i)?' hi':'')+(anim?' fade-in':'')}, svg); }
         else { const x = L+slot*i+slot*0.19+bw*si; r=svgEl('rect',{x, y:T+ph*(1-p), width:bw, height:ph*p, class:'bar'+((d.hi||[]).includes(i)?' hi':'')+(anim?' grow':'')}, svg); }
-        if(ns>1) r.style.fill = PAL[si%PAL.length];
+        if(ns>1) r.style.fill = (d.pal||PAL)[si%PAL.length];
         if(anim) r.style.animationDelay = (i*0.07)+'s';
         if(d.values){ if(horiz) svgText(svg, L+pw*p+6, T+slot*i+slot*0.19+bw*si+bw/2+5, nf(v)); else svgText(svg, L+slot*i+slot*0.19+bw*si+bw/2, T+ph*(1-p)-6, nf(v), {'text-anchor':'middle'}); }
       });
@@ -567,7 +567,7 @@ function drawChart(type, d, W=560, H=330){
   }
   if(d.xTitle) svgText(svg, L+pw/2, H-14, d.xTitle, {'text-anchor':'middle', class:'t-soft'});
   if(d.yTitle){ if(horiz) svgText(svg, L+pw/2, H-14, d.yTitle, {'text-anchor':'middle', class:'t-soft'}); else svgText(svg, 8, T-14, d.yTitle, {class:'t-soft'}); }
-  if(ns>1){ series.forEach((s,si)=>{ const x=L+10+si*120, y=H-14; svgEl('rect',{x, y:y-11, width:14, height:14, rx:3, fill:PAL[si%PAL.length]}, svg); svgText(svg, x+19, y+1, s.name); }); }
+  if(ns>1){ series.forEach((s,si)=>{ const x=L+10+si*120, y=H-14; svgEl('rect',{x, y:y-11, width:14, height:14, rx:3, fill:(d.pal||PAL)[si%PAL.length]}, svg); svgText(svg, x+19, y+1, s.name); }); }
   svg._L=L; svg._T=T; svg._pw=pw; svg._ph=ph; svg._yMin=yMin; svg._yMax=yMax; svg._n=n;
   return svg;
 }
@@ -890,6 +890,459 @@ SECTIONS.push({ id:'lijn', ic:'lijn', nav:'Lijndiagrammen', title:'Informatie ui
           {html:'In welke maand is het verschil het kleinst? [[0]]', check:words(['april','apr']), sol:'In april: 19 °C − 15 °C = 4 °C. De lijnen liggen daar het dichtst bij elkaar.'}
         ], {letters:true})) }
   ]});
+/* ============================================================
+   NIEUWE OPGAVEN MET TOEVALSGETALLEN + EXTRA COÖRDINAATOEFENINGEN
+   ============================================================ */
+(function(){
+  const css = `
+  .gen-bar{ display:flex; justify-content:flex-end; margin:.2rem 0 .6rem; }
+  .gen-bar .btn{ display:inline-flex; gap:.35rem; align-items:center; }
+  .ch .pt.blink{ animation:blink 1s ease-in-out infinite; fill:var(--orange); }
+  @keyframes blink{ 50%{ r:10; } }
+  @media (prefers-reduced-motion: reduce){ .ch .pt.blink{ animation:none; } }
+  .ch .poly{ fill:var(--or-soft); fill-opacity:.55; stroke:var(--accent-dark); stroke-width:2.5; stroke-linejoin:round; }
+  .ch .poly.bad{ stroke:var(--bad); stroke-dasharray:6 5; fill:none; }
+  .ch .poly.part{ fill:none; stroke-dasharray:7 6; }
+  .ch .arrow{ stroke:var(--orange); stroke-width:3; fill:none; marker-end:url(#pijlpunt); }
+  .ch .hitpt{ fill:transparent; cursor:pointer; }
+  .ch .pt.miss{ fill:#b9c7c8; }
+  .shot-log{ display:flex; flex-wrap:wrap; gap:.3rem; margin:.4rem 0; }
+  .shot-log .dv.hit{ border-color:var(--ok); background:var(--ok-bg); }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* toevalsgetallen met een vaste seed: dezelfde opgave na herladen, een nieuwe met de knop */
+function rng(seed){ let a = seed>>>0; return ()=>{ a = (a + 0x6D2B79F5)>>>0; let t = a; t = Math.imul(t ^ t>>>15, t | 1); t ^= t + Math.imul(t ^ t>>>7, t | 61); return ((t ^ t>>>14)>>>0) / 4294967296; }; }
+const rInt = (r, lo, hi) => lo + Math.floor(r()*(hi-lo+1));
+const rPick = (r, arr) => arr[Math.floor(r()*arr.length)];
+const rNZ = (r, lo, hi) => { let v; do{ v = rInt(r, lo, hi); }while(v===0); return v; };
+/* kaart met de knop "Nieuwe opgave": make(rnd) maakt de gegevens, render tekent de oefening */
+const fresh = (make, render) => (b, st, save, key) => {
+  if(st.seed==null){ st.seed = Math.floor(Math.random()*1e9); }
+  const box = el('div'); b.append(box);
+  const bar = el('div','gen-bar'); const nb = el('button','btn ghost','↻ Nieuwe opgave'); nb.type='button'; bar.append(nb);
+  function draw(){ box.innerHTML=''; st.s = st.s || {}; render(box, st.s, save, key, make(rng(st.seed))); }
+  nb.addEventListener('click', ()=>{ st.seed = (st.seed + 7919) >>> 0; st.s = {}; save(); draw(); box.scrollIntoView({block:'nearest', behavior:'smooth'}); });
+  if(!QZ) b.prepend(bar);
+  draw();
+};
+/* n verschillende punten in het rooster, niet op elkaar, met letters */
+function randPts(r, n, opt={}){
+  const lim = opt.lim || 6, pts = [], used = new Set(), names = opt.names || 'ABCDEFGHKLMNPQRSTUVW';
+  let guard = 0;
+  while(pts.length<n && guard++<500){
+    const x = rInt(r, -lim, lim), y = rInt(r, -lim, lim);
+    if(!opt.axes && (x===0 || y===0)) continue;
+    if(used.has(x+','+y)) continue;
+    used.add(x+','+y); pts.push([x, y, names[pts.length]]);
+  }
+  return pts;
+}
+const ptsGen = (n, opt={}) => r => { const p = randPts(r, n, opt); if(opt.oneAxis){ const k = rInt(r, 0, n-1); const v = rNZ(r, -5, 5); p[k][0] = r()<.5 ? 0 : v; p[k][1] = p[k][0]===0 ? v : 0; } return p; };
+
+/* --- welk punt is het? klik op het punt met de gevraagde coördinaat --- */
+function whichPoint(b, st, save, key, cfg){
+  const P = plane();
+  b.append(el('div','readout bigq'));
+  const prompt = b.lastChild;
+  b.append(planeBox(P.svg, 'narrow'));
+  const fb = el('div','fb'); b.append(fb);
+  const quiz = QZ; const asks = cfg.asks;
+  const ids = asks.map((a,i)=>QID('welk'+i)); if(!quiz) ids.forEach(id=>CLvraag(id));
+  const done = st.done || (st.done = []);
+  const gs = cfg.pts.map((p,i)=>{ const g = P.point(p[0], p[1], p[2]); const hit = svgEl('circle',{cx:P.X(p[0]), cy:P.Y(p[1]), r:17, class:'hitpt'}, g); g.dataset.i=i; return g; });
+  function cur(){ return asks.findIndex((a,i)=>done[i]==null); }
+  function paint(){
+    gs.forEach((g,i)=>g.querySelector('.pt').classList.toggle('or', done.some((d,k)=>d===i && asks[k]===i)));
+    const c = cur(); const t = c<0 ? null : cfg.pts[asks[c]];
+    prompt.innerHTML = c<0 ? (quiz ? 'Je koos alle punten.' : '✅ Alle punten gevonden.') : `Welk punt heeft als coördinaat <b>${coStr(t[0], t[1])}</b>? Klik erop.`;
+  }
+  gs.forEach((g,i)=>g.addEventListener('click', async ev=>{
+    ev.stopPropagation(); if(P.svg.dataset.locked) return;
+    const c = cur(); if(c<0) return; const want = asks[c], t = cfg.pts[want], p = cfg.pts[i];
+    if(quiz){ done[c] = i; save(); paint(); return; }
+    if(i===want){ done[c] = i; save(); fb.className='fb ok'; fb.innerHTML = `✅ Juist! Dat is <b>${t[2]}${coStr(t[0],t[1])}</b>.`; CLres(ids[c], true); paint(); const cl = await P.project(t[0], t[1], t[2], 2.2); setTimeout(cl, 1200); }
+    else { fb.className='fb bad'; let m = `${p[2]} is ${coStr(p[0],p[1])}. `;
+      if(p[0]===t[1] && p[1]===t[0]) m += 'Je wisselde x en y om: het eerste getal is de horizontale stap.';
+      else if(Math.abs(p[0])===Math.abs(t[0]) && Math.abs(p[1])===Math.abs(t[1])) m += 'Kijk naar de tekens: negatief is links of onder.';
+      else m += `Start in de oorsprong: ${Math.abs(t[0])} ${t[0]<0?'naar links':'naar rechts'}, dan ${Math.abs(t[1])} ${t[1]<0?'naar onder':'naar boven'}.`;
+      fb.textContent = '❌ '+m; CLres(ids[c], false); }
+  }));
+  paint();
+  if(quiz) quiz.push({ grade:()=>asks.every((a,k)=>done[k]===a), reveal:()=>{}, lock:()=>{ P.svg.dataset.locked='1'; } });
+}
+/* punten met lokvogels: een punt met x en y omgewisseld en een punt met een ander teken */
+const whichGen = r => {
+  const pts = []; const used = new Set(); const add = (x,y) => { const k=x+','+y; if(used.has(k) || Math.abs(x)>6 || Math.abs(y)>6) return false; used.add(k); pts.push([x,y]); return true; };
+  const asks = [];
+  for(let k=0;k<3;k++){ let x, y; do{ x = rNZ(r,-5,5); y = rNZ(r,-5,5); }while(Math.abs(x)===Math.abs(y) || used.has(x+','+y) || used.has(y+','+x) || used.has((-x)+','+y)); add(x,y); asks.push(pts.length-1); }
+  asks.slice().forEach(i=>{ const [x,y] = pts[i]; add(y,x); add(r()<.5?-x:x, r()<.5?y:-y); });
+  while(pts.length<9){ add(rNZ(r,-6,6), rNZ(r,-6,6)); }
+  const order = shuffle(pts.map((_,i)=>i)); const names = 'ABCDEFGHKLMN';
+  const out = order.map((i,k)=>[pts[i][0], pts[i][1], names[k]]);
+  return { pts: out, asks: asks.map(i=>order.indexOf(i)) };
+};
+
+/* --- het vierde punt: parallellogram, rechthoek, ruit of vierkant --- */
+const SOORT = { par:'parallellogram', rh:'rechthoek', ruit:'ruit', vk:'vierkant' };
+function quadGen(soort, tilted){
+  return r => {
+    for(let t=0;t<400;t++){
+      let A=[rInt(r,-5,1), rInt(r,-5,1)], v, w;
+      if(soort==='vk'){ const p=rInt(r,2,5), q = tilted ? rInt(r,1,2)*(r()<.5?1:-1) : 0; v=[p,q]; w=[-q,p]; }
+      else if(soort==='rh'){ if(tilted){ const k=rInt(r,1,2), m=rInt(r,2,3); v=[2*k,k]; w=[-m,2*m]; } else { v=[rInt(r,2,6),0]; w=[0,rInt(r,2,5)]; if(v[0]===w[1]) continue; } }
+      else if(soort==='ruit'){ if(tilted){ v=[5,0]; w=rPick(r,[[3,4],[4,3],[-3,4],[-4,3]]); } else { const h=rInt(r,2,4), k=rInt(r,1,4); if(h===k) continue; v=[h,-k]; w=[h,k]; } }
+      else { v=[rInt(r,3,5),0]; w=[rNZ(r,-2,3), rInt(r,2,4)]; if(tilted){ v=[rInt(r,3,4), rNZ(r,-2,2)]; } }
+      const B=[A[0]+v[0], A[1]+v[1]], C=[B[0]+w[0], B[1]+w[1]], D=[A[0]+w[0], A[1]+w[1]];
+      const all=[A,B,C,D]; if(all.some(p=>Math.abs(p[0])>6 || Math.abs(p[1])>6)) continue;
+      const shift = [rInt(r,-1,2), rInt(r,-1,2)]; const Q = all.map(p=>[p[0]+shift[0], p[1]+shift[1]]); if(Q.some(p=>Math.abs(p[0])>6 || Math.abs(p[1])>6)) continue;
+      return { soort, P:Q, miss:rInt(r,0,3) };
+    }
+    return { soort, P:[[-2,-1],[3,-1],[4,2],[-1,2]], miss:3 };
+  };
+}
+function fourthPoint(b, st, save, key, cfg){
+  const N = 'ABCD', want = cfg.P[cfg.miss];
+  const P = plane();
+  const defs = svgEl('defs', {}, P.svg); defs.innerHTML = '<marker id="pijlpunt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--orange)"/></marker>';
+  const given = [0,1,2,3].filter(i=>i!==cfg.miss);
+  const part = svgEl('polyline', {class:'poly part', points:[1,2,3].map(k=>(cfg.miss+k)%4).map(i=>`${P.X(cfg.P[i][0])},${P.Y(cfg.P[i][1])}`).join(' ')}, P.layer);
+  given.forEach(i=>P.point(cfg.P[i][0], cfg.P[i][1], N[i]+coStr(cfg.P[i][0], cfg.P[i][1])));
+  b.append(el('div','readout bigq', `ABCD is een <b>${SOORT[cfg.soort]}</b>. Klik op de plaats van <b>${N[cfg.miss]}</b>.`));
+  b.append(planeBox(P.svg, 'narrow'));
+  const fb = el('div','fb'); b.append(fb);
+  const quiz = QZ; const qid = QID('vierde'); if(!quiz) CLvraag(qid);
+  let mark = null, poly = null;
+  function show(pt, final){
+    if(mark) mark.remove(); if(poly) poly.remove();
+    const Q = cfg.P.slice(); Q[cfg.miss] = pt;
+    poly = svgEl('polygon', {class:'poly'+(final===false?' bad':''), points:Q.map(p=>`${P.X(p[0])},${P.Y(p[1])}`).join(' ')}, P.layer);
+    P.layer.prepend(poly);
+    mark = P.point(pt[0], pt[1], N[cfg.miss]+coStr(pt[0], pt[1]), final===false?'or':'');
+  }
+  if(st.pt) show(st.pt, quiz ? null : (st.pt[0]===want[0] && st.pt[1]===want[1]) || false);
+  P.svg.addEventListener('click', ev=>{
+    if(P.svg.dataset.locked || (st.ok && !quiz)) return;
+    const [x,y] = P.toData(ev); if(Math.abs(x)>6 || Math.abs(y)>6) return;
+    st.pt = [x,y]; save();
+    const ok = x===want[0] && y===want[1];
+    if(quiz){ show(st.pt, null); return; }
+    show(st.pt, ok); fb.className = 'fb '+(ok?'ok':'bad');
+    if(ok){ st.ok = true; save(); fb.innerHTML = `✅ Juist! ${N[cfg.miss]}${coStr(x,y)}. ${why()}`; }
+    else fb.innerHTML = `❌ Met ${N[cfg.miss]}${coStr(x,y)} krijg je geen ${SOORT[cfg.soort]}. ${hint()} Klik opnieuw.`;
+    CLres(qid, ok);
+  });
+  const prev = cfg.P[(cfg.miss+3)%4], next = cfg.P[(cfg.miss+1)%4], opp = cfg.P[(cfg.miss+2)%4];
+  function why(){ const dx = want[0]-next[0], dy = want[1]-next[1]; return `Van ${N[(cfg.miss+2)%4]} naar ${N[(cfg.miss+1)%4]} is dezelfde stap als van ${N[(cfg.miss+3)%4]} naar ${N[cfg.miss]}: ${stap(next[0]-opp[0], next[1]-opp[1])}.`; }
+  function hint(){ return `In een ${SOORT[cfg.soort]} zijn de overstaande zijden evenwijdig en even lang. Doe vanuit ${N[(cfg.miss+3)%4]} dezelfde stap als van ${N[(cfg.miss+2)%4]} naar ${N[(cfg.miss+1)%4]}.`; }
+  function stap(dx, dy){ const a = dx===0 ? '' : `${Math.abs(dx)} naar ${dx<0?'links':'rechts'}`, c = dy===0 ? '' : `${Math.abs(dy)} naar ${dy<0?'onder':'boven'}`; return [a,c].filter(Boolean).join(' en ') || 'geen stap'; }
+  if(quiz) quiz.push({ grade:()=>!!st.pt && st.pt[0]===want[0] && st.pt[1]===want[1], reveal:ok=>{ if(!ok) show(want, true); }, lock:()=>{ P.svg.dataset.locked='1'; } });
+}
+/* drie punten: alle mogelijke vierde punten van een parallellogram */
+function allFourth(b, st, save, key, cfg){
+  const [A,B,C] = cfg.P; const cand = [[A[0]+B[0]-C[0], A[1]+B[1]-C[1]], [A[0]+C[0]-B[0], A[1]+C[1]-B[1]], [B[0]+C[0]-A[0], B[1]+C[1]-A[1]]];
+  const P = plane(); [['A',A],['B',B],['C',C]].forEach(([n,p])=>P.point(p[0],p[1],n+coStr(p[0],p[1])));
+  b.append(el('div','readout bigq', 'Met A, B en C en een vierde punt D maak je een <b>parallellogram</b>. Er zijn <b>drie</b> mogelijke plaatsen voor D. Klik ze alle drie aan.'));
+  b.append(planeBox(P.svg, 'narrow'));
+  const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn); const fb = el('div','fb'); b.append(act, fb);
+  const quiz = QZ; const qid = QID('drie'); if(!quiz) CLvraag(qid); else act.hidden = true;
+  const sel = st.sel || (st.sel = []); const g = svgEl('g', {}, P.layer);
+  function paint(show){ g.innerHTML=''; sel.forEach(p=>{ const ok = cand.some(c=>c[0]===p[0]&&c[1]===p[1]); const c = svgEl('circle',{cx:P.X(p[0]), cy:P.Y(p[1]), r:7, class:'pt '+(show? (ok?'':'or') : 'or')}, g); });
+    if(show) cand.forEach(c=>{ if(sel.some(p=>p[0]===c[0]&&p[1]===c[1])){ const others = [A,B,C]; } }); }
+  P.svg.addEventListener('click', ev=>{ if(P.svg.dataset.locked) return; const [x,y] = P.toData(ev); if(Math.abs(x)>6||Math.abs(y)>6) return; const k = sel.findIndex(p=>p[0]===x&&p[1]===y); if(k>=0) sel.splice(k,1); else sel.push([x,y]); st.checked=false; save(); paint(false); });
+  const isOk = () => sel.length===3 && cand.every(c=>sel.some(p=>p[0]===c[0]&&p[1]===c[1]));
+  btn.addEventListener('click', ()=>{ const ok = isOk(); paint(true); fb.className='fb '+(ok?'ok':'bad');
+    fb.innerHTML = ok ? `✅ Juist! D${coStr(...cand[0])}, D${coStr(...cand[1])} en D${coStr(...cand[2])}. Telkens is één van de drie punten het overstaande hoekpunt van D.` : `❌ Nog niet. Je hebt ${sel.filter(p=>cand.some(c=>c[0]===p[0]&&c[1]===p[1])).length} van de 3 juiste punten${sel.length>3?' en te veel punten':''}. Tip: kies telkens een van de punten als overstaand hoekpunt van D en doe dezelfde stap als tussen de andere twee.`;
+    CLres(qid, ok); st.checked=true; save(); });
+  paint(!!st.checked && !quiz);
+  if(quiz) quiz.push({ grade:isOk, reveal:()=>paint(true), lock:()=>{ P.svg.dataset.locked='1'; } });
+}
+const allFourthGen = r => { for(let t=0;t<300;t++){ const A=[rInt(r,-3,2), rInt(r,-3,2)], B=[A[0]+rInt(r,2,3), A[1]+rNZ(r,-2,2)], C=[A[0]+rNZ(r,-1,2), A[1]+rInt(r,2,3)]; const pts=[A,B,C,[A[0]+B[0]-C[0], A[1]+B[1]-C[1]],[A[0]+C[0]-B[0], A[1]+C[1]-B[1]],[B[0]+C[0]-A[0], B[1]+C[1]-A[1]]]; if(pts.every(p=>Math.abs(p[0])<=6&&Math.abs(p[1])<=6)) return {P:[A,B,C]}; } return {P:[[-1,-1],[2,0],[0,2]]}; };
+
+/* --- verschuiven en spiegelen: rekenen met coördinaten, met animatie na het controleren --- */
+function moveEx(b, st, save, key, cfg){
+  const P = plane();
+  const defs = svgEl('defs', {}, P.svg); defs.innerHTML = '<marker id="pijlpunt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--orange)"/></marker>';
+  P.point(cfg.p[0], cfg.p[1], cfg.n+coStr(cfg.p[0], cfg.p[1]));
+  if(cfg.mirror==='x') svgEl('line',{x1:P.X(-6)-12, y1:P.Y(0), x2:P.X(6)+12, y2:P.Y(0), class:'arrow', style:'marker-end:none; stroke-dasharray:8 6'}, P.layer);
+  if(cfg.mirror==='y') svgEl('line',{x1:P.X(0), y1:P.Y(-6)-12, x2:P.X(0), y2:P.Y(6)+12, class:'arrow', style:'marker-end:none; stroke-dasharray:8 6'}, P.layer);
+  const wrap = el('div','two'); const left = el('div'), right = el('div'); left.append(planeBox(P.svg)); wrap.append(left, right); b.append(wrap);
+  right.append(el('div','readout', cfg.ask));
+  let anim = null;
+  qBlock(right, st, save, key, { html:`<span class="bigq">${cfg.n}′( [[0]] , [[1]] )</span>`, size:'xs', check:v=>{ const r = nums(cfg.ans)(v); if(!r.ok) r.msg = cfg.hint; return r; }, sol:cfg.sol,
+    after: async ok => { if(QZ || !ok) return; if(anim) anim.remove(); anim = svgEl('g', {}, P.top);
+      const [x0,y0] = cfg.p, [x1,y1] = cfg.ans;
+      if(cfg.mirror){ svgEl('line',{x1:P.X(x0), y1:P.Y(y0), x2:P.X(x1), y2:P.Y(y1), class:'proj'}, anim); }
+      else { svgEl('line',{x1:P.X(x0), y1:P.Y(y0), x2:P.X(x1), y2:P.Y(y0), class:'arrow'}, anim); svgEl('line',{x1:P.X(x1), y1:P.Y(y0), x2:P.X(x1), y2:P.Y(y1), class:'arrow'}, anim); }
+      await sleep(300); const g = svgEl('g', {class:'pop'}, anim); svgEl('circle',{cx:P.X(x1), cy:P.Y(y1), r:6.5, class:'pt or'}, g); svgText(g, P.X(x1)+9, P.Y(y1)-9, cfg.n+'′', {class:'t-big'}); } });
+}
+const moveGen = r => { for(;;){ const p=[rInt(r,-5,5), rInt(r,-5,5)], dx=rNZ(r,-5,5), dy=rNZ(r,-5,5), q=[p[0]+dx, p[1]+dy]; if(Math.abs(q[0])>6||Math.abs(q[1])>6) continue;
+  const n = rPick(r, ['P','Q','R','S','T']);
+  return { p, n, ans:q, ask:`${n}${coStr(p[0],p[1])} schuift <b>${Math.abs(dx)} naar ${dx<0?'links':'rechts'}</b> en <b>${Math.abs(dy)} naar ${dy<0?'onder':'boven'}</b>. Wat is de coördinaat van het beeldpunt ${n}′?`,
+    hint:`Naar ${dx<0?'links':'rechts'} verandert enkel x: het wordt ${dx<0?'kleiner':'groter'}. Naar ${dy<0?'onder':'boven'} verandert enkel y: het wordt ${dy<0?'kleiner':'groter'}.`,
+    sol:`x: ${fmt(p[0])} ${dx<0?'−':'+'} ${Math.abs(dx)} = ${fmt(q[0])}. y: ${fmt(p[1])} ${dy<0?'−':'+'} ${Math.abs(dy)} = ${fmt(q[1])}. Dus <b>${n}′${coStr(q[0],q[1])}</b>.` }; } };
+const mirrorGen = axes => r => { const p=[rNZ(r,-6,6), rNZ(r,-6,6)], m = rPick(r, axes), n = rPick(r, ['A','B','K','L','M']);
+  const q = m==='x' ? [p[0],-p[1]] : m==='y' ? [-p[0],p[1]] : [-p[0],-p[1]];
+  const wat = m==='x' ? 'de x-as' : m==='y' ? 'de y-as' : 'de oorsprong O';
+  return { p, n, mirror:m, ans:q, ask:`Spiegel ${n}${coStr(p[0],p[1])} tegenover <b>${wat}</b>. Wat is de coördinaat van het spiegelbeeld ${n}′?`,
+    hint: m==='x' ? 'Bij spiegelen tegenover de x-as blijft x gelijk en krijgt y het tegengestelde teken.' : m==='y' ? 'Bij spiegelen tegenover de y-as blijft y gelijk en krijgt x het tegengestelde teken.' : 'Spiegelen tegenover de oorsprong: beide coördinaatgetallen krijgen het tegengestelde teken.',
+    sol:`${m==='x'?'x blijft, y wordt het tegengestelde':m==='y'?'y blijft, x wordt het tegengestelde':'x en y worden het tegengestelde'}: <b>${n}′${coStr(q[0],q[1])}</b>.` }; };
+
+/* --- tekening met coördinaten: klik de punten in volgorde, de lijnen verschijnen --- */
+function connectDots(b, st, save, key, cfg){
+  const P = plane(); const pts = cfg.pts;
+  const prompt = el('div','readout bigq'); b.append(prompt, planeBox(P.svg, 'narrow'));
+  const fb = el('div','fb'); b.append(fb);
+  const quiz = QZ; const qid = QID('tekening'); if(!quiz) CLvraag(qid);
+  st.k = st.k || 0; let errs = st.errs || 0;
+  const lines = svgEl('g', {}, P.layer);
+  function paint(){
+    lines.innerHTML=''; for(let i=0;i<st.k;i++){ const p=pts[i]; svgEl('circle',{cx:P.X(p[0]), cy:P.Y(p[1]), r:5, class:'pt'}, lines); if(i>0){ const q=pts[i-1]; svgEl('line',{x1:P.X(q[0]), y1:P.Y(q[1]), x2:P.X(p[0]), y2:P.Y(p[1]), class:'poly', style:'fill:none'}, lines); } }
+    if(st.k>=pts.length){ const q=pts[pts.length-1], p=pts[0]; if(cfg.close) svgEl('line',{x1:P.X(q[0]), y1:P.Y(q[1]), x2:P.X(p[0]), y2:P.Y(p[1]), class:'poly', style:'fill:none'}, lines);
+      prompt.innerHTML = `✅ Klaar: ${cfg.what}!`; }
+    else prompt.innerHTML = `Punt ${st.k+1} van ${pts.length}: klik op <b>${coStr(pts[st.k][0], pts[st.k][1])}</b>.` + `<div class="sub">Nog te doen: ${pts.slice(st.k+1).map(p=>coStr(p[0],p[1])).join(' → ')}</div>`;
+  }
+  P.svg.addEventListener('click', ev=>{
+    if(st.k>=pts.length || P.svg.dataset.locked) return; const [x,y] = P.toData(ev); const t = pts[st.k];
+    if(x===t[0] && y===t[1]){ st.k++; save(); fb.className='fb'; fb.textContent=''; paint(); if(st.k>=pts.length && !quiz){ CLres(qid, errs<=2); fb.className='fb ok'; fb.textContent = errs ? `Je klikte ${errs} keer mis.` : 'Zonder één fout!'; } }
+    else { errs++; st.errs = errs; save(); const w = P.point(x,y,'','or'); setTimeout(()=>w.remove(), 900); fb.className='fb bad'; fb.textContent = `❌ Dat is ${coStr(x,y)}. ${x===t[1]&&y===t[0]?'Je wisselde x en y om.':'Eerst x (horizontaal), dan y (verticaal).'}`; }
+  });
+  paint();
+  if(quiz) quiz.push({ grade:()=>st.k>=pts.length, reveal:()=>{}, lock:()=>{ P.svg.dataset.locked='1'; } });
+}
+
+/* --- zeeslag: schiet met coördinaten (telt niet mee) --- */
+function battleship(b, st, save, key){
+  const rnd = rng(st.seed || (st.seed = Math.floor(Math.random()*1e9)));
+  if(!st.ships){ const occ = new Set(); const ships = [];
+    for(const len of [3,2,2]){ for(let t=0;t<200;t++){ const hor = rnd()<.5; const x=rInt(rnd,-5,hor?5-len+1:5), y=rInt(rnd,-5,hor?5:5-len+1); const cells=[...Array(len)].map((_,i)=>hor?[x+i,y]:[x,y+i]); if(cells.some(c=>occ.has(c+'')||c[0]===0||c[1]===0)) continue; cells.forEach(c=>occ.add(c+'')); ships.push(cells); break; } }
+    st.ships = ships; st.shots = []; save(); }
+  const P = plane({min:-5, max:5});
+  b.append(el('div','sub','De computer verstopte drie schepen (3, 2 en 2 vakjes lang) op roosterpunten. Ze liggen nooit op een as. Typ een coördinaat en schiet. Hoeveel schoten heb jij nodig?'));
+  const two = el('div','two'); const L = el('div'), R = el('div'); L.append(planeBox(P.svg)); two.append(L, R); b.append(two);
+  const form = el('div','q-text', '<span class="bigq">Schiet op ( <input class="inp xs" inputmode="text" aria-label="x"> , <input class="inp xs" inputmode="text" aria-label="y"> )</span>');
+  const go = el('button','btn','Vuur!'); go.type='button'; const fb = el('div','fb'); const log = el('div','shot-log'); const again = el('button','linkbtn','Nieuw spel'); again.type='button';
+  R.append(form, go, fb, log, again);
+  const [ix, iy] = form.querySelectorAll('input'); const g = svgEl('g', {}, P.layer);
+  const all = () => st.ships.flat(); const isHit = (x,y) => all().some(c=>c[0]===x&&c[1]===y);
+  function paint(){ g.innerHTML=''; st.shots.forEach(([x,y])=>{ const h = isHit(x,y); const c = svgEl('circle',{cx:P.X(x), cy:P.Y(y), r:h?9:5, class:'pt '+(h?'or':'miss')}, g); });
+    st.ships.forEach(s=>{ if(s.every(c=>st.shots.some(q=>q[0]===c[0]&&q[1]===c[1]))){ svgEl('line',{x1:P.X(s[0][0]), y1:P.Y(s[0][1]), x2:P.X(s[s.length-1][0]), y2:P.Y(s[s.length-1][1]), class:'poly', style:'stroke-width:8; stroke-linecap:round; opacity:.6'}, g); } });
+    log.innerHTML = st.shots.map(([x,y])=>`<span class="dv ${isHit(x,y)?'hit':''}">${coStr(x,y)}</span>`).join('');
+    const sunk = st.ships.filter(s=>s.every(c=>st.shots.some(q=>q[0]===c[0]&&q[1]===c[1]))).length;
+    if(sunk===st.ships.length){ fb.className='fb ok'; fb.innerHTML = `🎉 Alle schepen gezonken in <b>${st.shots.length}</b> schoten!`; go.disabled = true; } }
+  function fire(){ const x = parseLoose(ix.value), y = parseLoose(iy.value);
+    if(!Number.isInteger(x) || !Number.isInteger(y) || Math.abs(x)>5 || Math.abs(y)>5){ fb.className='fb info'; fb.textContent='Typ twee gehele getallen van −5 tot 5.'; return; }
+    if(st.shots.some(q=>q[0]===x&&q[1]===y)){ fb.className='fb info'; fb.textContent=`Op ${coStr(x,y)} schoot je al.`; return; }
+    st.shots.push([x,y]); save(); const h = isHit(x,y); fb.className='fb '+(h?'ok':'bad'); fb.textContent = h ? `💥 Raak op ${coStr(x,y)}!` : `💧 Mis: ${coStr(x,y)} is water.`; ix.value=''; iy.value=''; ix.focus(); paint(); }
+  go.addEventListener('click', fire); [ix,iy].forEach(i=>i.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); fire(); } }));
+  again.addEventListener('click', ()=>{ st.seed = (st.seed+104729)>>>0; delete st.ships; save(); b.innerHTML=''; battleship(b, st, save, key); });
+  paint();
+}
+
+/* ============================================================
+   EXTRA KAARTEN BIJ COÖRDINATEN
+   ============================================================ */
+const RAKET = [[0,6],[2,3],[2,-2],[4,-5],[1,-4],[-1,-4],[-4,-5],[-2,-2],[-2,3]];
+const VIS = [[-6,0],[-4,3],[0,4],[3,2],[5,4],[5,-4],[3,-2],[0,-4],[-4,-3]];
+SECTIONS.find(s=>s.id==='coord').cards.push(
+  { title:'Welk punt is het?', lvl:1, instr:'Klik op het punt met de gevraagde coördinaat. Let op: sommige punten lijken erg op elkaar.',
+    build:fresh(whichGen, (b,st,save,key,d)=>whichPoint(b,st,save,key,d)) },
+  { title:'Wat is de coördinaat?', lvl:1, instr:'Lees de coördinaat van elk punt af. Met "Nieuwe opgave" krijg je nieuwe punten.',
+    build:fresh(ptsGen(4, {oneAxis:true}), (b,st,save,key,pts)=>coordRead(b,st,save,key,pts)) },
+  { title:'Punten plaatsen', lvl:1, instr:'Klik de punten aan in het assenstelsel. Met "Nieuwe opgave" krijg je nieuwe punten.',
+    build:fresh(ptsGen(5, {oneAxis:true, names:'KLMNPQRS'}), (b,st,save,key,pts)=>coordPlace(b,st,save,key,pts)) },
+  { title:'Een tekening met coördinaten', lvl:1, instr:'Klik de punten in de juiste volgorde aan. De lijnen verschijnen vanzelf.',
+    build:(b,st,save,key)=>connectDots(b,st,save,key,{pts:RAKET, close:true, what:'een raket'}) },
+  { title:'Het vierde punt: rechthoek en vierkant', lvl:2, instr:'Drie hoekpunten zijn gegeven. Klik op de plaats van het vierde hoekpunt. De figuur verschijnt.',
+    build:fresh(r=>quadGen(rPick(r,['rh','vk']), false)(r), (b,st,save,key,d)=>fourthPoint(b,st,save,key,d)) },
+  { title:'Het vierde punt: parallellogram en ruit', lvl:2, instr:'Drie hoekpunten zijn gegeven. Klik op de plaats van het vierde hoekpunt.',
+    build:fresh(r=>quadGen(rPick(r,['par','ruit']), false)(r), (b,st,save,key,d)=>fourthPoint(b,st,save,key,d)) },
+  { title:'Verschuiven', lvl:2, instr:'Een punt schuift op in het rooster. Bereken de coördinaat van het beeldpunt.',
+    build:fresh(moveGen, (b,st,save,key,d)=>moveEx(b,st,save,key,d)) },
+  { title:'Spiegelen tegenover een as', lvl:2, instr:'Spiegel het punt. Kijk wat er met de tekens gebeurt.',
+    build:fresh(mirrorGen(['x','y']), (b,st,save,key,d)=>moveEx(b,st,save,key,d)) },
+  { title:'Zeeslag', lvl:2, instr:'Een spel om de coördinaten te oefenen. Het telt niet mee.',
+    build:(b,st,save,key)=>battleship(b,st,save,key) },
+  { title:'Het vierde punt: schuine figuren', lvl:3, instr:'De figuur staat schuin. Kijk hoeveel stappen je horizontaal en verticaal zet tussen twee hoekpunten.',
+    build:fresh(r=>quadGen(rPick(r,['vk','rh','par']), true)(r), (b,st,save,key,d)=>fourthPoint(b,st,save,key,d)) },
+  { title:'Drie mogelijke parallellogrammen', lvl:3, instr:'Er is meer dan één oplossing!',
+    build:fresh(allFourthGen, (b,st,save,key,d)=>allFourth(b,st,save,key,d)) },
+  { title:'Spiegelen tegenover de oorsprong', lvl:3, instr:'Spiegelen tegenover de oorsprong O: het beeldpunt ligt even ver van O, maar aan de andere kant.',
+    build:fresh(mirrorGen(['o','x','y']), (b,st,save,key,d)=>moveEx(b,st,save,key,d)) },
+  { title:'Een tekening met coördinaten (2)', lvl:3, instr:'Klik de punten in de juiste volgorde aan.',
+    build:(b,st,save,key)=>connectDots(b,st,save,key,{pts:VIS, close:true, what:'een vis'}) }
+);
+/* basis eerst, dan oefenen, dan verdieping */
+(function(){ const s = SECTIONS.find(x=>x.id==='coord'); s.cards = s.cards.map((c,i)=>[c,i]).sort((a,b)=>(a[0].lvl||1)-(b[0].lvl||1) || a[1]-b[1]).map(x=>x[0]); })();
+/* ============================================================
+   LIJNDIAGRAMMEN: HINT MET WERKBAAR ASSENSTELSEL + EXTRA OEFENINGEN
+   ============================================================ */
+(function(){
+  const css = `
+  .hint-bar{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; margin:.3rem 0 .2rem; }
+  .hint-bar .btn.on{ outline:3px solid var(--orange); }
+  .ch .fine{ stroke:var(--tq); stroke-width:.8; opacity:.55; }
+  .ch .fine.half{ stroke-dasharray:3 4; opacity:.45; }
+  .ch .guide{ stroke:var(--orange); stroke-width:2.2; stroke-dasharray:6 5; }
+  .ch .guide-pt{ fill:var(--orange); stroke:#fff; stroke-width:2; }
+  .ch .guide-lab{ font-weight:700; fill:var(--ink); paint-order:stroke; stroke:var(--card); stroke-width:5px; }
+  .ch .pin .guide{ stroke:var(--accent-dark); }
+  .ch .pin .guide-pt{ fill:var(--accent-dark); }
+  .ch .hint-hit{ fill:transparent; cursor:crosshair; }
+  .hint-help{ font-size:.88rem; color:var(--ink-soft); }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* lijndiagram met een hintknop: er verschijnt een fijn rooster, en de leerling kan op de grafiek
+   klikken of slepen: stippellijnen naar de x-as en de y-as tonen de coördinaat van dat punt */
+function lineHint(d, opts={}){
+  return b => {
+    const v = el('div','viz mid'); b.append(v);
+    const svg = drawChart('lijn', Object.assign({anim:false}, d), 600, 340); v.append(svg);
+    if(QZ) return;
+    const bar = el('div','hint-bar'); const hb = el('button','btn ghost','💡 Hint: werk op het assenstelsel'); hb.type='button';
+    const clr = el('button','linkbtn','Wis mijn hulplijnen'); clr.type='button'; clr.hidden = true;
+    const help = el('span','hint-help'); help.hidden = true;
+    help.textContent = 'Beweeg over de grafiek of klik: de stippellijnen tonen welk punt je afleest. Een klik laat de hulplijnen staan.';
+    bar.append(hb, clr, help); b.append(bar);
+    const L=svg._L, T=svg._T, pw=svg._pw, ph=svg._ph, yMin=svg._yMin, yMax=svg._yMax, n=d.labels.length, xs=svg._xs;
+    const Y = val => T + ph*(1-(val-yMin)/(yMax-yMin));
+    const step = d.step || niceStep(yMax-yMin);
+    const half = opts.half !== false && d.labels.every(l=>!isNaN(parseLoose(l)));
+    let on = false; const grid = svgEl('g', {}, svg), pins = svgEl('g', {}, svg), live = svgEl('g', {}, svg);
+    const hit = svgEl('rect', {x:L, y:T-6, width:pw, height:ph+12, class:'hint-hit'}, svg); hit.style.display='none';
+    function drawGrid(){
+      grid.innerHTML='';
+      for(let i=0;i<n;i++) svgEl('line',{x1:xs(i), y1:T, x2:xs(i), y2:T+ph, class:'fine'}, grid);
+      if(half) for(let i=0;i<n-1;i++){ const x=(xs(i)+xs(i+1))/2; svgEl('line',{x1:x, y1:T, x2:x, y2:T+ph, class:'fine half'}, grid); }
+      const sub = step/(opts.sub || (step%2===0 || step===1 ? 2 : 5));
+      for(let y=yMin; y<=yMax+1e-9; y+=sub) svgEl('line',{x1:L, y1:Y(y), x2:L+pw, y2:Y(y), class:'fine'+(Math.abs(y/step-Math.round(y/step))>1e-6?' half':'')}, grid);
+    }
+    /* waarde op de lijn bij een (eventueel halve) plaats t */
+    function valAt(series, t){ const i=Math.floor(t), f=t-i, a=+series.values[i], c=+series.values[Math.min(n-1,i+1)]; return f? a+(c-a)*f : a; }
+    function xAt(t){ const i=Math.floor(t), f=t-i; return f? xs(i)+(xs(Math.min(n-1,i+1))-xs(i))*f : xs(i); }
+    function labAt(t){ if(Number.isInteger(t)) return d.labels[t]; const a=parseLoose(d.labels[Math.floor(t)]), c=parseLoose(d.labels[Math.floor(t)+1]); return nf(a+(c-a)*(t-Math.floor(t)), 2); }
+    function guides(g, t){
+      g.innerHTML=''; const x = xAt(t);
+      d.series.forEach((s,k)=>{ const val = valAt(s, t), y = Y(val);
+        if(k===0) svgEl('line',{x1:x, y1:T+ph, x2:x, y2:Math.min(...d.series.map(ss=>Y(valAt(ss,t)))), class:'guide'}, g);
+        svgEl('line',{x1:x, y1:y, x2:L, y2:y, class:'guide'}, g);
+        svgEl('circle',{cx:x, cy:y, r:6, class:'guide-pt'}, g);
+        const txt = `(${labAt(t)}, ${nf(Math.round(val*100)/100, 2)})`;
+        svgText(g, x+(x>L+pw*0.75?-10:10), y-10-(k*16), (d.series.length>1&&s.name?s.name+' ':'')+txt, {'text-anchor':x>L+pw*0.75?'end':'start', class:'guide-lab'});
+      });
+    }
+    function tFrom(ev){ const pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+      let best=0, bd=1e9; const cand=[]; for(let i=0;i<n;i++){ cand.push(i); if(half && i<n-1) cand.push(i+.5); }
+      cand.forEach(t=>{ const dd=Math.abs(xAt(t)-p.x); if(dd<bd){ bd=dd; best=t; } }); return best; }
+    hit.addEventListener('pointermove', ev=>guides(live, tFrom(ev)));
+    hit.addEventListener('pointerleave', ()=>live.innerHTML='');
+    hit.addEventListener('click', ev=>{ const g=svgEl('g',{class:'pin'}, pins); guides(g, tFrom(ev)); clr.hidden=false; });
+    hb.addEventListener('click', ()=>{ on=!on; hb.classList.toggle('on', on); help.hidden=!on; hit.style.display = on?'':'none'; if(on) drawGrid(); else { grid.innerHTML=''; live.innerHTML=''; } svg.append(hit); });
+    clr.addEventListener('click', ()=>{ pins.innerHTML=''; clr.hidden=true; });
+  };
+}
+
+/* --- punten van een tabel in een lijndiagram plaatsen --- */
+function linePlot(b, st, save, key, cfg){
+  const quiz = QZ; const qid = QID('plot'); if(!quiz) CLvraag(qid);
+  const n = cfg.labels.length; const vals = st.v || (st.v = Array(n).fill(null));
+  b.append(el('div','sub', cfg.ask || 'Klik boven elke waarde op de x-as op de juiste hoogte. Klik opnieuw om een punt te verplaatsen.'));
+  const v = el('div','viz mid'); b.append(v);
+  const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn); const fb = el('div','fb'); b.append(act, fb);
+  if(quiz) act.hidden = true;
+  let locked = false;
+  function draw(show){
+    v.innerHTML='';
+    const svg = drawChart('lijn', Object.assign({}, cfg.chart, {labels:cfg.labels, series:[{values:vals.map(x=>x==null?null:x)}], anim:false}), 600, 340); v.append(svg);
+    const T=svg._T, ph=svg._ph, yMin=svg._yMin, yMax=svg._yMax;
+    if(show) [...svg.querySelectorAll('circle.pt')].forEach(c=>{ const i = cfg.labels.findIndex((_,k)=>Math.abs(svg._xs(k)-(+c.getAttribute('cx')))<1); if(i>=0 && vals[i]!==cfg.values[i]) c.classList.add('or'); });
+    for(let i=0;i<n;i++){ const x=svg._xs(i); const w = Math.min(50, svg._pw/n*0.9);
+      const hit = svgEl('rect',{x:x-w/2, y:T-8, width:w, height:ph+16, class:'hit'}, svg); hit.style.cursor='crosshair';
+      hit.addEventListener('click', ev=>{ if(locked) return; const pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+        let val = yMin + (1-(p.y-T)/ph)*(yMax-yMin); const sn = cfg.snap || 1; val = Math.round(val/sn)*sn; vals[i] = Math.max(yMin, Math.min(yMax, val)); st.checked=false; save(); draw(false); }); }
+  }
+  const isOk = () => vals.every((x,i)=>x===cfg.values[i]);
+  btn.addEventListener('click', ()=>{ const ok = isOk(); draw(true); fb.className='fb '+(ok?'ok':(vals.some(x=>x==null)?'info':'bad'));
+    fb.innerHTML = ok ? '✅ Juist! '+(cfg.why||'') : vals.some(x=>x==null) ? 'Plaats eerst alle punten.' : `❌ De oranje punten staan nog niet goed. ${cfg.hint||''}`;
+    if(vals.every(x=>x!=null)) CLres(qid, ok); st.checked=true; save(); });
+  draw(!!st.checked && !quiz);
+  if(quiz) quiz.push({ grade:isOk, reveal:()=>draw(true), lock:()=>{ locked=true; } });
+}
+
+/* --- een willekeurig lijndiagram aflezen (nieuwe opgave) --- */
+const GROEI = r => {
+  const kind = rPick(r, ['plant','water','spaar']);
+  if(kind==='plant'){ const v=[rInt(r,2,4)]; for(let i=1;i<8;i++) v.push(v[i-1] + rPick(r,[0,1,2,2,3])); const i=rInt(r,1,6), j=rInt(r,i+1,7);
+    return {d:{labels:['0','1','2','3','4','5','6','7'], series:[{values:v}], xTitle:'Tijd (in weken)', yTitle:'Lengte (in cm)', step:2, yMax:Math.ceil((v[7]+2)/2)*2}, i, j, wat:'de plant', eenh:'cm', tijd:'week', v}; }
+  if(kind==='water'){ const v=[rPick(r,[80,90,100])]; for(let i=1;i<7;i++) v.push(Math.max(0, v[i-1] - rPick(r,[0,10,10,20]))); const i=rInt(r,1,5), j=rInt(r,i+1,6);
+    return {d:{labels:['0','1','2','3','4','5','6'], series:[{values:v}], xTitle:'Tijd (in dagen)', yTitle:'Water in de ton (in liter)', step:10, yMax:100}, i, j, wat:'de regenton', eenh:'liter', tijd:'dag', v}; }
+  const v=[rPick(r,[10,20,30])]; for(let i=1;i<7;i++) v.push(v[i-1] + rPick(r,[0,5,10,15]) - (r()<.2?10:0)); const i=rInt(r,1,5), j=rInt(r,i+1,6);
+  return {d:{labels:['jan','feb','mrt','apr','mei','jun','jul'], series:[{values:v}], xTitle:'Maand', yTitle:'Spaarpot (in euro)', step:10, yMax:Math.ceil((Math.max(...v)+5)/10)*10}, i, j, wat:'de spaarpot', eenh:'euro', tijd:'maand', v, mnd:true};
+};
+function lineGenEx(b, st, save, key, g){
+  lineHint(g.d)(b);
+  const L = g.d.labels, v = g.v;
+  list([
+    {html:`Lees het punt af bij ${g.mnd?L[g.i]:L[g.i]+' '+g.tijd+(L[g.i]==='1'?'':'en')}: ( ${L[g.i]} , [[0]] )`, size:'xs', check:exact(v[g.i], 'Ga loodrecht naar boven tot de grafiek, dan loodrecht naar de y-as. Gebruik de hint als je twijfelt.'), sol:`Het punt is <b>(${L[g.i]}, ${v[g.i]})</b>.`},
+    {html:`Hoeveel ${g.eenh} verschil is er tussen ${L[g.i]} en ${L[g.j]}? [[0]] ${g.eenh}`, size:'sm', check:exact(Math.abs(v[g.j]-v[g.i]), 'Lees beide waarden af en trek af.'), sol:`${Math.max(v[g.i],v[g.j])} − ${Math.min(v[g.i],v[g.j])} = <b>${Math.abs(v[g.j]-v[g.i])} ${g.eenh}</b>.`}
+  ], {letters:true})(b, st, save, key);
+}
+
+/* ============================================================
+   EXTRA KAARTEN BIJ LIJNDIAGRAMMEN
+   ============================================================ */
+const KAARS = {labels:['0','1','2','3','4','5','6','7','8'], values:[20,18,16,14,12,10,8,6,4]};
+const CHOCO = {labels:['0','2','4','6','8','10','12','14'], series:[{values:[80,64,53,45,39,35,32,30]}], xTitle:'Tijd (in minuten)', yTitle:'Temperatuur (in °C)', step:10, yMax:90};
+(function(){
+  const sec = SECTIONS.find(s=>s.id==='lijn');
+  /* de bestaande grafieken krijgen ook de hintknop */
+  sec.cards[1].build = combo(lineHint(HOOGTE), list([
+          {html:'Op welke hoogte start de wandeling? [[0]] m', mode:'numeric', check:exact(600), sol:'Bij tijd 0 staat de grafiek op 600 m.'},
+          {html:'Wat is de hoogste hoogte? [[0]] m', mode:'numeric', check:exact(1300), sol:'Het hoogste punt staat op 1300 m (na 3 en na 4 uur).'},
+          {html:'Hoeveel meter steeg de wandelaar in het tweede uur (van uur 1 tot uur 2)? [[0]] m', mode:'numeric', check:exact(300), sol:'1100 m − 800 m = <b>300 m</b>.'}
+        ], {letters:true}),
+        choiceList([['In welk uur daalt de wandelaar het meest?', 'c', 'Van uur 5 naar uur 6 daalt hij 300 m: de lijn is daar het steilst naar beneden.']],
+          [['a','van uur 4 tot 5'],['b','van uur 3 tot 4'],['c','van uur 5 tot 6'],['d','van uur 6 tot 7']]));
+  sec.cards[3].build = combo(lineHint({labels:['jan','feb','mrt','apr','mei','jun'], series:[{name:'Gent', values:[6,8,11,15,18,21]},{name:'Lissabon', values:[15,16,19,19,23,26]}], yTitle:'Temperatuur (in °C)', step:5, yMax:30}),
+        list([
+          {html:'Hoeveel graden scheelt het in januari? [[0]] °C', mode:'numeric', check:exact(9), sol:'15 °C − 6 °C = <b>9 °C</b>.'},
+          {html:'In welke maand is het verschil het kleinst? [[0]]', check:words(['april','apr']), sol:'In april: 19 °C − 15 °C = 4 °C. De lijnen liggen daar het dichtst bij elkaar.'}
+        ], {letters:true}));
+  sec.cards.push(
+    { title:'De brandende kaars: van tabel naar grafiek', lvl:1, instr:'Een kaars van 20 cm brandt op. Plaats de punten uit de tabel in het lijndiagram.',
+      build:combo(html(ftabHTML(['brandtijd (in uur)', ...KAARS.labels], [['hoogte (in cm)', ...KAARS.values.map(String)]])),
+        (b,st,save,key)=>linePlot(b,st,save,key,{labels:KAARS.labels, values:KAARS.values, chart:{xTitle:'Brandtijd (in uur)', yTitle:'Hoogte (in cm)', step:2, yMin:0, yMax:22}, snap:1, hint:'Elk hokje op de verticale as is 2 cm. Zoek eerst de juiste brandtijd, ga dan naar boven.', why:'Elk uur brandt de kaars 2 cm op: de punten liggen op een rechte lijn.'})) },
+    { title:'Coördinaten in een lijndiagram', lvl:1, instr:'Elk punt van de grafiek is een coördinaat: (brandtijd, hoogte). Vul aan.',
+      build:combo(lineHint({labels:KAARS.labels, series:[{values:KAARS.values}], xTitle:'Brandtijd (in uur)', yTitle:'Hoogte (in cm)', step:2, yMax:22}), list([
+        {html:'P( 3 , [[0]] )', size:'xs', check:exact(14), sol:'Na 3 uur is de kaars 14 cm: <b>P(3, 14)</b>.'},
+        {html:'Q( [[0]] , 8 )', size:'xs', check:exact(6), sol:'De kaars is 8 cm na 6 uur: <b>Q(6, 8)</b>.'},
+        {html:'Wat betekent het punt R(0, 20)? De kaars is [[0]] cm lang na [[1]] uur.', size:'xs', check:nums([20,0]), sol:'Bij de start (0 uur) is de kaars 20 cm.'}
+      ], {letters:true})) },
+    { title:'Lees af (nieuwe opgave)', lvl:2, instr:'Lees af uit het lijndiagram. Twijfel je? Vraag een hint: dan kan je op het assenstelsel werken.',
+      build:fresh(GROEI, (b,st,save,key,g)=>lineGenEx(b,st,save,key,g)) },
+    { title:'Tussen twee punten', lvl:2, instr:'Je kan ook tussen twee punten aflezen. Gebruik de hint: de stippellijnen staan ook halverwege.',
+      build:combo(lineHint({labels:KAARS.labels, series:[{values:KAARS.values}], xTitle:'Brandtijd (in uur)', yTitle:'Hoogte (in cm)', step:2, yMax:22}), list([
+        {html:'Hoe hoog is de kaars na 2,5 uur? [[0]] cm', check:exact(15), sol:'Halverwege 16 cm (2 uur) en 14 cm (3 uur): <b>15 cm</b>.'},
+        {html:'Na hoeveel uur is de kaars 11 cm? [[0]] uur', check:exact(4.5), sol:'Halverwege 12 cm (4 uur) en 10 cm (5 uur): na <b>4,5 uur</b>.'}
+      ], {letters:true})) },
+    { title:'Een kop warme chocolademelk', lvl:2, instr:'De temperatuur van een kop chocolademelk die afkoelt.',
+      build:combo(lineHint(CHOCO), list([
+        {html:'Hoe warm is de chocolademelk na 4 minuten? [[0]] °C', mode:'numeric', check:exact(53), sol:'Na 4 minuten: <b>53 °C</b>.'},
+        {html:'Hoeveel graden koelt ze af in de eerste 2 minuten? [[0]] °C', mode:'numeric', check:exact(16), sol:'80 − 64 = <b>16 °C</b>.'},
+        {html:'En tussen minuut 12 en 14? [[0]] °C', mode:'numeric', check:exact(2), sol:'32 − 30 = <b>2 °C</b>.'}
+      ], {letters:true}), choiceList([['Welke zin past bij de grafiek?', 'b', 'In het begin daalt de lijn steil, daarna steeds minder steil: eerst snel, dan traag afkoelen.']],
+        [['a','De chocolademelk koelt elke minuut evenveel af.'],['b','Eerst koelt ze snel af, daarna steeds trager.'],['c','Eerst koelt ze traag af, daarna steeds sneller.']])) },
+    { title:'Welk verhaal past bij de grafiek?', lvl:3, instr:'Lees de grafiek en kies het verhaal dat erbij past.',
+      build:combo(lineHint({labels:['0','10','20','30','40','50','60'], series:[{values:[0,2,4,4,4,1,0]}], xTitle:'Tijd (in minuten)', yTitle:'Afstand van huis (in km)', step:1, yMax:5}),
+        choiceList([['Welk verhaal past?', 'c', 'Weg van huis tot 4 km (20 min), 20 minuten op dezelfde plaats, dan sneller terug (op 20 minuten van 4 km naar 0).']],
+          [['a','Lien fietst 60 minuten zonder te stoppen.'],['b','Lien fietst naar school en blijft daar.'],['c','Lien fietst 20 minuten naar de bakker, wacht 20 minuten en fietst dan terug naar huis.']]),
+        list([{html:'Hoeveel km fietst Lien in totaal? [[0]] km', mode:'numeric', check:exact(8), sol:'4 km heen en 4 km terug: <b>8 km</b>.'}], {})) }
+  );
+  sec.cards = sec.cards.map((c,i)=>[c,i]).sort((a,b)=>(a[0].lvl||1)-(b[0].lvl||1) || a[1]-b[1]).map(x=>x[0]);
+})();
 
 /* ============================================================
    SORTEREN IN BAKKEN
@@ -1808,40 +2261,73 @@ SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'S
    ============================================================ */
 (function(){
   const css = `
-  .sheet{ border:2px solid var(--tq); border-radius:.7rem; background:var(--card); overflow:hidden; }
-  .sh-bar{ display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; padding:.4rem .5rem; background:var(--tq-soft); border-bottom:1px solid var(--border); }
-  .sh-bar .grp{ display:flex; gap:.3rem; align-items:center; padding-right:.5rem; margin-right:.2rem; border-right:1px solid var(--border); }
-  .sh-bar .grp:last-child{ border-right:none; }
-  .sh-bar .lab{ font-size:.78rem; font-weight:700; color:var(--accent-dark); margin-right:.15rem; }
-  .sh-bar button{ font:inherit; font-size:.85rem; padding:.25rem .55rem; border-radius:.45rem; border:1.5px solid var(--tq); background:var(--card); color:var(--ink); cursor:pointer; display:inline-flex; gap:.3rem; align-items:center; }
-  .sh-bar button:hover{ border-color:var(--orange); background:var(--or-soft); }
-  .sh-bar button svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; }
-  .sh-fx{ display:flex; align-items:center; gap:.4rem; padding:.3rem .5rem; border-bottom:1px solid var(--border); }
-  .sh-fx .nm{ width:4.2rem; text-align:center; font-weight:700; border:1.5px solid var(--border); border-radius:.35rem; padding:.15rem; font-variant-numeric:tabular-nums; }
-  .sh-fx .fx{ font-style:italic; font-weight:700; color:var(--accent-dark); }
-  .sh-fx input{ flex:1; font:inherit; font-family:ui-monospace, Consolas, monospace; font-size:.95rem; padding:.25rem .4rem; border:1.5px solid var(--border); border-radius:.35rem; background:var(--card); color:var(--ink); min-width:0; }
-  .sh-fx input:focus{ outline:none; border-color:var(--orange); }
-  .sh-grid{ overflow:auto; max-height:460px; position:relative; }
-  .sh-grid table{ border-collapse:collapse; font-variant-numeric:tabular-nums; user-select:none; -webkit-user-select:none; }
-  .sh-grid th{ background:var(--tq-soft); color:var(--ink-soft); font-weight:700; font-size:.8rem; border:1px solid var(--border); padding:.1rem .3rem; min-width:2rem; position:sticky; top:0; z-index:2; }
-  .sh-grid th.rh{ position:sticky; left:0; z-index:1; }
-  .sh-grid th.on{ background:var(--or-soft); color:var(--ink); }
-  .sh-grid td{ border:1px solid var(--border); padding:0 .35rem; height:1.75rem; min-width:5.6rem; max-width:12rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.95rem; cursor:cell; position:relative; background:var(--card); }
+  .xl{ --xl-green:#217346; --xl-green2:#185c37; --xl-head:#f3f3f3; --xl-line:#d4d4d4; --xl-headtxt:#444; --xl-selhead:#d2e9dc; --xl-sel:rgba(33,115,70,.13); --xl-rib:#f8f8f8; --xl-cell:#ffffff; --xl-txt:#000000; --xl-btnh:#e1e1e1;
+    border:1px solid var(--xl-line); border-radius:6px; background:var(--xl-cell); color:var(--xl-txt); overflow:hidden; font-family:Calibri, Carlito, "Segoe UI", sans-serif; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .xl{ --xl-green:#2f8f5b; --xl-head:#262626; --xl-line:#3d3d3d; --xl-headtxt:#c8c8c8; --xl-selhead:#1f4a33; --xl-sel:rgba(80,190,120,.18); --xl-rib:#202020; --xl-cell:#1b1b1b; --xl-txt:#f0f0f0; --xl-btnh:#333; } }
+  :root[data-theme="dark"] .xl{ --xl-green:#2f8f5b; --xl-head:#262626; --xl-line:#3d3d3d; --xl-headtxt:#c8c8c8; --xl-selhead:#1f4a33; --xl-sel:rgba(80,190,120,.18); --xl-rib:#202020; --xl-cell:#1b1b1b; --xl-txt:#f0f0f0; --xl-btnh:#333; }
+  .xl-title{ display:flex; align-items:center; gap:.5rem; background:var(--xl-green); color:#fff; padding:.3rem .6rem; font-size:.85rem; }
+  .xl-title .logo{ display:inline-grid; place-items:center; width:20px; height:20px; background:#fff; color:var(--xl-green); font-weight:800; border-radius:3px; font-size:.8rem; }
+  .xl-title .nm{ flex:1; text-align:center; opacity:.95; }
+  .xl-tabs{ display:flex; gap:.1rem; background:var(--xl-green); padding:0 .4rem; overflow-x:auto; }
+  .xl-tabs button{ font:inherit; font-size:.85rem; color:#fff; background:transparent; border:none; padding:.35rem .8rem; cursor:pointer; border-radius:4px 4px 0 0; white-space:nowrap; }
+  .xl-tabs button:hover{ background:rgba(255,255,255,.15); }
+  .xl-tabs button.on{ background:var(--xl-rib); color:var(--xl-green); font-weight:700; }
+  .xl-rib{ display:flex; flex-wrap:wrap; gap:.25rem; align-items:stretch; background:var(--xl-rib); border-bottom:1px solid var(--xl-line); padding:.35rem .4rem .15rem; min-height:4.2rem; }
+  .xl-rib .grp{ display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:0 .45rem; border-right:1px solid var(--xl-line); }
+  .xl-rib .grp:last-child{ border-right:none; }
+  .xl-rib .row{ display:flex; gap:.15rem; flex-wrap:wrap; align-items:center; justify-content:center; }
+  .xl-rib .gl{ font-size:.68rem; color:var(--xl-headtxt); margin-top:.15rem; }
+  .xl-rib button{ font:inherit; font-size:.8rem; color:var(--xl-txt); background:transparent; border:1px solid transparent; border-radius:3px; padding:.2rem .35rem; cursor:pointer; display:inline-flex; flex-direction:column; align-items:center; gap:.1rem; min-width:1.9rem; }
+  .xl-rib button.wide{ flex-direction:column; min-width:3.2rem; }
+  .xl-rib button:hover{ background:var(--xl-btnh); border-color:var(--xl-line); }
+  .xl-rib button.on{ background:var(--xl-selhead); border-color:var(--xl-green); }
+  .xl-rib button svg{ width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.5; }
+  .xl-rib .sw{ width:18px; height:14px; border:1px solid var(--xl-line); display:inline-block; }
+  .xl-rib .bold{ font-weight:800; font-size:1rem; }
+  .sh-fx{ display:flex; align-items:center; gap:.3rem; padding:.25rem .4rem; border-bottom:1px solid var(--xl-line); background:var(--xl-cell); }
+  .sh-fx .nm{ width:5.5rem; text-align:left; border:1px solid var(--xl-line); padding:.1rem .35rem; font-size:.9rem; font-variant-numeric:tabular-nums; }
+  .sh-fx .ic{ color:var(--xl-headtxt); padding:0 .25rem; font-size:.9rem; }
+  .sh-fx .fx{ font-style:italic; font-family:Georgia, serif; color:var(--xl-headtxt); padding:0 .3rem; border-left:1px solid var(--xl-line); }
+  .sh-fx input{ flex:1; font:inherit; font-size:.95rem; padding:.15rem .4rem; border:1px solid var(--xl-line); background:var(--xl-cell); color:var(--xl-txt); min-width:0; }
+  .sh-fx input:focus{ outline:none; border-color:var(--xl-green); }
+  .sh-grid{ overflow:auto; max-height:460px; position:relative; background:var(--xl-cell); }
+  .sh-grid table{ border-collapse:collapse; font-variant-numeric:tabular-nums; user-select:none; -webkit-user-select:none; table-layout:fixed; }
+  .sh-grid th{ background:var(--xl-head); color:var(--xl-headtxt); font-weight:400; font-size:.8rem; border:1px solid var(--xl-line); padding:.1rem .3rem; position:sticky; top:0; z-index:2; width:5.6rem; }
+  .sh-grid th.rh{ position:sticky; left:0; z-index:1; width:2.4rem; text-align:center; }
+  .sh-grid thead th.rh{ z-index:3; }
+  .sh-grid th.on{ background:var(--xl-selhead); color:var(--xl-green); font-weight:700; }
+  .sh-grid thead th.on{ box-shadow:inset 0 -2px 0 var(--xl-green); }
+  .sh-grid tbody th.on{ box-shadow:inset -2px 0 0 var(--xl-green); }
+  .sh-grid th .rz{ position:absolute; right:-3px; top:0; bottom:0; width:7px; cursor:col-resize; z-index:4; }
+  .sh-grid td{ border:1px solid var(--xl-line); padding:0 .3rem; height:1.55rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.95rem; cursor:cell; position:relative; background:var(--xl-cell); color:var(--xl-txt); }
   .sh-grid td.num{ text-align:right; }
-  .sh-grid td.err{ color:var(--bad); font-weight:700; text-align:center; }
-  .sh-grid td.sel{ background:var(--tq-soft); }
-  .sh-grid td.act{ outline:2.5px solid var(--accent-dark); outline-offset:-2px; }
-  .sh-grid td.ref{ background:var(--or-soft); }
-  .sh-grid td.given{ font-weight:700; }
-  .sh-grid td .handle{ position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; background:var(--accent-dark); border:1.5px solid var(--card); cursor:crosshair; z-index:3; }
-  .sh-grid td input{ position:absolute; inset:0; width:100%; height:100%; border:2px solid var(--orange); font:inherit; padding:0 .3rem; background:var(--card); color:var(--ink); box-sizing:border-box; }
+  .sh-grid td.err{ color:#c00000; font-weight:700; text-align:center; }
+  .sh-grid td.sel{ background-image:linear-gradient(var(--xl-sel), var(--xl-sel)); }
+  .sh-grid td.act{ outline:2px solid var(--xl-green); outline-offset:-2px; }
+  .sh-grid td.ref{ outline:2px dashed #2f6fd6; outline-offset:-2px; }
+  .sh-grid td.given{ }
+  .sh-grid td .handle{ position:absolute; right:-1px; bottom:-1px; width:7px; height:7px; background:var(--xl-green); border:1px solid var(--xl-cell); cursor:crosshair; z-index:3; }
+  .sh-grid td input{ position:absolute; inset:0; width:100%; height:100%; border:2px solid var(--xl-green); font:inherit; padding:0 .25rem; background:var(--xl-cell); color:var(--xl-txt); box-sizing:border-box; }
   .sh-grid td input:focus{ outline:none; }
-  .sh-chart{ border-top:1px solid var(--border); padding:.6rem; }
-  .sh-chart .opts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.4rem .8rem; margin:.4rem 0; }
-  .sh-chart label{ font-size:.82rem; font-weight:700; color:var(--accent-dark); display:flex; flex-direction:column; gap:.15rem; }
-  .sh-chart label input{ font:inherit; font-weight:400; padding:.2rem .4rem; border:1.5px solid var(--border); border-radius:.35rem; background:var(--card); color:var(--ink); }
-  .sh-msg{ font-size:.85rem; padding:.3rem .6rem; color:var(--ink-soft); min-height:1.4em; }
-  .sh-msg.bad{ color:var(--bad); font-weight:700; }
+  .xl-ac{ position:absolute; z-index:20; background:var(--xl-cell); border:1px solid var(--xl-line); box-shadow:0 4px 12px rgba(0,0,0,.18); font-size:.85rem; min-width:13rem; max-height:12rem; overflow:auto; }
+  .xl-ac div{ padding:.2rem .5rem; cursor:pointer; display:flex; gap:.5rem; }
+  .xl-ac div b{ min-width:7.5rem; }
+  .xl-ac div span{ color:var(--xl-headtxt); font-size:.75rem; }
+  .xl-ac div.on, .xl-ac div:hover{ background:var(--xl-selhead); }
+  .xl-sheets{ display:flex; align-items:stretch; gap:0; background:var(--xl-head); border-top:1px solid var(--xl-line); font-size:.82rem; }
+  .xl-sheets span{ padding:.25rem .6rem; color:var(--xl-headtxt); }
+  .xl-sheets .tab{ background:var(--xl-cell); color:var(--xl-green); font-weight:700; border-bottom:3px solid var(--xl-green); }
+  .xl-status{ display:flex; gap:1.2rem; justify-content:space-between; flex-wrap:wrap; background:var(--xl-head); border-top:1px solid var(--xl-line); color:var(--xl-headtxt); font-size:.78rem; padding:.2rem .6rem; }
+  .xl-status .agg{ display:flex; gap:1.2rem; font-variant-numeric:tabular-nums; }
+  .sh-chart{ border-top:1px solid var(--xl-line); padding:.6rem; background:var(--xl-rib); }
+  .sh-chart .opts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:.4rem .8rem; margin:.4rem 0; }
+  .sh-chart label{ font-size:.8rem; font-weight:700; color:var(--xl-headtxt); display:flex; flex-direction:column; gap:.15rem; }
+  .sh-chart label input{ font:inherit; font-weight:400; padding:.2rem .4rem; border:1px solid var(--xl-line); background:var(--xl-cell); color:var(--xl-txt); }
+  .sh-chart .xlc{ background:var(--xl-cell); border:1px solid var(--xl-line); padding:.4rem; max-width:640px; }
+  .sh-chart .xlc .ch .bar{ fill:#4472c4; } .sh-chart .xlc .ch .ln{ stroke:#4472c4; } .sh-chart .xlc .ch .pt{ fill:#4472c4; } .sh-chart .xlc .ch .ln2{ stroke:#ed7d31; } .sh-chart .xlc .ch .pt.or{ fill:#ed7d31; }
+  .sh-chart .xlc .ch .gr{ stroke:var(--xl-line); }
+  .sh-msg{ font-size:.85rem; padding:.25rem .6rem; color:var(--xl-headtxt); min-height:1.4em; background:var(--xl-cell); }
+  .sh-msg.bad{ color:#c00000; font-weight:700; }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
 })();
@@ -1972,15 +2458,34 @@ function makeSheet(parent, opts){
   const nC = opts.cols || 6, nR = opts.rows || 14;
   const st = opts.state; st.c = st.c || {}; st.dec = st.dec || {};
   const given = new Set(opts.given || []);
-  const root = el('div','sheet'); parent.append(root);
-  const bar = el('div','sh-bar');
-  bar.innerHTML = `<span class="grp"><span class="lab">Invoegen grafiek</span>${Object.keys(RB_ICON).map(k=>`<button type="button" data-ch="${k}" title="${RB_NAMES[k]}diagram"><svg viewBox="0 0 24 24">${RB_ICON[k]}</svg>${RB_NAMES[k]}</button>`).join('')}</span>
-    <span class="grp"><span class="lab">Decimalen</span><button type="button" data-dec="-1" title="minder decimalen">,0 ←</button><button type="button" data-dec="1" title="meer decimalen">→ ,00</button></span>
-    <span class="grp"><button type="button" data-clear="1" title="geselecteerde cellen leegmaken">Wissen</button></span>`;
-  const fxRow = el('div','sh-fx', `<span class="nm">A1</span><span class="fx">fx</span><input type="text" spellcheck="false" autocomplete="off" aria-label="formulebalk">`);
+  st.fmt = st.fmt || {}; st.w = st.w || {};
+  const root = el('div','sheet xl'); parent.append(root);
+  const title = el('div','xl-title', `<span class="logo">X</span><span class="nm">${opts.file||'Map1'} - Excel</span>`);
+  const tabs = el('div','xl-tabs'); const rib = el('div','xl-rib');
+  const TABS = [['bestand','Bestand'],['start','Start'],['invoegen','Invoegen'],['formules','Formules']];
+  tabs.innerHTML = TABS.map(([k,l])=>`<button type="button" data-tab="${k}">${l}</button>`).join('');
+  const ICO = { bold:'<span class="bold">B</span>', pct:'<span class="bold">%</span>', sum:'<span class="bold">Σ</span>' };
+  const FILLS = [['', 'geen opvulling'], ['#fff2cc','geel'], ['#e2efda','groen'], ['#ddebf7','blauw'], ['#fce4d6','oranje']];
+  const RIB = {
+    bestand:`<span class="grp"><span class="row"><button type="button" class="wide" data-act="xlsx"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>Downloaden<br>als .xlsx</button></span><span class="gl">Opslaan</span></span>`,
+    start:`<span class="grp"><span class="row"><button type="button" data-act="bold" title="Vet">${ICO.bold}</button>${FILLS.map(([c,n])=>`<button type="button" data-fill="${c}" title="Opvulkleur: ${n}"><span class="sw" style="background:${c||'transparent'}"></span></button>`).join('')}</span><span class="gl">Lettertype</span></span>
+      <span class="grp"><span class="row"><button type="button" data-act="pct" title="Procentnotatie">${ICO.pct}</button><button type="button" data-dec="1" title="Meer decimalen">,0→,00</button><button type="button" data-dec="-1" title="Minder decimalen">,00→,0</button></span><span class="gl">Getal</span></span>
+      <span class="grp"><span class="row"><button type="button" data-fn="SOM" title="AutoSom">${ICO.sum} AutoSom</button><button type="button" data-clear="1" title="Inhoud wissen">Wissen</button></span><span class="gl">Bewerken</span></span>`,
+    invoegen:`<span class="grp"><span class="row">${Object.keys(RB_ICON).map(k=>`<button type="button" class="wide" data-ch="${k}" title="${RB_NAMES[k]}diagram invoegen"><svg viewBox="0 0 24 24">${RB_ICON[k]}</svg>${RB_NAMES[k]}</button>`).join('')}</span><span class="gl">Grafieken</span></span>`,
+    formules:`<span class="grp"><span class="row"><button type="button" class="wide" data-act="fxlist"><span class="bold"><i>fx</i></span>Functie<br>invoegen</button><button type="button" class="wide" data-fn="SOM">${ICO.sum}AutoSom</button></span><span class="gl">Functiebibliotheek</span></span>
+      <span class="grp"><span class="row">${['GEMIDDELDE','MEDIAAN','MODUS','MIN','MAX','AANTAL','AANTAL.ALS'].map(f=>`<button type="button" data-fn="${f}">${f}</button>`).join('')}</span><span class="gl">Statistisch</span></span>`
+  };
+  let tab = st.tab || 'start';
+  function showTab(k){ tab = k; tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.tab===k)); rib.innerHTML = RIB[k]; }
+  tabs.addEventListener('click', e=>{ const b=e.target.closest('button'); if(b){ showTab(b.dataset.tab); } });
+  const fxRow = el('div','sh-fx', `<span class="nm">A1</span><span class="ic" aria-hidden="true">✕ ✓</span><span class="fx">fx</span><input type="text" spellcheck="false" autocomplete="off" aria-label="formulebalk">`);
   const gridBox = el('div','sh-grid'); const msg = el('div','sh-msg');
+  const sheets = el('div','xl-sheets', '<span>◀ ▶</span><span class="tab">Blad1</span><span>⊕</span>');
+  const status = el('div','xl-status', '<span class="rdy">Gereed</span><span class="agg"></span>');
   const chartBox = el('div','sh-chart'); chartBox.hidden = true;
-  root.append(bar, fxRow, gridBox, msg, chartBox);
+  const bar = rib;
+  root.append(title, tabs, rib, fxRow, gridBox, msg, sheets, status, chartBox);
+  showTab(tab);
   const nameBox = fxRow.querySelector('.nm'), fx = fxRow.querySelector('input');
   let act = {c:0, r:0}, anc = {c:0, r:0}, editing = null, refPick = null;
   const getRaw = ref => st.c[ref];
@@ -1990,6 +2495,13 @@ function makeSheet(parent, opts){
   for(let r=0;r<nR;r++){ h += `<tr><th class="rh" data-row="${r}">${r+1}</th>`; for(let c=0;c<nC;c++) h += `<td data-c="${c}" data-r="${r}"></td>`; h += '</tr>'; }
   tbl.innerHTML = h + '</tbody>';
   const tds = {}; tbl.querySelectorAll('td').forEach(td=>tds[refName(+td.dataset.c, +td.dataset.r)] = td);
+  const colW = c => { const th = tbl.querySelector(`th[data-col="${c}"]`); if(st.w[c]) th.style.width = st.w[c]+'px'; };
+  tbl.querySelectorAll('th[data-col]').forEach(th=>{ const c=+th.dataset.col; const rz=el('span','rz'); rz.title='sleep om de kolom breder of smaller te maken'; th.append(rz); colW(c);
+    rz.addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); const x0=e.clientX, w0=th.getBoundingClientRect().width;
+      const mv = ev=>{ st.w[c] = Math.max(40, Math.min(360, Math.round(w0 + ev.clientX - x0))); th.style.width = st.w[c]+'px'; };
+      const up = ()=>{ document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); opts.save(); };
+      document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); });
+    rz.addEventListener('dblclick', e=>{ e.stopPropagation(); let m=40; Object.entries(tds).forEach(([ref,td])=>{ if(parseRef(ref).c===c) m=Math.max(m, td.scrollWidth+8); }); st.w[c]=Math.min(360,m); th.style.width=st.w[c]+'px'; opts.save(); }); });
   const selBox = () => ({c0:Math.min(act.c,anc.c), c1:Math.max(act.c,anc.c), r0:Math.min(act.r,anc.r), r1:Math.max(act.r,anc.r)});
   const selRange = () => { const s=selBox(); return refName(s.c0,s.r0)+':'+refName(s.c1,s.r1); };
   function paint(){
@@ -2001,6 +2513,9 @@ function makeSheet(parent, opts){
       const dec = st.dec[ref];
       td.textContent = isErr(v) ? v.err : (typeof v==='number' ? nf(v, dec!=null?dec:6).replace(/^(.*,\d*?)$/, m=>m) : v);
       if(typeof v==='number' && dec!=null && dec>0){ let t=nf(v,dec); const k=t.indexOf(','); const have = k<0?0:t.length-k-1; if(have<dec) t = (k<0? t+',' : t) + '0'.repeat(dec-have); td.textContent = t; }
+      const fm = st.fmt[ref] || {};
+      if(fm.pct && typeof v==='number'){ const d2 = dec!=null?dec:0; td.textContent = nf(v*100, d2).replace(/^(-?[\d ]+)$/, m=>d2>0? m+','+'0'.repeat(d2) : m) + '%'; }
+      td.style.fontWeight = (fm.b || given.has(ref)) ? '700' : ''; td.style.background = fm.fill || '';
       td.className = (typeof v==='number'?'num ':'') + (isErr(v)?'err ':'') + (given.has(ref)?'given ':'') + (p.c>=s.c0&&p.c<=s.c1&&p.r>=s.r0&&p.r<=s.r1&&(s.c0!==s.c1||s.r0!==s.r1)?'sel ':'') + (p.c===act.c&&p.r===act.r?'act':'');
     });
     tbl.querySelectorAll('th[data-col]').forEach(th=>th.classList.toggle('on', +th.dataset.col>=s.c0 && +th.dataset.col<=s.c1));
@@ -2008,6 +2523,10 @@ function makeSheet(parent, opts){
     const a = tds[refName(act.c, act.r)];
     if(!editing){ const hd = el('span','handle'); hd.title='vulgreep: sleep om door te trekken'; tds[refName(s.c1,s.r1)].append(hd); }
     nameBox.textContent = (s.c0!==s.c1||s.r0!==s.r1) ? selRange() : refName(act.c, act.r);
+    { const nums=[]; let cnt=0; for(let r=s.r0;r<=s.r1;r++) for(let c=s.c0;c<=s.c1;c++){ const x=val(refName(c,r)); if(x!==''&&x!=null&&!isErr(x)) cnt++; if(typeof x==='number') nums.push(x); }
+      status.querySelector('.agg').innerHTML = (cnt>1) ? (nums.length? `<span>Gemiddelde: ${nf(mean(nums),6)}</span>` : '') + `<span>Aantal: ${cnt}</span>` + (nums.length? `<span>Som: ${nf(sum(nums),6)}</span>` : '') : '';
+      status.querySelector('.rdy').textContent = editing ? (String(editing.inp && editing.inp.value).startsWith('=') ? 'Aanwijzen' : 'Invoeren') : 'Gereed'; }
+    rib.querySelectorAll('[data-act=bold]').forEach(b=>b.classList.toggle('on', !!(st.fmt[refName(act.c,act.r)]||{}).b));
     if(!editing && document.activeElement!==fx) fx.value = st.c[refName(act.c,act.r)] ?? '';
     const av = val(refName(act.c,act.r));
     msg.className = 'sh-msg' + (isErr(av)?' bad':'');
@@ -2025,16 +2544,44 @@ function makeSheet(parent, opts){
     td.append(inp); inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
     editing.inp = inp;
     fx.value = inp.value;
-    inp.addEventListener('input', ()=>{ fx.value = inp.value; refPick = null; });
+    inp.addEventListener('input', ()=>{ fx.value = inp.value; refPick = null; acShow(inp); });
     inp.addEventListener('keydown', e=>{
+      if(ac && !ac.hidden && (e.key==='ArrowDown'||e.key==='ArrowUp')){ e.preventDefault(); acMove(e.key==='ArrowDown'?1:-1); return; }
+      if(ac && !ac.hidden && e.key==='Tab'){ e.preventDefault(); acPick(); return; }
       if(e.key==='Enter'){ e.preventDefault(); commit(); move(0,1); }
       else if(e.key==='Tab'){ e.preventDefault(); commit(); move(1,0); }
       else if(e.key==='Escape'){ e.preventDefault(); cancel(); }
       else if((e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight') && !inp.value.startsWith('=')){ e.preventDefault(); commit(); move(e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0, e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:0); }
     });
   }
-  function commit(){ if(!editing) return; const raw = editing.inp.value; const ref = editing.ref; editing = null; refPick = null; setCell(ref, raw.trim()===''?'':raw); paint(); gridBox.focus({preventScroll:true}); }
-  function cancel(){ editing = null; refPick = null; paint(); gridBox.focus({preventScroll:true}); }
+  /* functievoorstellen tijdens het typen, zoals in Excel */
+  const FN_HELP = {SOM:'telt getallen op', GEMIDDELDE:'het rekenkundig gemiddelde', MEDIAAN:'het middelste getal', MODUS:'het getal dat het vaakst voorkomt', MAX:'het grootste getal', MIN:'het kleinste getal', AANTAL:'telt de cellen met een getal', AANTALARG:'telt de niet-lege cellen', 'AANTAL.ALS':'telt de cellen die voldoen aan een voorwaarde', AFRONDEN:'rondt af op een aantal decimalen', ABS:'de absolute waarde'};
+  let ac = null, acI = 0, acList = [];
+  function acShow(inp){
+    const m = /^=.*?([A-Za-z][A-Za-z.]*)$/.exec(inp.value);
+    if(!m || /[A-Za-z]\d/.test(m[1])){ if(ac) ac.hidden = true; return; }
+    const pre = m[1].toUpperCase(); acList = Object.keys(FN_HELP).filter(f=>f.startsWith(pre));
+    if(!acList.length){ if(ac) ac.hidden = true; return; }
+    if(!ac){ ac = el('div','xl-ac'); root.style.position='relative'; root.append(ac); ac.addEventListener('pointerdown', e=>{ const d=e.target.closest('[data-f]'); if(!d) return; e.preventDefault(); acI = +d.dataset.i; acPick(); }); }
+    acI = 0; ac.hidden = false; ac.dataset.pre = pre;
+    ac.innerHTML = acList.map((f,i)=>`<div data-f="${f}" data-i="${i}" class="${i===0?'on':''}"><b>${f}</b><span>${FN_HELP[f]}</span></div>`).join('');
+    const r = inp.getBoundingClientRect(), R = root.getBoundingClientRect(); ac.style.left = (r.left-R.left)+'px'; ac.style.top = (r.bottom-R.top+2)+'px';
+  }
+  function acMove(d){ acI = (acI + d + acList.length) % acList.length; [...ac.children].forEach((c,i)=>c.classList.toggle('on', i===acI)); }
+  function acPick(){ if(!editing || !ac) return; const inp = editing.inp; const pre = ac.dataset.pre; inp.value = inp.value.slice(0, inp.value.length - pre.length) + acList[acI] + '('; fx.value = inp.value; ac.hidden = true; inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  function insertFn(f){
+    const s0 = selBox();
+    if(!editing){ startEdit('', false); if(!editing) return; }
+    const inp = editing.inp; let v = inp.value; if(!v.startsWith('=')) v = '=';
+    let arg = '';
+    if(f==='SOM' && v==='='){ /* AutoSom: neem de getallen boven (of links van) de actieve cel */
+      let r = act.r-1; while(r>=0 && typeof val(refName(act.c,r))==='number') r--; if(r<act.r-1) arg = refName(act.c,r+1)+':'+refName(act.c,act.r-1);
+      else { let c = act.c-1; while(c>=0 && typeof val(refName(c,act.r))==='number') c--; if(c<act.c-1) arg = refName(c+1,act.r)+':'+refName(act.c-1,act.r); } }
+    inp.value = v + f + '(' + arg + (arg?')':''); fx.value = inp.value; inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+    msg.className='sh-msg'; msg.textContent = arg ? `AutoSom koos ${arg}. Klopt het bereik? Druk dan op Enter.` : `${f}: ${FN_HELP[f]||''}. Sleep over de cellen of typ het bereik, sluit met ) en druk op Enter.`;
+  }
+  function commit(){ if(!editing) return; if(ac) ac.hidden = true; let raw = editing.inp.value; if(raw.startsWith('=')){ const open = (raw.replace(/"[^"]*"/g,'').match(/\(/g)||[]).length - (raw.replace(/"[^"]*"/g,'').match(/\)/g)||[]).length; if(open>0) raw += ')'.repeat(open); } const ref = editing.ref; editing = null; refPick = null; setCell(ref, raw.trim()===''?'':raw); paint(); gridBox.focus({preventScroll:true}); }
+  function cancel(){ if(ac) ac.hidden = true; editing = null; refPick = null; paint(); gridBox.focus({preventScroll:true}); }
   function move(dc, dr, extend){ act = {c:Math.max(0,Math.min(nC-1,act.c+dc)), r:Math.max(0,Math.min(nR-1,act.r+dr))}; if(!extend) anc = {...act}; paint(); tds[refName(act.c,act.r)].scrollIntoView({block:'nearest', inline:'nearest'}); }
   gridBox.tabIndex = 0;
   gridBox.addEventListener('keydown', e=>{
@@ -2102,10 +2649,38 @@ function makeSheet(parent, opts){
   bar.addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return;
     if(editing) commit();
+    if(b.dataset.fn){ insertFn(b.dataset.fn); return; }
+    if(b.dataset.act==='fxlist'){ startEdit('=', false); if(!editing) return; acShow(editing.inp); msg.className='sh-msg'; msg.textContent='Kies een functie uit de lijst (of typ verder).'; return; }
+    if(b.dataset.act==='xlsx'){ downloadXlsx(); return; }
+    const forSel = f => { const s=selBox(); for(let r=s.r0;r<=s.r1;r++) for(let c=s.c0;c<=s.c1;c++) f(refName(c,r)); opts.save(); paint(); };
+    if(b.dataset.act==='bold'){ const on = !(st.fmt[refName(act.c,act.r)]||{}).b; forSel(ref=>{ st.fmt[ref] = Object.assign({}, st.fmt[ref], {b:on}); }); return; }
+    if(b.dataset.act==='pct'){ const on = !(st.fmt[refName(act.c,act.r)]||{}).pct; forSel(ref=>{ st.fmt[ref] = Object.assign({}, st.fmt[ref], {pct:on}); }); return; }
+    if(b.dataset.fill!=null){ forSel(ref=>{ st.fmt[ref] = Object.assign({}, st.fmt[ref], {fill:b.dataset.fill}); }); return; }
     if(b.dataset.ch){ insertChart(b.dataset.ch); }
-    else if(b.dataset.dec){ const s=selBox(); for(let r=s.r0;r<=s.r1;r++) for(let c=s.c0;c<=s.c1;c++){ const ref=refName(c,r); const cur = st.dec[ref] ?? 2; st.dec[ref] = Math.max(0, Math.min(6, cur + +b.dataset.dec)); } opts.save(); paint(); }
+    else if(b.dataset.dec){ const s=selBox(); for(let r=s.r0;r<=s.r1;r++) for(let c=s.c0;c<=s.c1;c++){ const ref=refName(c,r); const cur = st.dec[ref] ?? ((st.fmt[ref]||{}).pct ? 0 : 2); st.dec[ref] = Math.max(0, Math.min(6, cur + +b.dataset.dec)); } opts.save(); paint(); }
     else if(b.dataset.clear){ const s=selBox(); for(let r=s.r0;r<=s.r1;r++) for(let c=s.c0;c<=s.c1;c++) setCell(refName(c,r), ''); paint(); }
   });
+  /* downloaden als echt Excel-bestand (met formules in het Engels, zoals Excel ze opslaat) */
+  function toExcelFormula(f){
+    const EN = {SOM:'SUM', GEMIDDELDE:'AVERAGE', MEDIAAN:'MEDIAN', MODUS:'MODE', AANTAL:'COUNT', AANTALARG:'COUNTA', 'AANTAL.ALS':'COUNTIF', AFRONDEN:'ROUND', MAX:'MAX', MIN:'MIN', ABS:'ABS'};
+    return f.split('"').map((part,i)=>{ if(i%2) return part; let t = part.replace(/(\d),(\d)/g, '$1.$2').replace(/;/g, ',');
+      return t.replace(/([A-Za-z][A-Za-z.]*)\s*\(/g, (m,n)=>(EN[n.toUpperCase()]||n.toUpperCase())+'('); }).join('"');
+  }
+  function downloadXlsx(){
+    const go = () => { try{
+      const ws = {}; let maxC=0, maxR=0;
+      Object.keys(st.c).forEach(ref=>{ const raw = String(st.c[ref]); const p = parseRef(ref); maxC=Math.max(maxC,p.c); maxR=Math.max(maxR,p.r); const v = val(ref);
+        if(raw.startsWith('=')) ws[ref] = {f:toExcelFormula(raw.slice(1)), t:typeof v==='number'?'n':'s', v:isErr(v)?v.err:v};
+        else if(typeof v==='number') ws[ref] = {t:'n', v}; else ws[ref] = {t:'s', v:raw};
+        const fm = st.fmt[ref]; if(fm && fm.pct) ws[ref].z = '0' + ((st.dec[ref]||0)>0 ? '.'+'0'.repeat(st.dec[ref]) : '') + '%'; else if(st.dec[ref]!=null && typeof v==='number') ws[ref].z = '0' + (st.dec[ref]>0 ? '.'+'0'.repeat(st.dec[ref]) : ''); });
+      ws['!ref'] = 'A1:'+refName(Math.max(maxC,0), Math.max(maxR,0));
+      ws['!cols'] = [...Array(maxC+1)].map((_,c)=>({wpx: st.w[c] || 90}));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Blad1'); XLSX.writeFile(wb, (opts.file||'rekenblad')+'.xlsx');
+      msg.className='sh-msg'; msg.textContent='Het bestand is gedownload. Open het in Excel: je formules werken daar ook.';
+    }catch(e){ msg.className='sh-msg bad'; msg.textContent='Downloaden lukte hier niet. Probeer het op de website van de school.'; } };
+    if(window.XLSX) return go();
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = go; sc.onerror = ()=>{ msg.className='sh-msg bad'; msg.textContent='Downloaden lukte niet: geen internetverbinding met de downloadbibliotheek.'; }; document.head.append(sc);
+  }
   /* grafiek */
   function chartData(ch){
     if(!ch) return null;
@@ -2136,7 +2711,7 @@ function makeSheet(parent, opts){
     if(!panelBuilt){
       panelBuilt = true;
       chartBox.innerHTML = `<div class="viz-bar"><b>Grafiek</b> <span class="pill" data-k="rng"></span><button type="button" class="btn ghost" data-k="del">Grafiek verwijderen</button></div>
-        <div class="opts"><label>Grafiektitel<input data-k="title"></label><label>Titel horizontale as<input data-k="xTitle"></label><label>Titel verticale as<input data-k="yTitle"></label><label>Verticale as begint bij<input data-k="yMin" inputmode="decimal" placeholder="automatisch"></label></div><div class="viz" data-k="holder"></div>`;
+        <div class="opts"><label>Grafiektitel<input data-k="title"></label><label>Titel horizontale as<input data-k="xTitle"></label><label>Titel verticale as<input data-k="yTitle"></label><label>Verticale as begint bij<input data-k="yMin" inputmode="decimal" placeholder="automatisch"></label></div><div class="xlc" data-k="holder"></div>`;
       chartHolder = chartBox.querySelector('[data-k=holder]'); rangeLab = chartBox.querySelector('[data-k=rng]');
       [tIn,xIn,yIn,mIn] = ['title','xTitle','yTitle','yMin'].map(k=>chartBox.querySelector(`input[data-k=${k}]`));
       [tIn,xIn,yIn,mIn].forEach(inp=>inp.addEventListener('input', ()=>{ if(!st.chart) return; st.chart[inp.dataset.k] = inp.value; opts.save(); renderChart(); if(opts.onChange) opts.onChange(); }));
@@ -2153,18 +2728,18 @@ function makeSheet(parent, opts){
     const d = chartData(ch); chartHolder.innerHTML='';
     if(!d.series.length || d.series.every(s=>s.values.every(isNaN))){ chartHolder.textContent = 'Er staan geen getallen in de geselecteerde cellen.'; return; }
     const ym = String(ch.yMin).trim()==='' ? null : parseLoose(ch.yMin);
-    chartHolder.append(drawChart(ch.type, {labels:d.labels, series:d.series.map(s=>({name:s.name, values:s.values.map(v=>isNaN(v)?0:v)})), title:ch.title, xTitle:ch.xTitle, yTitle:ch.yTitle, yMin: (ym==null||isNaN(ym))?0:ym, values:ch.type!=='lijn', anim:false, brk:false}));
+    chartHolder.append(drawChart(ch.type, {labels:d.labels, series:d.series.map(s=>({name:s.name, values:s.values.map(v=>isNaN(v)?0:v)})), title:ch.title, xTitle:ch.xTitle, yTitle:ch.yTitle, yMin: (ym==null||isNaN(ym))?0:ym, values:ch.type!=='lijn', anim:false, brk:false, pal:['#4472c4','#ed7d31','#a5a5a5','#ffc000','#5b9bd5','#70ad47','#264478','#9e480e']}));
   }
   paint();
   return {
-    val: ref => makeEval(getRaw)(ref.toUpperCase()), raw: ref => st.c[ref.toUpperCase()] ?? '', chart: () => st.chart || null, chartData: () => chartData(st.chart),
+    val: ref => makeEval(getRaw)(ref.toUpperCase()), raw: ref => st.c[ref.toUpperCase()] ?? '', fmt: ref => st.fmt[ref.toUpperCase()] || {}, chart: () => st.chart || null, chartData: () => chartData(st.chart),
     lock(){ root.style.pointerEvents='none'; root.style.opacity='.9'; }, paint
   };
 }
 
 /* ---------- een opdracht in het rekenblad, met een checklist ---------- */
 const fIs = (r, ...fns) => sh => { const raw = String(sh.raw(r)).toUpperCase(); return raw.startsWith('=') && fns.some(f=>raw.includes(f.toUpperCase()+'(') || raw.includes((Object.keys(FN_ALIAS).find(k=>FN_ALIAS[k]===f.toUpperCase())||'#')+'(')); };
-const vIs = (r, t, tol=1e-6) => sh => { const v = sh.val(r); return typeof v==='number' && Math.abs(v-t)<=tol; };
+const vIs = (r, t, tol=1e-6) => sh => { const v = sh.val(r); if(typeof v!=='number') return false; if(Math.abs(v-t)<=tol) return true; const f = sh.fmt ? sh.fmt(r) : {}; return !!(f.pct && Math.abs(v*100-t)<=tol*100); };
 const tIs = (r, ...ts) => sh => ts.some(t=>String(sh.val(r)).trim().toLowerCase()===t.toLowerCase());
 const isF = r => sh => String(sh.raw(r)).startsWith('=');
 const allOf = (...fs) => sh => fs.every(f=>f(sh));
@@ -2261,7 +2836,7 @@ SECTIONS.push({ id:'rbgraf', ic:'rbgraf', nav:'Rekenblad: grafieken', title:'Gra
       build:(b,st,save,key)=>sheetTask(b,st,save,key,{ cols:4, rows:9, init:{A1:'vervoer', B1:'aantal', C1:'percentage', A2:'fiets', B2:'18', A3:'te voet', B3:'6', A4:'bus', B4:'10', A5:'auto', B5:'6', A6:'totaal'},
         checks:[
           {say:'B6: het totaal met SOM', test:allOf(fIs('B6','SOM'), vIs('B6',40)), hint:'=SOM(B2:B5)'},
-          {say:'C2 tot C5: het percentage met een formule (bv. <span class="formula">=B2/$B$6*100</span>, doorgetrokken)', test:allOf(isF('C2'), isF('C5'), vIs('C2',45), vIs('C3',15), vIs('C4',25), vIs('C5',15)), hint:'=B2/$B$6*100: de $-tekens houden B6 vast als je doortrekt. Of typ in elke cel de formule zelf.'},
+          {say:'C2 tot C5: het percentage met een formule (bv. <span class="formula">=B2/$B$6*100</span>, doorgetrokken)', test:allOf(isF('C2'), isF('C5'), vIs('C2',45), vIs('C3',15), vIs('C4',25), vIs('C5',15)), hint:'=B2/$B$6*100, of =B2/$B$6 met de knop % (Start). De $-tekens houden B6 vast als je doortrekt.'},
           {say:'Selecteer A1:B5 en voeg een <b>cirkeldiagram</b> in met een titel.', test:sh=>chartIs(['cirkel'], (ch,d)=>sameArr(d.labels,['fiets','te voet','bus','auto']) && sameArr(d.series[0].values,[18,6,10,6]))(sh) && String(sh.chart().title).trim().length>2, hint:'Selecteer enkel A1:B5 (zonder de rij totaal!) en klik op Cirkel. Vul een titel in.'}
         ], why:'Zonder de rij totaal: anders zou "totaal" de helft van de cirkel innemen!' }) },
     { title:'Een lijndiagram', lvl:2, instr:'De temperatuur van Lieve, die koorts heeft, werd elk uur gemeten.',
@@ -2799,7 +3374,7 @@ const TOETS_RB = [
   {sec:'Percentages', prompt:'Bereken in C2 tot C5 het percentage met een formule en trek door.',
     build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:4, rows:7, init:{A1:'sport', B1:'aantal', C1:'percentage', A2:'voetbal', B2:'12', A3:'dans', B3:'9', A4:'tennis', B4:'6', A5:'hockey', B5:'3', A6:'totaal', B6:'30'},
       checks:[ {say:'C2 tot C5 met een formule', test:allOf(isF('C2'), isF('C5'), vIs('C2',40), vIs('C3',30), vIs('C4',20), vIs('C5',10))} ]}),
-    show:'=B2/$B$6*100, doorgetrokken: 40, 30, 20, 10'},
+    show:'=B2/$B$6*100 (of =B2/$B$6 met de knop %), doorgetrokken: 40, 30, 20, 10'},
   {sec:'Cirkeldiagram', prompt:'Maak een cirkeldiagram van de tabel (zonder totaal) met als titel <b>Favoriete sport</b>.',
     build:(b,st,save,key)=>sheetTask(b,st,save,key,{cols:3, rows:7, init:{A1:'sport', B1:'aantal', A2:'voetbal', B2:'12', A3:'dans', B3:'9', A4:'tennis', B4:'6', A5:'hockey', B5:'3', A6:'totaal', B6:'30'},
       checks:[ {say:'cirkeldiagram van A1:B5 met de juiste titel', test:sh=>chartIs(['cirkel'], (ch,d)=>sameArr(d.series[0].values,[12,9,6,3]))(sh) && /favoriete sport/i.test(sh.chart().title)} ]}),
