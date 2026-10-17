@@ -2648,7 +2648,7 @@ SECTIONS.push({ id:'kritisch', ic:'mislei', nav:'Kritisch lezen', title:'Kritisc
   cards:[
     { title:'Krantenkoppen', lvl:1, instr:'Lees elke krantenkop en de uitleg erbij. Wat is er aan de hand?',
       build:krantEx([
-        {kop:'Leerlingen slapen steeds minder!', chart:['kolom',{labels:['2022','2023','2024'], series:[{values:[8.6,8.5,8.4]}], yMin:8.3, title:'Gemiddeld aantal uren slaap', brk:false}], ans:'as', why:'De as begint bij 8,3 uur. In werkelijkheid slapen de leerlingen maar 12 minuten minder dan in 2022.'},
+        {kop:'Leerlingen slapen steeds minder!', chart:['kolom',{labels:['2022','2023','2024'], series:[{values:[8.6,8.5,8.4]}], yMin:8.3, yMax:8.7, step:0.1, title:'Gemiddeld aantal uren slaap', brk:false}], ans:'as', why:'De as begint bij 8,3 uur. In werkelijkheid slapen de leerlingen maar 12 minuten minder dan in 2022.'},
         {kop:'90 % van de jongeren wil een zwembad in Lievegem', info:'Het onderzoek werd gedaan bij 50 leden van de zwemclub.', ans:'groep', why:'Leden van een zwemclub willen natuurlijk een zwembad. Ze zijn geen goede steekproef van alle jongeren.'},
         {kop:'Drie op vier leerlingen eten liever frietjes dan pasta', info:'De journalist vroeg het aan 4 leerlingen.', ans:'weinig', why:'Met 4 leerlingen kan je niets besluiten over alle leerlingen.'},
         {kop:'Leerlingen van 1A krijgen gemiddeld 28 euro zakgeld per week!', info:'21 leerlingen krijgen tussen 0 en 10 euro. Eén leerling kreeg een week 500 euro voor zijn verjaardag.', ans:'uit', why:'Die ene uitschieter trekt het gemiddelde omhoog. De mediaan (ongeveer 6 euro) geeft een eerlijker beeld.'},
