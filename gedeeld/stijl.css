@@ -615,3 +615,8 @@
   .user-chip .t b{ color:var(--ink); } .user-chip .linkbtn{ margin-left:.3rem; font-size:.82rem; padding:0; }
   .tts-bar .user-chip{ margin:0 auto 0 0; }
   @media (min-width:881px){ body.nav-collapsed .user-chip{ justify-content:center; } body.nav-collapsed .user-chip .t{ display:none; } }
+  .tegels-4{ grid-template-columns:repeat(2,minmax(0,1fr)); max-width:640px; }
+  .tegels-4 a.tegel{ align-items:center; }
+  .tegels-4 a.tegel b{ font-size:1.25rem; }
+  .leeg{ color:var(--ink-soft); font-style:italic; margin:0; }
+  @media (max-width:480px){ .tegels-4{ grid-template-columns:minmax(0,1fr); } }
