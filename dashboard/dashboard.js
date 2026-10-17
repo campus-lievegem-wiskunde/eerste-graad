@@ -257,6 +257,7 @@ function viewBeheer(body){
   importKaart(body);
   leerkrachtenKaart(body);
   groepenKaart(body);
+  wisKaart(body);
 }
 const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s'’`-]+/g, '');
 const maakMail = (fam, voor) => `${norm(fam)}.${norm(voor)}@${C.DOMEIN}`;
@@ -303,10 +304,12 @@ function importKaart(body){
     const w = el('div', 'tbl-wrap', `<table class="dt"><thead><tr><th>Leerling</th><th>Klas</th><th>Jaar</th><th>E-mail</th><th>Groep</th></tr></thead><tbody>${vb}</tbody></table>`); out.append(w);
     if(P.fouten.length) out.append(el('p', 'errmsg', 'Let op: ' + P.fouten.slice(0, 8).map(esc).join(' · ') + (P.fouten.length > 8 ? ` (+${P.fouten.length - 8})` : '')));
     const opt = el('label', '', '<input type="checkbox" checked> Groepen opnieuw vullen met de leerlingen uit het bestand (kolom Niveaugroep wiskunde)');
+    const vervang = el('label', '', '<input type="checkbox" checked> Leerlingen die niet in dit bestand staan, uit de lijst verwijderen');
     const ok = el('button', 'btn', 'Importeren'); ok.type = 'button'; const m = el('span');
-    { const _r = el('div', 'rij'); _r.append(opt); out.append(_r); } const r = el('div', 'rij'); r.append(ok, m); out.append(r);
+    { const _r = el('div', 'rij'); _r.append(opt); out.append(_r); const _r2 = el('div', 'rij'); _r2.append(vervang); out.append(_r2); } const r = el('div', 'rij'); r.append(ok, m); out.append(r);
     ok.onclick = async ()=>{ ok.disabled = true; m.className = 'mini'; m.textContent = 'Bezig…';
-      try{ await importeer(P, opt.querySelector('input').checked, t=>m.textContent = t); m.className = 'okmsg'; m.textContent = 'Klaar! Alles is ingelezen.'; await laadAlles(); setTimeout(render, 1200); }
+      try{ await importeer(P, opt.querySelector('input').checked, t=>m.textContent = t);
+        if(vervang.querySelector('input').checked){ const keep = new Set(P.leerlingen.map(l=>l.mail)); await wisCollectie('leerlingen', d=>!keep.has(d.id), t=>m.textContent = 'Opruimen… ' + t); } m.className = 'okmsg'; m.textContent = 'Klaar! Alles is ingelezen.'; await laadAlles(); setTimeout(render, 1200); }
       catch(e){ console.error(e); m.className = 'errmsg'; m.textContent = 'Importeren lukte niet: ' + (e.message || e); ok.disabled = false; } };
   };
 }
@@ -363,6 +366,38 @@ function groepenKaart(body){
   ok.onclick = async ()=>{ const naam = n.value.trim(); if(!naam) return;
     await F.setDoc(F.doc(db, 'groepen', groepId(naam)), { naam, jaar:j.value[0], stroom:j.value[1], soort:'', leerkrachten:[], leerlingen:[], aan:{} }, { merge:true }); await laadGroepen(); render(); };
   body.append(card);
+}
+
+/* ---------- opnieuw beginnen ---------- */
+async function wisCollectie(naam, filter, meld){
+  const docs = (await F.getDocs(F.collection(db, naam))).docs.filter(d=>!filter || filter(d));
+  for(let i = 0; i < docs.length; i += 400){ const b = F.writeBatch(db); docs.slice(i, i + 400).forEach(d=>b.delete(d.ref)); await b.commit(); meld(`${naam}: ${Math.min(i + 400, docs.length)}/${docs.length}`); }
+  return docs.length;
+}
+function wisKaart(body){
+  const card = el('div', 'dash-card', `<h3>Opnieuw beginnen</h3>
+    <p class="mini">Gebruik dit om een testlijst weg te halen of bij de start van een nieuw schooljaar. Leerkrachten en hun toegang blijven altijd bewaard.</p>`);
+  const opts = [
+    ['lln', true, 'Leerlingenlijst wissen en alle groepen leegmaken (de groepen zelf, hun leerkrachten en wat openstaat blijven)'],
+    ['grp', false, 'Ook alle niveaugroepen verwijderen'],
+    ['vg', false, 'Ook alle voortgang van leerlingen wissen (antwoorden en werktijd)']];
+  opts.forEach(([k, on, t])=>{ const l = el('label', '', `<input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}> ${t}`); const r = el('div', 'rij'); r.append(l); card.append(r); });
+  const r = el('div', 'rij', '<label for="bevestig">Typ <b>WISSEN</b> om te bevestigen</label>');
+  const bev = el('input'); bev.type = 'text'; bev.id = 'bevestig'; bev.autocomplete = 'off';
+  const ok = el('button', 'btn gevaar', 'Wissen'); ok.type = 'button'; const m = el('span', 'mini');
+  r.append(bev, ok, m); card.append(r); body.append(card);
+  ok.onclick = async ()=>{
+    if(bev.value.trim().toUpperCase() !== 'WISSEN'){ m.className = 'errmsg'; m.textContent = 'Typ eerst WISSEN.'; return; }
+    const k = x => card.querySelector(`input[data-k="${x}"]`).checked;
+    ok.disabled = true; m.className = 'mini'; const meld = t=>m.textContent = 'Bezig… ' + t;
+    try{
+      if(k('vg')) await wisCollectie('voortgang', null, meld);
+      if(k('grp')) await wisCollectie('groepen', null, meld);
+      else if(k('lln')){ for(const g of ST.groepen){ if(g.leerlingen.length) await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen:[] }); } }
+      if(k('lln')) await wisCollectie('leerlingen', null, meld);
+      ST.leerlingen = null; await laadAlles(); m.className = 'okmsg'; m.textContent = 'Gewist. Je kan nu een nieuwe lijst opladen.'; setTimeout(render, 1500);
+    }catch(e){ console.error(e); m.className = 'errmsg'; m.textContent = 'Wissen lukte niet: ' + (e.message || e); ok.disabled = false; }
+  };
 }
 
 /* ---------- start ---------- */
