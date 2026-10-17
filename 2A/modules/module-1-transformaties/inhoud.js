@@ -92,7 +92,8 @@ const LVL = {1:'<span class="lvl-badge l1">basis</span>', 2:'<span class="lvl-ba
    VRAAG-BLOKKEN
    ============================================================ */
 function fillInputs(html, id, defSize, mode){
-  return html.replace(/\[\[(\d+)(?::(\w+))?\]\]/g, (m,i,sz)=>
+  return html.replace(/\[\[(\d+)(?::(\w+))?\]\]/g, (m,i,sz)=> sz==='pm' ?
+    `<span class="pm"><span class="pm-sw"><button type="button" data-s="+" aria-label="plus">+</button><button type="button" data-s="-" aria-label="min">−</button></span><input type="text" class="inp xs" id="${id}-f${i}" data-f="${i}" autocomplete="off" spellcheck="false" inputmode="numeric" aria-label="antwoordvak ${+i+1}: kies + of − en typ het getal"></span>` :
     `<input type="text" class="inp ${sz||defSize||''}" id="${id}-f${i}" data-f="${i}" autocomplete="off" spellcheck="false" ${mode?`inputmode="${mode}"`:''} aria-label="antwoordvak ${+i+1}">`);
 }
 function helpHTML(html){ return `<span class="help"><button type="button" class="help-btn" aria-label="Hulp">${icon('info')}</button><span class="help-pop" role="tooltip">${html}</span></span>`; }
@@ -631,7 +632,7 @@ function tween(ms, fn, done){ const t0 = performance.now(); const tick = now=>{ 
   .cf .hot{fill:transparent; cursor:pointer}
   .cf .hov{fill:var(--or-soft); stroke:var(--orange); stroke-width:.4}
   .vec-n{position:relative; display:inline-block; padding-top:.18em; line-height:1.1}
-  .vec-n>i{position:absolute; left:-.04em; right:-.12em; top:-.22em; height:.42em; display:block}
+  .vec-n>i{position:absolute; left:0; right:0; top:-.22em; height:.42em; display:block}
   .vec-n>i svg{display:block; width:100%; height:100%; overflow:visible}
   .vec-n>i path{fill:none; stroke:currentColor; stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke}
   .opv{display:inline-block; min-width:.9em; text-align:center; font-weight:700; color:var(--accent-dark)}
@@ -647,10 +648,33 @@ function tween(ms, fn, done){ const t0 = performance.now(); const tick = now=>{ 
   .stp.done .stp-h::after{content:' ✓'; color:var(--ok)}
   .stp .choices{margin:.3rem 0}
   .rule{font-size:1.08rem}
+  .opg{font-size:1.18rem; line-height:1.5; padding:.6rem .9rem; margin:.2rem 0 .7rem; border:2px solid var(--accent); border-radius:12px; background:var(--accent-soft)}
+  .opg b{color:var(--accent-dark)}
+  #coord .q-text, #coord .stp .q-text{font-size:1.06rem}
+  #coord .stp .stp-h{font-size:1.06rem}
+  .pm{display:inline-flex; align-items:center; gap:.2rem; vertical-align:middle}
+  .pm-sw{display:inline-flex; flex-direction:column; gap:2px}
+  .pm-sw button{font:inherit; font-weight:700; font-size:.95rem; line-height:1; width:1.7rem; height:1.25rem; padding:0; border:1.5px solid var(--accent); border-radius:6px; background:var(--card); color:var(--ink); cursor:pointer}
+  .pm-sw button:hover:not(:disabled){border-color:var(--orange); background:var(--or-soft)}
+  .pm-sw button.on{border-color:var(--orange); background:var(--orange); color:#173436}
+  .pm-sw button:disabled{cursor:default}
+  .stp .row, .q .row{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin:.3rem 0}
+  .stp .row .lab, .q .row .lab{min-width:7.2em; font-weight:700}
   .rows .q{margin:.5rem 0}
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
 })();
+
+/* ---------- +/− keuzevakje met invulvak: het invulvak bevat het getal met teken, bv. +4 ---------- */
+const pmDigits = v => String(v).replace(/[^0-9]/g,'');
+function pmSync(inp){ const sw = inp.parentElement.querySelector('.pm-sw'); const v = String(inp.value).trim(); const s = /^[−–-]/.test(v) ? '-' : /^\+/.test(v) ? '+' : '';
+  sw.querySelectorAll('button').forEach(b=>{ b.classList.toggle('on', b.dataset.s===s); b.disabled = inp.readOnly; }); }
+document.addEventListener('click', e=>{ const b = e.target.closest('.pm-sw button'); if(!b) return; const inp = b.closest('.pm').querySelector('input'); if(inp.readOnly) return;
+  inp.value = (b.dataset.s==='+' ? '+' : '−') + pmDigits(inp.value); inp.dispatchEvent(new Event('input', {bubbles:true})); pmSync(inp); inp.focus(); });
+document.addEventListener('input', e=>{ const inp = e.target; if(inp.closest && inp.closest('.pm')) pmSync(inp); });
+new MutationObserver(()=>document.querySelectorAll('.pm input').forEach(pmSync)).observe(document.documentElement, {childList:true, subtree:true, attributes:true, attributeFilter:['readonly']});
+/* controle van een +/−-vak: verwacht verschil d */
+function chkPm(v, d){ const t = String(v).trim(); if(!/^[+−–-]/.test(t)) return {ok:false, sign:false}; const n = parseInt2(t); return {ok:n===d, sign:true, n}; }
 
 /* ============================================================
    NOTATIE
@@ -1039,7 +1063,7 @@ function spiegelStappen(k, title, lvl=1){
       {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:`${Pn}${PR}([[0]], [[1]])`, check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 2 en 3.'),
         after:()=>animTrans(F, k, P, Pn, {}, cap)}
     ];
-    Rt.append(el('p','instructions', `Spiegel het punt <b>${Pn}</b> om de <b>${ax}</b>. Dat noteer je als ${Pn}${PR} = ${T.kort}(${Pn}).`));
+    Rt.append(el('div','opg', `Spiegel het punt <b>${Pn}</b> om de <b>${ax}</b>.<br>Dat noteer je als ${Pn}${PR} = ${T.kort}(${Pn}).`));
     qSteps(Rt, st, save, 'st', {steps, end:`${Pn}${PR} = ${T.kort}(${Pn}) en ${ptN(Pn+PR,Q[0],Q[1])}. Klik op <b>↺ Nieuwe opgave</b> voor een nieuw punt.`,
       restore:n=>{ if(n>=4) F.draw(finalObjs(k, P, Pn, {})); }});
   }};
@@ -1049,19 +1073,8 @@ CO.stapSy = spiegelStappen('sy','Stap voor stap: spiegelen om de y-as');
 CO.stapSO = spiegelStappen('sO','Stap voor stap: spiegelen om de oorsprong');
 
 /* --- 5. Stap voor stap verschuiven --- */
-function opStep(c, from, to, An, Bn){
-  const d = to - from;
-  return {h:`Van ${An} naar ${Bn}: wat gebeurt er met de ${c}-coördinaat?`, html:`De ${c}-coördinaat gaat van ${neg(from)} naar ${neg(to)}.`, choice:OPKEUZE, html2:`${neg(from)} <span class="opv">?</span> [[0]] = ${neg(to)}`, opSign:true,
-    check:(v,ch)=>{ const n = parseInt2(v[0]); const want = d>0 ? '+' : '-'; const okC = ch===want, okN = n===Math.abs(d);
-      let msg = '';
-      if(!okC) msg = d>0 ? `${neg(to)} is groter dan ${neg(from)}: je moet er iets <b>bij</b> doen.` : `${neg(to)} is kleiner dan ${neg(from)}: je moet er iets <b>af</b> doen.`;
-      else if(isNaN(n)) msg = 'Typ in het vakje enkel een getal zonder teken, bijvoorbeeld 4.';
-      else if(n<0) msg = 'Het teken kies je met de knop. Typ in het vakje een getal zonder minteken.';
-      else if(!okN) msg = `Tel de hokjes van ${neg(from)} naar ${neg(to)} op de ${c}-as.`;
-      return {ok:okC&&okN, choiceOk:okC, fields:[okN], msg}; }};
-}
 function verschuifStappen(title, lvl=1){
-  return { title, lvl, instr:'Werk stap voor stap. Je kijkt eerst wat er gebeurt van A naar B en doet daarna hetzelfde met het punt dat je verschuift.', build:(b,st,save)=>{
+  return { title, lvl, instr:'Werk stap voor stap. Je kijkt eerst wat er gebeurt van A naar B en doet daarna hetzelfde met het punt dat je verschuift. Kies telkens <b>+</b> of <b>−</b> en typ het getal.', build:(b,st,save)=>{
     const R = makeR(st); const g = genT(R, {noZero:true}); const [An,Bn,Pn] = ['A','B',R.pick('KLMNPRST'.split(''))];
     const {A,B,P,dx,dy} = g; const Q = [P[0]+dx, P[1]+dy];
     const two = el('div','cf-two'); b.append(two); const L = el('div'), Rt = el('div'); two.append(L, Rt);
@@ -1070,17 +1083,27 @@ function verschuifStappen(title, lvl=1){
     F.base = vb.concat([{t:'pt', p:P, n:Pn, c:'orig'}]); F.draw([]);
     const cap = el('div','cf-cap'); L.append(cap);
     const ex = {A, B, An, Bn, dx, dy};
-    const opx = dx>0?'+':'−', opy = dy>0?'+':'−';
-    Rt.append(el('p','instructions', `Gegeven: ${ptN(An,A[0],A[1])}, ${ptN(Bn,B[0],B[1])} en ${ptN(Pn,P[0],P[1])}.<br>Verschuif <b>${Pn}</b> over de vector ${vecN(An,Bn)}.`));
+    Rt.append(el('div','opg', `Gegeven: ${ptN(An,A[0],A[1])} en ${ptN(Bn,B[0],B[1])}<br>Verschuif het punt <b>${ptN(Pn,P[0],P[1])}</b> over de vector ${vecN(An,Bn)}.`));
+    const pmMsg = (r, c, from, to) => !r.sign ? `Kies bij de ${c}-coördinaat eerst <b>+</b> of <b>−</b>.` : `De ${c}-coördinaat gaat van ${neg(from)} naar ${neg(to)}: ${to>from?'er komt iets bij, dus +':'er gaat iets af, dus −'}. Tel de hokjes.`;
     const steps = [
-      opStep('x', A[0], B[0], An, Bn), opStep('y', A[1], B[1], An, Bn),
-      {h:`Doe hetzelfde met ${Pn}.`, block:true, html:`<div class="step">x-coördinaat: ${neg(P[0])} ${opx} ${Math.abs(dx)} = [[0]]</div><div class="step">y-coördinaat: ${neg(P[1])} ${opy} ${Math.abs(dy)} = [[1]]</div>`,
-        check:v=>{ const r = chkPt(v, Q, Pn+PR, 'Reken de bewerking uit. Gebruik de getallenas als het moeilijk is.'); if(!r.ok && r.msg.startsWith('Je hebt')) r.msg = 'Reken eerst de x-coördinaat uit en dan de y-coördinaat.'; return r; }},
-      {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:`${Pn}${PR}([[0]], [[1]])`, check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 3.'),
+      {h:`Wat gebeurt er van ${An} naar ${Bn}?`, block:true,
+        html:`<div class="row"><span class="lab">x-coördinaat:</span> ${neg(A[0])} [[0:pm]] = ${neg(B[0])}</div><div class="row"><span class="lab">y-coördinaat:</span> ${neg(A[1])} [[1:pm]] = ${neg(B[1])}</div>`,
+        check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[1], dy); const ok = rx.ok && ry.ok;
+          return {ok, fields:[rx.ok, ry.ok], msg: ok ? `Van ${An} naar ${Bn}: x ${sgnTxt(dx)} en y ${sgnTxt(dy)}.` : !rx.ok ? pmMsg(rx,'x',A[0],B[0]) : pmMsg(ry,'y',A[1],B[1])}; },
+        after:()=>{ F.draw([{t:'arrow', a:A, b:[B[0],A[1]], c:'comp'}, {t:'arrow', a:[B[0],A[1]], b:B, c:'comp'}]); return Promise.resolve(); }},
+      {h:`Doe hetzelfde met ${Pn}.`, block:true,
+        html:`<div class="row"><span class="lab">x-coördinaat:</span> ${neg(P[0])} [[0:pm]] = [[1]]</div><div class="row"><span class="lab">y-coördinaat:</span> ${neg(P[1])} [[2:pm]] = [[3]]</div>`,
+        check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[2], dy); const nx = parseInt2(v[1]), ny = parseInt2(v[3]);
+          const f = [rx.ok, nx===Q[0], ry.ok, ny===Q[1]]; const ok = f.every(Boolean);
+          let msg = '';
+          if(!rx.ok || !ry.ok) msg = (!rx.sign || !ry.sign) ? 'Kies eerst + of −.' : `Doe met ${Pn} precies hetzelfde als van ${An} naar ${Bn}: x ${sgnTxt(dx)} en y ${sgnTxt(dy)}.`;
+          else if(!ok) msg = 'De bewerking is juist. Reken ze nog eens uit, eventueel met de getallenas.';
+          return {ok, fields:f, msg}; }},
+      {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:`${Pn}${PR}([[0]], [[1]])`, check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 2.'),
         after:()=>{ F.base = []; return animTrans(F, 't', P, Pn, ex, cap).then(()=>{}); }}
     ];
     qSteps(Rt, st, save, 'st', {steps, end:`${ptN(Pn+PR,Q[0],Q[1])}. Van ${Pn} naar ${Pn}${PR} gebeurt precies hetzelfde als van ${An} naar ${Bn}.`,
-      restore:n=>{ if(n>=4){ F.base = []; F.draw(vb.concat([{t:'pt', p:P, n:Pn, c:'orig'}], finalObjs('t', P, Pn, ex))); } }});
+      restore:n=>{ if(n>=3){ F.base = []; F.draw(vb.concat([{t:'pt', p:P, n:Pn, c:'orig'}], finalObjs('t', P, Pn, ex))); } else if(n>=1) F.draw([{t:'arrow', a:A, b:[B[0],A[1]], c:'comp'}, {t:'arrow', a:[B[0],A[1]], b:B, c:'comp'}]); }});
   }};
 }
 CO.stapT = verschuifStappen('Stap voor stap: verschuiven over een vector');
@@ -1100,10 +1123,11 @@ function oefenBeeld(kinds, title, n=3){
         const vb = [{t:'arrow', a:A, b:B}, {t:'pt', p:A, n:'A', c:'orig', away:B}, {t:'pt', p:B, n:'B', c:'orig', away:A}];
         const F = coordFig(box, {maxw:340}); F.base = vb.concat([{t:'pt', p:P, n:Pn, c:'orig'}]); F.draw([]);
         const cap = el('div','cf-cap'); box.append(cap);
-        qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`Verschuif ${Pn} over ${vecN('A','B')}.<br>Van A naar B: x [[0:xs]] en y [[1:xs]]<br>${Pn}${PR}([[2:xs]], [[3:xs]])`,
-          help:'Typ bij x en y wat er gebeurt van A naar B, bijvoorbeeld +3 of −2.',
-          check:v=>{ const a = parseInt2(v[0]), c = parseInt2(v[1]); const r = chkPt([v[2],v[3]], Q, Pn+PR);
-            const f = [a===dx, c===dy, ...r.fields]; const ok = f.every(Boolean);
+        qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`Verschuif ${Pn} over ${vecN('A','B')}.<div class="row">Van A naar B: &nbsp;x [[0:pm]] &nbsp; y [[1:pm]]</div>${Pn}${PR}([[2:xs]], [[3:xs]])`,
+          help:'Kies bij x en bij y + of − en typ hoeveel er bij komt of af gaat van A naar B.',
+          check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[1], dy); const r = chkPt([v[2],v[3]], Q, Pn+PR);
+            if(!rx.sign || !ry.sign) return {ok:false, fields:[rx.sign?null:false, ry.sign?null:false, null, null], msg:'Kies bij x en bij y eerst + of −.'};
+            const f = [rx.ok, ry.ok, ...r.fields]; const ok = f.every(Boolean);
             let msg = (!f[0]||!f[1]) ? `Kijk van A naar B: x gaat van ${neg(A[0])} naar ${neg(B[0])} en y van ${neg(A[1])} naar ${neg(B[1])}. Gebruik + of −.` : r.msg;
             if(ok){ F.base = []; animTrans(F, 't', P, Pn, ex, cap); }
             return {ok, fields:f, msg}; },
@@ -1173,9 +1197,10 @@ CO.zonderT = { title:'Zonder tekening: verschuiven', lvl:2, instr:'Er is geen te
     let A, B, P; do{ A = [R.int(-8,8), R.int(-8,8)]; B = [A[0]+nz(R,1,7), A[1]+nz(R,1,7)]; P = [R.int(-8,8), R.int(-8,8)]; }while(Math.abs(B[0])>9 || Math.abs(B[1])>9);
     const dx = B[0]-A[0], dy = B[1]-A[1]; const Q = [P[0]+dx, P[1]+dy]; const Pn = 'KLMNPRS'[i+R.int(0,3)];
     qBlock(b, st, save, 't'+i, { nr:LET[i]+'.', block:true, html:`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])} en ${ptN(Pn,P[0],P[1])}. ${Pn}${PR} is het beeld van ${Pn} door de verschuiving over ${vecN('A','B')}.`,
-      html2:`<div class="step">Van A naar B: x [[0:xs]] &nbsp; y [[1:xs]]</div><div class="step">${Pn}${PR}([[2:xs]], [[3:xs]])</div>`, block2:true,
-      help:'Typ wat er gebeurt van A naar B met + of −, bijvoorbeeld +5 of −2.',
-      check:v=>{ const a = parseInt2(v[0]), c = parseInt2(v[1]); const r = chkPt([v[2],v[3]], Q, Pn+PR); const f = [a===dx, c===dy, ...r.fields]; const ok = f.every(Boolean);
+      html2:`<div class="step">Van A naar B: &nbsp;x [[0:pm]] &nbsp; y [[1:pm]]</div><div class="step">${Pn}${PR}([[2:xs]], [[3:xs]])</div>`, block2:true,
+      help:'Kies bij x en bij y + of − en typ hoeveel er bij komt of af gaat van A naar B.',
+      check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[1], dy); if(!rx.sign || !ry.sign) return {ok:false, msg:'Kies bij x en bij y eerst + of −.'};
+        const r = chkPt([v[2],v[3]], Q, Pn+PR); const f = [rx.ok, ry.ok, ...r.fields]; const ok = f.every(Boolean);
         return {ok, fields:f, msg: (!f[0]||!f[1]) ? `x gaat van ${neg(A[0])} naar ${neg(B[0])}: hoeveel erbij of eraf? En y van ${neg(A[1])} naar ${neg(B[1])}?` : (ok?'':'Pas dezelfde bewerkingen toe op de coördinaten van '+Pn+'.')}; },
       sol:`x: ${neg(A[0])} → ${neg(B[0])} is ${sgnTxt(dx)} &nbsp; y: ${neg(A[1])} → ${neg(B[1])} is ${sgnTxt(dy)}<br>${Pn}${PR}(${neg(P[0])} ${sgnTxt(dx)}, ${neg(P[1])} ${sgnTxt(dy)}) = <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` });
   }
@@ -1234,7 +1259,7 @@ function draaiStappen(k, title){
     const F = coordFig(L, {maxw:400}); F.base = [{t:'pt', p:P, n:Pn, c:'orig'}]; F.draw([]);
     const cap = el('div','cf-cap'); L.append(cap);
     const deg = k==='r90' ? '90°' : '−90°';
-    Rt.append(el('p','instructions', `Draai ${Pn} rond de oorsprong O over <b>${deg}</b> (${k==='r90'?'tegenwijzerzin':'wijzerzin'}). Dat noteer je als ${Pn}${PR} = ${TRN[k].kort}(${Pn}).`));
+    Rt.append(el('div','opg', `Draai <b>${Pn}</b> rond de oorsprong O over <b>${deg}</b> (${k==='r90'?'tegenwijzerzin':'wijzerzin'}).<br>Dat noteer je als ${Pn}${PR} = ${TRN[k].kort}(${Pn}).`));
     const steps = [
       {h:`Lees de coördinaat van ${Pn} af.`, html:`${Pn}([[0]], [[1]])`, check:v=>chkPt(v, P, Pn)},
       {h:'Wissel de x- en de y-coördinaat van plaats.', html:`(${neg(P[1])} ? …) &nbsp;→&nbsp; ([[0]], [[1]])`.replace(`(${neg(P[1])} ? …) &nbsp;→&nbsp; `, ''), check:v=>chkPt(v, [P[1],P[0]], '', 'De y-coördinaat komt vooraan, de x-coördinaat achteraan.')},
