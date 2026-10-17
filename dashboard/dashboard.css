@@ -52,3 +52,8 @@ td.s1{ background:#fde4e1; } td.s2{ background:#fdf1d3; } td.s3{ background:#e3f
 .btn.gevaar:hover{ background:var(--bad-bg); }
 .detail{ border:2px solid var(--orange); border-radius:1rem; padding:.9rem 1.1rem; margin:1rem 0; background:var(--card); }
 .vervang{ background:var(--or-soft); border:2px solid var(--orange); border-radius:.8rem; padding:.5rem .8rem; font-weight:700; margin:.3rem 0 .8rem; }
+.lk-cel{ white-space:normal !important; min-width:16rem; }
+.lk-chip{ display:inline-flex; align-items:center; gap:.2rem; border:1.5px solid var(--tq); border-radius:999px; padding:.05rem .2rem .05rem .6rem; margin:.1rem .25rem .1rem 0; font-weight:700; }
+.lk-chip button{ border:none; background:none; color:var(--bad); font:inherit; font-weight:800; cursor:pointer; padding:0 .35rem; border-radius:999px; }
+.lk-chip button:hover{ background:var(--bad-bg); }
+select.lk-add{ font-size:.82rem; padding:.15rem .4rem; }

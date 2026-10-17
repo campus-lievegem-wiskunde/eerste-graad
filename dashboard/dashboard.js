@@ -14,7 +14,10 @@ const lkNaam = e => { const l = ST.leerkrachten.find(x=>x.id === e); return l ? 
 const groepId = naam => naam.trim().replace(/[\/\s]+/g, '-');
 
 /* ---------- gegevens ---------- */
-async function laadGroepen(){ const s = await F.getDocs(F.collection(db, 'groepen')); ST.groepen = s.docs.map(d=>Object.assign({ id:d.id, leerkrachten:[], leerlingen:[], aan:{} }, d.data())).sort((a,b)=>(jaarcode(a)+a.naam).localeCompare(jaarcode(b)+b.naam, 'nl', { numeric:true })); }
+async function laadGroepen(){ const s = await F.getDocs(F.collection(db, 'groepen')); ST.groepen = s.docs.map(d=>Object.assign({ id:d.id, leerkrachten:[], leerlingen:[], aan:{} }, d.data())).sort(groepVolgorde); }
+/* volgorde: per jaar eerst de B-klas, dan de klasgroepen (1C, 1D), dan de niveaugroepen (1ANg1 … 1ANg3) */
+const groepRang = g => /^\d\s*B$/i.test(g.naam) ? 0 : /^\d\s*[A-Z]$/i.test(g.naam) ? 1 : 2;
+function groepVolgorde(a, b){ return (String(a.jaar).localeCompare(String(b.jaar))) || (groepRang(a) - groepRang(b)) || a.naam.localeCompare(b.naam, 'nl', { numeric:true, sensitivity:'base' }); }
 async function laadLeerkrachten(){ const s = await F.getDocs(F.collection(db, 'leerkrachten')); ST.leerkrachten = s.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.naam||'').localeCompare(b.naam||'')); }
 async function laadLeerlingen(){ const s = await F.getDocs(F.collection(db, 'leerlingen')); ST.leerlingen = new Map(s.docs.map(d=>[d.id, d.data()])); }
 async function updGroep(g, data){ await F.updateDoc(F.doc(db, 'groepen', g.id), data); Object.entries(data).forEach(([k, v])=>{ if(!k.includes('.')) g[k] = v; }); }
@@ -36,19 +39,19 @@ function render(){
    ========================================================= */
 function viewGroepen(body){
   const mijn = ST.groepen.filter(g=>g.leerkrachten.includes(ST.me));
-  const toon = ST.alle ? ST.groepen : mijn;
   const kop = el('div', 'rij');
   const kies = el('button', 'btn ghost', 'Mijn groepen kiezen'); kies.type = 'button'; kies.onclick = ()=>kiesGroepen(body);
-  const alle = el('label', 'switch', `<input type="checkbox" ${ST.alle ? 'checked' : ''}> Vervanging collega: toon alle groepen`);
-  alle.querySelector('input').onchange = e=>{ ST.alle = e.target.checked; if(ST.sel && !ST.alle && !mijn.includes(ST.sel)) ST.sel = null; render(); };
-  kop.append(kies, alle); body.append(kop);
-  if(!toon.length){ body.append(el('div', 'tip', '<div>Je hebt nog geen groepen. Klik op <b>Mijn groepen kiezen</b> en duid je niveaugroepen aan.</div>')); return; }
+  const verv = el('button', 'btn ghost', ST.collega ? '← Terug naar mijn groepen' : 'Vervanging collega'); verv.type = 'button';
+  verv.onclick = ()=>{ if(ST.collega){ ST.collega = null; ST.sel = null; render(); } else kiesCollega(body); };
+  kop.append(kies, verv); body.append(kop);
+  const toon = ST.collega ? ST.groepen.filter(g=>g.leerkrachten.includes(ST.collega)) : mijn;
+  if(ST.collega) body.append(el('div', 'vervang', `Vervanging: je bekijkt de groepen van ${esc(lkNaam(ST.collega))}. Kies een groep.`));
+  if(!toon.length){ if(ST.collega){ body.append(el('p', 'mini', 'Deze collega heeft nog geen groepen.')); return; } body.append(el('div', 'tip', '<div>Je hebt nog geen groepen. Klik op <b>Mijn groepen kiezen</b> en duid je niveaugroepen aan.</div>')); return; }
   const chips = el('div', 'chips');
   toon.forEach(g=>{ const b = el('button', 'chip-btn', `${esc(g.naam)}<span class="cnt">${g.leerlingen.length}</span>`); b.type = 'button'; b.setAttribute('aria-pressed', String(ST.sel === g)); b.onclick = ()=>{ ST.sel = g; ST.site = null; render(); }; chips.append(b); });
   body.append(chips);
   if(!ST.sel || !toon.includes(ST.sel)) ST.sel = toon[0];
   const g = ST.sel;
-  if(!g.leerkrachten.includes(ST.me)) body.append(el('div', 'vervang', `Je bekijkt de groep ${esc(g.naam)} van ${esc(g.leerkrachten.map(lkNaam).join(', ') || 'niemand')} (vervanging).`));
   const sub = el('div', 'tabs');
   [['voortgang', 'Voortgang'], ['leerlingen', 'Leerlingen'], ['aanuit', 'Openzetten']].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; render(); }; sub.append(b); });
   body.append(sub);
@@ -56,13 +59,26 @@ function viewGroepen(body){
   ({ voortgang:paneVoortgang, leerlingen:paneLeerlingen, aanuit:paneAanUit })[ST.sub](pane, g);
 }
 
+function kiesCollega(body){
+  body.innerHTML = '';
+  const card = el('div', 'dash-card', '<h3>Vervanging collega</h3><p class="mini">Kies de collega die je vervangt. Daarna zie je zijn of haar groepen.</p>');
+  const chips = el('div', 'chips');
+  ST.leerkrachten.filter(l=>l.id !== ST.me).forEach(l=>{
+    const n = ST.groepen.filter(g=>g.leerkrachten.includes(l.id));
+    const b = el('button', 'chip-btn', `${esc(l.naam || l.id)}<span class="cnt">${n.length}</span>`); b.type = 'button'; b.title = n.map(g=>g.naam).join(', ') || 'nog geen groepen';
+    b.onclick = ()=>{ ST.collega = l.id; ST.sel = null; ST.site = null; render(); }; chips.append(b); });
+  if(!chips.children.length) chips.append(el('p', 'mini', 'Er zijn nog geen andere leerkrachten.'));
+  const terug = el('button', 'btn ghost', 'Annuleren'); terug.type = 'button'; terug.onclick = render;
+  card.append(chips, terug); body.append(card);
+}
+
 function kiesGroepen(body){
   body.innerHTML = '';
   const card = el('div', 'dash-card', '<h3>Mijn groepen kiezen</h3><p class="mini">Duid de groepen aan waarvan jij de leerkracht bent. Je kan dit later altijd aanpassen.</p>');
   const per = {};
-  ST.groepen.forEach(g=>{ (per[jaarcode(g)] = per[jaarcode(g)] || []).push(g); });
+  ST.groepen.forEach(g=>{ (per[g.jaar] = per[g.jaar] || []).push(g); });
   Object.keys(per).sort().forEach(j=>{
-    card.append(el('h4', '', j));
+    card.append(el('h4', '', j === '1' ? '1ste jaar' : j === '2' ? '2de jaar' : j));
     const box = el('div', 'lijst-check');
     per[j].forEach(g=>{ const l = el('label', '', `<input type="checkbox" value="${esc(g.id)}" ${g.leerkrachten.includes(ST.me) ? 'checked' : ''}> ${esc(g.naam)} <span class="mini">${g.leerkrachten.filter(x=>x !== ST.me).map(lkNaam).map(esc).join(', ')}</span>`); box.append(l); });
     card.append(box);
@@ -343,9 +359,31 @@ function leerkrachtenKaart(body){
   const tb = el('tbody');
   ST.leerkrachten.forEach(l=>{ const tr = el('tr', '', `<td>${esc(l.naam)}</td><td>${esc(l.id)}</td><td>${ST.groepen.filter(g=>g.leerkrachten.includes(l.id)).map(g=>esc(g.naam)).join(', ') || '<span class="mini">nog geen</span>'}</td>`);
     const td = el('td');
-    const ed = el('button', 'btn ghost klein', 'Naam wijzigen'); ed.type = 'button'; td.append(ed, ' ');
-    ed.onclick = ()=>{ const c = tr.children[0]; c.innerHTML = ''; const i = el('input'); i.type = 'text'; i.value = l.naam || ''; const ok = el('button', 'btn klein', 'Bewaren'); ok.type = 'button'; c.append(i, ' ', ok); i.focus();
-      ok.onclick = async ()=>{ const n = i.value.trim(); if(!n) return; await F.updateDoc(F.doc(db, 'leerkrachten', l.id), { naam:n }); await laadLeerkrachten(); render(); }; }; if(l.id !== ST.me){ const rm = el('button', 'btn gevaar klein', 'Toegang intrekken'); rm.type = 'button';
+    const ed = el('button', 'btn ghost klein', 'Wijzigen'); ed.type = 'button'; td.append(ed, ' ');
+    ed.onclick = ()=>{ const c = tr.children[0], c2 = tr.children[1]; c.innerHTML = ''; c2.innerHTML = '';
+      const i = el('input'); i.type = 'text'; i.value = l.naam || ''; const m = el('input'); m.type = 'email'; m.value = l.id; m.size = 30;
+      const ok = el('button', 'btn klein', 'Bewaren'); ok.type = 'button'; const msg = el('span');
+      c.append(i); c2.append(m, ' ', ok, ' ', msg); i.focus();
+      ok.onclick = async ()=>{ const n = i.value.trim(), mail = m.value.trim().toLowerCase();
+        if(!n || !mail.endsWith('@' + C.DOMEIN)){ msg.className = 'errmsg'; msg.textContent = `Vul een naam en een @${C.DOMEIN}-adres in.`; return; }
+        if(mail !== l.id && ST.leerkrachten.some(x=>x.id === mail)){ msg.className = 'errmsg'; msg.textContent = 'Dit adres bestaat al.'; return; }
+        if(mail !== l.id && l.id === ST.me && !confirm('Je wijzigt je eigen e-mailadres. Daarna meld je je aan met het nieuwe adres. Doorgaan?')) return;
+        ok.disabled = true; msg.className = 'mini'; msg.textContent = 'Bezig…';
+        try{
+          if(mail === l.id){ await F.updateDoc(F.doc(db, 'leerkrachten', l.id), { naam:n }); }
+          else {
+            await F.setDoc(F.doc(db, 'leerkrachten', mail), { naam:n });
+            /* groepen: oud adres vervangen door het nieuwe */
+            for(const g of ST.groepen.filter(g=>g.leerkrachten.includes(l.id))){
+              await F.updateDoc(F.doc(db, 'groepen', g.id), { leerkrachten:g.leerkrachten.map(x=>x === l.id ? mail : x) }); }
+            /* beheerder? dan ook verhuizen */
+            const b = await F.getDoc(F.doc(db, 'beheerders', l.id)).catch(()=>null);
+            if(b && b.exists()){ await F.setDoc(F.doc(db, 'beheerders', mail), Object.assign({}, b.data(), { naam:n })); if(l.id !== ST.me) await F.deleteDoc(F.doc(db, 'beheerders', l.id)); }
+            if(l.id !== ST.me) await F.deleteDoc(F.doc(db, 'leerkrachten', l.id));
+          }
+          await Promise.all([laadLeerkrachten(), laadGroepen()]); render();
+        }catch(e){ ok.disabled = false; msg.className = 'errmsg'; msg.textContent = 'Mislukt: ' + (e.message || e); }
+      }; }; if(l.id !== ST.me){ const rm = el('button', 'btn gevaar klein', 'Toegang intrekken'); rm.type = 'button';
       rm.onclick = async ()=>{ if(!confirm(`Toegang van ${l.naam} intrekken?`)) return; await F.deleteDoc(F.doc(db, 'leerkrachten', l.id)); await laadLeerkrachten(); render(); }; td.append(rm); }
     tr.append(td); tb.append(tr); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); card.append(w);
@@ -359,7 +397,15 @@ function groepenKaart(body){
   const card = el('div', 'dash-card', '<h3>Niveaugroepen</h3>');
   const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Groep</th><th>Jaar</th><th>Soort</th><th>Leerkracht(en)</th><th>Leerlingen</th><th></th></tr></thead>';
   const tb = el('tbody');
-  ST.groepen.forEach(g=>{ const tr = el('tr', '', `<td>${esc(g.naam)}</td><td>${esc(jaarcode(g))}</td><td>${esc(g.soort || '')}</td><td>${g.leerkrachten.map(lkNaam).map(esc).join(', ') || '<span class="mini">nog niemand</span>'}</td><td class="c">${g.leerlingen.length}</td>`);
+  ST.groepen.forEach(g=>{ const tr = el('tr', '', `<td>${esc(g.naam)}</td><td>${esc(jaarcode(g))}</td><td>${esc(g.soort || '')}</td><td class="lk-cel"></td><td class="c">${g.leerlingen.length}</td>`);
+    const cel = tr.querySelector('.lk-cel');
+    const zet = async (veld, mail)=>{ await F.updateDoc(F.doc(db, 'groepen', g.id), { leerkrachten:F[veld](mail) }); await laadGroepen(); render(); };
+    g.leerkrachten.forEach(mail=>{ const ch = el('span', 'lk-chip', esc(lkNaam(mail)));
+      const x = el('button', '', '×'); x.type = 'button'; x.title = `${lkNaam(mail)} van ${g.naam} halen`; x.setAttribute('aria-label', x.title);
+      x.onclick = ()=>zet('arrayRemove', mail); ch.append(x); cel.append(ch); });
+    const vrij = ST.leerkrachten.filter(l=>!g.leerkrachten.includes(l.id));
+    if(vrij.length){ const sel = el('select', 'lk-add', '<option value="">+ leerkracht</option>' + vrij.map(l=>`<option value="${esc(l.id)}">${esc(l.naam || l.id)}</option>`).join(''));
+      sel.onchange = ()=>{ if(sel.value) zet('arrayUnion', sel.value); }; cel.append(sel); }
     const td = el('td'); const rm = el('button', 'btn gevaar klein', 'Verwijderen'); rm.type = 'button';
     rm.onclick = async ()=>{ if(!confirm(`Groep ${g.naam} verwijderen? De voortgang van de leerlingen blijft bewaard.`)) return; await F.deleteDoc(F.doc(db, 'groepen', g.id)); await laadGroepen(); render(); };
     td.append(rm); tr.append(td); tb.append(tr); });
