@@ -1190,40 +1190,69 @@ function icon(){
   return `<svg viewBox="0 0 44 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x=".5" y=".5" width="43" height="99" rx="7" fill="#3BC1C5"/><rect x=".5" y="94" width="43" height="5.5" rx="2.5" fill="#1d8a8e"/><rect x="5" y="7" width="34" height="25" rx="2.4" fill="#fff"/><rect x="9" y="13" width="14" height="2" rx="1" fill="#3BC1C5"/><rect x="22" y="22" width="13" height="3.2" rx="1.2" fill="#1d8a8e"/><circle cx="33.9" cy="40.6" r="5.8" fill="#fff"/><circle cx="33.9" cy="40.6" r="2.2" fill="#3BC1C5"/>${k}</svg>`;
 }
 const CSSPOP = `
-.ti30-veil{ position:fixed; inset:0; z-index:300; background:rgba(20,40,42,.55); display:grid; place-items:center; padding:max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px)); }
-.ti30-pop{ position:relative; max-height:100%; overflow:auto; }
-.ti30-pop .ti30{ --ti-fs:clamp(9px, min(3.4vw, 1.3vh), 16px); }
-.ti30-x{ position:absolute; top:.3rem; right:.3rem; z-index:2; width:2.3rem; height:2.3rem; border-radius:50%; border:none; background:#FCAF17; color:#1f2d2e; font:700 1.3rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; box-shadow:0 2px 0 rgba(0,0,0,.25); }
+.ti30-win{ position:fixed; z-index:300; display:flex; flex-direction:column; align-items:stretch; filter:drop-shadow(0 8px 18px rgba(20,50,55,.35)); touch-action:none; }
+.ti30-win .ti30{ --ti-fs:clamp(9px, min(3.2vw, 1.3vh), 15px); cursor:grab; }
+.ti30-win .ti30 button, .ti30-win .ti30 .lcd{ cursor:pointer; }
+.ti30-win.drag .ti30, .ti30-win.drag .ti30-bar{ cursor:grabbing; }
+.ti30-bar{ display:flex; align-items:center; gap:.4rem; background:#3BC1C5; color:#fff; border-radius:.9em .9em 0 0; margin:0 1.2em -.5em; padding:.3em .4em .8em .8em; font:700 .85rem/1 Carlito, Calibri, Arial, sans-serif; cursor:grab; user-select:none; -webkit-user-select:none; }
+.ti30-bar .g{ letter-spacing:-.15em; opacity:.85; font-size:1.1em; }
+.ti30-bar .t{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ti30-x{ flex:none; width:1.9rem; height:1.9rem; border-radius:50%; border:none; background:#FCAF17; color:#1f2d2e; font:700 1.15rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; }
 .ti30-x:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
 .ti30-fab{ position:fixed; z-index:150; right:calc(16px + env(safe-area-inset-right, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); height:64px; padding:0; border:none; background:none; cursor:pointer; line-height:0; filter:drop-shadow(0 3px 5px rgba(20,50,55,.3)); transition:transform .12s; }
 .ti30-fab svg{ height:100%; width:auto; display:block; }
 .ti30-fab:hover{ transform:translateY(-2px) scale(1.06); }
 .ti30-fab:focus-visible{ outline:3px solid #FCAF17; outline-offset:3px; border-radius:6px; }
-@media print{ .ti30-fab{ display:none; } }
+@media print{ .ti30-fab, .ti30-win{ display:none; } }
 `;
 let popOpen = null;
-/* het grote toestel in een venster; één toestel per pagina, het onthoudt alles (store) */
+const POSKEY = 'ti30xb_pos';
+function popCSS(){ addCSS(); if(!document.getElementById('ti30-pop-css')){ const s = document.createElement('style'); s.id = 'ti30-pop-css'; s.textContent = CSSPOP; document.head.append(s); } }
+/* het grote toestel in een zwevend venster dat je kan verslepen; de pagina blijft bruikbaar.
+   Eén toestel per pagina; het onthoudt alles (store) en ook waar je het neerzette. */
 function open(opts = {}){
   if(popOpen) return popOpen;
-  addCSS(); if(!document.getElementById('ti30-pop-css')){ const s = document.createElement('style'); s.id = 'ti30-pop-css'; s.textContent = CSSPOP; document.head.append(s); }
+  popCSS();
   const last = document.activeElement;
-  const veil = document.createElement('div'); veil.className = 'ti30-veil'; veil.setAttribute('role', 'dialog'); veil.setAttribute('aria-label', 'Rekentoestel');
-  const pop = document.createElement('div'); pop.className = 'ti30-pop'; veil.append(pop);
-  const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Rekentoestel sluiten'); pop.append(x);
-  const C = create(pop, Object.assign({ store:'ti30xb_v1' }, opts));
-  const close = () => { veil.remove(); popOpen = null; document.removeEventListener('keydown', esc, true); try{ last && last.focus(); }catch(e){} };
-  const esc = e => { if(e.key === 'Escape' && !C.el.contains(document.activeElement)){ e.preventDefault(); close(); } };
-  x.addEventListener('click', close); veil.addEventListener('click', e => { if(e.target === veil) close(); });
+  const win = document.createElement('div'); win.className = 'ti30-win'; win.setAttribute('role', 'dialog'); win.setAttribute('aria-label', 'Rekentoestel');
+  const bar = document.createElement('div'); bar.className = 'ti30-bar';
+  bar.innerHTML = '<span class="g" aria-hidden="true">⋮⋮</span><span class="t">Sleep om te verplaatsen</span>';
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Rekentoestel sluiten'); bar.append(x);
+  win.append(bar); document.body.append(win);
+  const C = create(win, Object.assign({ store:'ti30xb_v1' }, opts));
+  /* plaats: waar het vorige keer stond, anders rechtsonder boven de knop */
+  const fit = (l, t) => { const r = win.getBoundingClientRect(), W = innerWidth, H = innerHeight;
+    win.style.left = Math.max(0, Math.min(W - r.width, l)) + 'px'; win.style.top = Math.max(0, Math.min(H - Math.min(r.height, H), t)) + 'px'; };
+  let pos = null; try{ pos = JSON.parse(localStorage.getItem(POSKEY)); }catch(e){}
+  const r0 = win.getBoundingClientRect();
+  if(pos) fit(pos.l * innerWidth, pos.t * innerHeight);
+  else fit(innerWidth - r0.width - 16, innerHeight - r0.height - 90);
+  /* verslepen met muis, pen of vinger: aan de balk of aan de rand van het toestel (niet aan de toetsen) */
+  let d = null;
+  win.addEventListener('pointerdown', e => {
+    if(e.button !== 0 || e.target.closest('button') || e.target.closest('.lcd')) return;
+    const r = win.getBoundingClientRect(); d = { dx:e.clientX - r.left, dy:e.clientY - r.top, id:e.pointerId };
+    win.setPointerCapture(e.pointerId); win.classList.add('drag'); e.preventDefault();
+  });
+  win.addEventListener('pointermove', e => { if(!d || e.pointerId !== d.id) return; fit(e.clientX - d.dx, e.clientY - d.dy); });
+  const drop = e => { if(!d || e.pointerId !== d.id) return; d = null; win.classList.remove('drag'); const r = win.getBoundingClientRect();
+    try{ localStorage.setItem(POSKEY, JSON.stringify({ l:r.left / innerWidth, t:r.top / innerHeight })); }catch(err){} C.el.focus({ preventScroll:true }); };
+  win.addEventListener('pointerup', drop); win.addEventListener('pointercancel', drop);
+  const onResize = () => { const r = win.getBoundingClientRect(); fit(r.left, r.top); };
+  addEventListener('resize', onResize);
+  const close = () => { win.remove(); popOpen = null; removeEventListener('resize', onResize); document.removeEventListener('keydown', esc, true); try{ last && last.focus(); }catch(e){} };
+  const esc = e => { if(e.key === 'Escape' && win.contains(document.activeElement) && !C.el.contains(document.activeElement)){ e.preventDefault(); close(); } };
+  x.addEventListener('click', close);
   document.addEventListener('keydown', esc, true);
-  document.body.append(veil); try{ C.el.focus(); }catch(e){}
-  popOpen = { calc:C, close }; return popOpen;
+  try{ C.el.focus({ preventScroll:true }); }catch(e){}
+  popOpen = { calc:C, close, el:win }; return popOpen;
 }
 /* een zwevende knop rechtsonder */
 function fab(opts = {}){
   if(document.querySelector('.ti30-fab')) return;
-  addCSS(); if(!document.getElementById('ti30-pop-css')){ const s = document.createElement('style'); s.id = 'ti30-pop-css'; s.textContent = CSSPOP; document.head.append(s); }
+  popCSS();
   const b = document.createElement('button'); b.type = 'button'; b.className = 'ti30-fab'; b.title = 'Rekentoestel'; b.setAttribute('aria-label', 'Rekentoestel openen');
-  b.innerHTML = icon(); b.addEventListener('click', () => open(opts)); document.body.append(b); return b;
+  b.innerHTML = icon(); b.addEventListener('click', () => { if(popOpen) popOpen.close(); else open(opts); }); document.body.append(b); return b;
 }
 root.TI30XB = { create, open, fab, icon, version:'1.1' };
 })(typeof window !== 'undefined' ? window : globalThis);
