@@ -536,20 +536,38 @@ export const SITES = [
     "vragen": 7
    },
    {
-    "id": "toets1",
-    "naam": "Proeftoets 1",
+    "id": "toetsA",
+    "naam": "Voorstel A · Zoals de KT",
     "toets": true,
     "vragen": 0
    },
    {
-    "id": "toets2",
-    "naam": "Proeftoets 2",
+    "id": "toetsB",
+    "naam": "Voorstel B · Eén grote tekening",
     "toets": true,
     "vragen": 0
    },
    {
-    "id": "toets3",
-    "naam": "Proeftoets 3",
+    "id": "toetsC",
+    "naam": "Voorstel C · Coördinaten en redeneren",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toetsD",
+    "naam": "Voorstel D · Symmetrie en eigenschappen",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toetsE",
+    "naam": "Voorstel E · Fouten zoeken en uitleggen",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toetsF",
+    "naam": "Voorstel F · Puzzels en bijzondere gevallen",
     "toets": true,
     "vragen": 0
    }
