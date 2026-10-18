@@ -101,15 +101,21 @@ async function groepenVan(email){
 }
 /* is een site open, en welke onderdelen zijn uitgezet? (open als minstens één groep hem openzette) */
 export function zichtbaarheid(groepen, siteId){
-  let open = false; let uit = null;
+  let open = false; let uit = null; let rt = false;
   groepen.forEach(g=>{
     const a = g.aan && g.aan[siteId];
     if(!a || !a.on) return;
-    open = true;
+    open = true; if(a.rt) rt = true;
     const u = new Set(a.uit || []);
     uit = uit === null ? u : new Set([...uit].filter(x=>u.has(x)));
   });
-  return { open, uit: uit || new Set() };
+  return { open, uit: uit || new Set(), rt };
+}
+/* knop met het rekentoestel rechtsonder (gedeeld/ti30xb.js), als de leerkracht hem aanzette voor deze module */
+function rekentoestelKnop(){
+  const knop = () => window.TI30XB && window.TI30XB.fab && window.TI30XB.fab();
+  if(window.TI30XB) return knop();
+  const sc = document.createElement('script'); sc.src = new URL('ti30xb.js', import.meta.url).href; sc.onload = knop; document.head.append(sc);
 }
 
 /* ---------- voortgang ---------- */
@@ -189,9 +195,11 @@ async function start(u){
     const z = zichtbaarheid(groepen, site);
     if(!z.open){ melding('<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.'); return; }
     window.CL_VERBORGEN = z.uit;
+    if(z.rt) rekentoestelKnop();
   } else {
+    rekentoestelKnop();
     const m = document.querySelector('.info-box');
-    if(m) m.insertAdjacentElement('afterend', el('div', 'tip lk-tip', '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard.</div>'));
+    if(m) m.insertAdjacentElement('afterend', el('div', 'tip lk-tip', '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.</div>'));
   }
 
   ref = F.doc(db, 'voortgang', `${u.uid}_${site}`);

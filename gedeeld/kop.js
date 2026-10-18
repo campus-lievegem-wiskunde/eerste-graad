@@ -51,13 +51,6 @@
   toast.setAttribute('role', 'status'); toast.hidden = true;
   document.body.append(toast);
 
-  /* ---------- rekentoestel: knop rechtsonder op elke oefenpagina (gedeeld/ti30xb.js) ---------- */
-  if(nav){
-    const knop = () => window.TI30XB && window.TI30XB.fab && window.TI30XB.fab();
-    if(window.TI30XB) knop();
-    else { const sc = document.createElement('script'); sc.src = new URL('ti30xb.js', me.src).href; sc.onload = knop; document.head.append(sc); }
-  }
-
   /* ---------- zijbalk inklappen (keuze onthouden op dit toestel) ---------- */
   if(tog){
     const KEY = site + '_navCollapsed', t = tog.querySelector('.t');

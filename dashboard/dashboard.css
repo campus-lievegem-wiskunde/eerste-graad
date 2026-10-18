@@ -65,3 +65,6 @@ select.lk-add{ font-size:.82rem; padding:.15rem .4rem; }
 .ond-link:hover, .ond-link:focus-visible{ opacity:1; color:var(--ink); background:var(--or-soft); }
 table.dt th .th-link{ color:inherit; text-decoration:none; }
 table.dt th .th-link:hover{ color:var(--accent-dark); text-decoration:underline; }
+
+.rt-keuze{ display:flex; align-items:center; gap:.45rem; margin:.5rem 0 .2rem 3.1rem; font-weight:700; cursor:pointer; }
+.rt-keuze .mini{ font-weight:400; }
