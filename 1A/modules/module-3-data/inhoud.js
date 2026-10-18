@@ -2947,6 +2947,7 @@ MXsec('freq').push(
   .steps-box ol{ padding-left:1.3rem; margin:.3rem 0; }
   .steps-box li{ margin:.25rem 0; padding:.15rem .3rem; border-radius:.4rem; }
   .steps-box li.now{ background:var(--or-soft); outline:2px solid var(--orange); }
+  .steps-box li.done{ color:var(--ink-soft); }
   .kbd{ display:inline-block; min-width:1.6em; padding:0 .35em; border-radius:.35em; background:#4a5357; color:#fff; font-weight:700; font-size:.85em; text-align:center; }
   .kbd.n{ background:#f1f2f6; color:#1b1f20; border:1px solid #b2bec3; } .kbd.sec{ background:#0984e3; }
   `;
@@ -2959,26 +2960,26 @@ function makeCalc(parent, opts){
   return TI30XB.create(parent, Object.assign({ size:'11px' }, opts));
 }
 
-/* --- demo: het toestel doet de stappen voor --- */
+/* --- demo: de leerling klikt zelf op Volgende stap, het toestel drukt de toetsen langzaam in --- */
 function calcDemo(b, cfg){
   const wrap = el('div','calc-wrap'); b.append(wrap);
   const C = makeCalc(wrap);
   const box = el('div','steps-box');
   box.innerHTML = `<b>Stappen</b><ol>${cfg.steps.map(s=>`<li>${s.say}</li>`).join('')}</ol>`;
-  const bar = el('div','viz-bar'); const play = el('button','btn','▶ Speel af'); play.type='button'; const rs = el('button','btn ghost','↺ Opnieuw'); rs.type='button'; bar.append(play, rs); box.append(bar);
+  const bar = el('div','viz-bar'); const next = el('button','btn','▶ Stap 1'); next.type='button'; const rs = el('button','btn ghost','↺ Opnieuw'); rs.type='button'; bar.append(next, rs); box.append(bar);
   wrap.append(box);
   const lis = [...box.querySelectorAll('li')];
-  let busy = false, stop = false;
-  play.addEventListener('click', async ()=>{
-    if(busy) return; busy = true; stop = false; C.reset();
-    for(let i=0;i<cfg.steps.length && !stop;i++){
-      lis.forEach((l,j)=>l.classList.toggle('now', i===j));
-      for(const k of cfg.steps[i].keys){ if(stop) break; const bt = C.btn[k]; if(bt) bt.classList.add('hot'); await sleep(380); C.press(k); await sleep(250); if(bt) bt.classList.remove('hot'); }
-      await sleep(700);
-    }
-    busy = false;
+  let i = 0, busy = false, run = 0;
+  const label = () => { next.disabled = busy || i >= cfg.steps.length; next.textContent = i >= cfg.steps.length ? '✓ Klaar' : busy ? '… het toestel drukt' : `▶ ${i ? 'Volgende stap' : 'Stap 1'} (${i+1}/${cfg.steps.length})`; };
+  next.addEventListener('click', async ()=>{
+    if(busy || i >= cfg.steps.length) return; busy = true; const me = run, st = cfg.steps[i];
+    lis.forEach((l,j)=>{ l.classList.toggle('now', i===j); l.classList.toggle('done', j<i); }); label();
+    const slow = st.keys.length > 6 ? [500, 300] : [900, 500];
+    for(const k of st.keys){ if(me !== run) return; const bt = C.btn[k]; if(bt) bt.classList.add('hot'); await sleep(slow[0]); if(me !== run){ if(bt) bt.classList.remove('hot'); return; } C.press(k); await sleep(slow[1]); if(bt) bt.classList.remove('hot'); }
+    i++; busy = false; label();
   });
-  rs.addEventListener('click', ()=>{ stop = true; lis.forEach(l=>l.classList.remove('now')); C.reset(); });
+  rs.addEventListener('click', ()=>{ run++; i = 0; busy = false; Object.values(C.btn).forEach(x=>x.classList.remove('hot')); lis.forEach(l=>l.classList.remove('now','done')); C.reset(); label(); });
+  label();
 }
 const typeList = arr => arr.flatMap(x=>String(x).split('').map(c=>c==='-'?'neg':c).concat(['enter']));
 
@@ -2996,7 +2997,7 @@ const SCHOEN = {vals:[37,38,39,40,41,42,43,45], fr:[1,3,5,1,4,3,2,1]};
 SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'Statistiek met je rekentoestel', cheat:CHEAT_TOESTEL,
   tip:'Met lijsten gaat het snel: zet de gegevens in L1 en de frequenties in L2. Het toestel berekent het gemiddelde, de mediaan, het minimum en het maximum. De modus zoek je zelf.',
   cards:[
-    { title:'Kijk hoe het werkt', lvl:1, instr:'20 jongeren gaven hun schoenmaat. Klik op Speel af en volg de toetsen.',
+    { title:'Kijk hoe het werkt', lvl:1, instr:'20 jongeren gaven hun schoenmaat. Klik telkens op Volgende stap en kijk welke toetsen het toestel indrukt. Doe mee op je eigen toestel.',
       build:combo(html(ftabHTML(['schoenmaat', ...SCHOEN.vals.map(String)], [['aantal', ...SCHOEN.fr.map(String)]])), b=>calcDemo(b, {steps:[
         {say:`${K('data')}: open de lijsten.`, keys:['data']},
         {say:'Typ de schoenmaten in L1, telkens gevolgd door enter.', keys:typeList(SCHOEN.vals)},

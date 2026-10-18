@@ -1193,11 +1193,8 @@ const CSSPOP = `
 .ti30-win{ position:fixed; z-index:300; display:flex; flex-direction:column; align-items:stretch; filter:drop-shadow(0 8px 18px rgba(20,50,55,.35)); touch-action:none; }
 .ti30-win .ti30{ --ti-fs:clamp(9px, min(3.2vw, 1.3vh), 15px); cursor:grab; }
 .ti30-win .ti30 button, .ti30-win .ti30 .lcd{ cursor:pointer; }
-.ti30-win.drag .ti30, .ti30-win.drag .ti30-bar{ cursor:grabbing; }
-.ti30-bar{ display:flex; align-items:center; gap:.4rem; background:#3BC1C5; color:#fff; border-radius:.9em .9em 0 0; margin:0 1.2em -.5em; padding:.3em .4em .8em .8em; font:700 .85rem/1 Carlito, Calibri, Arial, sans-serif; cursor:grab; user-select:none; -webkit-user-select:none; }
-.ti30-bar .g{ letter-spacing:-.15em; opacity:.85; font-size:1.1em; }
-.ti30-bar .t{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ti30-x{ flex:none; width:1.9rem; height:1.9rem; border-radius:50%; border:none; background:#FCAF17; color:#1f2d2e; font:700 1.15rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; }
+.ti30-win.drag .ti30{ cursor:grabbing; }
+.ti30-x{ position:absolute; top:-.5rem; right:-.5rem; z-index:2; width:2rem; height:2rem; border-radius:50%; border:none; background:#FCAF17; color:#1f2d2e; font:700 1.15rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; }
 .ti30-x:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
 .ti30-fab{ position:fixed; z-index:150; right:calc(16px + env(safe-area-inset-right, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); height:64px; padding:0; border:none; background:none; cursor:pointer; line-height:0; filter:drop-shadow(0 3px 5px rgba(20,50,55,.3)); transition:transform .12s; }
 .ti30-fab svg{ height:100%; width:auto; display:block; }
@@ -1215,10 +1212,8 @@ function open(opts = {}){
   popCSS();
   const last = document.activeElement;
   const win = document.createElement('div'); win.className = 'ti30-win'; win.setAttribute('role', 'dialog'); win.setAttribute('aria-label', 'Rekentoestel');
-  const bar = document.createElement('div'); bar.className = 'ti30-bar';
-  bar.innerHTML = '<span class="g" aria-hidden="true">⋮⋮</span><span class="t">Sleep om te verplaatsen</span>';
-  const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Rekentoestel sluiten'); bar.append(x);
-  win.append(bar); document.body.append(win);
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Rekentoestel sluiten');
+  win.append(x); document.body.append(win);
   const C = create(win, Object.assign({ store:'ti30xb_v1' }, opts));
   /* plaats: waar het vorige keer stond, anders rechtsonder boven de knop */
   const fit = (l, t) => { const r = win.getBoundingClientRect(), W = innerWidth, H = innerHeight;
@@ -1226,8 +1221,8 @@ function open(opts = {}){
   let pos = null; try{ pos = JSON.parse(localStorage.getItem(POSKEY)); }catch(e){}
   const r0 = win.getBoundingClientRect();
   if(pos) fit(pos.l * innerWidth, pos.t * innerHeight);
-  else fit(innerWidth - r0.width - 16, innerHeight - r0.height - 90);
-  /* verslepen met muis, pen of vinger: aan de balk of aan de rand van het toestel (niet aan de toetsen) */
+  else fit(innerWidth - r0.width - 24, innerHeight - r0.height - 90);
+  /* verslepen met muis, pen of vinger: aan de rand van het toestel (niet aan de toetsen) */
   let d = null;
   win.addEventListener('pointerdown', e => {
     if(e.button !== 0 || e.target.closest('button') || e.target.closest('.lcd')) return;
