@@ -306,7 +306,7 @@ export const SITES = [
     "id": "herken",
     "naam": "Herkennen",
     "toets": false,
-    "vragen": 23
+    "vragen": 25
    },
    {
     "id": "as",
@@ -336,7 +336,13 @@ export const SITES = [
     "id": "notatie",
     "naam": "Notatie",
     "toets": false,
-    "vragen": 30
+    "vragen": 15
+   },
+   {
+    "id": "rooster",
+    "naam": "Roosters",
+    "toets": false,
+    "vragen": 47
    },
    {
     "id": "coord",
@@ -348,7 +354,7 @@ export const SITES = [
     "id": "eig",
     "naam": "Eigenschappen",
     "toets": false,
-    "vragen": 23
+    "vragen": 27
    },
    {
     "id": "symv",

@@ -793,6 +793,10 @@ const wait = ms => new Promise(r=>setTimeout(r, ms));
 const twn = (ms, fn) => new Promise(r=>tween(ms, fn, r));
 const lerp2 = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
 const REDUCED = (()=>{ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
+/* animaties lopen trager, en elke uitlegzin blijft staan in een genummerde lijst */
+const SLOW = 1.7;
+function stepSay(cap, keep){ let ol = null;
+  return h=>{ if(!cap) return; if(!ol){ if(!keep) cap.innerHTML = ''; ol = el('ol','cap-steps'); cap.append(ol); } ol.append(el('li','',h)); }; }
 
 /* hulpfiguur na de transformatie (statisch eindbeeld) */
 function finalObjs(k, P, Pn, ex){
@@ -819,11 +823,10 @@ function arcSvg(P, deg, frac=1){
 
 /* ---------- animaties: geven het eindbeeld terug ---------- */
 async function animTrans(F, k, P, Pn, ex, cap, extraBase=[]){
-  const tok = ++F.token; const say = h => { if(cap) cap.innerHTML = h; };
+  const tok = ++F.token; const say = stepSay(cap);
   const base = [{t:'pt', p:P, n:Pn, c:'orig'}].concat(extraBase);
-  const ms = REDUCED ? 1 : 1;
-  const run = async (dur, fn) => { if(!F.alive(tok)) throw 0; await twn(REDUCED?30:dur*ms, t=>{ if(F.alive(tok)) fn(t); }); if(!F.alive(tok)) throw 0; };
-  const pause = async d => { await wait(REDUCED?30:d); if(!F.alive(tok)) throw 0; };
+  const run = async (dur, fn) => { if(!F.alive(tok)) throw 0; await twn(REDUCED?30:dur*SLOW, t=>{ if(F.alive(tok)) fn(t); }); if(!F.alive(tok)) throw 0; };
+  const pause = async d => { await wait(REDUCED?30:d*SLOW+500); if(!F.alive(tok)) throw 0; };
   try{
     if(k==='sx' || k==='sy'){
       const Q = TRN[k].f(P[0],P[1]); const foot = k==='sx' ? [P[0],0] : [0,P[1]];
@@ -892,7 +895,7 @@ async function animTrans(F, k, P, Pn, ex, cap, extraBase=[]){
   }catch(e){ if(e!==0) console.error(e); }
 }
 /* bissectrice tekenen als extra basis */
-const BIS_LINE = {t:'raw', s:`<line class="help" x1="${X(-6.4)}" y1="${Y(-6.4)}" x2="${X(6.4)}" y2="${Y(6.4)}" style="stroke-dasharray:none; stroke:var(--accent); stroke-width:.6"/><text class="lbl help" x="${X(5.6)}" y="${f2(Y(6.1))}" text-anchor="end">b</text>`};
+const BIS_LINE = {t:'raw', s:`<line class="help" x1="${X(-6.4)}" y1="${Y(-6.4)}" x2="${X(6.4)}" y2="${Y(6.4)}" style="stroke-dasharray:none; stroke:var(--accent); stroke-width:.6"/><text class="lbl axn" x="${X(5.6)}" y="${f2(Y(6.1))}" text-anchor="end">b</text>`};
 
 /* ---------- opgaven maken ---------- */
 const nz = (R, a=1, b=6) => R.sign()*R.int(a,b);
@@ -906,8 +909,10 @@ function genP(R, k, opt={}){
 }
 function genT(R, opt={}){
   for(let i=0;i<500;i++){
-    const A = [R.int(-5,5), R.int(-5,5)], dx = nz(R,1,5), dy = nz(R,1,5);
+    const A = [R.int(-5,5), R.int(-5,5)], dx = nz(R,2,5), dy = nz(R,2,5);
     const B = [A[0]+dx, A[1]+dy]; if(Math.abs(B[0])>CR || Math.abs(B[1])>CR) continue;
+    /* een duidelijke vector, niet helemaal aan de rand */
+    if(Math.abs(A[0]+B[0])>6 || Math.abs(A[1]+B[1])>6 || Math.hypot(dx,dy)<3.5) continue;
     if(opt.noZero && (A.includes(0) || B.includes(0))) continue;
     const P = [R.int(-5,5), R.int(-5,5)]; const Q = [P[0]+dx, P[1]+dy];
     if(Math.abs(Q[0])>CR || Math.abs(Q[1])>CR) continue;
@@ -1011,6 +1016,31 @@ function demoBox(parent, k, P, Pn, ex, extra=[]){
    KAARTEN: COÖRDINATEN
    ============================================================ */
 const CO = {};
+/* hint bij de opgaven zonder tekening: een leeg assenstelsel waarin je zelf punten zet en een vector tekent */
+function kladblad(parent){
+  const host = el('div','klad'); parent.append(host);
+  const open = el('button','hintbtn','💡 Hint: teken het zelf in een assenstelsel'); open.type = 'button'; host.append(open);
+  const box = el('div','klad-box'); box.hidden = true; host.append(box);
+  const pick = el('div','cf-pick'); box.append(pick);
+  const mk = t => { const x = el('button','opt',t); x.type = 'button'; pick.append(x); return x; };
+  const bP = mk('Zet een punt'), bV = mk('Teken een vector'), bW = el('button','linkbtn','Wis alles'); bW.type = 'button'; pick.append(bW);
+  const info = el('div','klad-info'); box.append(info);
+  const F = gridFig(box, {g:[-10,10,-10,10], axes:true, maxw:460});
+  const s = {mode:'P', pts:[], vecs:[], start:null};
+  const paint = () => { bP.classList.toggle('chosen', s.mode==='P'); bV.classList.toggle('chosen', s.mode==='V');
+    info.innerHTML = s.mode==='P' ? 'Klik op het rooster om een punt te zetten. Klik er nog eens op om het weg te halen.' : s.start ? 'Klik nu op het eindpunt van de vector.' : 'Klik op het beginpunt van de vector.';
+    F.draw(s.vecs.map(v=>({t:'arrow', a:v[0], b:v[1], c:'vec'})).concat(s.start ? [{t:'pt', p:s.start, c:'ghost'}] : [],
+      s.pts.map(p=>({t:'pt', p, n:co(p[0],p[1]), c:'mine', r:1.1, sm:true})))); };
+  bP.addEventListener('click', ()=>{ s.mode = 'P'; s.start = null; paint(); });
+  bV.addEventListener('click', ()=>{ s.mode = 'V'; s.start = null; paint(); });
+  bW.addEventListener('click', ()=>{ s.pts = []; s.vecs = []; s.start = null; paint(); });
+  open.addEventListener('click', ()=>{ box.hidden = !box.hidden; open.innerHTML = box.hidden ? '💡 Hint: teken het zelf in een assenstelsel' : 'Verberg het assenstelsel'; });
+  F.clickable(p=>{
+    if(s.mode==='P'){ const i = s.pts.findIndex(q=>ptEq(q,p)); if(i>=0) s.pts.splice(i,1); else s.pts.push(p); }
+    else if(!s.start) s.start = p; else { if(!ptEq(s.start,p)) s.vecs.push([s.start, p]); s.start = null; }
+    paint(); });
+  paint();
+}
 
 /* --- 1. Bekijk hoe het werkt --- */
 CO.kijk = { title:'Bekijk hoe het werkt', lvl:1, keep:true, noReset:true,
@@ -1024,7 +1054,7 @@ CO.kijk = { title:'Bekijk hoe het werkt', lvl:1, keep:true, noReset:true,
     const cap = el('div','cf-cap'); b.append(cap);
     const info = el('div','dyn-info'); info.style.textAlign='center'; b.append(info);
     const ctl = el('div','dyn-ctl'); b.append(ctl);
-    const A = [-5,-4], B = [-2,-2];
+    const A = [-2,-3], B = [1,-1];
     let busy = false;
     const play = ctlBtn(icon('play')+' Bekijk de uitleg', async ()=>{ if(busy) return; busy = true; play.disabled = true; const ex = {A, B, An:'A', Bn:'B', dx:B[0]-A[0], dy:B[1]-A[1]};
       F.base = []; await animTrans(F, st.k, st.P, 'P', ex, cap); F.base = baseFor(); busy = false; play.disabled = false; });
@@ -1060,14 +1090,13 @@ function spiegelStappen(k, title, lvl=1){
         if(okC && !okN) msg = isNaN(n) ? 'Typ een geheel getal.' : (want==='blijft' ? 'Als de coördinaat hetzelfde blijft, schrijf je hetzelfde getal.' : 'Van teken veranderen: een positief getal wordt negatief, een negatief getal wordt positief.');
         return {ok:okC&&okN, choiceOk:okC, fields:[okN], msg}; }});
     const steps = [
-      {h:`Lees de coördinaat van ${Pn} af.`, html:`${Pn}([[0]], [[1]])`, check:v=>chkPt(v, P, Pn, 'Eerst de x-coördinaat: hoeveel naar links of rechts? Dan de y-coördinaat: hoeveel naar boven of beneden?')},
       vraag('x'), vraag('y'),
-      {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:`${Pn}${PR}([[0]], [[1]])`, check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 2 en 3.'),
+      {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:keepTxt(`${T.kort}(${Pn}) = ${Pn}${PR}([[0]], [[1]])`), check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 1 en 2.'),
         after:()=>animTrans(F, k, P, Pn, {}, cap)}
     ];
-    Rt.append(el('div','opg', `Spiegel het punt <b>${Pn}</b> om de <b>${ax}</b>.<br>Dat noteer je als ${Pn}${PR} = ${T.kort}(${Pn}).`));
-    qSteps(Rt, st, save, 'st', {steps, end:`${Pn}${PR} = ${T.kort}(${Pn}) en ${ptN(Pn+PR,Q[0],Q[1])}. Klik op <b>↺ Nieuwe opgave</b> voor een nieuw punt.`,
-      restore:n=>{ if(n>=4) F.draw(finalObjs(k, P, Pn, {})); }});
+    Rt.append(el('div','opg', `Spiegel het punt <b>${ptN(Pn,P[0],P[1])}</b> om de <b>${ax}</b>.<br>Dat noteer je als ${T.kort}(${Pn}) = ${Pn}${PR}.`));
+    qSteps(Rt, st, save, 'st', {steps, end:`${T.kort}(${Pn}) = ${ptN(Pn+PR,Q[0],Q[1])}. Klik op <b>↺ Nieuwe opgave</b> voor een nieuw punt.`,
+      restore:n=>{ if(n>=3) F.draw(finalObjs(k, P, Pn, {})); }});
   }};
 }
 CO.stapSx = spiegelStappen('sx','Stap voor stap: spiegelen om de x-as');
@@ -1089,7 +1118,7 @@ function verschuifStappen(title, lvl=1){
     const pmMsg = (r, c, from, to) => !r.sign ? `Kies bij de ${c}-coördinaat eerst <b>+</b> of <b>−</b>.` : `De ${c}-coördinaat gaat van ${neg(from)} naar ${neg(to)}: ${to>from?'er komt iets bij, dus +':'er gaat iets af, dus −'}. Tel de hokjes.`;
     const steps = [
       {h:`Wat gebeurt er van ${An} naar ${Bn}?`, block:true,
-        html:`<div class="row"><span class="lab">x-coördinaat:</span> ${neg(A[0])} [[0:pm]] = ${neg(B[0])}</div><div class="row"><span class="lab">y-coördinaat:</span> ${neg(A[1])} [[1:pm]] = ${neg(B[1])}</div>`,
+        html:`<div class="row"><b>${ptN(An,A[0],A[1])} &nbsp;→&nbsp; ${ptN(Bn,B[0],B[1])}</b></div><div class="row"><span class="lab">x-coördinaat:</span> ${neg(A[0])} [[0:pm]] = ${neg(B[0])}</div><div class="row"><span class="lab">y-coördinaat:</span> ${neg(A[1])} [[1:pm]] = ${neg(B[1])}</div>`,
         check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[1], dy); const ok = rx.ok && ry.ok;
           return {ok, fields:[rx.ok, ry.ok], msg: ok ? `Van ${An} naar ${Bn}: x ${sgnTxt(dx)} en y ${sgnTxt(dy)}.` : !rx.ok ? pmMsg(rx,'x',A[0],B[0]) : pmMsg(ry,'y',A[1],B[1])}; },
         after:()=>{ F.draw([{t:'arrow', a:A, b:[B[0],A[1]], c:'comp'}, {t:'arrow', a:[B[0],A[1]], b:B, c:'comp'}]); return Promise.resolve(); }},
@@ -1101,7 +1130,7 @@ function verschuifStappen(title, lvl=1){
           if(!rx.ok || !ry.ok) msg = (!rx.sign || !ry.sign) ? 'Kies eerst + of −.' : `Doe met ${Pn} precies hetzelfde als van ${An} naar ${Bn}: x ${sgnTxt(dx)} en y ${sgnTxt(dy)}.`;
           else if(!ok) msg = 'De bewerking is juist. Reken ze nog eens uit, eventueel met de getallenas.';
           return {ok, fields:f, msg}; }},
-      {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:`${Pn}${PR}([[0]], [[1]])`, check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 2.'),
+      {h:`Noteer de coördinaat van het beeld ${Pn}${PR}.`, html:keepTxt(`t<sub>${vecN(An,Bn)}</sub>(${Pn}) = ${Pn}${PR}([[0]], [[1]])`), check:v=>chkPt(v, Q, Pn+PR, 'Gebruik je antwoorden uit stap 2.'),
         after:()=>{ F.base = []; return animTrans(F, 't', P, Pn, ex, cap).then(()=>{}); }}
     ];
     qSteps(Rt, st, save, 'st', {steps, end:`${ptN(Pn+PR,Q[0],Q[1])}. Van ${Pn} naar ${Pn}${PR} gebeurt precies hetzelfde als van ${An} naar ${Bn}.`,
@@ -1125,7 +1154,7 @@ function oefenBeeld(kinds, title, n=3){
         const vb = [{t:'arrow', a:A, b:B}, {t:'pt', p:A, n:'A', c:'orig', away:B}, {t:'pt', p:B, n:'B', c:'orig', away:A}];
         const F = coordFig(box, {maxw:340}); F.base = vb.concat([{t:'pt', p:P, n:Pn, c:'orig'}]); F.draw([]);
         const cap = el('div','cf-cap'); box.append(cap);
-        qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`Verschuif ${Pn} over ${vecN('A','B')}.<div class="row">Van A naar B: &nbsp;x [[0:pm]] &nbsp; y [[1:pm]]</div>${Pn}${PR}([[2:xs]], [[3:xs]])`,
+        qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])} en ${ptN(Pn,P[0],P[1])}. Verschuif ${Pn} over ${vecN('A','B')}.<div class="row">Van A naar B: &nbsp;x [[0:pm]] &nbsp; y [[1:pm]]</div>t<sub>${vecN('A','B')}</sub>(${Pn}) = ${Pn}${PR}([[2:xs]], [[3:xs]])`,
           help:'Kies bij x en bij y + of − en typ hoeveel er bij komt of af gaat van A naar B.',
           check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[1], dy); const r = chkPt([v[2],v[3]], Q, Pn+PR);
             if(!rx.sign || !ry.sign) return {ok:false, fields:[rx.sign?null:false, ry.sign?null:false, null, null], msg:'Kies bij x en bij y eerst + of −.'};
@@ -1138,7 +1167,7 @@ function oefenBeeld(kinds, title, n=3){
         const P = genP(R, k); const T = TRN[k]; const Q = T.f(P[0],P[1]);
         const F = coordFig(box, {maxw:340}); F.base = [{t:'pt', p:P, n:Pn, c:'orig'}]; F.draw([]);
         const cap = el('div','cf-cap'); box.append(cap);
-        qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`${Pn}${PR} = ${T.kort}(${Pn})<br>${Pn}${PR}([[0:xs]], [[1:xs]])`,
+        qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`${ptN(Pn,P[0],P[1])}<br>${T.kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`,
           help: k==='sx' ? 'Spiegelen om de x-as: x blijft, y verandert van teken.' : k==='sy' ? 'Spiegelen om de y-as: x verandert van teken, y blijft.' : 'Spiegelen om O: x en y veranderen allebei van teken.',
           check:v=>{ const r = chkPt(v, Q, Pn+PR); if(r.ok){ F.base = []; animTrans(F, k, P, Pn, {}, cap); } return r; },
           sol:`${ptN(Pn,P[0],P[1])} → ${T.naam} → <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` });
@@ -1156,7 +1185,7 @@ CO.teken = { title:'Teken zelf het punt en zijn beeld', lvl:2, instr:'Kies <b>Ze
   if(k==='t'){ const g = genT(R); P = g.P; Q = [P[0]+g.dx, P[1]+g.dy]; ex = {A:g.A, B:g.B, An:'A', Bn:'B', dx:g.dx, dy:g.dy}; vb = [{t:'arrow', a:g.A, b:g.B}, {t:'pt', p:g.A, n:'A', c:'orig', away:g.B}, {t:'pt', p:g.B, n:'B', c:'orig', away:g.A}]; }
   else { P = genP(R, k); Q = TRN[k].f(P[0],P[1]); }
   const txt = k==='t' ? `Zet ${ptN(Pn,P[0],P[1])} en zijn beeld ${Pn}${PR} door de verschuiving over ${vecN('A','B')} met ${ptN('A',ex.A[0],ex.A[1])} en ${ptN('B',ex.B[0],ex.B[1])}.`
-    : `Zet ${ptN(Pn,P[0],P[1])} en zijn beeld ${Pn}${PR} = ${TRN[k].kort}(${Pn}) op het rooster.`;
+    : `Zet ${ptN(Pn,P[0],P[1])} en zijn beeld op het rooster: ${TRN[k].kort}(${Pn}) = ${Pn}${PR}.`;
   b.append(el('p','q-text block', txt));
   const s = st.m || (st.m = {mode:'P'});
   const pick = el('div','cf-pick'); b.append(pick);
@@ -1186,20 +1215,21 @@ function zonderRows(R, kinds){
 CO.zonder = { title:'Zonder tekening: spiegelen', lvl:2, instr:'Er is geen tekening. Denk aan de stappen: welke coördinaat blijft, welke verandert van teken? Na een fout antwoord kan je de tekening bekijken.', build:(b,st,save)=>{
   const R = makeR(st); const rows = zonderRows(R, R.shuffle(['sx','sx','sy','sy','sO','sO']));
   const tip = el('div','tip', icon('bulb') + '<div>Hier mogen de getallen groter zijn dan 6. De regel blijft dezelfde.</div>'); b.append(tip);
+  kladblad(b);
   rows.forEach((r,i)=>{
     const host = el('div'); b.append(host);
-    const res = qBlock(host, st, save, 'z'+i, { nr:LET[i]+'.', html:`${r.Pn}${PR} = ${r.T.kort}(${r.Pn}) &nbsp; en &nbsp; ${ptN(r.Pn, r.P[0], r.P[1])}, &nbsp; dus &nbsp; ${r.Pn}${PR}([[0:xs]], [[1:xs]])`,
+    const res = qBlock(host, st, save, 'z'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN(r.Pn, r.P[0], r.P[1])}    ${r.T.kort}(${r.Pn}) = ${r.Pn}${PR}([[0:xs]], [[1:xs]])`),
       check:v=>{ const c = chkPt(v, r.Q, r.Pn+PR, 'Welke coördinaat blijft en welke verandert van teken?'); return c; },
       sol:`${r.T.naam}: ` + (r.k==='sx' ? `x blijft ${neg(r.P[0])}, y wordt ${neg(r.Q[1])}` : r.k==='sy' ? `x wordt ${neg(r.Q[0])}, y blijft ${neg(r.P[1])}` : `x wordt ${neg(r.Q[0])} en y wordt ${neg(r.Q[1])}`) + `. Dus <b>${ptN(r.Pn+PR, r.Q[0], r.Q[1])}</b>.` });
   });
 }};
 CO.zonderT = { title:'Zonder tekening: verschuiven', lvl:2, instr:'Er is geen tekening. Kijk eerst wat er gebeurt van A naar B en doe dan hetzelfde met het punt.', build:(b,st,save)=>{
-  const R = makeR(st);
+  const R = makeR(st); kladblad(b);
   for(let i=0;i<3;i++){
-    let A, B, P; do{ A = [R.int(-8,8), R.int(-8,8)]; B = [A[0]+nz(R,1,7), A[1]+nz(R,1,7)]; P = [R.int(-8,8), R.int(-8,8)]; }while(Math.abs(B[0])>9 || Math.abs(B[1])>9);
+    let A, B, P; do{ A = [R.int(-8,8), R.int(-8,8)]; B = [A[0]+nz(R,1,7), A[1]+nz(R,1,7)]; P = [R.int(-8,8), R.int(-8,8)]; }while(Math.abs(B[0])>9 || Math.abs(B[1])>9 || Math.abs(P[0]+B[0]-A[0])>9 || Math.abs(P[1]+B[1]-A[1])>9);
     const dx = B[0]-A[0], dy = B[1]-A[1]; const Q = [P[0]+dx, P[1]+dy]; const Pn = 'KLMNPRS'[i+R.int(0,3)];
-    qBlock(b, st, save, 't'+i, { nr:LET[i]+'.', block:true, html:`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])} en ${ptN(Pn,P[0],P[1])}. ${Pn}${PR} is het beeld van ${Pn} door de verschuiving over ${vecN('A','B')}.`,
-      html2:`<div class="step">Van A naar B: &nbsp;x [[0:pm]] &nbsp; y [[1:pm]]</div><div class="step">${Pn}${PR}([[2:xs]], [[3:xs]])</div>`, block2:true,
+    qBlock(b, st, save, 't'+i, { nr:LET[i]+'.', block:true, html:`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])} en ${ptN(Pn,P[0],P[1])}. Verschuif ${Pn} over ${vecN('A','B')}: t<sub>${vecN('A','B')}</sub>(${Pn}) = ${Pn}${PR}.`,
+      html2:`<div class="step">Van A naar B: &nbsp;x [[0:pm]] &nbsp; y [[1:pm]]</div><div class="step"><span class="kt">t<sub>${vecN('A','B')}</sub>(${Pn}) = ${Pn}${PR}(</span>[[2:xs]]<span class="kt">, </span>[[3:xs]]<span class="kt">)</span></div>`, block2:true,
       help:'Kies bij x en bij y + of − en typ hoeveel er bij komt of af gaat van A naar B.',
       check:v=>{ const rx = chkPm(v[0], dx), ry = chkPm(v[1], dy); if(!rx.sign || !ry.sign) return {ok:false, msg:'Kies bij x en bij y eerst + of −.'};
         const r = chkPt([v[2],v[3]], Q, Pn+PR); const f = [rx.ok, ry.ok, ...r.fields]; const ok = f.every(Boolean);
@@ -1214,10 +1244,10 @@ CO.mix = { title:'Alles door elkaar', lvl:2, instr:'Spiegelen en verschuiven doo
     const Pn = letters[i];
     if(k==='t'){ let A,B,P; do{ A=[R.int(-6,6),R.int(-6,6)]; B=[A[0]+nz(R,1,6), A[1]+nz(R,1,6)]; P=[R.int(-7,7),R.int(-7,7)]; }while(Math.abs(B[0])>8||Math.abs(B[1])>8);
       const Q = [P[0]+B[0]-A[0], P[1]+B[1]-A[1]];
-      qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])}, ${ptN(Pn,P[0],P[1])}: verschuif ${Pn} over ${vecN('A','B')}. &nbsp; ${Pn}${PR}([[0:xs]], [[1:xs]])`,
+      qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])}, ${ptN(Pn,P[0],P[1])}:   t<sub>${vecN('A','B')}</sub>(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`),
         check:v=>chkPt(v, Q, Pn+PR, 'Kijk eerst wat er gebeurt van A naar B.'), sol:`Van A naar B: x ${sgnTxt(B[0]-A[0])}, y ${sgnTxt(B[1]-A[1])}. Dus <b>${ptN(Pn+PR,Q[0],Q[1])}</b>.` });
     } else { const P = genP(R,k,{max:8}); const T = TRN[k]; const Q = T.f(P[0],P[1]);
-      qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:`${ptN(Pn,P[0],P[1])}: &nbsp; ${T.kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`, check:v=>chkPt(v, Q, Pn+PR), sol:`${T.naam}: <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` }); }
+      qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN(Pn,P[0],P[1])}:   ${T.kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`), check:v=>chkPt(v, Q, Pn+PR), sol:`${T.naam}: <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` }); }
   });
 }};
 
@@ -1245,7 +1275,7 @@ CO.regel = { title:'Ontdek de regel', lvl:3, keep:true, instr:'Kies een transfor
   const want = {sx:['x','−y'], sy:['−x','y'], sO:['−x','−y'], r90:['−y','x'], rm90:['y','−x'], bis:['y','x']};
   const grid = el('div','tf-grid'); b.append(grid);
   ['sx','sy','sO','r90','rm90','bis'].forEach((k,i)=>{
-    qBlock(grid, st, save, 'r'+i, { nr:LET[i]+'.', html:`${TRN[k].kort}: &nbsp; (x, y) → ([[0:xs]], [[1:xs]])`, help:'Typ x, −x, y of −y.',
+    qBlock(grid, st, save, 'r'+i, { nr:LET[i]+'.', html:keepTxt(`${TRN[k].kort}:   (x, y) → ([[0:xs]], [[1:xs]])`), help:'Typ x, −x, y of −y.',
       check:v=>{ const nn = s => String(s).replace(/\s+/g,'').replace(/[−–]/g,'-').toLowerCase(); const w = want[k].map(nn); const f = [nn(v[0])===w[0], nn(v[1])===w[1]];
         const bad = v.some(x=>!/^-?[xy]$/.test(nn(x)));
         return bad ? {ok:false, msg:'Typ in elk vakje x, −x, y of −y.'} : {ok:f[0]&&f[1], fields:f, msg: f[0]&&f[1] ? '' : 'Probeer de regel uit met het punt in de figuur hierboven.'}; },
@@ -1279,7 +1309,7 @@ CO.draaiOef = { title:'Draaien rond O', lvl:3, instr:'Noteer de coördinaat van 
   kinds.forEach((k,i)=>{ const Pn = letters[i]; const P = genP(R,k,{diff:true}); const Q = TRN[k].f(P[0],P[1]);
     const host = el('div'); b.append(host);
     let F = null, cap = null;
-    qBlock(host, st, save, 'd'+i, { nr:LET[i]+'.', html:`${ptN(Pn,P[0],P[1])}: &nbsp; ${TRN[k].kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`,
+    qBlock(host, st, save, 'd'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN(Pn,P[0],P[1])}:   ${TRN[k].kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`),
       check:v=>{ const r = chkPt(v, Q, Pn+PR, k==='r180' ? 'Over 180°: allebei de coördinaten veranderen van teken.' : 'Wissel eerst de coördinaten van plaats en verander dan één teken.');
         if(!r.ok && !F){ F = coordFig(host, {maxw:300}); cap = el('div','cf-cap'); host.append(cap); F.base = []; animTrans(F, k, P, Pn, {}, cap); }
         return r; },
@@ -1291,7 +1321,7 @@ CO.draaiOef = { title:'Draaien rond O', lvl:3, instr:'Noteer de coördinaat van 
 CO.terug = { title:'Terugrekenen: waar lag het punt?', lvl:3, instr:'Je kent het beeld en de transformatie. Zoek het oorspronkelijke punt.', build:(b,st,save)=>{
   const R = makeR(st); const letters = R.shuffle(noLetters.split(''));
   ['sx','sy','sO'].forEach((k,i)=>{ const Pn = letters[i]; const P = genP(R,k); const Q = TRN[k].f(P[0],P[1]);
-    qBlock(b, st, save, 'b'+i, { nr:LET[i]+'.', html:`${Pn}${PR} = ${TRN[k].kort}(${Pn}) en ${ptN(Pn+PR,Q[0],Q[1])}. &nbsp; Dan is ${Pn}([[0:xs]], [[1:xs]]).`,
+    qBlock(b, st, save, 'b'+i, { nr:LET[i]+'.', html:keepTxt(`${TRN[k].kort}(${Pn}) = ${ptN(Pn+PR,Q[0],Q[1])}.   Dan is ${Pn}([[0:xs]], [[1:xs]]).`),
       check:v=>chkPt(v, P, Pn, 'Bij een spiegeling kan je gewoon terugspiegelen: dezelfde regel werkt ook terug.'), sol:`Spiegel ${Pn}${PR} terug: <b>${ptN(Pn,P[0],P[1])}</b>` });
   });
   for(let i=0;i<2;i++){ const Pn = letters[3+i]; let A,B,P; do{ A=[R.int(-5,5),R.int(-5,5)]; B=[A[0]+nz(R,1,5), A[1]+nz(R,1,5)]; P=[R.int(-5,5),R.int(-5,5)]; }while(Math.abs(B[0])>6||Math.abs(B[1])>6);
@@ -1412,6 +1442,46 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .let-chip{ font:700 1.6rem/1 Arial, Helvetica, sans-serif; letter-spacing:0 }
   .cf.mini-fig{ display:inline-block; width:64px; height:auto; vertical-align:middle; margin:0 .4rem 0 0 }
   .sp-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; align-items:start }
+  /* namen van rechten en assen: kleine letter, goed leesbaar */
+  .cf .lbl.axn{ fill:var(--ink); font-size:5.6px; font-weight:700; font-style:normal }
+  /* hints in twee stappen (zoals de oorspronkelijke site) */
+  .cf{ --hint:#c25e00 }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cf{ --hint:#ffb35c } }
+  :root[data-theme="dark"] .cf{ --hint:#ffb35c }
+  .cf .hintl{ stroke:var(--hint); stroke-width:.6; stroke-dasharray:1.6 1.1; fill:none }
+  .cf .hintl.soft{ opacity:.7 }
+  .cf .hintl.solid{ stroke-dasharray:none }
+  .cf .hintlh{ fill:var(--hint) }
+  .cf .hintm{ stroke:var(--hint); stroke-width:.5; fill:none }
+  .cf .hintring{ fill:var(--or-soft); fill-opacity:.55; stroke:var(--hint); stroke-width:.55; stroke-dasharray:1 .8 }
+  .cf .lbl.hint{ fill:var(--hint); font-size:4.6px }
+  .hintbar{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.35rem 0 }
+  .hintbtn{ font:inherit; font-size:.95rem; font-weight:700; display:inline-flex; align-items:center; gap:.3rem; padding:.3rem .75rem; border-radius:.6rem; border:1.5px solid var(--or-line); background:var(--or-soft); color:var(--ink); cursor:pointer }
+  .hintbtn:hover:not(:disabled){ border-color:var(--orange) }
+  .hintbtn:disabled{ opacity:.55; cursor:default }
+  .hintbtn.off{ background:var(--card); border-color:var(--border); font-weight:400 }
+  .hintinfo{ font-size:.9rem; color:var(--ink-soft) }
+  .hint-txt{ font-size:.98rem; padding:.35rem .6rem; border-left:3px solid var(--orange); background:var(--or-soft); border-radius:0 .5rem .5rem 0; margin:.3rem 0 }
+  .hint-txt:empty{ display:none }
+  .klad{ margin:.4rem 0 .8rem } .klad-box{ margin-top:.4rem } .klad-info{ font-size:.92rem; color:var(--ink-soft); text-align:center; margin:.2rem 0 }
+
+  /* eigenschappentabel */
+  .tab-wrap{ overflow-x:auto; margin:.4rem 0 }
+  .eig-tab{ border-collapse:separate; border-spacing:.3rem; min-width:620px; width:100% }
+  .eig-tab th{ font-size:.92rem; text-align:left; color:var(--accent-dark); font-weight:700; padding:.2rem .3rem }
+  .eig-tab thead th{ text-align:center; font-size:.86rem }
+  .cell-btn{ font:inherit; font-size:.92rem; width:100%; min-height:2.2rem; border-radius:.55rem; border:1.5px solid var(--tq); background:var(--card); color:var(--ink); cursor:pointer }
+  .cell-btn.on{ border-color:var(--orange); background:var(--orange); color:#173436; font-weight:700 }
+  .cell-btn.good{ border-color:var(--ok); background:var(--ok-bg); color:var(--ok) }
+  .cell-btn.wrong{ border-color:var(--bad); background:var(--bad-bg); color:var(--bad) }
+  .cheat table.eig-sum td, .cheat table.eig-sum th{ text-align:center; padding:.15rem .3rem }
+  .cheat table.eig-sum td:first-child{ text-align:left }
+  /* uitleg bij animaties: elke stap blijft staan */
+  .cap-steps{ margin:0; padding-left:1.35rem; display:flex; flex-direction:column; gap:.2rem }
+  .cap-steps li{ animation:capin .35s ease both }
+  .cap-steps li:last-child{ font-weight:700 }
+  @keyframes capin{ from{ opacity:0; transform:translateY(3px) } to{ opacity:1; transform:none } }
+  @media (prefers-reduced-motion: reduce){ .cap-steps li{ animation:none } }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
 })();
@@ -1513,7 +1583,7 @@ function gObjs(objs, g){
     }
     else if(o.t==='axis'){ const [a,b] = clipG(o.p, o.q, g, o.ext!=null?o.ext:.4); s += `<line class="axisL${o.hl?' hl':''}" x1="${X(a[0])}" y1="${Y(a[1])}" x2="${X(b[0])}" y2="${Y(b[1])}"/>`;
       if(o.n){ const e = (o.nAt==='start') ? a : b; const d = [b[0]-a[0], b[1]-a[1]]; const L = Math.hypot(d[0],d[1]); const u = [d[0]/L, d[1]/L]; const w = o.nAt==='start' ? [-u[0],-u[1]] : u; const off = [-u[1], u[0]];
-        const pp = [e[0] - w[0]*.6 + off[0]*.55, e[1] - w[1]*.6 + off[1]*.55]; top += `<text class="lbl help" style="font-style:italic;font-weight:700;fill:var(--ink)" x="${X(pp[0])}" y="${f2(Y(pp[1])+1.5)}" text-anchor="middle">${o.n}</text>`; } }
+        const pp = [e[0] - w[0]*.7 + off[0]*.75, e[1] - w[1]*.7 + off[1]*.75]; top += `<text class="lbl axn" x="${X(pp[0])}" y="${f2(Y(pp[1])+1.9)}" text-anchor="middle">${o.n}</text>`; } }
     else if(o.t==='cen'){ top += `<circle class="cpt" cx="${X(o.p[0])}" cy="${Y(o.p[1])}" r="1.2"/>`; if(o.n){ const L = lblAt(o.p, o.away, g); top += `<text class="lbl cen" x="${f2(L.lx)}" y="${f2(L.ly)}" text-anchor="${L.anchor}">${o.n}</text>`; } }
     else if(o.t==='img'){ const [x,y,w,h] = o.box; const m = o.m || (o.op ? opMatAt(o.op, o.tt==null?1:o.tt) : null);
       s += `<image href="${o.href}" x="${X(x)}" y="${Y(y+h)}" width="${f2(w*CU)}" height="${f2(h*CU)}" preserveAspectRatio="xMidYMid meet"${m?` transform="${svgMat(m)}"`:''}${o.op2?` opacity="${o.op2}"`:''}/>`; }
@@ -1580,20 +1650,42 @@ function opBase(op, o={}){
   return [];
 }
 async function animFig(F, fig, op, cap, opt={}){
-  const tok = ++F.token; const say = h => { if(cap) cap.innerHTML = h; };
-  const g = F.g; const P = fig.pts, Q = P.map(p=>applyOp(p, op)); const nm = fig.names || [];
+  const tok = ++F.token; const say = stepSay(cap, opt.keep);
+  const P = fig.pts, Q = P.map(p=>applyOp(p, op)); const nm = fig.names || [];
   const orig = {t:'poly', pts:P, c:'orig', names:nm, open:fig.open};
-  const run = async (dur, fn) => { if(!F.alive(tok)) throw 0; await twn(REDUCED?30:dur, t=>{ if(F.alive(tok)) fn(t); }); if(!F.alive(tok)) throw 0; };
-  const pause = async d => { await wait(REDUCED?30:d); if(!F.alive(tok)) throw 0; };
+  const run = async (dur, fn) => { if(!F.alive(tok)) throw 0; await twn(REDUCED?30:dur*SLOW, t=>{ if(F.alive(tok)) fn(t); }); if(!F.alive(tok)) throw 0; };
+  const pause = async d => { await wait(REDUCED?30:d*SLOW); if(!F.alive(tok)) throw 0; };
   const extra = opt.extra || [];
   try{
     if(opt.intro) say(opt.intro);
-    const help = (t, full) => P.flatMap((p,i)=>{ const q = applyOp(p, op); if(op.t==='r'){ return [{t:'line', a:op.c, b:p}, {t:'line', a:op.c, b:opAt(p,op,t)}]; } const cur = opAt(p, op, t); return op.t==='t' ? (t>.02 ? [{t:'arrow', a:p, b:cur, c:'comp'}] : []) : [{t:'line', a:p, b:cur}]; });
-    if(op.t==='r'){ const R = Math.hypot(P[0][0]-op.c[0], P[0][1]-op.c[1]); const a0 = Math.atan2(P[0][1]-op.c[1], P[0][0]-op.c[0])/D2R;
-      await run(1600, t=>F.draw(extra.concat([orig], help(t), [{t:'arcC', c:op.c, r:Math.min(R*.55, 2.2), a0, a1:a0+op.deg*t}, {t:'poly', pts:P.map(p=>opAt(p,op,t)), c:'ghost', open:fig.open}]))); }
-    else await run(op.t==='t'?1300:1500, t=>F.draw(extra.concat([orig], help(t), [{t:'poly', pts:P.map(p=>opAt(p,op,t)), c:'ghost', open:fig.open}])));
-    await pause(250);
+    if(op.t==='p'){
+      /* puntspiegeling: eerst elk hoekpunt afzonderlijk door het centrum naar zijn beeld, daarna de hele figuur */
+      const cn = op.name || 'het centrum'; const done = []; let saidRest = false;
+      const named = nm.some(Boolean);
+      if(!named) say(`Spiegel elk hoekpunt afzonderlijk om ${cn}: ga in een rechte lijn naar ${cn} en even ver door aan de andere kant.`);
+      for(let i=0;i<P.length;i++){
+        if(ptEq(P[i], Q[i])){ if(named) say(`${nm[i]} ligt op ${cn}: ${nm[i]} is een dekpunt.`); done.push({t:'pt', p:Q[i], n:nm[i]? nm[i]+PR : '', c:'img', away:op.c}); continue; }
+        if(nm[i]) say(`Spiegel ${nm[i]} om ${cn}: ga van ${nm[i]} in een rechte lijn naar ${cn} en even ver door. Zo vind je ${nm[i]}${PR}.`);
+        else if(named && !saidRest){ saidRest = true; say('Doe hetzelfde voor elk ander hoekpunt.'); }
+        await run(700, t=>{ const c = lerp2(P[i], op.c, t); F.draw(extra.concat([orig], done, [{t:'line', a:P[i], b:c}, {t:'pt', p:c, c:'ghost'}])); });
+        await pause(120);
+        await run(700, t=>{ const c = lerp2(op.c, Q[i], t); F.draw(extra.concat([orig], done, [{t:'line', a:P[i], b:c}, {t:'ticks', a:P[i], b:op.c, n:i%3+1}, {t:'pt', p:c, c:'ghost'}])); });
+        done.push({t:'line', a:P[i], b:Q[i]}, {t:'ticks', a:P[i], b:op.c, n:i%3+1}, {t:'ticks', a:op.c, b:Q[i], n:i%3+1}, {t:'pt', p:Q[i], n:nm[i]? nm[i]+PR : '', c:'img', away:op.c});
+        F.draw(extra.concat([orig], done));
+        await pause(450);
+      }
+      say(fig.open ? 'Verbind de beeldpunten: zo krijg je het beeld van de hele figuur.' : 'Verbind de beeldpunten: zo krijg je het beeld van de hele figuur. Het beeld staat op zijn kop.');
+      F.draw(extra.concat([orig], done, [{t:'poly', pts:Q, c:'ghost', open:fig.open}])); await pause(500);
+    }
+    else {
+      const help = t => P.flatMap(p=>{ if(op.t==='r') return [{t:'line', a:op.c, b:p}, {t:'line', a:op.c, b:opAt(p,op,t)}]; const cur = opAt(p, op, t); return op.t==='t' ? (t>.02 ? [{t:'arrow', a:p, b:cur, c:'comp'}] : []) : [{t:'line', a:p, b:cur}]; });
+      if(op.t==='r'){ const R = Math.hypot(P[0][0]-op.c[0], P[0][1]-op.c[1]); const a0 = Math.atan2(P[0][1]-op.c[1], P[0][0]-op.c[0])/D2R;
+        await run(1600, t=>F.draw(extra.concat([orig], help(t), [{t:'arcC', c:op.c, r:Math.min(R*.55, 2.2), a0, a1:a0+op.deg*t}, {t:'poly', pts:P.map(p=>opAt(p,op,t)), c:'ghost', open:fig.open}]))); }
+      else await run(op.t==='t'?1300:1500, t=>F.draw(extra.concat([orig], help(t), [{t:'poly', pts:P.map(p=>opAt(p,op,t)), c:'ghost', open:fig.open}])));
+      await pause(250);
+    }
   }catch(e){ if(e!==0) console.error(e); return; }
+  if(F.g && Q.some(q=>q[0]<F.g[0]-1e-6 || q[0]>F.g[1]+1e-6 || q[1]<F.g[2]-1e-6 || q[1]>F.g[3]+1e-6)) console.warn('BUITEN ROOSTER', JSON.stringify(Q), JSON.stringify(F.g));
   F.draw(finalFig(fig, op, opt));
   if(opt.end) say(opt.end);
 }
@@ -1630,6 +1722,15 @@ function placeTask(parent, st, save, id, cfg){
   }
   const F = gridFig(box, {g:cfg.g, axes:cfg.axes, lattice:cfg.lattice, maxw:cfg.maxw});
   F.base = (cfg.base || []);
+  const useHints = mode==='beeld' && !quiz && cfg.hints!==false;
+  let hStage = 0, hBar = null, hBtn = null, hOff = null, hInfo = null, hTxt = null;
+  if(useHints){
+    hBar = el('div','hintbar'); hBtn = el('button','hintbtn','💡 Hint'); hBtn.type = 'button';
+    hOff = el('button','hintbtn off','Verberg de hint'); hOff.type = 'button'; hInfo = el('span','hintinfo');
+    hBar.append(hBtn, hOff, hInfo); hTxt = el('div','hint-txt'); box.append(hBar, hTxt);
+    hBtn.addEventListener('click', ()=>{ if(locked) return; hStage = Math.min(2, hStage+1); paint(); });
+    hOff.addEventListener('click', ()=>{ hStage = 0; paint(); });
+  }
   const cap = el('div','cf-cap'); box.append(cap);
   const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type='button';
   const bDemo = el('button','btn ghost', icon('play')+' Toon de werkwijze'); bDemo.type='button'; bDemo.hidden = true; bDemo.style.display='inline-flex'; bDemo.style.alignItems='center'; bDemo.style.gap='.3rem';
@@ -1652,7 +1753,12 @@ function placeTask(parent, st, save, id, cfg){
     return o;
   }
   function figObjs(){ return cfg.figObjs ? cfg.figObjs() : [{t:'poly', pts:fig.pts, c:'orig', names:fig.names, open:fig.open}]; }
-  function paint(){ btns.forEach((b,i)=>{ if(b){ b.classList.toggle('chosen', i===s.cur && !locked); b.classList.toggle('good', false); } }); if(!s.done) F.draw(figObjs().concat(mine())); }
+  function hintPaint(){ if(!hBar) return;
+    hBar.hidden = locked || s.done; hBtn.innerHTML = hStage ? '💡 Volgende hint' : '💡 Hint'; hBtn.disabled = hStage>=2; hOff.hidden = !hStage;
+    hInfo.textContent = hStage && !s.done ? `hint ${hStage} van 2 voor ${names[s.cur]}` : '';
+    hTxt.innerHTML = hStage && !s.done ? (cfg.hintTxt ? cfg.hintTxt(hStage, s.cur) : (HINT_TXT[op.t]||[])[hStage-1] || '') : ''; }
+  function paint(){ btns.forEach((b,i)=>{ if(b){ b.classList.toggle('chosen', i===s.cur && !locked); b.classList.toggle('good', false); } }); hintPaint();
+    if(!s.done) F.draw(figObjs().concat(hStage && fig.pts[s.cur] ? hintObjs(op, fig.pts[s.cur], hStage, names[s.cur]) : [], mine())); }
   F.clickable(p=>{ if(locked || s.done) return;
     bad = []; fb.textContent=''; fb.className='fb';
     if(mode==='beeld' || mode==='vec' || mode==='as'){ s.P[s.cur] = p; const nxt = todo.find(i=>!s.P[i]); if(nxt!=null) s.cur = nxt; }
@@ -1681,7 +1787,7 @@ function placeTask(parent, st, save, id, cfg){
       return (on(s.P[0]) && on(s.P[1])) ? {ok:true} : {ok:false, msg:cfg.badMsg || 'De spiegelas staat loodrecht op het lijnstuk tussen een punt en zijn beeld, en gaat door het midden ervan.'}; }
   }
   function finish(animate){
-    locked = true; s.done = true; F.locked = true; svgNoCursor(); bC.hidden = true; bWis.hidden = true; if(pick) pick.hidden = true;
+    locked = true; s.done = true; F.locked = true; svgNoCursor(); bC.hidden = true; bWis.hidden = true; if(pick) pick.hidden = true; hStage = 0; hintPaint();
     if(mode==='beeld'){ if(animate) animFig(F, fig, op, cap, {extra:cfg.base? []:[], end:cfg.end}); else F.draw(finalFig(fig, op)); }
     else { F.draw(figObjs().concat(cfg.solObjs ? cfg.solObjs() : mine())); if(cfg.end) cap.innerHTML = cfg.end; }
   }
@@ -1707,6 +1813,33 @@ function placeTask(parent, st, save, id, cfg){
   }
   return {F, box};
 }
+/* hint in twee stappen voor het beeld van één punt (zoals op de oorspronkelijke site):
+   stap 1 toont hoe je vertrekt, stap 2 toont waar het beeld komt */
+function hintObjs(op, P, stage, lab){
+  const Q = applyOp(P, op); const o = [];
+  const unit = v => { const L = Math.hypot(v[0], v[1]) || 1; return [v[0]/L, v[1]/L]; };
+  const ring = (q, l) => ({t:'raw', s:`<circle class="hintring" cx="${X(q[0])}" cy="${Y(q[1])}" r="2.7"/>` + (l ? `<text class="lbl hint" x="${f2(X(q[0])+3.4)}" y="${f2(Y(q[1])-3.2)}">${l}</text>` : '')});
+  const tick = (a, b, n=1) => ({t:'raw', s:cfTicks(a, b, n).replace(/class="mark"/g, 'class="hintm"')});
+  if(ptEq(P, Q)) return [ring(P, (lab ? lab.replace(PR,'') : 'Het punt') + ' is een dekpunt')];
+  if(op.t==='s'){ const F = footPt(P, op.p, op.q), ax = unit([op.q[0]-op.p[0], op.q[1]-op.p[1]]), n = unit([P[0]-F[0], P[1]-F[1]]);
+    o.push({t:'line', a:P, b:F, c:'hintl'}, {t:'raw', s:cfRight(F, ax, n).replace('class="mark"', 'class="hintm"')}, tick(P, F));
+    if(stage>=2) o.push({t:'line', a:F, b:Q, c:'hintl'}, tick(F, Q), ring(Q, lab)); }
+  else if(op.t==='t'){ const v = op.v; o.push({t:'line', a:[P[0]-v[0]*.3, P[1]-v[1]*.3], b:[P[0]+v[0]*1.3, P[1]+v[1]*1.3], c:'hintl soft'});
+    if(stage>=2) o.push({t:'raw', s:cfArrow(P, Q, 'hintl solid').replace('class="hintl solidh"', 'class="hintlh"')}, ring(Q, lab)); }
+  else if(op.t==='r'){ const C = op.c, r = Math.hypot(P[0]-C[0], P[1]-C[1]), a0 = Math.atan2(P[1]-C[1], P[0]-C[0])/D2R, sg = op.deg>0 ? 1 : -1;
+    o.push({t:'line', a:C, b:P, c:'hintl'}, {t:'arcC', c:C, r, a0, a1:a0+op.deg+sg*25, cls:'hintl soft'});
+    if(stage>=2){ const rr = Math.min(1.3, r*.45), am = (a0+op.deg/2)*D2R;
+      o.push({t:'line', a:C, b:Q, c:'hintl'}, {t:'arcC', c:C, r:rr, a0, a1:a0+op.deg, cls:'hintl solid'}, {t:'txt', p:[C[0]+(rr+.9)*Math.cos(am), C[1]+(rr+.9)*Math.sin(am)], s:degTxt(op.deg), c:'hint', dy:1.6}, ring(Q, lab)); } }
+  else if(op.t==='p'){ const C = op.c; o.push({t:'line', a:P, b:[C[0]+(C[0]-P[0])*.35, C[1]+(C[1]-P[1])*.35], c:'hintl'}, tick(P, C));
+    if(stage>=2) o.push({t:'line', a:C, b:Q, c:'hintl'}, tick(C, Q), ring(Q, lab)); }
+  return o;
+}
+const HINT_TXT = {
+  s:['Ga vanuit het punt <b>loodrecht</b> naar de spiegelas.', 'Ga <b>even ver</b> door aan de andere kant van de as. Daar ligt het beeld.'],
+  t:['Het beeld ligt op een rechte die <b>evenwijdig</b> is met de vector.', 'Schuif het punt <b>even ver en in dezelfde zin</b> als de pijl van de vector.'],
+  r:['Het beeld ligt even ver van het centrum: het punt draait op een <b>cirkelboog</b> rond het centrum.', 'Draai over de gegeven hoek. Een positieve hoek is <b>tegenwijzerzin</b>, een negatieve hoek is <b>wijzerzin</b>.'],
+  p:['Teken de rechte door het punt en het <b>centrum</b>.', 'Ga <b>even ver</b> door aan de andere kant van het centrum. Daar ligt het beeld.']
+};
 function autoHint(op, P, got, nm){
   const want = applyOp(P, op);
   if(op.t==='s'){ const S = footPt(P, op.p, op.q); const d1 = Math.hypot(P[0]-S[0], P[1]-S[1]); const d2 = Math.hypot(got[0]-S[0], got[1]-S[1]);
@@ -2066,14 +2199,14 @@ HK.kijk = { title:'Bekijk de vier transformaties', lvl:1, keep:true, noReset:tru
     const g = [0,12,0,8];
     const fig = {pts:[[2,2],[4,2],[4,3],[3,3],[3,6],[2,6]], names:[]};   /* een L-vormige figuur */
     const fl = {pts:[[2,2],[3,2],[3,4],[5,5],[3,6],[2,6]], names:['A','','','','','']};
-    const OPS = { s:{t:'s', p:[6,0], q:[6,8], name:'a'}, t:{t:'t', v:[6,-1], from:[5,7.5], name:['X','Y']}, r:{t:'r', c:[7,3], deg:90, name:'O'}, p:{t:'p', c:[6,4], name:'O'} };
+    const OPS = { s:{t:'s', p:[6,0], q:[6,8], name:'a'}, t:{t:'t', v:[6,-1], from:[5,7.5], name:['X','Y']}, r:{t:'r', c:[7,6], deg:90, name:'O'}, p:{t:'p', c:[6,4], name:'O'} };
     if(!st.k) st.k = 's';
     const pick = el('div','cf-pick'); b.append(pick);
     const bs = TYPES4.map(([k,l])=>{ const x = el('button','opt',l); x.type='button'; x.addEventListener('click', ()=>{ st.k = k; paint(); reset(); }); pick.append(x); return [k,x]; });
     const F = gridFig(b, {g, maxw:480});
     const cap = el('div','cf-cap'); b.append(cap);
     const ctl = el('div','dyn-ctl'); b.append(ctl);
-    const play = ctlBtn(icon('play')+' Bekijk de beweging', async ()=>{ play.disabled = true; const op = OPS[st.k]; F.base = opBase(op); await animFig(F, fl, op, cap, {end:DEF[st.k]}); play.disabled = false; });
+    const play = ctlBtn(icon('play')+' Bekijk de beweging', async ()=>{ play.disabled = true; const op = OPS[st.k]; F.base = opBase(op); await animFig(F, fl, op, cap, {keep:true}); play.disabled = false; });
     play.style.display='inline-flex'; play.style.alignItems='center'; play.style.gap='.3rem'; ctl.append(play);
     const paint = () => bs.forEach(([k,x])=>x.classList.toggle('chosen', k===st.k));
     function reset(){ F.token++; const op = OPS[st.k]; F.base = opBase(op); F.draw([{t:'poly', pts:fl.pts, c:'orig', names:fl.names}]); cap.innerHTML = DEF[st.k]; }
@@ -2108,9 +2241,8 @@ HK.welke = herkenKaart('Welke transformatie zie je?', 1, false);
 HK.welke2 = herkenKaart('Vink alle transformaties aan die passen', 2, true);
 
 /* --- 3. foto's --- */
-const PHOTOS = [['spiegeling_kasteel1','s'],['spiegeling_kasteel2','s'],['spiegeling_berg1','s'],['spiegeling_berg2','s'],['spiegeling_vlinder1','s'],['spiegeling_vlinder2','s'],
-  ['verschuiving_vissen','t'],['verschuiving_trein','t'],['verschuiving_lampionnen','t'],['rotatie_molen1','r'],['rotatie_molen2','r'],['rotatie_ventilator','r'],
-  ['puntspiegeling_kaart1','p'],['puntspiegeling_kaart2','p'],['puntspiegeling_yinyang','p'],['puntspiegeling_tegel','p']];
+/* foto's die de leerkracht koos (fotokeuze), met de transformatie die erbij hoort */
+const PHOTOS = [['s_kasteel','s'],['s_vlinder','s'],['s_berg','s'],['t_voetstappen','t'],['t_vissen','t'],['t_autos','t'],['t_kapstokken','t'],['r_reuzenrad','r'],['r_windmolen','r'],['r_frangipani','r'],['r_roosvenster','r'],['r_molentje','r'],['r_scheepsschroef','r'],['r_ventilator','r'],['p_speelkaart','p'],['p_yinyang','p'],['p_speelkaart2','p'],['p_tegel','p']];
 const PHOTO_WHY = {s:'Het ene deel is het spiegelbeeld van het andere: er is een spiegelas.', t:'Dezelfde figuur komt telkens terug, verschoven over dezelfde vector.', r:'De figuur valt op zichzelf als je ze rond het midden draait.', p:'Draai de figuur een halve slag rond het midden: ze valt op zichzelf. Dat is een spiegeling om een punt.'};
 function photoQ(parent, st, save, id, ph, nr){
   const host = el('div','photo-q'); parent.append(host);
@@ -2119,7 +2251,7 @@ function photoQ(parent, st, save, id, ph, nr){
 }
 HK.fotos = { title:'Foto’s: welke transformatie herken je?', lvl:1, instr:'Kijk goed naar elke foto. Welke transformatie zie je?', build:(b,st,save)=>{
   const R = makeR(st); const by = k => R.shuffle(PHOTOS.filter(p=>p[1]===k));
-  const pick = R.shuffle([by('s')[0], by('t')[0], by('r')[0], by('p')[0], R.pick(PHOTOS)]).filter((p,i,a)=>a.findIndex(q=>q[0]===p[0])===i).slice(0,4);
+  const pick = R.shuffle([by('s')[0], by('t')[0], by('r')[0], by('p')[0], by('t')[1], by('r')[1]]);
   const grid = el('div','pair-grid'); b.append(grid);
   pick.forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.'));
 }};
@@ -2312,11 +2444,11 @@ AS.kijk = { title:'Bekijk het stappenplan', lvl:1, keep:true, noReset:true,
     paint(); reset();
   }};
 async function stapAs(F, A, op, cap){
-  const tok = ++F.token; const say = h => { if(cap) cap.innerHTML = h; };
+  const tok = ++F.token; const say = stepSay(cap);
   const S = footPt(A, op.p, op.q), Q = applyOp(A, op);
   const base = [{t:'pt', p:A, n:'A', c:'orig'}];
-  const run = async (dur, fn) => { if(!F.alive(tok)) throw 0; await twn(REDUCED?30:dur, t=>{ if(F.alive(tok)) fn(t); }); if(!F.alive(tok)) throw 0; };
-  const pause = async d => { await wait(REDUCED?30:d); if(!F.alive(tok)) throw 0; };
+  const run = async (dur, fn) => { if(!F.alive(tok)) throw 0; await twn(REDUCED?30:dur*SLOW, t=>{ if(F.alive(tok)) fn(t); }); if(!F.alive(tok)) throw 0; };
+  const pause = async d => { await wait(REDUCED?30:d*SLOW+400); if(!F.alive(tok)) throw 0; };
   try{
     if(ptEq(A,S)){ say('A ligt op de spiegelas. A heeft zichzelf als beeld: A is een <b>dekpunt</b>.'); F.draw(base); return; }
     const d = [op.q[0]-op.p[0], op.q[1]-op.p[1]]; const L = Math.hypot(...d); const u = [d[0]/L, d[1]/L]; const n = [A[0]-S[0], A[1]-S[1]]; const Ln = Math.hypot(...n);
@@ -2631,9 +2763,7 @@ PT.kijk = { title:'Bekijk hoe je om een punt spiegelt', lvl:1, keep:true, noRese
     let busy = false;
     const op = () => ({t:'p', c:st.O, name:'O'});
     const play = ctlBtn(icon('play')+' Bekijk de uitleg', async ()=>{ if(busy) return; busy = true; play.disabled = true; F.base = opBase(op());
-      cap.innerHTML = '<b>Stap 1.</b> Teken de rechte door A en O. <b>Stap 2.</b> Teken A′ zodat O het midden is van [AA′]. Zo voor elk hoekpunt.';
-      await wait(REDUCED?30:1600);
-      await animFig(F, fig, op(), null, {}); cap.innerHTML = 'O is het midden van [AA′], [BB′] en [CC′]. Dat is hetzelfde als een halve draai: r(O, 180°). Je noteert s<sub>O</sub>(ΔABC) = ΔA′B′C′.'; busy = false; play.disabled = false; });
+      await animFig(F, fig, op(), cap, {end:'O is het midden van [AA′], [BB′] en [CC′]. Dat is hetzelfde als een halve draai: r(O, 180°). Je noteert s<sub>O</sub>(ΔABC) = ΔA′B′C′.'}); busy = false; play.disabled = false; });
     play.style.display='inline-flex'; play.style.alignItems='center'; play.style.gap='.3rem'; ctl.append(play);
     function reset(){ F.token++; F.base = opBase(op()); const out = !fig.pts.every(p=>inG(applyOp(p,op()), g)); play.disabled = out || busy;
       F.draw([{t:'poly', pts:fig.pts, c:'orig', names:fig.names}]); cap.innerHTML = out ? 'Het beeld valt buiten het rooster. Sleep O naar een andere plaats.' : ''; }
@@ -2864,8 +2994,8 @@ function mixFig(parent, sc, cols, rows, S=2){
   const g = [-1.2, W+1.6, -1, H+1.4];
   const F = gridFig(parent, {g, plain:true, maxw:380});
   const o = [];
-  for(let x=0;x<cols;x++){ o.push({t:'line', a:[S*x,-.8], b:[S*x,H+.8], c:'latline ax'}, {t:'txt', p:[S*x,H+.9], s:'abcde'[x], c:'help', dy:-1.2}); }
-  for(let k=0;k<rows;k++){ const y = S*(rows-1-k); o.push({t:'line', a:[-.8,y], b:[W+.8,y], c:'latline ax'}, {t:'txt', p:[W+1,y], s:'fghi'[k], c:'help', anchor:'start', dy:1.4}); }
+  for(let x=0;x<cols;x++){ o.push({t:'line', a:[S*x,-.8], b:[S*x,H+.8], c:'latline ax'}, {t:'txt', p:[S*x,H+.9], s:'abcde'[x], c:'axn', dy:-1.2}); }
+  for(let k=0;k<rows;k++){ const y = S*(rows-1-k); o.push({t:'line', a:[-.8,y], b:[W+.8,y], c:'latline ax'}, {t:'txt', p:[W+1,y], s:'fghi'[k], c:'axn', anchor:'start', dy:1.4}); }
   Object.entries(sc.pts).forEach(([n,p])=>o.push({t:'pt', p, n, c:'orig', r:1, away:[p[0]-1, p[1]-1.4]}));
   F.draw(o); return F;
 }
@@ -2908,14 +3038,20 @@ NT.vlak = { title:'Een vlakvulling met driehoeken', lvl:3, instr:'De figuur best
    KAARTEN 7: EIGENSCHAPPEN
    ============================================================ */
 const EG = {};
-const EIG = [['col','collineariteit'],['evw','evenwijdigheid'],['lood','loodrechte stand'],['len','lengte van een lijnstuk'],['hoek','grootte van een hoek'],['opp','oppervlakte']];
+const EIG = [['col','collineariteit'],['evw','evenwijdigheid'],['lood','loodrechte stand'],['len','lengte van een lijnstuk'],['hoek','grootte van een hoek'],['opp','oppervlakte'],['omt','omtrek'],['vorm','vorm']];
+/* alle kolommen van de eigenschappentabel: de laatste (beeld evenwijdig met origineel) blijft niet altijd */
+const EIG_ALL = EIG.concat([['par','beeld ∥ origineel']]);
+const PAR_OK = {s:false, t:true, r:false, p:true};
 const EIG_ZIN = {
   col:k=>`Als drie punten collineair zijn, dan zijn hun beeldpunten door een ${TNAAM[k]} ook collineair.`,
   evw:k=>`Een ${TNAAM[k]} bewaart de evenwijdigheid.`,
   lood:k=>`Een ${TNAAM[k]} bewaart de loodrechte stand.`,
   len:k=>`Een ${TNAAM[k]} bewaart de lengte van een lijnstuk.`,
   hoek:k=>`Een ${TNAAM[k]} bewaart de grootte van een hoek.`,
-  opp:k=>`Een ${TNAAM[k]} bewaart de oppervlakte.`};
+  opp:k=>`Een ${TNAAM[k]} bewaart de oppervlakte.`,
+  omt:k=>`Een ${TNAAM[k]} bewaart de omtrek.`,
+  vorm:k=>`Een ${TNAAM[k]} bewaart de vorm: het beeld is congruent met de figuur.`,
+  par:k=>PAR_OK[k] ? `Bij een ${TNAAM[k]} is het beeld van een rechte altijd evenwijdig met die rechte.` : `Bij een ${TNAAM[k]} is het beeld van een rechte niet altijd evenwijdig met die rechte.`};
 const TNAAM = {s:'spiegeling om een as', t:'translatie over een vector', r:'rotatie rond een centrum over een hoek', p:'spiegeling om een punt'};
 /* markeringen voor een eigenschap op hoekpunten A, E, B, C, D (trapezium) */
 function eigMarks(k, P, img){
@@ -2927,6 +3063,9 @@ function eigMarks(k, P, img){
   if(k==='len'){ o.push({t:'line', a:A, b:B, c:'seg hl '+c}, {t:'ticks', a:A, b:B, n:2}); }
   if(k==='hoek'){ const a0 = Math.atan2(A[1]-B[1], A[0]-B[0])/D2R, a1 = Math.atan2(C[1]-B[1], C[0]-B[0])/D2R; let d = ((a1-a0+540)%360)-180; o.push({t:'arcC', c:B, r:1.1, a0, a1:a0+d}); const m = (a0 + d/2)*D2R; o.push({t:'txt', p:[B[0]+Math.cos(m)*2.1, B[1]+Math.sin(m)*2.1], s:'45°', c:'help', dy:1.4}); }
   if(k==='opp'){ o.push({t:'poly', pts:[A,B,C,D], c:'fill '+c}, {t:'txt', p:centroid([A,B,C,D]), s:'7,5', c:'help', dy:1.4}); }
+  if(k==='omt'){ [[A,B],[B,C],[C,D],[D,A]].forEach(([p,q])=>o.push({t:'line', a:p, b:q, c:'seg hl '+c})); }
+  if(k==='vorm'){ o.push({t:'poly', pts:[A,B,C,D], c:'fill '+c}); }
+  if(k==='par'){ const d = u(B,C); o.push({t:'line', a:[B[0]-d[0]*1.2, B[1]-d[1]*1.2], b:[C[0]+d[0]*1.2, C[1]+d[1]*1.2], c:'seg hl '+c}); }
   return o;
 }
 EG.kijk = { title:'Bekijk de eigenschappen', lvl:1, keep:true, noReset:true,
@@ -2940,7 +3079,7 @@ EG.kijk = { title:'Bekijk de eigenschappen', lvl:1, keep:true, noReset:true,
     const pick = el('div','cf-pick'); b.append(pick);
     const bs = TYPES4.map(([k,l])=>{ const x = el('button','opt',l); x.type='button'; x.addEventListener('click', ()=>{ st.k = k; paint(); reset(); }); pick.append(x); return [k,x]; });
     const pick2 = el('div','cf-pick'); b.append(pick2);
-    const be = EIG.map(([k,l])=>{ const x = el('button','opt',l); x.type='button'; x.addEventListener('click', ()=>{ st.e = k; paint(); reset(); }); pick2.append(x); return [k,x]; });
+    const be = EIG_ALL.map(([k,l])=>{ const x = el('button','opt',l); x.type='button'; x.addEventListener('click', ()=>{ st.e = k; paint(); reset(); }); pick2.append(x); return [k,x]; });
     const F = gridFig(b, {g, maxw:500});
     const cap = el('div','cf-cap'); b.append(cap);
     const ctl = el('div','dyn-ctl'); b.append(ctl);
@@ -2949,9 +3088,12 @@ EG.kijk = { title:'Bekijk de eigenschappen', lvl:1, keep:true, noReset:true,
     const play = ctlBtn(icon('play')+' Bekijk', async ()=>{ if(busy) return; busy = true; play.disabled = true; const op = OPS[st.k]; F.base = opBase(op);
       const f = {pts:fig.pts, names:names()}; await animFig(F, f, op, null, {extra:eigMarks(st.e, fig.pts, false), helpers:false});
       const Q = fig.pts.map(p=>applyOp(p, op)); F.draw(finalFig(f, op, {helpers:false, extra:eigMarks(st.e, fig.pts, false)}).concat(eigMarks(st.e, Q, true)));
-      cap.innerHTML = EIG_ZIN[st.e](st.k) + ' ' + VB[st.e]; busy = false; play.disabled = false; });
+      cap.innerHTML = EIG_ZIN[st.e](st.k) + ' ' + (typeof VB[st.e]==='function' ? VB[st.e](st.k) : VB[st.e]); busy = false; play.disabled = false; });
     play.style.display='inline-flex'; play.style.alignItems='center'; play.style.gap='.3rem'; ctl.append(play);
-    const VB = {col:'A, E en B liggen op één rechte, dus ook A′, E′ en B′.', evw:'AB ∥ DC, dus ook A′B′ ∥ D′C′.', lood:'AB ⊥ AD, dus ook A′B′ ⊥ A′D′.', len:'|AB| = 4, dus ook |A′B′| = 4.', hoek:'De hoek bij B is 45°, dus ook de hoek bij B′.', opp:'Het trapezium is 7,5 hokjes groot, het beeld ook.'};
+    const VB = {col:'A, E en B liggen op één rechte, dus ook A′, E′ en B′.', evw:'AB ∥ DC, dus ook A′B′ ∥ D′C′.', lood:'AB ⊥ AD, dus ook A′B′ ⊥ A′D′.', len:'|AB| = 4, dus ook |A′B′| = 4.', hoek:'De hoek bij B is 45°, dus ook de hoek bij B′.', opp:'Het trapezium is 7,5 hokjes groot, het beeld ook.',
+      omt:'Elke zijde blijft even lang, dus de omtrek van A′B′C′D′ is gelijk aan die van ABCD.',
+      vorm:k=>'A′B′C′D′ heeft dezelfde vorm en dezelfde grootte als ABCD.' + (k==='s' ? ' Het beeld is wel omgeklapt.' : ''),
+      par:k=>PAR_OK[k] ? 'BC en B′C′ zijn evenwijdig.' : 'BC en B′C′ zijn hier <b>niet</b> evenwijdig. Dat is het enige verschil in de tabel.'};
     const paint = () => { bs.forEach(([k,x])=>x.classList.toggle('chosen', k===st.k)); be.forEach(([k,x])=>x.classList.toggle('chosen', k===st.e)); };
     function reset(){ F.token++; F.base = opBase(OPS[st.k]); F.draw([{t:'poly', pts:fig.pts, c:'orig', names:names()}].concat(eigMarks(st.e, fig.pts, false))); cap.innerHTML = 'Klik op <b>Bekijk</b>.'; }
     paint(); reset();
@@ -2970,6 +3112,8 @@ function illus(R, prop, kind){
     if(prop==='len') base = {A:[0,0], B:[3,1.5]};
     if(prop==='hoek') base = {A:[3,0], B:[0,0], C:[2,2.1]};
     if(prop==='opp') base = {A:[0,0], B:[3,0], C:[3.5,2], D:[.5,2]};
+    if(prop==='omt') base = {A:[0,0], B:[4,0], C:[0,3]};
+    if(prop==='vorm') base = {A:[0,0], B:[1,0], C:[1,1.4], D:[2,1.4], E:[2,2.2], F:[1,2.2], G:[1,3], H:[2.6,3], I:[2.6,3.8], J:[0,3.8]};
     const rot = R.pick([0,30,60,-30]); Object.keys(base).forEach(k=>{ base[k] = at(rotPt(base[k], [0,0], rot)); });
     let op;
     if(kind==='s'){ op = genAxis(R, g, R.pick(['v','h','d'])); }
@@ -2998,12 +3142,14 @@ function illusObjs(I, prop){
     const lab = (i, away) => ({t:'pt', p:pts[i], n:nm[i], c:img?'img':'orig', r:1, away});
     const u = (p,q) => { const d = [q[0]-p[0], q[1]-p[1]], Ln = Math.hypot(...d); return [d[0]/Ln, d[1]/Ln]; };
     if(prop==='col'){ const d = u(pts[0], pts[2]); o.push({t:'line', a:[pts[0][0]-d[0]*1.2, pts[0][1]-d[1]*1.2], b:[pts[2][0]+d[0]*1.2, pts[2][1]+d[1]*1.2]}); [0,1,2].forEach(i=>o.push(lab(i, [pts[i][0]-d[1], pts[i][1]+d[0]]))); }
-    if(prop==='evw'){ o.push(L(0,1), L(2,3)); const m = [(pts[0][0]+pts[2][0])/2, (pts[0][1]+pts[2][1])/2]; o.push({t:'txt', p:lerp2(pts[0],pts[1],.5), s:img?'a′':'a', c:'help', dy:3.8}, {t:'txt', p:lerp2(pts[2],pts[3],.5), s:img?'b′':'b', c:'help', dy:-1.8}); }
+    if(prop==='evw'){ o.push(L(0,1), L(2,3)); const m = [(pts[0][0]+pts[2][0])/2, (pts[0][1]+pts[2][1])/2]; o.push({t:'txt', p:lerp2(pts[0],pts[1],.5), s:img?'a′':'a', c:'axn', dy:3.8}, {t:'txt', p:lerp2(pts[2],pts[3],.5), s:img?'b′':'b', c:'axn', dy:-1.8}); }
     if(prop==='lood'){ o.push(L(0,1), L(0,2), {t:'right', v:pts[0], d1:u(pts[0],pts[1]), d2:u(pts[0],pts[2])}); }
     if(prop==='len'){ o.push(L(0,1), {t:'ticks', a:pts[0], b:pts[1], n:2}); [0,1].forEach(i=>o.push(lab(i, pts[1-i]))); }
     if(prop==='hoek'){ o.push(L(1,0), L(1,2)); const a0 = Math.atan2(pts[0][1]-pts[1][1], pts[0][0]-pts[1][0])/D2R, a1 = Math.atan2(pts[2][1]-pts[1][1], pts[2][0]-pts[1][0])/D2R; const d = ((a1-a0+540)%360)-180;
       o.push({t:'arcC', c:pts[1], r:1, a0, a1:a0+d}); const m = (a0+d/2)*D2R; o.push({t:'txt', p:[pts[1][0]+Math.cos(m)*1.9, pts[1][1]+Math.sin(m)*1.9], s:'46°', c:'help', dy:1.4}); }
     if(prop==='opp'){ o.push({t:'poly', pts, c:'fill '+c}, {t:'txt', p:centroid(pts), s:'6 cm²', c:'help', dy:1.4}); }
+    if(prop==='omt'){ o.push(L(0,1), L(1,2), L(2,0), {t:'txt', p:centroid(pts), s:'12 cm', c:'help', dy:1.4}); }
+    if(prop==='vorm'){ o.push({t:'poly', pts, c:img ? 'img' : 'orig'}); }
   };
   one(P, false); one(Q, true);
   return o;
@@ -3019,6 +3165,38 @@ EG.illus = { title:'Welke eigenschap wordt geïllustreerd?', lvl:2, instr:'Kies 
   const R = makeR(st); const props = R.shuffle(EIG.map(e=>e[0])).slice(0,3); const kinds = R.shuffle(['s','t','r','p']);
   const grid = el('div','pair-grid'); b.append(grid);
   props.forEach((p,i)=>illusQ(grid, st, save, 'i'+i, R, p, kinds[i], LET[i]+'.'));
+}};
+
+/* --- de eigenschap zelf benoemen in een zin --- */
+EG.benoem = { title:'Benoem de eigenschap', lvl:2, instr:'Vul bij elke tekening de zin aan. Klik op een leeg vakje en daarna op het juiste woord.', build:(b,st,save)=>{
+  const R = makeR(st); const props = R.shuffle(EIG.map(e=>e[0])).slice(0,3); const kinds = R.shuffle(['s','t','r','p']);
+  const bank = wordBank(b, TYPES4.map(x=>x[1]).concat(EIG.map(x=>x[1])));
+  const grid = el('div','pair-grid'); b.append(grid);
+  props.forEach((p,i)=>{ const I = illus(R, p, kinds[i]); const box = el('div'); grid.append(box); if(!I){ box.append(el('p','','Klik op Nieuwe opgave.')); return; }
+    const F = gridFig(box, {g:I.g, plain:true, maxw:420}); F.draw(illusObjs(I, p));
+    wordFill(box, st, save, 'z'+i, {nr:LET[i]+'.', html:'Een [[w]] bewaart de [[w]].', ans:[TYPES4.find(x=>x[0]===kinds[i])[1], EIG.find(x=>x[0]===p)[1]], bank}); });
+}};
+/* --- de tabel zelf invullen --- */
+EG.tabel = { title:'Vul de tabel in', lvl:1, instr:'Klik in elk vakje: blijft de eigenschap altijd behouden, of niet altijd? Klik nog eens om te wisselen.', build:(b,st,save)=>{
+  const qid = QID('tabel'); CLvraag(qid);
+  const s = st.tab || (st.tab = {v:{}}); const K = ['s','t','r','p'];
+  const want = (e,k) => e==='par' ? (PAR_OK[k] ? 'b' : 'n') : 'b';
+  const wrap = el('div','tab-wrap'); b.append(wrap);
+  const tb = el('table','eig-tab'); wrap.append(tb);
+  tb.innerHTML = `<thead><tr><th>eigenschap</th>${K.map(k=>`<th>${TYPES4.find(x=>x[0]===k)[1]}</th>`).join('')}</tr></thead><tbody></tbody>`;
+  const body = tb.querySelector('tbody'); const cells = {};
+  EIG_ALL.forEach(([e,l])=>{ const tr = el('tr'); tr.append(el('th','', l)); K.forEach(k=>{ const td = el('td'); const bt = el('button','cell-btn'); bt.type = 'button'; td.append(bt); tr.append(td); cells[e+k] = bt;
+      bt.addEventListener('click', ()=>{ if(s.done) return; const v = s.v[e+k]; s.v[e+k] = v==='b' ? 'n' : 'b'; save(); paint(); fb.textContent=''; fb.className='fb'; }); }); body.append(tr); });
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type='button'; act.append(bC); const fb = el('div','fb'); b.append(act, fb);
+  function paint(chk){ Object.entries(cells).forEach(([key,bt])=>{ const v = s.v[key]; bt.textContent = v==='b' ? 'blijft' : v==='n' ? 'niet altijd' : '…'; bt.className = 'cell-btn' + (v ? ' on' : '') + (v==='n' ? ' no' : '');
+      if(chk || s.done){ const ok = v===want(key.slice(0,-1), key.slice(-1)); bt.classList.add(ok ? 'good' : 'wrong'); } }); }
+  bC.addEventListener('click', ()=>{
+    const keys = Object.keys(cells); if(keys.some(k=>!s.v[k])){ fb.className='fb info'; fb.textContent='Vul eerst elk vakje in.'; return; }
+    const bad = keys.filter(k=>s.v[k]!==want(k.slice(0,-1), k.slice(-1))); CLres(qid, !bad.length); paint(true);
+    if(!bad.length){ s.done = true; save(); bC.hidden = true; fb.className='fb ok'; fb.innerHTML = '✅ Juist! Alle eigenschappen blijven behouden. Enkel het beeld van een rechte is niet altijd evenwijdig met die rechte: bij een spiegeling om een as en bij een rotatie kan het beeld schuin staan.'; }
+    else { fb.className='fb bad'; fb.innerHTML = `❌ ${bad.length} ${bad.length===1?'vakje klopt':'vakjes kloppen'} nog niet. Bekijk de eigenschap in de eerste oefening met de animatie.`; }
+  });
+  paint(); if(s.done){ bC.hidden = true; fb.className='fb ok'; fb.innerHTML='✅ Juist!'; }
 }};
 
 /* --- rekenen met eigenschappen --- */
@@ -3069,8 +3247,8 @@ EG.slim = { title:'Slim tekenen met eigenschappen', lvl:3, instr:'Teken het beel
     const tag = {t:`t<sub>${vecN('X','Y')}</sub>`, p:'s<sub>O</sub>', r:`r(O, ${degTxt(op.deg)})`, s:'s<sub>a</sub>'}[k];
     if(kinds.length>1) b.append(el('div','sub', `<b>${LET[i]}.</b>`));
     placeTask(b, st, save, 'l'+i, {g, fig:{pts:[A], names:['A']}, op, mode:'as', ans:[A2, B2], html:`Teken het beeld van l door ${tag}.`,
-      figObjs:()=>{ const [p,q] = clipG(A, B, g, .2); return opBase(op).concat([{t:'line', a:p, b:q, c:'seg'}, {t:'txt', p:q, s:'l', c:'help', dx:2, dy:-1.5}, {t:'pt', p:A, n:'A', c:'orig'}, {t:'pt', p:A2, n:'A'+PR, c:'img'}]); },
-      solObjs:()=>{ const [p,q] = clipG(A2, B2, g, .2); return [{t:'line', a:p, b:q, c:'seg img'}, {t:'txt', p:q, s:'l′', c:'help', dx:2, dy:-1.5}]; },
+      figObjs:()=>{ const [p,q] = clipG(A, B, g, .2); return opBase(op).concat([{t:'line', a:p, b:q, c:'seg'}, {t:'txt', p:q, s:'l', c:'axn', dx:2, dy:-1.5}, {t:'pt', p:A, n:'A', c:'orig'}, {t:'pt', p:A2, n:'A'+PR, c:'img'}]); },
+      solObjs:()=>{ const [p,q] = clipG(A2, B2, g, .2); return [{t:'line', a:p, b:q, c:'seg img'}, {t:'txt', p:q, s:'l′', c:'axn', dx:2, dy:-1.5}]; },
       infoMsg:'Klik twee verschillende roosterpunten op l′.', badMsg:'Welke eigenschap helpt je? ' + (k==='r' ? 'Denk aan de loodrechte stand.' : k==='s' ? 'Denk aan het dekpunt op de as.' : 'Denk aan evenwijdigheid.'), end:help });
   });
 }};
@@ -3083,6 +3261,354 @@ EG.welke = { title:'Bijzondere eigenschappen', lvl:3, instr:'Vink telkens alle t
     {html:'Bij welke transformatie wordt de figuur <b>omgeklapt</b>?', ans:['s'], why:'Enkel bij een spiegeling om een as. Een spiegeling om een punt is een halve draai: de figuur klapt niet om.'},
     {html:'Bij welke transformatie verschuift <b>elk punt even ver</b>?', ans:['t'], why:'Enkel bij een translatie. Bij een rotatie gaan punten verder van het centrum ook verder.'}];
   R.shuffle(qs).forEach((q,i)=>qMulti(b, st, save, 'q'+i, {nr:LET[i]+'.', html:q.html, opts:TYPES4, ans:q.ans, why:q.why, whyBad:'Probeer elke transformatie in gedachten uit, bijvoorbeeld met een rechte of een driehoek.'}));
+}};
+/* ============================================================
+   KAARTEN 7: ROOSTERS
+   Punten op een rooster van vierkanten, zoals vraag 5 van de toets:
+   eerst beelden aanklikken, dan de notatie aanvullen.
+   ============================================================ */
+(function(){
+  const css = `
+  .lt-lab{ margin:.1rem 0 .45rem; font-size:.98rem }
+  .lt-list{ display:flex; flex-direction:column; gap:.4rem }
+  .lt-row{ font:inherit; font-size:1.12rem; display:flex; align-items:center; gap:.55rem; text-align:left; padding:.35rem .65rem; border-radius:.6rem; border:1.5px solid var(--tq); background:var(--card); color:var(--ink); cursor:pointer }
+  .lt-row:hover{ border-color:var(--orange) }
+  .lt-row.cur{ border-color:var(--orange); box-shadow:inset 0 0 0 1.5px var(--orange) }
+  .lt-row.good{ border-color:var(--ok); background:var(--ok-bg) }
+  .lt-row.wrong{ border-color:var(--bad); background:var(--bad-bg) }
+  .lt-row .q-num{ margin:0 }
+  .lt-slot{ display:inline-block; min-width:1.5em; padding:0 .15em; text-align:center; border-bottom:2px solid var(--tq); font-weight:700 }
+  .lt-row.cur .lt-slot{ border-color:var(--orange) }
+  .lt-row .lt-sol{ margin-left:auto; font-size:.9rem; color:var(--bad) }
+  .lt-hbtn{ font:inherit; font-size:.9rem; padding:.15rem .5rem; border-radius:.5rem; border:1.5px solid var(--or-line); background:var(--or-soft); color:var(--ink); cursor:pointer; margin-left:.3rem }
+  .lt-hbtn.on{ border-color:var(--orange); font-weight:700 }
+  .lt-qs .q{ display:flex; flex-wrap:wrap; align-items:center; gap:.3rem .6rem; padding:.45rem 0; margin:0 }
+  .lt-qs .q-text{ flex:1 1 auto; font-size:1.12rem; margin:0; gap:.15rem }
+  .lt-qs .q-text > sub{ align-self:flex-end; margin-bottom:-.45rem; font-size:.8em }
+  .lt-qs sub .inp{ width:2.3rem; height:1.7rem; padding:0 .2rem; font-size:.95rem }
+  .lt-qs .q-act .btn{ padding:.35rem .8rem }
+  .lt-qs .q-act{ margin:0; gap:.4rem }
+  .lt-qs .fb, .lt-qs .sol{ flex-basis:100% }
+  .lt-qs .fb:empty{ display:none }
+  .lt-qs .inp.xs{ width:2.7rem; min-width:0 } .lt-qs .inp.sm{ width:3.8rem; min-width:0 }
+  .ro-demo{ display:flex; flex-wrap:wrap; gap:.4rem; margin:.3rem 0 .5rem }
+  .cf .latline.sel{ stroke:var(--orange); stroke-width:1.1 }
+  .cf .selc{ fill:none; stroke:var(--orange); stroke-width:.8 }
+  .cf .selp{ fill:none; stroke:var(--accent-dark); stroke-width:.6; stroke-dasharray:1.3 .8 }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+const RO = {};
+const LAT_P = 'ABCDEFGHIJKLMNPQRSTUVWXYZ', LAT_L = 'abcdefghijkmnpqrstuvwxyz', LS = 2;
+/* rooster met cols x rows punten; de punten heten rij per rij vanaf boven, de verticale rechten eerst */
+function latScene(R, cols, rows, o={}){
+  const pts = {}; let i = 0;
+  for(let y=rows-1;y>=0;y--) for(let x=0;x<cols;x++) pts[LAT_P[i++]] = [LS*x, LS*y];
+  const names = Object.keys(pts), ops = [], lines = []; let j = 0;
+  for(let x=0;x<cols;x++){ const op = {t:'s', p:[LS*x,0], q:[LS*x,1], name:LAT_L[j++], key:'sv'+x, vert:true}; ops.push(op); lines.push(op); }
+  for(let k=0;k<rows;k++){ const y = LS*(rows-1-k); const op = {t:'s', p:[0,y], q:[1,y], name:LAT_L[j++], key:'sh'+k, vert:false}; ops.push(op); lines.push(op); }
+  names.forEach(n=>{ const c = pts[n]; ops.push({t:'p', c, name:n, key:'p'+n}); [90,-90].concat(o.r180 ? [180] : []).forEach(d=>ops.push({t:'r', c, deg:d, name:n, key:'r'+n+d})); });
+  /* translaties over een korte vector tussen twee roosterpunten */
+  const nv = o.nv || 4; let tv = 0;
+  for(let t=0; tv<nv && t<600; t++){ const a = R.pick(names), b = R.pick(names); if(a===b) continue;
+    const v = [pts[b][0]-pts[a][0], pts[b][1]-pts[a][1]];
+    if(Math.abs(v[0])>2*LS || Math.abs(v[1])>2*LS) continue;
+    if(ops.some(z=>z.t==='t' && ptEq(z.v, v))) continue;
+    ops.push({t:'t', v, name:[a,b], key:'t'+a+b}); tv++; }
+  return {pts, names, ops, lines, cols, rows, W:LS*(cols-1), H:LS*(rows-1), find:p=>names.find(n=>ptEq(pts[n], p))};
+}
+function latBase(sc){
+  const o = [];
+  sc.lines.forEach(L=>{
+    if(L.vert){ const x = L.p[0]; o.push({t:'line', a:[x,-1], b:[x,sc.H+1.3], c:'latline'}, {t:'txt', p:[x+.6, sc.H+1.1], s:L.name, c:'axn', anchor:'start'}); }
+    else { const y = L.p[1]; o.push({t:'line', a:[-1.2,y], b:[sc.W+1.5,y], c:'latline'}, {t:'txt', p:[sc.W+1.75, y], s:L.name, c:'axn', anchor:'start', dy:1.9}); } });
+  /* streepjes: alle zijden van de vakjes zijn even lang */
+  for(let r=0;r<sc.rows;r++) for(let c=0;c<sc.cols-1;c++) o.push({t:'ticks', a:[LS*c, LS*r], b:[LS*c+LS, LS*r], n:2});
+  for(let c=0;c<sc.cols;c++) for(let r=0;r<sc.rows-1;r++) o.push({t:'ticks', a:[LS*c, LS*r], b:[LS*c, LS*r+LS], n:2});
+  sc.names.forEach(n=>{ const p = sc.pts[n]; o.push({t:'pt', p, n, c:'orig', r:.75, away:[p[0]+1, p[1]-1.4]}); });
+  return o;
+}
+function latFig(parent, sc, o={}){
+  const F = gridFig(parent, {g:[-1.5, sc.W+2.1, -1.3, sc.H+2], plain:true, maxw:o.maxw || Math.min(430, 64*sc.cols+60)});
+  F.base = latBase(sc); F.draw([]); return F;
+}
+/* ---------- hulpjes voor hints op het rooster ---------- */
+const vakTxt = n => n===1 ? '1 vakje' : n + ' vakjes';
+function dirTxt(v){ const dx = Math.round(v[0]/LS), dy = Math.round(v[1]/LS), p = [];
+  if(dx) p.push(`${vakTxt(Math.abs(dx))} naar ${dx>0?'rechts':'links'}`);
+  if(dy) p.push(`${vakTxt(Math.abs(dy))} naar ${dy>0?'boven':'beneden'}`);
+  return p.join(' en ') || 'niets'; }
+const hArrow = (a, b) => ({t:'raw', s:cfArrow(a, b, 'hintl solid').replace('class="hintl solidh"', 'class="hintlh"')});
+const hRing = q => ({t:'raw', s:`<circle class="hintring" cx="${X(q[0])}" cy="${Y(q[1])}" r="2.7"/>`});
+/* trapje: eerst horizontaal, dan verticaal tellen */
+function stair(a, b){ const m = [b[0], a[1]], o = [];
+  if(!ptEq(a, m)) o.push(hArrow(a, m), {t:'txt', p:[(a[0]+m[0])/2, a[1]], s:String(Math.abs(Math.round((m[0]-a[0])/LS))), c:'hint', dy:4.4});
+  if(!ptEq(m, b)) o.push(hArrow(m, b), {t:'txt', p:[m[0], (m[1]+b[1])/2], s:String(Math.abs(Math.round((b[1]-m[1])/LS))), c:'hint', dx:2.2, dy:1.6, anchor:'start'});
+  return o; }
+function invOp(op){ if(op.t==='t') return {...op, v:[-op.v[0], -op.v[1]]}; if(op.t==='r') return {...op, deg:op.deg===180 ? 180 : -op.deg}; return op; }
+const zinLang = d => Math.abs(d)===180 ? 'een halve draai' : `${Math.abs(d)}° in ${zinTxt(d)} (${d>0?'↺':'↻'})`;
+/* hint in twee delen bij één punt: geeft {objs, txt} */
+function latHint(sc, task, stage){
+  const op = task.op, back = task.kind==='pre', use = back ? invOp(op) : op;
+  const Pn = back ? task.to : task.from, P = sc.pts[Pn], Q = applyOp(P, use);
+  const wat = back ? 'het origineel' : 'het beeld';
+  const pre = back && stage===1 ? `Je zoekt het punt dat op ${Pn} terechtkomt. Werk terug vanuit ${Pn}. ` : '';
+  if(op.t==='t'){ const [xn, yn] = op.name, a = sc.pts[xn], b = sc.pts[yn];
+    const objs = back ? stair(b, a) : stair(a, b);
+    if(stage===1) return {objs, txt: pre + (back ? `Van ${xn} naar ${yn} is ${dirTxt(op.v)}. Terug is dat ${dirTxt(use.v)}.` : `Kijk hoe je van ${xn} naar ${yn} gaat: ${dirTxt(op.v)}.`)};
+    return {objs: objs.concat(stair(P, Q), [hRing(Q)]), txt:`Doe hetzelfde vanuit ${Pn}: ${dirTxt(use.v)}. Daar ligt ${wat}.`}; }
+  if(ptEq(P, Q)) return {objs:[hRing(P)], txt:`${Pn} ligt op ${op.t==='s' ? 'de as '+op.name : 'het centrum'}: ${Pn} is een dekpunt. Het beeld is ${Pn} zelf.`};
+  const objs = hintObjs(use, P, stage, '');
+  if(op.t==='s'){ const Fp = footPt(P, op.p, op.q), d = [Fp[0]-P[0], Fp[1]-P[1]];
+    return {objs, txt: stage===1 ? pre + `Ga vanuit ${Pn} loodrecht naar de as ${op.name}: ${dirTxt(d)}.` : `Ga aan de andere kant van ${op.name} nog eens ${dirTxt(d)}. Daar ligt ${wat}.`}; }
+  if(op.t==='p'){ const d = [op.c[0]-P[0], op.c[1]-P[1]];
+    return {objs, txt: stage===1 ? pre + `Ga van ${Pn} naar het centrum ${op.name}: ${dirTxt(d)}.` : `Ga vanuit ${op.name} nog eens ${dirTxt(d)}. Daar ligt ${wat}.`}; }
+  if(op.t==='r'){ const d = [P[0]-op.c[0], P[1]-op.c[1]], e = [Q[0]-op.c[0], Q[1]-op.c[1]];
+    return {objs, txt: stage===1 ? pre + `Van het centrum ${op.name} naar ${Pn} is ${dirTxt(d)}. Draai dat lijnstuk rond ${op.name} over ${zinLang(use.deg)}.` : `Na de draai ga je vanuit ${op.name} ${dirTxt(e)}. Daar ligt ${wat}.`}; }
+  return {objs:[], txt:''};
+}
+/* wat bij een opgave op de tekening oplicht: de as, het centrum of de vector, en het gegeven punt */
+function latOpObjs(sc, op, given){
+  const o = [];
+  if(op.t==='s') o.push(op.vert ? {t:'line', a:[op.p[0],-1], b:[op.p[0],sc.H+1.3], c:'latline sel'} : {t:'line', a:[-1.2,op.p[1]], b:[sc.W+1.5,op.p[1]], c:'latline sel'});
+  else if(op.t==='t') o.push({t:'arrow', a:sc.pts[op.name[0]], b:sc.pts[op.name[1]], c:'vec'});
+  else o.push({t:'raw', s:`<circle class="selc" cx="${X(op.c[0])}" cy="${Y(op.c[1])}" r="2.3"/>`});
+  if(given) o.push({t:'raw', s:`<circle class="selp" cx="${X(given[0])}" cy="${Y(given[1])}" r="2.6"/>`});
+  return o;
+}
+/* opgaven maken: specs [{kind:'img'|'pre', t:'s'|'p'|'t'|'r'}] */
+function latGen(R, sc, specs){
+  const out = [], used = new Set();
+  specs.forEach(sp=>{
+    const pool = sc.ops.filter(o=>o.t===sp.t && (sp.deg==null || o.deg===sp.deg));
+    for(let tr=0; tr<800; tr++){
+      const op = R.pick(pool), a = R.pick(sc.names); const b = sc.find(applyOp(sc.pts[a], op));
+      if(!b || b===a || used.has(op.key+a)) continue;
+      if(op.t==='t' && (a===op.name[0] || b===op.name[1])) continue;   /* te makkelijk */
+      if(out.some(z=>z.op===op) && tr<400) continue;
+      used.add(op.key+a);
+      out.push({kind:sp.kind, op, from:a, to:b, ans:[sp.kind==='pre' ? a : b], html: sp.kind==='pre' ? `${opNot(op)}([[?]]) = ${b}` : `${opNot(op)}(${a}) = [[?]]`});
+      break;
+    }
+  });
+  return out;
+}
+/* ---------- klikopgaven: het punt aanklikken op het rooster ---------- */
+function latTasks(parent, st, save, id, sc, tasks, cfg={}){
+  const quiz = QZ; const s = st[id] || (st[id] = {a:{}, r:{}, cur:0});
+  const qids = tasks.map((t,k)=>QID(id+'_'+k)); if(!quiz) qids.forEach(q=>CLvraag(q));
+  const two = el('div','cf-two'); parent.append(two); const L = el('div'), Rt = el('div'); two.append(L, Rt);
+  const F = latFig(L, sc, cfg);
+  let hStage = 0, locked = false, revealed = false;
+  let hBar = null, hBtn, hOff, hInfo, hTxt;
+  if(!quiz){
+    hBar = el('div','hintbar'); hBtn = el('button','hintbtn','💡 Hint'); hBtn.type = 'button';
+    hOff = el('button','hintbtn off','Verberg de hint'); hOff.type = 'button'; hInfo = el('span','hintinfo');
+    hBar.append(hBtn, hOff, hInfo); hTxt = el('div','hint-txt'); L.append(hBar, hTxt);
+    hBtn.addEventListener('click', ()=>{ hStage = Math.min(2, hStage+1); paint(); });
+    hOff.addEventListener('click', ()=>{ hStage = 0; paint(); });
+  }
+  Rt.append(el('p','lt-lab', cfg.lab || 'Klik een opgave aan. Klik dan op het juiste punt in het rooster.'));
+  const list = el('div','lt-list'); Rt.append(list);
+  const rowEl = tasks.map((t,k)=>{ const b = el('button','lt-row'); b.type = 'button';
+    b.innerHTML = `<span class="q-num">${LET[k]}.</span><span class="lt-html">${t.html.replace('[[?]]', '<span class="lt-slot"></span>')}</span><span class="lt-sol"></span>`;
+    b.addEventListener('click', ()=>{ s.cur = k; hStage = 0; save(); paint(); }); list.append(b); return b; });
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button';
+  const bWis = el('button','linkbtn','Wis mijn antwoorden'); bWis.type = 'button'; act.append(bC, bWis); if(quiz) bC.hidden = true;
+  const fb = el('div','fb'); Rt.append(act, fb);
+  if(s.cur==null || s.cur>=tasks.length) s.cur = 0;
+  function paint(){
+    rowEl.forEach((b,k)=>{ b.classList.toggle('cur', k===s.cur && !revealed); b.classList.toggle('good', s.r[k]===true); b.classList.toggle('wrong', s.r[k]===false);
+      b.querySelector('.lt-slot').textContent = s.a[k] || '?'; });
+    const t = tasks[s.cur]; if(!t){ F.draw([]); return; }
+    const given = sc.pts[t.kind==='pre' ? t.to : t.from];
+    const o = latOpObjs(sc, t.op, given);
+    let h = null;
+    if(hStage && s.r[s.cur]!==true) h = latHint(sc, t, hStage);
+    if(h) o.push(...h.objs);
+    if(s.r[s.cur]===true) o.push(...latHint(sc, t, 2).objs, {t:'pt', p:sc.pts[t.kind==='pre' ? t.from : t.to], c:'img', r:1.2});
+    else if(s.a[s.cur]) o.push({t:'pt', p:sc.pts[s.a[s.cur]], c:'mine', r:1.3});
+    F.draw(o);
+    if(hBar){ hBar.hidden = locked || s.r[s.cur]===true; hBtn.innerHTML = hStage ? '💡 Volgende hint' : '💡 Hint'; hBtn.disabled = hStage>=2; hOff.hidden = !hStage;
+      hInfo.textContent = hStage ? `hint ${hStage} van 2 bij ${LET[s.cur]}.` : ''; hTxt.innerHTML = h ? h.txt : ''; }
+  }
+  F.clickable(p=>{ if(locked) return; const n = sc.find(p); if(!n || s.r[s.cur]===true) return;
+    s.a[s.cur] = n; delete s.r[s.cur]; fb.textContent = ''; fb.className = 'fb';
+    const nxt = tasks.findIndex((t,k)=>k>s.cur && !s.a[k]); const nxt2 = nxt>=0 ? nxt : tasks.findIndex((t,k)=>!s.a[k]);
+    if(nxt2>=0 && !quiz){ s.cur = nxt2; hStage = 0; } else if(nxt2>=0) s.cur = nxt2;
+    save(); paint(); }, {step:LS, allow:p=>!!sc.find(p)});
+  bWis.addEventListener('click', ()=>{ if(locked) return; tasks.forEach((t,k)=>{ if(s.r[k]!==true){ delete s.a[k]; delete s.r[k]; } }); fb.textContent = ''; fb.className = 'fb'; save(); paint(); });
+  function run(silent){
+    const open = tasks.map((t,k)=>k).filter(k=>s.a[k] && s.r[k]!==true);
+    if(!open.length && !silent){ fb.className = 'fb info'; fb.textContent = tasks.every((t,k)=>s.r[k]===true) ? 'Alles is al juist.' : 'Klik eerst een punt aan bij een opgave.'; return; }
+    open.forEach(k=>{ const ok = tasks[k].ans.includes(s.a[k]); s.r[k] = ok; if(!silent) CLres(qids[k], ok); });
+    const bad = tasks.map((t,k)=>k).filter(k=>s.r[k]===false), todo = tasks.filter((t,k)=>!s.a[k]).length;
+    if(bad.length){ s.cur = bad[0]; hStage = 0;
+      fb.className = 'fb bad'; fb.innerHTML = `❌ ${bad.map(k=>LET[k]).join(', ')}: nog niet juist. Klik op de opgave en vraag een 💡 hint als je vastzit.`; }
+    else if(todo){ fb.className = 'fb ok'; fb.innerHTML = `✅ Wat je aanklikte, is juist. Nog ${todo} ${todo===1?'opgave':'opgaven'} te doen.`; }
+    else { fb.className = 'fb ok'; fb.innerHTML = '✅ Alles juist! ' + (cfg.why || 'Klik op een opgave om te zien hoe je het punt vindt.'); }
+    save(); paint();
+  }
+  bC.addEventListener('click', ()=>run(false));
+  if(!quiz && Object.keys(s.r).length) run(true); else paint();
+  if(quiz){
+    tasks.forEach((t,k)=>quiz.push({ pts:1, grade:()=>t.ans.includes(s.a[k]),
+      reveal:(ok)=>{ revealed = true; s.r[k] = ok; rowEl[k].querySelector('.lt-sol').textContent = ok ? '' : 'juist: ' + t.ans[0]; paint(); },
+      lock:()=>{ locked = true; F.locked = true; bWis.hidden = true; } }));
+  }
+  return {F};
+}
+
+/* ---------- invulopgaven met een gedeelde tekening en een hint per opgave ---------- */
+const VIN = f => `<span class="vec-in"><i><svg viewBox="0 0 20 6" preserveAspectRatio="none" aria-hidden="true"><path d="M.5 3H19.3M16.2 .6L19.4 3L16.2 5.4"/></svg></i>[[${f}:sm]]</span>`;
+const kt = x => `<span class="kt">${x}</span>`;
+/* rijen voor de notatie: kinds img, pre, el (as of centrum), cen, ang, vec, seg */
+function latRows(R, sc, kinds){
+  const rows = [], used = new Set(), pts = sc.pts, nm = sc.names;
+  const ofT = t => sc.ops.filter(o=>o.t===t);
+  for(let tr=0; rows.length<kinds.length && tr<6000; tr++){
+    const kind = kinds[rows.length];
+    if(kind==='img' || kind==='pre'){ const op = R.pick(sc.ops), a = R.pick(nm), b = sc.find(applyOp(pts[a], op));
+      if(!b || b===a || used.has(op.key+a)) continue; if(op.t==='t' && (a===op.name[0] || b===op.name[1])) continue;
+      if(rows.filter(r=>r.op && r.op.t===op.t).length>=2) continue;
+      used.add(op.key+a); const task = {kind, op, from:a, to:b};
+      rows.push({task, op, html: kind==='img' ? kt(`${opNot(op)}(${a}) = `) + '[[0]]' : kt(`${opNot(op)}(`) + '[[0]]' + kt(`) = ${b}`), ans: kind==='img' ? [b] : [a], k:'pt', sol:`<b>${kind==='img'?b:a}</b>`}); continue; }
+    if(kind==='el'){ const op = R.pick(ofT(R.pick(['s','s','p']))), a = R.pick(nm), b = sc.find(applyOp(pts[a], op)); if(!b || b===a || used.has('e'+a+b)) continue;
+      const ln = sc.lines.filter(L=>sc.find(applyOp(pts[a], L))===b).map(L=>L.name), cs = nm.filter(c=>ptEq(applyOp(pts[a], {t:'p', c:pts[c]}), pts[b]));
+      used.add('e'+a+b); rows.push({html: kt('s') + '<sub>[[0]]</sub>' + kt(`(${a}) = ${b}`), ans:ln.concat(cs), k:'el', a, b, sol: [ln.length ? `de as <b>${ln.join(' of ')}</b>` : '', cs.length ? `het punt <b>${cs.join(' of ')}</b>` : ''].filter(Boolean).join(' of ')}); continue; }
+    if(kind==='cen' || kind==='ang'){ const op = R.pick(ofT('r')), a = R.pick(nm), b = sc.find(applyOp(pts[a], op)); if(!b || b===a || used.has('r'+op.key+a)) continue;
+      used.add('r'+op.key+a);
+      if(kind==='cen'){ const cs = nm.filter(c=>ptEq(rotPt(pts[a], pts[c], op.deg), pts[b])); rows.push({op, html: kt('r(') + '[[0]]' + kt(`, ${degTxt(op.deg)})(${a}) = ${b}`), ans:cs, k:'cen', a, b, c:op.name, sol:`het centrum <b>${cs.join(' of ')}</b>`}); }
+      else { const d1 = op.deg, d2 = d1>0 ? d1-360 : d1+360; rows.push({op, html: kt(`r(${op.name}, `) + '[[0]]' + kt(`°)(${a}) = ${b}`), ans:[d1, d2], k:'ang', a, b, c:op.name, sol:`${degTxt(d1)} of ${degTxt(d2)}`}); }
+      continue; }
+    if(kind==='vec'){ const a = R.pick(nm), b = R.pick(nm); if(a===b || used.has('v'+a)) continue; const v = [pts[b][0]-pts[a][0], pts[b][1]-pts[a][1]];
+      if(Math.abs(v[0])>2*LS || Math.abs(v[1])>2*LS || (!v[0] && !v[1])) continue;
+      const pairs = []; nm.forEach(x=>{ const y = sc.find([pts[x][0]+v[0], pts[x][1]+v[1]]); if(y && x!==a) pairs.push(x+y); }); if(!pairs.length) continue;
+      used.add('v'+a); rows.push({html: kt('t') + '<sub>' + VIN(0) + '</sub>' + kt(`(${a}) = ${b}`), ans:pairs, k:'vec', a, b, v, sol:`bijvoorbeeld ${pairs.slice(0,2).map(p=>vecN(p[0],p[1])).join(' of ')}`}); continue; }
+    if(kind==='seg'){ const L = R.pick(sc.lines), a = R.pick(nm), dirs = [[LS,0],[0,LS],[LS,LS],[LS,-LS]], d = R.pick(dirs); const c = sc.find([pts[a][0]+d[0], pts[a][1]+d[1]]); if(!c) continue;
+      const a2 = sc.find(applyOp(pts[a], L)), c2 = sc.find(applyOp(pts[c], L)); if(!a2 || !c2 || (a2===a && c2===c) || used.has('g'+L.name)) continue;
+      used.add('g'+L.name); rows.push({html: kt(`s<sub>${L.name}</sub>([${a}${c}]) = [`) + '[[0]]' + kt(']'), ans:[a2+c2, c2+a2], k:'seg', op:L, a, c, a2, c2, sol:`[${a2}${c2}]`, size:'sm'}); continue; }
+  }
+  return rows;
+}
+function latRowCheck(r, v){
+  const raw = String(v).trim().replace(/[\[\]′'’\s]/g, '');
+  if(r.k==='ang'){ const a = parseAng(v); if(isNaN(a)) return {ok:false, msg:'Typ een hoek, bijvoorbeeld 90 of −90.'};
+    if(r.ans.some(x=>angEq(x, a))) return {ok:true};
+    if(r.ans.some(x=>angEq(x, -a))) return {ok:false, msg:'Kijk naar de zin: tegenwijzerzin is positief, wijzerzin is negatief.'};
+    return {ok:false, msg:'Hoeveel keer een kwart draai? Een kwart draai is 90°.'}; }
+  if(!raw) return {ok:false, msg:'Typ een letter.'};
+  if(r.k==='el'){ if(r.ans.includes(raw)) return {ok:true};
+    if(r.ans.some(x=>x.toLowerCase()===raw.toLowerCase())) return {ok:false, msg:'Let op de schrijfwijze: een rechte of as krijgt een kleine letter, een punt een hoofdletter.'};
+    return {ok:false, msg:`Het element ligt precies tussen ${r.a} en ${r.b}: een as loodrecht op [${r.a}${r.b}] door het midden, of het midden zelf.`}; }
+  const up = raw.toUpperCase();
+  if(r.k==='vec'){ if(up.length!==2) return {ok:false, msg:'Typ twee letters: het beginpunt en het eindpunt van de vector.'};
+    if(r.ans.includes(up)) return {ok:true};
+    if(r.ans.includes(up[1]+up[0])) return {ok:false, msg:'Je vector wijst in de tegengestelde zin. Hij moet wijzen zoals van ' + r.a + ' naar ' + r.b + '.'};
+    return {ok:false, msg:`Van ${r.a} naar ${r.b} is ${dirTxt(r.v)}. Zoek twee punten met dezelfde stappen.`}; }
+  if(r.k==='seg'){ if(r.ans.includes(up)) return {ok:true}; return {ok:false, msg:'Spiegel elk eindpunt afzonderlijk. Het beeld van het lijnstuk ligt tussen de twee beeldpunten.'}; }
+  if(raw!==up) return {ok:false, msg:'Een punt noteer je met een hoofdletter.'};
+  return {ok:r.ans.includes(up), msg:r.ans.includes(up) ? '' : 'Voer de transformatie uit op het punt tussen haakjes. Vraag een 💡 hint als je vastzit.'};
+}
+/* hint in twee delen voor een invulrij */
+function latRowHint(sc, r, stage){
+  const P = n => sc.pts[n];
+  if(r.task) return latHint(sc, r.task, stage);
+  if(r.k==='el'){ const mid = [(P(r.a)[0]+P(r.b)[0])/2, (P(r.a)[1]+P(r.b)[1])/2];
+    if(stage===1) return {objs:[{t:'line', a:P(r.a), b:P(r.b), c:'hintl'}], txt:`Verbind ${r.a} en ${r.b}. Het gezochte element ligt precies in het midden van [${r.a}${r.b}].`};
+    return {objs:[{t:'line', a:P(r.a), b:P(r.b), c:'hintl'}, {t:'ticks', a:P(r.a), b:mid, n:1}, {t:'ticks', a:mid, b:P(r.b), n:1}, hRing(mid)], txt:'Ligt het midden op een roosterlijn die loodrecht staat op het lijnstuk? Dan is die rechte een spiegelas. Is het midden een roosterpunt? Dan is dat punt een centrum.'}; }
+  if(r.k==='cen'){ const C = P(r.ans[0]);
+    if(stage===1) return {objs:[], txt:`Het centrum ligt even ver van ${r.a} als van ${r.b}. Zoek een punt waarbij de lijnstukken naar ${r.a} en naar ${r.b} even lang zijn en loodrecht op elkaar staan.`};
+    return {objs:[{t:'line', a:C, b:P(r.a), c:'hintl'}, {t:'line', a:C, b:P(r.b), c:'hintl'}, hRing(C)], txt:`Probeer het omcirkelde punt: draai ${r.a} erom over ${zinLang(r.op.deg)}.`}; }
+  if(r.k==='ang'){ const C = P(r.c), a0 = Math.atan2(P(r.a)[1]-C[1], P(r.a)[0]-C[0])/D2R;
+    const base = [{t:'line', a:C, b:P(r.a), c:'hintl'}, {t:'line', a:C, b:P(r.b), c:'hintl'}];
+    if(stage===1) return {objs:base, txt:`Verbind het centrum ${r.c} met ${r.a} en met ${r.b}. Hoe groot is de hoek ertussen?`};
+    return {objs:base.concat([{t:'arcC', c:C, r:1.3, a0, a1:a0+r.op.deg, cls:'hintl solid'}]), txt:'Draai je van het ene lijnstuk naar het andere in tegenwijzerzin (↺)? Dan is de hoek positief. In wijzerzin (↻) is hij negatief.'}; }
+  if(r.k==='vec'){ const s1 = stair(P(r.a), P(r.b));
+    if(stage===1) return {objs:s1, txt:`Kijk hoe je van ${r.a} naar ${r.b} gaat: ${dirTxt(r.v)}.`};
+    const x = r.ans[0][0], y = r.ans[0][1]; return {objs:s1.concat(stair(P(x), P(y)), [hRing(P(x))]), txt:`Zoek twee punten waarbij je dezelfde stappen zet. Begin bijvoorbeeld in het omcirkelde punt.`}; }
+  if(r.k==='seg'){ const t1 = {kind:'img', op:r.op, from:r.a, to:r.a2}, t2 = {kind:'img', op:r.op, from:r.c, to:r.c2};
+    const h1 = latHint(sc, t1, stage), h2 = latHint(sc, t2, stage);
+    return {objs:h1.objs.concat(h2.objs), txt: stage===1 ? `Spiegel ${r.a} en ${r.c} afzonderlijk om ${r.op.name}. ` + h1.txt : 'Het beeld van het lijnstuk ligt tussen de twee beeldpunten.'}; }
+  return {objs:[], txt:''};
+}
+function latRowsQs(parent, st, save, pre, sc, rows, F, hint){
+  let cur = null, stage = 0;
+  const hBar = hint.bar, hTxt = hint.txt, hInfo = hint.info, hOff = hint.off;
+  const btns = [];
+  function draw(){ const r = rows[cur]; const h = r && stage ? latRowHint(sc, r, stage) : null;
+    const o = []; if(r && r.op && (r.task || r.k==='seg' || r.k==='ang')) o.push(...latOpObjs(sc, r.op, null));
+    if(h) o.push(...h.objs); F.draw(o);
+    btns.forEach((b,j)=>{ b.classList.toggle('on', j===cur && stage>0); b.textContent = j===cur && stage===1 ? '💡 Volgende hint' : '💡 Hint'; b.disabled = j===cur && stage>=2; });
+    hOff.hidden = !stage; hInfo.textContent = stage ? `hint ${stage} van 2 bij ${LET[cur]}.` : ''; hTxt.innerHTML = h ? h.txt : ''; }
+  hOff.addEventListener('click', ()=>{ stage = 0; draw(); });
+  hBar.hidden = !!QZ;
+  rows.forEach((r,j)=>{
+    const q = qBlock(parent, st, save, pre+j, {nr:LET[j]+'.', html:r.html, size:r.size || 'xs', mode:'text', check:v=>latRowCheck(r, v[0]), sol:r.sol});
+    if(QZ) return;
+    const b = el('button','lt-hbtn','💡 Hint'); b.type = 'button'; btns[j] = b;
+    b.addEventListener('click', ()=>{ if(cur!==j){ cur = j; stage = 1; } else stage = Math.min(2, stage+1); draw(); });
+    q.row.querySelector('.q-act').append(b);
+  });
+  draw();
+}
+function latNotCard(b, st, save, sc, kinds, pre){
+  const R = makeR(st);
+  const two = el('div','cf-two'); b.append(two); const L = el('div'), Rt = el('div'); two.append(L, Rt);
+  const F = latFig(L, sc); Rt.classList.add('lt-qs');
+  const bar = el('div','hintbar'); const off = el('button','hintbtn off','Verberg de hint'); off.type = 'button'; const info = el('span','hintinfo'); bar.append(off, info);
+  const txt = el('div','hint-txt'); L.append(bar, txt);
+  latRowsQs(Rt, st, save, pre, sc, latRows(R, sc, kinds), F, {bar, txt, info, off});
+}
+const latSize = R => R.pick([[5,4],[4,5],[5,5],[6,4],[4,4]]);
+
+/* --- uitleg: zo werk je op een rooster --- */
+RO.kijk = { title:'Zo werk je op een rooster', lvl:1, instr:'Alle vakjes zijn vierkanten van dezelfde grootte. De streepjes tonen dat de zijden even lang zijn. Kies een voorbeeld en kijk hoe je het beeld vindt door vakjes te tellen.', build:(b,st,save)=>{
+  const R = makeR(st); const sc = latScene(R, 5, 4, {nv:3});
+  const ex = latGen(R, sc, [{kind:'img', t:'s'}, {kind:'img', t:'t'}, {kind:'img', t:'p'}, {kind:'img', t:'r'}, {kind:'pre', t:'t'}]);
+  const bar = el('div','ro-demo'); b.append(bar);
+  const host = el('div'); b.append(host); const F = latFig(host, sc, {maxw:420});
+  const cap = el('div','cf-cap'); b.append(cap);
+  const labs = {s:'Spiegeling om een as', t:'Translatie', p:'Spiegeling om een punt', r:'Rotatie'};
+  ex.forEach((t,k)=>{ const btn = el('button','btn ghost', icon('play') + ' ' + (t.kind==='pre' ? 'Het origineel zoeken' : labs[t.op.t])); btn.type = 'button'; btn.style.display = 'inline-flex'; btn.style.alignItems = 'center'; btn.style.gap = '.3rem'; bar.append(btn);
+    btn.addEventListener('click', ()=>play(t)); });
+  async function play(t){
+    const tok = ++F.token; const say = stepSay(cap); const ok = () => F.alive(tok);
+    const given = sc.pts[t.kind==='pre' ? t.to : t.from]; const base = latOpObjs(sc, t.op, given);
+    const note = t.html.replace('[[?]]', '<b>?</b>');
+    F.draw(base); say(`Opgave: <span class="lg">${note}</span>`); await wait(REDUCED?30:1300*SLOW); if(!ok()) return;
+    const h1 = latHint(sc, t, 1); F.draw(base.concat(h1.objs)); say(h1.txt); await wait(REDUCED?30:2200*SLOW); if(!ok()) return;
+    const h2 = latHint(sc, t, 2); F.draw(base.concat(h2.objs)); say(h2.txt); await wait(REDUCED?30:2000*SLOW); if(!ok()) return;
+    F.draw(base.concat(h2.objs, [{t:'pt', p:sc.pts[t.kind==='pre' ? t.from : t.to], c:'img', r:1.2}]));
+    say(`Dus <span class="lg">${t.html.replace('[[?]]', `<b>${t.ans[0]}</b>`)}</span>`);
+  }
+}};
+/* --- beelden aanklikken --- */
+RO.klik = { title:'Klik het beeld aan', lvl:1, instr:'Spiegelingen en translaties op een rooster van vierkanten. Klik bij elke opgave op het beeldpunt. Vraag een hint als je vastzit: eerst zie je hoe je vertrekt, daarna waar het beeld ligt.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = latSize(R); const sc = latScene(R, c, r);
+  latTasks(b, st, save, 'k', sc, latGen(R, sc, R.shuffle([{kind:'img', t:'s'}, {kind:'img', t:'s'}, {kind:'img', t:'s'}, {kind:'img', t:'p'}, {kind:'img', t:'p'}, {kind:'img', t:'t'}, {kind:'img', t:'t'}])));
+}};
+RO.klikR = { title:'Draaien op een rooster', lvl:2, instr:'Rotaties over 90° en −90°. Een positieve hoek is tegenwijzerzin (↺), een negatieve hoek wijzerzin (↻). Klik bij elke opgave op het beeldpunt.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = latSize(R); const sc = latScene(R, c, r, {r180:true});
+  latTasks(b, st, save, 'k', sc, latGen(R, sc, [{kind:'img', t:'r', deg:90}, {kind:'img', t:'r', deg:-90}, {kind:'img', t:'r', deg:90}, {kind:'img', t:'r', deg:-90}, {kind:'img', t:'r', deg:180}, {kind:'img', t:'p'}]),
+    {why:'Merk op: een rotatie over 180° geeft hetzelfde beeld als een spiegeling om dat punt.'});
+}};
+RO.terug = { title:'Zoek het origineel', lvl:2, instr:'Nu is het beeld gegeven. Klik op het punt waarvan het beeld gegeven is. Werk terug: bij een translatie ga je in de omgekeerde zin, bij een rotatie draai je terug.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = latSize(R); const sc = latScene(R, c, r);
+  latTasks(b, st, save, 'k', sc, latGen(R, sc, R.shuffle([{kind:'pre', t:'s'}, {kind:'pre', t:'s'}, {kind:'pre', t:'p'}, {kind:'pre', t:'t'}, {kind:'pre', t:'t'}, {kind:'pre', t:'r'}])));
+}};
+/* --- notatie aanvullen --- */
+RO.not = { title:'Vul de notatie aan', lvl:2, instr:'Typ de letter van het juiste punt. Vraag een hint bij een opgave: die verschijnt in het rooster.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = latSize(R); const sc = latScene(R, c, r);
+  latNotCard(b, st, save, sc, ['img','img','pre','img','pre','img','pre'], 'n');
+}};
+RO.element = { title:'Welke as, welk centrum, welke vector?', lvl:3, instr:'Nu ontbreekt de transformatie zelf. Een rechte of as krijgt een kleine letter, een punt een hoofdletter. Typ een hoek met teken.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = latSize(R); const sc = latScene(R, c, r);
+  latNotCard(b, st, save, sc, R.shuffle(['el','el','vec','cen','ang','seg']), 'e');
+}};
+RO.alles = { title:'Alles door elkaar', lvl:3, instr:'Zoals op de toets: beeld, origineel, as, centrum, vector of hoek. Typ een letter of een hoek met teken.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = latSize(R); const sc = latScene(R, c, r);
+  latNotCard(b, st, save, sc, R.shuffle(['img','img','pre','el','vec','ang','cen','seg']), 'a');
 }};
 /* ============================================================
    KAARTEN 8: SYMMETRIE IN HET VLAK
@@ -3377,63 +3903,56 @@ FJ.reken = { title:'Zoek de fout in de redenering', lvl:3, instr:'Elke uitwerkin
 /* ============================================================
    PROEFTOETSEN
    ============================================================ */
-/* het juiste spiegelbeeld van een woord */
-function woordSVG(w, tf){ return `<svg class="word-mir" viewBox="0 0 120 40" role="img" aria-label="woord"><rect x="1" y="1" width="118" height="38" rx="4" style="fill:var(--card); stroke:var(--tq); stroke-width:1.5"/><g transform="${tf}"><text x="60" y="29" text-anchor="middle" style="font:700 26px Arial, Helvetica, sans-serif; fill:var(--ink)">${w}</text></g></svg>`; }
-function tqWoord(){ return {sec:'Spiegelbeeld', prompt:'De spiegelas staat verticaal, rechts naast het woord. Wat is het juiste spiegelbeeld?', build:(b,st,save)=>{
-  const R = makeR(st); const w = R.pick(['INFO','KLAS','REKEN','LEUK','PRET','SPEL']);
-  b.append(el('div','', woordSVG(w, '')));
-  const opts = R.shuffle([['j', woordSVG(w, 'translate(120 0) scale(-1 1)')], ['r', woordSVG(w, 'rotate(180 60 20)')], ['v', woordSVG(w, 'translate(0 40) scale(1 -1)')], ['n', woordSVG(w, '')]]);
-  qChoice(b, st, save, 'w', {html:'Kies het juiste spiegelbeeld.', opts, ans:'j', sym:true});
-}}; }
+/* Eigen vragen op het niveau van de herhalingstoets en de kleine toets.
+   Niets is letterlijk overgenomen: andere woorden, getallen, roosters en vraagvormen. */
 function tqFoto(){ return {sec:'Transformaties herkennen', prompt:'Welke transformatie herken je in elke foto?', build:(b,st,save)=>{
   const R = makeR(st); const pick = R.shuffle(PHOTOS).slice(0,2); const grid = el('div','pair-grid'); b.append(grid);
   pick.forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.'));
 }}; }
+/* notatie lezen (andere vormen dan op de toetsen) en noteren in symbolen */
 function tqNotatie(){ return {sec:'Notatie', prompt:'', build:(b,st,save)=>{
-  const R = makeR(st); const L = R.letters(4, UPP.replace('O',''));
-  qChoice(b, st, save, 'l', {nr:'a.', html:`Hoe lees je t<sub>${vecN(L[0],L[1])}</sub>(${L[2]}) = ${L[3]} ?`, opts:R.shuffle([['j',`${L[3]} is het beeld van ${L[2]} door de translatie over de vector ${vecN(L[0],L[1])}`],['z',`${L[2]} is het beeld van ${L[3]} door de translatie over de vector ${vecN(L[0],L[1])}`],['s',`${L[3]} is het beeld van ${L[2]} door de spiegeling om de rechte ${L[0]}${L[1]}`]]), ans:'j'});
-  const q = R.pick(symbItems(R)); symbQ(b, st, save, 's', {...q, nr:'b.', html:'Noteer in symbolen: ' + q.html});
+  const R = makeR(st); const L = R.letters(6, UPP.replace('O','')); const a = R.pick([35,45,75,105,135]);
+  const items = [
+    {html:`s<sub>${L[0]}</sub>([${L[1]}${L[2]}]) = [${L[3]}${L[4]}]`, opts:[['j',`[${L[3]}${L[4]}] is het beeld van [${L[1]}${L[2]}] door de spiegeling om het punt ${L[0]}`],['z',`[${L[1]}${L[2]}] is het beeld van [${L[3]}${L[4]}] door de spiegeling om de as ${L[0]}`],['s',`[${L[3]}${L[4]}] is het beeld van [${L[1]}${L[2]}] door de spiegeling om de as ${L[0].toLowerCase()}`],['t',`${L[0]} is het midden van [${L[1]}${L[2]}]`]]},
+    {html:`r(${L[0]}, −${a}°)(${L[1]}) = ${L[2]}`, opts:[['j',`${L[2]} is het beeld van ${L[1]} door de rotatie rond ${L[0]} over ${a}° in wijzerzin`],['z',`${L[2]} is het beeld van ${L[1]} door de rotatie rond ${L[0]} over ${a}° in tegenwijzerzin`],['s',`${L[1]} is het beeld van ${L[2]} door de rotatie rond ${L[0]} over ${a}° in wijzerzin`],['t',`${L[0]} is het beeld van ${L[1]} door een rotatie over −${a}°`]]},
+    {html:`s<sub>${L[5].toLowerCase()}</sub>(Δ${L[0]}${L[1]}${L[2]}) = Δ${L[0]}′${L[1]}′${L[2]}′`, opts:[['j',`Δ${L[0]}′${L[1]}′${L[2]}′ is het beeld van Δ${L[0]}${L[1]}${L[2]} door de spiegeling om de as ${L[5].toLowerCase()}`],['z',`Δ${L[0]}′${L[1]}′${L[2]}′ is het beeld van Δ${L[0]}${L[1]}${L[2]} door de spiegeling om het punt ${L[5]}`],['s',`Δ${L[0]}${L[1]}${L[2]} is het beeld van Δ${L[0]}′${L[1]}′${L[2]}′ door een translatie`],['t',`de as ${L[5].toLowerCase()} is het beeld van Δ${L[0]}${L[1]}${L[2]}`]]}];
+  const q = R.pick(items);
+  qChoice(b, st, save, 'l', {nr:'a.', html:`Hoe lees je <span class="lg">${q.html}</span> ?`, opts:R.shuffle(q.opts), ans:'j'});
+  const z = R.pick(symbItems(R)); symbQ(b, st, save, 's', {...z, nr:'b.', html:'Noteer in symbolen: ' + z.html});
 }}; }
-function tqEig(){ return {sec:'Eigenschappen', prompt:'Welke transformatie en welke eigenschap worden geïllustreerd?', build:(b,st,save)=>{
-  const R = makeR(st); illusQ(b, st, save, 'i', R, R.pick(EIG)[0], R.pick(['s','t','r','p']), '');
+/* eigenschappen: vink aan wat altijd behouden blijft */
+function tqEig(){ return {sec:'Eigenschappen', prompt:'', build:(b,st,save)=>{
+  const R = makeR(st); const k = R.pick(['s','t','r','p']);
+  const opts = EIG_ALL.filter(e=>e[0]!=='vorm').map(([e,l])=>[e, e==='par' ? 'het beeld van een rechte is evenwijdig met die rechte' : l]);
+  const ans = opts.map(o=>o[0]).filter(e=>e!=='par' || PAR_OK[k]);
+  qMulti(b, st, save, 'e', {nr:'a.', html:`Wat blijft <b>altijd</b> behouden bij een ${TNAAM[k]}? Vink alles aan wat past.`, opts:R.shuffle(opts), ans, pts:2,
+    why:'Alle vier de transformaties bewaren deze eigenschappen.', whyBad:'Elke transformatie is een isometrie. Het beeld van een rechte is enkel bij een translatie en een spiegeling om een punt altijd evenwijdig met die rechte.'});
+  EG.benoem.build(b, st, save);
 }}; }
-const WN_POOL = [{s:'Een gelijkzijdige driehoek heeft juist één symmetriemiddelpunt.', ans:'n'}, {s:'Het beeld van een rechte door een translatie is altijd een evenwijdige rechte.', ans:'w'},
-  {s:'Elke figuur met een symmetriemiddelpunt heeft ook een symmetrieas.', ans:'n'}, {s:'Een vierhoek met 2 symmetrieassen is altijd een rechthoek.', ans:'n'},
-  {s:'Een rotatie bewaart de lengte van een lijnstuk.', ans:'w'}, {s:'Bij een spiegeling om een as zijn de punten op de as dekpunten.', ans:'w'},
-  {s:'Een kubus heeft zes symmetrievlakken.', ans:'n'}, {s:'r(O, −90°) is een draaiing in wijzerzin.', ans:'w'}, {s:'Een spiegeling om een punt is hetzelfde als een rotatie over 180°.', ans:'w'},
-  {s:'Een parallellogram heeft twee symmetrieassen.', ans:'n'}, {s:'Het beeld van een rechte door een rotatie over 60° is evenwijdig met die rechte.', ans:'n'}, {s:'Een cilinder heeft oneindig veel symmetrievlakken.', ans:'w'}];
+const WN_POOL = [{s:'Bij een translatie over een vector die niet nul is, heeft geen enkel punt zichzelf als beeld.', ans:'w'}, {s:'Een ruit heeft twee symmetrieassen en een symmetriemiddelpunt.', ans:'w'},
+  {s:'Een gelijkbenig trapezium heeft een symmetriemiddelpunt.', ans:'n'}, {s:'r(O, 270°) en r(O, −90°) geven hetzelfde beeld.', ans:'w'},
+  {s:'Bij een spiegeling om een as is het beeld van een rechte altijd evenwijdig met die rechte.', ans:'n'}, {s:'Een spiegeling om een punt bewaart de oppervlakte van een figuur.', ans:'w'},
+  {s:'Een regelmatige vijfhoek heeft een symmetriemiddelpunt.', ans:'n'}, {s:'Een balk met drie verschillende afmetingen heeft drie symmetrievlakken.', ans:'w'},
+  {s:'s<sub>O</sub>(A) = A′ betekent dat O het midden is van [AA′].', ans:'w'}, {s:'Een cirkel heeft juist twee symmetrieassen.', ans:'n'},
+  {s:'Een vierkant valt op zichzelf bij een rotatie over 45° rond zijn middelpunt.', ans:'n'}, {s:'Een punt en zijn beeld liggen bij een spiegeling om een as even ver van die as.', ans:'w'},
+  {s:'Bij een rotatie over 90° staat het beeld van een rechte loodrecht op die rechte.', ans:'w'}, {s:'Een spiegeling om een as verandert de grootte van een hoek.', ans:'n'}];
 function tqWN(){ return {sec:'Waar of niet waar', prompt:'Waar of niet waar?', build:(b,st,save)=>{ const R = makeR(st); wnRows(b, st, save, 'w', R.shuffle(WN_POOL).slice(0,4)); }}; }
 function tqSym(){ return {sec:'Symmetrie in het vlak', prompt:'Duid alle symmetrieassen aan. Heeft de figuur een symmetriemiddelpunt?', build:(b,st,save)=>{
-  const R = makeR(st); const k = R.pick(['rechthoek','ruit','parallellogram','gelijkbenig trapezium','vlieger','regelmatige zeshoek','ster','logo 1','gelijkzijdige driehoek']);
+  const R = makeR(st); const k = R.pick(['rechthoek','ruit','gelijkbenig trapezium','vlieger','regelmatige zeshoek','ster','logo 1','gelijkzijdige driehoek']);
   symTask(b, st, save, 'y', {naam:k, polys:[VLAK[k]], pts:2, cands:symCands(k, VLAK[k])});
 }}; }
-/* rooster van 6 vierkanten zoals op de herhalingstoets */
-function tqRooster(){ return {sec:'Notatie op een rooster', prompt:'De figuur is opgebouwd uit 6 vierkanten. Vul aan met een letter of een hoek met teken.', build:(b,st,save)=>{
-  const R = makeR(st); const pts = {}; [['A','B','C','D'],['H','G','F','E'],['I','J','K','L']].forEach((row,j)=>row.forEach((n,i)=>{ pts[n] = [2*i, 2*(2-j)]; }));
-  const names = Object.keys(pts); const ops = [];
-  const lines = new Map();
-  names.forEach(a=>names.forEach(c=>{ if(a===c) return; const d = [pts[c][0]-pts[a][0], pts[c][1]-pts[a][1]]; if(!(d[0]===0 || d[1]===0 || Math.abs(d[0])===Math.abs(d[1]))) return;
-    const on = names.filter(n=>Math.abs(cross3(pts[a], pts[c], pts[n]))<1e-9).sort().join(''); if(!lines.has(on)) lines.set(on, {p:pts[a], q:pts[c], alts:[]}); lines.get(on).alts.push(a+c); }));
-  [...lines.values()].forEach((L,i)=>ops.push({t:'s', p:L.p, q:L.q, name:L.alts[0], alts:L.alts, key:'s'+i}));
-  names.forEach(c=>{ ops.push({t:'p', c:pts[c], name:c, key:'p'+c}); [90,-90].forEach(d=>ops.push({t:'r', c:pts[c], deg:d, name:c, key:'r'+c+d})); });
-  for(let k=0;k<4;k++){ const a = R.pick(names), c = R.pick(names); if(a!==c) ops.push({t:'t', v:[pts[c][0]-pts[a][0], pts[c][1]-pts[a][1]], name:[a,c], key:'t'+a+c}); }
-  const two = el('div','cf-two'); b.append(two); const Lf = el('div'), Rt = el('div'); two.append(Lf, Rt);
-  const F = gridFig(Lf, {g:[-.8,6.8,-.8,4.8], plain:true, maxw:320}); const sq = []; [0,2,4,6].forEach(x=>sq.push({t:'line', a:[x,0], b:[x,4], c:'seg'})); [0,2,4].forEach(y=>sq.push({t:'line', a:[0,y], b:[6,y], c:'seg'}));
-  F.draw(sq.concat(names.map(n=>({t:'pt', p:pts[n], n, c:'orig', r:1, away:[pts[n][0]-(pts[n][0]<3?1:-1), pts[n][1]-(pts[n][1]<2?1:-1)]}))));
-  sceneQs(Rt, st, save, sceneRows(R, {pts, ops}, 5, ['img','par','pre','img','par']), 'r');
+/* rooster van vierkanten met eigen afmetingen en letters (zoals het onderdeel Roosters) */
+function tqRooster(kinds){ return {sec:'Notatie op een rooster', prompt:'Het rooster bestaat uit gelijke vierkanten. Vul aan met een letter of een hoek met teken. Een rechte krijgt een kleine letter, een punt een hoofdletter.', build:(b,st,save)=>{
+  const R = makeR(st); const [c, r] = R.pick([[5,4],[4,5],[5,3],[6,4]]); const sc = latScene(R, c, r);
+  latNotCard(b, st, save, sc, R.shuffle(kinds || ['img','pre','el','vec','ang','seg']), 't');
 }}; }
 function tqCoord(){ return {sec:'Coördinaten', prompt:'', build:(b,st,save)=>{
-  const R = makeR(st); const B = [R.int(-40,-11), R.int(12,45)]; const V = [R.int(-9,9), R.int(-9,9)]; let W; do{ W = [R.int(-9,9), R.int(-9,9)]; }while(W[0]===V[0] || W[1]===V[1]);
-  const L = R.pick(['B','K','P','M']);
-  b.append(el('p','', `Bepaal de coördinaat van ${L}′ als ${L}′ het beeld is van ${L}${co(...B)} door:`));
-  const rows = R.shuffle([[`een spiegeling om de y-as`, [-B[0], B[1]]], [`een translatie over de vector ${vecN('V','W')} met V${co(...V)} en W${co(...W)}`, [B[0]+W[0]-V[0], B[1]+W[1]-V[1]]], [`een spiegeling om de x-as`, [B[0], -B[1]]]]);
-  rows.forEach(([t,Q],i)=>qBlock(b, st, save, 'c'+i, {nr:LET[i]+'.', html:keepTxt(`${t}: &nbsp; ${L}′([[0]], [[1]])`), size:'sm', mode:'text', check:v=>chkPt(v, Q, L+'′'), sol:`${L}′${co(...Q)}`}));
-}}; }
-function tqAs(){ return {sec:'Spiegelas tekenen', prompt:'[X′Y′] is het spiegelbeeld van [XY]. Klik twee roosterpunten die op de spiegelas liggen.', build:(b,st,save)=>{
-  const R = makeR(st); const g = [0,12,0,8]; const T = genTask(R, 2, g, 's', {check:(pts)=>Math.hypot(pts[0][0]-pts[1][0], pts[0][1]-pts[1][1])>=3});
-  placeTask(b, st, save, 'a', {g, fig:{pts:T.pts, names:['X','Y'], open:true}, op:T.op, mode:'as', ans:[T.op.p, T.op.q], pts:2,
-    figObjs:()=>[{t:'poly', pts:T.pts, c:'orig', names:['X','Y'], open:true}, {t:'poly', pts:T.img, c:'img', names:['X'+PR,'Y'+PR], open:true}],
-    solObjs:()=>[{t:'axis', p:T.op.p, q:T.op.q, n:'a', hl:true}]});
+  const R = makeR(st); const P = [nz(R,3,14), nz(R,3,14)]; const C = [R.int(-9,9), R.int(-9,9)]; let D; do{ D = [R.int(-9,9), R.int(-9,9)]; }while(D[0]===C[0] || D[1]===C[1]);
+  const L = R.pick(['K','M','N','R','T']); const Lp = L+PR;
+  b.append(el('p','', `Gegeven: ${ptN(L,P[0],P[1])}, ${ptN('C',C[0],C[1])} en ${ptN('D',D[0],D[1])}. Bepaal de coördinaat van het beeld.`));
+  const rows = R.shuffle([[`s<sub>O</sub>(${L})`, [-P[0], -P[1]]], [`t<sub>${vecN('C','D')}</sub>(${L})`, [P[0]+D[0]-C[0], P[1]+D[1]-C[1]]], [R.pick([`s<sub>x</sub>(${L})`,`s<sub>y</sub>(${L})`]), null], [`r(O, 90°)(${L})`, [-P[1], P[0]]]]);
+  rows.forEach((rw,i)=>{ if(!rw[1]) rw[1] = rw[0].includes('<sub>x') ? [P[0], -P[1]] : [-P[0], P[1]]; });
+  rows.forEach(([t,Q],i)=>qBlock(b, st, save, 'c'+i, {nr:LET[i]+'.', html:keepTxt(`${t} = ${Lp}([[0]], [[1]])`), size:'sm', mode:'text', check:v=>chkPt(v, Q, Lp), sol:`${Lp}${co(...Q)}`}));
 }}; }
 function tqBeeld(kind){ return {sec:'Beeld tekenen', prompt:'Klik op het rooster waar de beeldpunten komen. Kies eerst welk punt je plaatst.', build:(b,st,save)=>{
   const R = makeR(st); const g = [0,12,0,8]; const k = kind || R.pick(['s','t','r90','p']);
@@ -3445,21 +3964,27 @@ function tqBeeld(kind){ return {sec:'Beeld tekenen', prompt:'Klik op het rooster
   if(T.op.t==='p'){ T.op.name = 'O'; html = `Teken s<sub>O</sub>(Δ${names.join('')}).`; }
   placeTask(b, st, save, 'p', {g, fig, op:T.op, base:opBase(T.op), html, pts:2});
 }}; }
-function tqDraai(){ return {sec:'Draaihoek', prompt:'Een rotatie rond het middelpunt beeldt Q af op P, in de zin van de pijl. Bepaal de draaihoek zonder te meten.', build:(b,st,save)=>{
-  const R = makeR(st); const d = R.pick(DRAAI); const n = d[1]; const qi = R.int(0,n-1), k = R.int(1,n-1), dir = R.pick([1,-1]);
-  draaiFig(b, d, qi, (qi+k)%n, dir); const step = 360/n; const ans = dir>0 ? k*step : -(n-k)*step;
-  qBlock(b, st, save, 'd', {html:`${DRAAI_NM[d[0]][0].toUpperCase()+DRAAI_NM[d[0]].slice(1)}. De draaihoek is [[0]] °.`, size:'xs', mode:'text', check:v=>{ const a = parseAng(v[0]); return {ok:!isNaN(a) && Math.abs(a-ans)<1e-6}; }, sol:`360° : ${n} = ${r6(step)}°, dus <b>${degTxt(r6(ans))}</b>`});
+/* draaihoek bij een regelmatige veelhoek, met teken */
+function tqVeelhoek(){ return {sec:'Draaihoek', prompt:'Een rotatie rond het middelpunt M beeldt de regelmatige veelhoek af op zichzelf. Bepaal de draaihoek met teken, zonder te meten.', build:(b,st,save)=>{
+  const R = makeR(st); const n = R.pick([5,6,8,9,10,12]); const k = R.int(1, n-1), dir = R.pick([1,-1]);
+  const steps = dir>0 ? k : n-k; const ans = dir*steps*360/n; const nm = 'ABCDEFGHJKLM'.slice(0,n).split('');
+  const P = nm.map((x,i)=>{ const a = (90 + i*360/n)*D2R; return [r6(3.4*Math.cos(a)), r6(3.4*Math.sin(a))]; });
+  const F = gridFig(b, {g:[-4.6,4.6,-4.6,4.6], plain:true, maxw:300});
+  F.draw([{t:'poly', pts:P, c:'orig', names:nm}, {t:'cen', p:[0,0], n:'M', away:[1,1]}, {t:'line', a:[0,0], b:P[0]}, {t:'arcC', c:[0,0], r:1.4, a0:90, a1:90+dir*48, head:true}]);
+  qBlock(b, st, save, 'd', {html:keepTxt(`De rotatie beeldt A af op ${nm[k]}, in de zin van de pijl. r(M, [[0]] °)(A) = ${nm[k]}`), size:'xs', mode:'text',
+    check:v=>{ const a = parseAng(v[0]); if(isNaN(a)) return {ok:false}; if(Math.abs(a+ans)<1e-6) return {ok:false, msg:'Let op het teken: tegenwijzerzin is positief, wijzerzin negatief.'}; return {ok:Math.abs(a-ans)<1e-6}; },
+    sol:`Eén stap is 360° : ${n} = ${r6(360/n)}°. Van A naar ${nm[k]} in de zin van de pijl zijn ${steps} stappen: <b>${degTxt(r6(ans))}</b>`});
 }}; }
 function tqVlakken(){ return {sec:'Symmetrie in de ruimte', prompt:'Hoeveel symmetrievlakken heeft deze ruimtefiguur? Typ ∞ als het er oneindig veel zijn.', build:(b,st,save)=>{
-  const R = makeR(st); const [k,l,n] = R.pick(SOLIDS); solidFig(b, k, {maxw:200});
+  const R = makeR(st); const [k,l,n] = R.pick(SOLIDS.filter(s=>s[0]!=='prisma')); solidFig(b, k, {maxw:200});
   const r = qBlock(b, st, save, 'n', {html:`${l}: [[0]] symmetrievlakken`, size:'xs', mode:'text', check:v=>{ const t = String(v[0]).trim().toLowerCase(); if(n==='∞') return {ok:/^(∞|oneindig( veel)?)$/.test(t)}; return {ok:parseNum(t)===n}; }, sol:`<b>${n}</b>`});
   infBtn(r.row);
 }}; }
 const fromCardT = (card, sec, prompt) => ({sec, prompt: prompt!=null ? prompt : (card.instr||''), build:(b,st,save,key)=>card.build(b,st,save,key)});
 const TOETSEN2 = [
-  [tqWoord(), tqFoto(), tqNotatie(), tqEig(), tqWN(), tqSym(), tqRooster(), tqCoord(), tqAs(), tqBeeld('s'), tqDraai(), tqVlakken()],
-  [tqFoto(), fromCardT(TR.welke, 'Translatie', ''), tqNotatie(), tqBeeld('r90'), tqEig(), fromCardT(SV.letters, 'Symmetrie van letters'), tqWN(), tqCoord(), tqBeeld('p'), fromCardT(EG.reken, 'Eigenschappen', ''), tqDraai(), tqVlakken()],
-  [tqWoord(), fromCardT(HK.leef, 'Transformaties herkennen'), fromCardT(NT.assen, 'Notatie in een assenstelsel'), tqBeeld('t'), tqAs(), tqSym(), tqRooster(), tqWN(), fromCardT(SV.vulPt, 'Figuur vervolledigen'), tqEig(), tqCoord(), tqVlakken()]
+  [tqFoto(), fromCardT(HK.zinnen, 'Wiskundetaal'), tqNotatie(), tqEig(), tqWN(), tqSym(), tqRooster(), tqCoord(), fromCardT(PT.centrum, 'Het centrum zoeken'), tqBeeld('s'), tqVeelhoek(), tqVlakken()],
+  [tqFoto(), fromCardT(HK.volledig, 'Transformaties herkennen'), tqNotatie(), tqBeeld('r90'), tqRooster(['img','img','pre','el','cen','vec']), fromCardT(SV.letters, 'Symmetrie van letters'), tqWN(), tqCoord(), fromCardT(TR.tekenVec, 'Vector tekenen'), fromCardT(EG.reken, 'Eigenschappen', ''), tqVeelhoek(), fromCardT(SR.midden, 'Symmetrie in de ruimte')],
+  [tqFoto(), fromCardT(HK.leef, 'Transformaties herkennen'), fromCardT(NT.assen, 'Notatie in een assenstelsel'), tqBeeld('t'), tqEig(), tqSym(), tqRooster(['pre','el','ang','seg','vec','img']), tqWN(), fromCardT(SV.vulPt, 'Figuur vervolledigen'), tqBeeld('p'), tqCoord(), tqVlakken()]
 ];
 
 /* ============================================================
@@ -3520,15 +4045,24 @@ SEC.notatie = { id:'notatie', ic:'tf_not', nav:'Notatie', title:'Notatie van tra
     <tr><td>t<sub>${vecN('X','Y')}</sub>(A) = B</td><td>B is het beeld van A door de translatie over ${vecN('X','Y')}.</td></tr>
     <tr><td>r(O, −90°)(A) = B</td><td>B is het beeld van A door de rotatie rond O over 90° in wijzerzin.</td></tr>
     <tr><td>s<sub>x</sub>, s<sub>y</sub></td><td>spiegeling om de x-as, om de y-as</td></tr></table>`,
-  cards:[NT.lees, NT.schrijf, NT.assen, NT.mix, NT.vlak] };
+  cards:[NT.lees, NT.schrijf, NT.assen] };
+ICONS.tf_rooster = '<path d="M3 6h18M3 12h18M3 18h18M6 3v18M12 3v18M18 3v18"/><circle cx="6" cy="6" r="1.6" fill="currentColor"/><circle cx="18" cy="18" r="1.6" fill="currentColor"/>';
+SEC.rooster = { id:'rooster', ic:'tf_rooster', nav:'Roosters', title:'Transformaties op een rooster',
+  tip:'Op een rooster van vierkanten tel je <b>vakjes</b>. Rechten krijgen een <b>kleine letter</b>, punten een <b>hoofdletter</b>.',
+  cheat:`<h3>Spiekbriefje · werken op een rooster</h3><table>
+    <tr><td>s<sub>a</sub>(A)</td><td>Ga loodrecht naar de as a en tel de vakjes. Ga even ver door aan de andere kant.</td></tr>
+    <tr><td>s<sub>M</sub>(A)</td><td>Tel de vakjes van A naar M. Zet vanuit M nog eens dezelfde stappen.</td></tr>
+    <tr><td>t<sub>${vecN('X','Y')}</sub>(A)</td><td>Tel hoe je van X naar Y gaat. Zet dezelfde stappen vanuit A.</td></tr>
+    <tr><td>r(M, 90°)(A)</td><td>Draai het lijnstuk [MA] een kwart draai in tegenwijzerzin ↺. Bij −90° in wijzerzin ↻.</td></tr>
+    <tr><td>s<sub>?</sub>(A) = B</td><td>Het ontbrekende element ligt in het midden van [AB]: een as (kleine letter) of een punt (hoofdletter).</td></tr>
+    <tr><td>s<sub>a</sub>([AB])</td><td>Spiegel elk eindpunt afzonderlijk.</td></tr></table>`,
+  cards:[RO.kijk, RO.klik, RO.klikR, RO.terug, RO.not, RO.element, RO.alles, NT.vlak] };
 SEC.eig = { id:'eig', ic:'tf_eig', nav:'Eigenschappen', title:'Eigenschappen van transformaties',
   tip:'De vier transformaties zijn <b>isometrieën</b>: het beeld is congruent met de figuur. Enkel de plaats verandert, en soms de oriëntatie.',
-  cheat:`<h3>Spiekbriefje · eigenschappen</h3><table>
-    <tr><td>collineariteit</td><td>Liggen punten op één rechte, dan ook hun beelden.</td></tr><tr><td>evenwijdigheid</td><td>a ∥ b, dan a′ ∥ b′.</td></tr>
-    <tr><td>loodrechte stand</td><td>a ⊥ b, dan a′ ⊥ b′.</td></tr><tr><td>lengte</td><td>|AB| = |A′B′|</td></tr>
-    <tr><td>hoekgrootte</td><td>${hat('A')} = ${hat('A')}′</td></tr><tr><td>oppervlakte</td><td>blijft gelijk</td></tr>
-    <tr><td>bijzonder</td><td>Bij een translatie en een spiegeling om een punt is het beeld van een rechte evenwijdig met die rechte.</td></tr></table>`,
-  cards:[EG.kijk, EG.illus, EG.reken, EG.wn, EG.slim, EG.welke] };
+  cheat:`<h3>Spiekbriefje · eigenschappen</h3><table class="eig-sum"><tr><th></th><th>s<sub>a</sub></th><th>t</th><th>r</th><th>s<sub>O</sub></th></tr>
+    ${EIG_ALL.map(([e,l])=>`<tr><td>${l}</td>${['s','t','r','p'].map(k=>`<td>${e!=='par' || PAR_OK[k] ? '✓' : 'niet altijd'}</td>`).join('')}</tr>`).join('')}</table>
+    <p>✓ = blijft behouden. Een spiegeling om een as klapt de figuur om. Het beeld van een rechte is enkel bij een translatie en een spiegeling om een punt altijd evenwijdig met die rechte.</p>`,
+  cards:[EG.kijk, EG.tabel, EG.illus, EG.benoem, EG.reken, EG.wn, EG.slim, EG.welke] };
 SEC.symv = { id:'symv', ic:'tf_symv', nav:'Symmetrie in het vlak', title:'Symmetrie in het vlak',
   tip:'Een figuur is <b>spiegelsymmetrisch om een as</b> als ze zichzelf als beeld heeft bij de spiegeling om die as: dat is een <b>symmetrieas</b>. Valt ze op zichzelf bij een spiegeling om een punt, dan is dat punt een <b>symmetriemiddelpunt</b>.',
   cheat:`<h3>Spiekbriefje · symmetrie in het vlak</h3><table>
@@ -3551,7 +4085,7 @@ const TOETS_TIP2 = 'Een proeftoets over de hele module. Je krijgt pas feedback a
 [0,1,2].forEach(i=>{ SEC['toets'+(i+1)] = { id:'toets'+(i+1), ic:'toets', nav:'Proeftoets '+(i+1), title:'Proeftoets '+(i+1), tip:TOETS_TIP2,
   cards:[ { title:'Proeftoets '+(i+1), noReset:true, build:(b,st,save,key)=>proeftoets(b,st,save,key,TOETSEN2[i]) } ] }; });
 
-const ORDER = ['herken','as','trans','rot','punt','notatie','coord','eig','symv','symr','fout','toets1','toets2','toets3'];
+const ORDER = ['herken','as','trans','rot','punt','notatie','rooster','coord','eig','symv','symr','fout','toets1','toets2','toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
