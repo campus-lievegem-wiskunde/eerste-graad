@@ -336,13 +336,19 @@ export const SITES = [
     "id": "notatie",
     "naam": "Notatie",
     "toets": false,
-    "vragen": 20
+    "vragen": 14
    },
    {
     "id": "rooster",
     "naam": "Roosters",
     "toets": false,
     "vragen": 47
+   },
+   {
+    "id": "assen",
+    "naam": "Assenstelsel",
+    "toets": false,
+    "vragen": 6
    },
    {
     "id": "coord",

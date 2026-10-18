@@ -3343,6 +3343,8 @@ EG.welke = { title:'Bijzondere eigenschappen', lvl:3, instr:'Vink telkens alle t
   .nb-keys button{ font:inherit; font-size:1.05rem; min-width:2.3rem; padding:.25rem .55rem; border-radius:.5rem; border:1.5px solid var(--tq); background:var(--card); color:var(--ink); cursor:pointer }
   .nb-keys button:hover{ border-color:var(--orange) }
   .nb-keys button.on{ background:var(--or-soft); border-color:var(--orange); box-shadow:inset 0 0 0 1.5px var(--orange) }
+  .nb-keys .nb-low{ position:relative; top:.3em; font-size:.9em; margin-left:.12em }
+  .nb-keys .nb-sq{ display:inline-block; width:.78em; height:.78em; border:1.6px solid currentColor; border-radius:2px; vertical-align:-.04em }
   .nb-keys .sep{ width:.4rem }
   .nb-hint{ font-size:.9rem; color:var(--ink-soft) }
   .zin-ta{ width:100%; min-height:3.2rem; font:inherit; font-size:1.02rem; padding:.45rem .6rem; border-radius:.6rem; border:2px solid var(--border); background:var(--card); color:var(--ink); resize:vertical; box-sizing:border-box }
@@ -3385,7 +3387,7 @@ function notBox(parent, s, opt={}){
   const add = c => { if(locked) return; if(c===' ') return; s.tk.push({c, sub:mode.sub, vec:mode.vec && /[A-Za-z]/.test(c) ? 1 : 0}); changed(); };
   const back = () => { if(locked) return; s.tk.pop(); changed(); };
   const k = (lab, fn, title) => { const x = el('button','', lab); x.type = 'button'; if(title) x.title = title; x.addEventListener('pointerdown', e=>e.preventDefault()); x.addEventListener('click', ()=>{ fn(); inp.focus(); }); keys.append(x); return x; };
-  const bSub = k('x<sub>□</sub> index', ()=>{ mode.sub = mode.sub ? 0 : 1; if(!mode.sub) mode.vec = 0; paint(); }, 'index aan of uit');
+  const bSub = k('…<span class="nb-low"><i class="nb-sq"></i> lager</span>', ()=>{ mode.sub = mode.sub ? 0 : 1; if(!mode.sub) mode.vec = 0; paint(); }, 'lager schrijven aan of uit');
   const bVec = k(`<span class="vec-n"><i>${NB_VEC}</i>AB</span> vector`, ()=>{ mode.vec = mode.vec ? 0 : 1; paint(); }, 'vector aan of uit');
   keys.append(el('span','sep'));
   ['s','t','r','(',')','=',',','°','−','′','Δ'].forEach(c=>k(c, ()=>add(c)));
@@ -3411,7 +3413,7 @@ function zelfNotQ(parent, st, save, id, q){
     const a = box.ser(), w = q.ser;
     if(a===w) return {ok:true};
     const fa = nbFlat(a), fw = nbFlat(w);
-    if(fa===fw) return {msg: q.k==='t' ? 'De tekens kloppen, maar zet de vector met een pijl in de index: zet <b>index</b> en <b>vector</b> aan.' : q.k==='r' ? 'De tekens kloppen, maar bij een rotatie staat er niets in de index.' : 'De tekens kloppen, maar zet de as of het centrum in de index: zet <b>index</b> aan.'};
+    if(fa===fw) return {msg: q.k==='t' ? 'De tekens kloppen, maar zet de vector met een pijl lager: zet <b>lager</b> en <b>vector</b> aan.' : q.k==='r' ? 'De tekens kloppen, maar bij een rotatie staat er niets lager.' : 'De tekens kloppen, maar zet de as of het centrum lager: zet <b>lager</b> aan.'};
     if(fa[0]!==fw[0]) return {msg:'Welke letter hoort bij deze transformatie? s voor een spiegeling, t voor een translatie, r voor een rotatie.'};
     if(q.k==='r'){ const m = fa.match(/^r\(([^,]*),(-?\d+)\)/); if(m && Number(m[2])===-q.h) return {msg:'Kijk naar de draaizin: tegenwijzerzin is positief, wijzerzin is negatief.'}; if(!/^r\([^,]+,-?\d+\)\(/.test(fa)) return {msg:'Een rotatie noteer je als r(centrum, hoek)(punt) = beeld.'}; }
     if(fa===fw.replace(`(${q.a})=${q.b}`, `(${q.b})=${q.a}`)) return {msg:'Let op de volgorde: tussen haakjes staat het punt dat je afbeeldt, na het gelijkheidsteken het beeld.'};
@@ -3472,7 +3474,7 @@ function zelfItems(R){
   const [r1, r2] = R.shuffle(['rp','rm']), [m1, m2] = R.shuffle(['s','p']);
   return { not:R.shuffle([it.t, it[r1], it[m1]]), zin:R.shuffle([it[m2], it[r2]]) };
 }
-NT.zelf = { title:'Noteer alles zelf', lvl:2, instr:'Noteer eerst de zinnen volledig in symbolen. Typ met je toetsenbord of gebruik de knoppen. Zet <b>index</b> aan voor wat onderaan staat en <b>vector</b> voor een pijl boven twee letters. Schrijf daarna de notaties uit in een volledige zin.', build:(b,st,save)=>{
+NT.zelf = { title:'Noteer alles zelf', lvl:2, instr:'Noteer eerst de zinnen volledig in symbolen. Typ met je toetsenbord of gebruik de knoppen. Zet <b>lager</b> aan voor wat lager staat en <b>vector</b> voor een pijl boven twee letters. Schrijf daarna de notaties uit in een volledige zin.', build:(b,st,save)=>{
   const R = makeR(st); const I = zelfItems(R);
   I.not.forEach((q,i)=>zelfNotQ(b, st, save, 'n'+i, {...q, nr:LET[i]+'.'}));
   I.zin.forEach((q,i)=>zelfZinQ(b, st, save, 'z'+i, {...q, nr:LET[i+3]+'.'}));
@@ -4260,7 +4262,7 @@ SEC.notatie = { id:'notatie', ic:'tf_not', nav:'Notatie', title:'Notatie van tra
     <tr><td>t<sub>${vecN('X','Y')}</sub>(A) = B</td><td>B is het beeld van A door de translatie over ${vecN('X','Y')}.</td></tr>
     <tr><td>r(O, −90°)(A) = B</td><td>B is het beeld van A door de rotatie rond O over 90° in wijzerzin.</td></tr>
     <tr><td>s<sub>x</sub>, s<sub>y</sub></td><td>spiegeling om de x-as, om de y-as</td></tr></table>`,
-  cards:[NT.lees, NT.schrijf, NT.assen, NT.zelf] };
+  cards:[NT.lees, NT.schrijf, NT.zelf] };
 ICONS.tf_rooster = '<path d="M3 6h18M3 12h18M3 18h18M6 3v18M12 3v18M18 3v18"/><circle cx="6" cy="6" r="1.6" fill="currentColor"/><circle cx="18" cy="18" r="1.6" fill="currentColor"/>';
 SEC.rooster = { id:'rooster', ic:'tf_rooster', nav:'Roosters', title:'Transformaties op een rooster',
   tip:'Op een rooster van vierkanten tel je <b>vakjes</b>. Rechten krijgen een <b>kleine letter</b>, punten een <b>hoofdletter</b>.',
@@ -4272,6 +4274,16 @@ SEC.rooster = { id:'rooster', ic:'tf_rooster', nav:'Roosters', title:'Transforma
     <tr><td>s<sub>?</sub>(A) = B</td><td>Het ontbrekende element ligt in het midden van [AB]: een as (kleine letter) of een punt (hoofdletter).</td></tr>
     <tr><td>s<sub>a</sub>([AB])</td><td>Spiegel elk eindpunt afzonderlijk.</td></tr></table>`,
   cards:[RO.kijk, RO.klik, RO.klikR, RO.terug, RO.not, RO.element, RO.alles, NT.vlak] };
+ICONS.tf_assen = '<path d="M3 12h18M12 3v18M18 9l3 3-3 3M9 6l3-3 3 3"/><circle cx="7" cy="7.5" r="1.6" fill="currentColor"/><circle cx="17" cy="16.5" r="1.6" fill="currentColor"/>';
+SEC.assen = { id:'assen', ic:'tf_assen', nav:'Assenstelsel', title:'Beeldpunten in een assenstelsel',
+  tip:'In een assenstelsel spiegel je om de <b>x-as</b> (s<sub>x</sub>), om de <b>y-as</b> (s<sub>y</sub>) of om de <b>oorsprong O</b> (s<sub>O</sub>). Je draait rond O over 90° of −90°.',
+  cheat:`<h3>Spiekbriefje · assenstelsel</h3><table>
+    <tr><td>s<sub>x</sub>(A)</td><td>Spiegel A om de x-as: even ver aan de andere kant van de horizontale as.</td></tr>
+    <tr><td>s<sub>y</sub>(A)</td><td>Spiegel A om de y-as: even ver aan de andere kant van de verticale as.</td></tr>
+    <tr><td>s<sub>O</sub>(A)</td><td>Ga van A in een rechte lijn door O en even ver door.</td></tr>
+    <tr><td>r(O, 90°)(A)</td><td>Draai [OA] een kwart draai in tegenwijzerzin ↺. Bij −90° in wijzerzin ↻.</td></tr>
+    <tr><td>t<sub>${vecN('V','W')}</sub>(A)</td><td>Tel hoe je van V naar W gaat. Zet dezelfde stappen vanuit A.</td></tr></table>`,
+  cards:[NT.assen] };
 SEC.eig = { id:'eig', ic:'tf_eig', nav:'Eigenschappen', title:'Eigenschappen van transformaties',
   tip:'De vier transformaties zijn <b>isometrieën</b>: het beeld is congruent met de figuur. Enkel de plaats verandert, en soms de oriëntatie.',
   cheat:`<h3>Spiekbriefje · eigenschappen</h3><table class="eig-sum"><tr><th></th><th>s<sub>a</sub></th><th>t</th><th>r</th><th>s<sub>O</sub></th></tr>
@@ -4300,7 +4312,7 @@ const TOETS_TIP2 = 'Een proeftoets over de hele module. Je krijgt pas feedback a
 [0,1,2].forEach(i=>{ SEC['toets'+(i+1)] = { id:'toets'+(i+1), ic:'toets', nav:'Proeftoets '+(i+1), title:'Proeftoets '+(i+1), tip:TOETS_TIP2,
   cards:[ { title:'Proeftoets '+(i+1), noReset:true, build:(b,st,save,key)=>proeftoets(b,st,save,key,TOETSEN2[i]) } ] }; });
 
-const ORDER = ['herken','as','trans','rot','punt','notatie','rooster','coord','eig','symv','symr','fout','toets1','toets2','toets3'];
+const ORDER = ['herken','as','trans','rot','punt','notatie','rooster','assen','coord','eig','symv','symr','fout','toets1','toets2','toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
