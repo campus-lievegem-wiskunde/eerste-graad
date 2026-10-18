@@ -347,7 +347,10 @@ function proeftoets(b, st, save, key, items){
     QZ = [];
     try{ q.build(body, sub, save, key+'_q'+i); }
     catch(err){ console.error(err); }
-    finally{ const g = QZ; QZ = null; const tot = g.reduce((s,x)=>s+(x.pts!=null?x.pts:1),0); ptsTag.textContent = '/ ' + fmtN(tot); rows.push({q, row, fb, graders:g, tot, ptsTag}); }
+    finally{ const g = QZ; QZ = null; let tot = g.reduce((s,x)=>s+(x.pts!=null?x.pts:1),0);
+      /* vaste punten per vraag: de deelvragen worden herschaald */
+      if(q.pts && tot){ const f = q.pts/tot; g.forEach(x=>x.pts = (x.pts!=null?x.pts:1)*f); tot = q.pts; }
+      ptsTag.textContent = '/ ' + fmtN(tot, 2); rows.push({q, row, fb, graders:g, tot, ptsTag}); }
   });
   const actions = el('div','pt-actions');
   const bGrade = el('button','btn big','Verbeter mijn proeftoets'); bGrade.type='button';
@@ -361,15 +364,16 @@ function proeftoets(b, st, save, key, items){
       const res = graders.map(g=>{ let ok=false; try{ ok = !!g.grade(); }catch(e){ ok=false; } if(ok) got += (g.pts!=null?g.pts:1); return ok; });
       total += tot; score += got;
       graders.forEach((g,k)=>{ try{ g.reveal && g.reveal(res[k]); g.lock && g.lock(); }catch(e){} });
-      const full = got===tot && tot>0;
+      const full = Math.abs(got-tot)<1e-9 && tot>0;
       row.classList.toggle('right', full); row.classList.toggle('wrongq', !full);
-      ptsTag.textContent = fmtN(got) + ' / ' + fmtN(tot);
+      ptsTag.textContent = fmtN(got, 2) + ' / ' + fmtN(tot, 2);
       fb.className = 'fb '+(full?'ok':'bad');
       fb.innerHTML = full ? '✅ Alles juist.' : (got>0 ? '◐ Gedeeltelijk juist. ' : '❌ Nog niet juist. ') + (q.show ? 'Juist antwoord: ' + (typeof q.show==='function'?q.show():q.show) : '');
     });
+    score = Math.round(score*10)/10; total = Math.round(total*10)/10;
     const pct = total ? score/total : 0;
     const lvl = pct>=.9?'prima':pct>=.7?'goed':pct>=.5?'voldoende':'onvoldoende';
-    const html = `<div class="score"><span class="big">${fmtN(score)} / ${fmtN(total)}</span><span>Ik ken de leerstof:</span><span class="lvl">${lvl}</span></div>`;
+    const html = `<div class="score"><span class="big">${fmtN(score, 1)} / ${fmtN(total, 1)}</span><span>Ik ken de leerstof:</span><span class="lvl">${lvl}</span></div>`;
     scoreTop.innerHTML = html; scoreBottom.innerHTML = html; CLtoets(key, score, total);
     bGrade.disabled = true;
     st.done = true; save();
@@ -3418,10 +3422,10 @@ function notBox(parent, s, opt={}){
   const bSub = k('…<span class="nb-low"><i class="nb-sq"></i> lager</span>', ()=>{ mode.sub = mode.sub ? 0 : 1; if(!mode.sub) mode.vec = 0; paint(); }, 'lager schrijven aan of uit');
   const bVec = k(`<span class="vec-n"><i>${NB_VEC}</i>AB</span> vector`, ()=>{ mode.vec = mode.vec ? 0 : 1; paint(); }, 'vector aan of uit');
   keys.append(el('span','sep'));
-  ['s','t','r','(',')','=',',','°','−','′','Δ'].forEach(c=>k(c, ()=>add(c)));
+  ['s','t','r','(',')','[',']','=',',','°','−','′','Δ'].forEach(c=>k(c, ()=>add(c)));
   keys.append(el('span','sep'));
   k('⌫', back, 'wis het laatste teken'); k('Wis alles', ()=>{ if(locked) return; s.tk = []; changed(); });
-  inp.addEventListener('input', ()=>{ const v = inp.value; inp.value = ''; [...v].forEach(c=>{ if(/[A-Za-z0-9()=,°′'’+\-−–Δ]/.test(c)) add(c==='-'||c==='–' ? '−' : c==='\'' || c==='’' ? '′' : c); }); });
+  inp.addEventListener('input', ()=>{ const v = inp.value; inp.value = ''; [...v].forEach(c=>{ if(/[A-Za-z0-9()\[\]=,°′'’+\-−–Δ]/.test(c)) add(c==='-'||c==='–' ? '−' : c==='\'' || c==='’' ? '′' : c); }); });
   inp.addEventListener('keydown', e=>{ if(e.key==='Backspace'){ e.preventDefault(); back(); } else if(e.key==='Enter'){ e.preventDefault(); opt.onEnter && opt.onEnter(); } else if(e.key==='_'){ e.preventDefault(); bSub.click(); } });
   inp.addEventListener('focus', ()=>view.classList.add('focus')); inp.addEventListener('blur', ()=>view.classList.remove('focus'));
   paint();
@@ -3458,7 +3462,7 @@ function zelfNotQ(parent, st, save, id, q){
 function zinChk(txt, q){
   const t = ' ' + txt.replace(/\s+/g,' ').trim() + ' ';
   const has = re => re.test(t); const miss = [];
-  const P = x => `(het )?(punt )?${x}(?![A-Za-z])`;
+  const P = x => `(het )?(punt |driehoek |Δ ?)?${x}(?![A-Za-z])`;
   if(!has(/beeld/i)) miss.push('het woord <b>beeld</b>');
   else if(!has(new RegExp(`${q.b}[^.]*beeld van ${P(q.a)}`, 'i')) && !has(new RegExp(`beeld van ${P(q.a)}[^.]*(is|=) ${P(q.b)}`, 'i'))) miss.push(`wie het beeld is van wie (${q.b} is het beeld van ${q.a})`);
   if(q.k==='s'){ if(!has(/spiegeling/i)) miss.push('de naam van de transformatie'); if(!has(new RegExp(`(as|rechte) ${q.e}(?![A-Za-z])`))) miss.push(`de as ${q.e}`); }
@@ -4146,6 +4150,333 @@ FJ.reken = { title:'Zoek de fout in de redenering', lvl:3, instr:'Elke uitwerkin
     why:'Spiegel je het parallellogram om een diagonaal, dan valt het niet op zichzelf.', fix:'Aantal symmetrieassen: [[0]]', mode:'numeric', fixCheck:v=>({ok:parseNum(v[0])===0, msg: parseNum(v[0])===0 ? 'Wel een symmetriemiddelpunt: het snijpunt van de diagonalen.' : ''}), fixSol:'0'});
 }};
 /* ============================================================
+   PROEFTOETSEN: VOORSTELLEN A TOT F
+   Eigen vragen op het niveau van de KT en de HT1. Niets is letterlijk overgenomen.
+   ============================================================ */
+const T_LET = 'ABCDEFGHJKLMNPRSTUVW';
+/* --- één tekening met een figuur en vier beelden (zoals KT vraag 1, maar eigen figuren) --- */
+function tScene(R){
+  const g = [0,20,0,14];
+  /* zes vakken (3 kolommen, 2 rijen): de basisfiguur in één vak, elk beeld in een ander vak */
+  const Z = []; for(let r=0;r<2;r++) for(let c=0;c<3;c++) Z.push({c, r, x:c*7, y:r*8});
+  const cen = P => [P.reduce((s,p)=>s+p[0],0)/P.length, P.reduce((s,p)=>s+p[1],0)/P.length];
+  for(let t=0;t<3000;t++){
+    const z0 = R.pick(Z); const base = genPoly(R, 3, [z0.x+1, z0.x+5, z0.y+1, z0.y+5]); const B = cen(base);
+    const free = R.shuffle(Z.filter(z=>z!==z0));
+    const zs = free.find(z=>(z.r===z0.r && Math.abs(z.c-z0.c)===1) || (z.c===z0.c)); if(!zs) continue;
+    const rest = free.filter(z=>z!==zs);
+    const tc = z => [z.x+3 + R.int(-1,1), z.y+3 + R.int(-1,1)];
+    const ops = {};
+    if(zs.r===z0.r){ const c = Math.round((B[0] + zs.x+3)/2); ops.s = {t:'s', p:[c,0], q:[c,14], name:'a', nAt:'end'}; }
+    else { const c = Math.round((B[1] + zs.y+3)/2); ops.s = {t:'s', p:[0,c], q:[20,c], name:'a', nAt:'end'}; }
+    const Tt = tc(rest[0]); ops.t = {t:'t', v:[Math.round(Tt[0]-B[0]), Math.round(Tt[1]-B[1])], name:['X','Y']};
+    const Tr = tc(rest[1]); const deg = R.pick([90,-90]); const d = deg===90 ? [Tr[0]+B[1], Tr[1]-B[0]] : [Tr[0]-B[1], Tr[1]+B[0]];
+    ops.r = {t:'r', deg, name:'O', c: deg===90 ? [Math.round((d[0]-d[1])/2), Math.round((d[0]+d[1])/2)] : [Math.round((d[0]+d[1])/2), Math.round((-d[0]+d[1])/2)]};
+    const Tp = tc(rest[2]); ops.p = {t:'p', c:[Math.round((B[0]+Tp[0])/2), Math.round((B[1]+Tp[1])/2)], name:'Z'};
+    const kinds = R.shuffle(['s','t','r','p']);
+    const figs = [base]; const pairs = [];
+    kinds.forEach(k=>{ figs.push(base.map(p=>applyOp(p, ops[k]))); pairs.push({k, src:0, img:figs.length-1, op:ops[k]}); });
+    if(!figs.every(F=>F.every(p=>inG(p,g) && Math.abs(p[0]-Math.round(p[0]))<1e-9 && Math.abs(p[1]-Math.round(p[1]))<1e-9))) continue;
+    let ok = true;
+    for(let i=0;i<figs.length && ok;i++) for(let j=i+1;j<figs.length && ok;j++){
+      const dd = Math.min(...figs[i].flatMap(p=>figs[j].map(q=>Math.hypot(p[0]-q[0], p[1]-q[1]))));
+      if(dd < 2 || figs[i].some(p=>inPoly(p, figs[j])) || figs[j].some(p=>inPoly(p, figs[i]))) ok = false; }
+    if(!ok) continue;
+    if(!ops.t.v[0] && !ops.t.v[1]) continue;
+    ops.t.from = vecFrom(R, g, ops.t.v, figs.flat()); if(!ops.t.from) continue;
+    const marks = [ops.t.from, [ops.t.from[0]+ops.t.v[0], ops.t.from[1]+ops.t.v[1]], ops.r.c, ops.p.c];
+    if(marks.some(m=>!inG(m,g) || figs.some(F=>F.some(p=>Math.hypot(p[0]-m[0], p[1]-m[1])<1.5) || inPoly(m, F)))) continue;
+    if(marks.some((m,i)=>marks.some((n,j)=>j>i && Math.hypot(m[0]-n[0], m[1]-n[1])<2.5))) continue;
+    /* de vector loopt niet door een figuur en niet vlak langs een centrum */
+    const along = Array.from({length:21}, (_,i)=>[ops.t.from[0]+ops.t.v[0]*i/20, ops.t.from[1]+ops.t.v[1]*i/20]);
+    if(along.some(q=>figs.some(F=>inPoly(q, F) || F.some(p=>Math.hypot(p[0]-q[0], p[1]-q[1])<.9)) || [ops.r.c, ops.p.c].some(m=>Math.hypot(m[0]-q[0], m[1]-q[1])<1.2))) continue;
+    const sp = ops.s; if(figs.some(F=>{ const sd = F.map(p=>Math.sign(r6(cross3(sp.p, sp.q, p)))); return sd.includes(0) || (sd.includes(1) && sd.includes(-1)); })) continue;
+    if([ops.r.c, ops.p.c].some(m=>Math.abs(cross3(sp.p, sp.q, m))<1e-9)) continue;
+    const L = R.shuffle(T_LET.split('')).slice(0, 15);
+    const names = figs.map((F,i)=>L.slice(3*i, 3*i+3));
+    return {g, ops, figs, pairs, names, nm:i=>'Δ'+names[i].join('')};
+  }
+  return null;
+}
+function sceneObjs(S){
+  const o = [{t:'axis', p:S.ops.s.p, q:S.ops.s.q, n:'a', nAt:'end'}, ...opBase(S.ops.t), {t:'cen', p:S.ops.r.c, n:'O'}, {t:'cen', p:S.ops.p.c, n:'Z'}];
+  S.figs.forEach((F,i)=>o.push({t:'poly', pts:F, c:i===0?'orig':'img', names:S.names[i]}));
+  return o;
+}
+const sceneFig = (b, S, maxw=600) => { const F = gridFig(b, {g:S.g, maxw}); F.draw(sceneObjs(S)); return F; };
+const opZin = op => op.t==='s' ? `de spiegeling om de as ${op.name}` : op.t==='p' ? `de spiegeling om het punt ${op.name}` : op.t==='t' ? `de translatie over de vector ${vecN(op.name[0], op.name[1])}` : `de rotatie rond ${op.name} over ${Math.abs(op.deg)}° in ${zinTxt(op.deg)}`;
+const opSer = (op, a, b) => op.t==='s' || op.t==='p' ? `s_{${op.name}}(${a})=${b}` : op.t==='t' ? `t_{>{${op.name.join('')}}}(${a})=${b}` : `r(${op.name},${op.deg<0?'-':''}${Math.abs(op.deg)})(${a})=${b}`;
+const opNotH = (op, a, b) => op.t==='s' || op.t==='p' ? `s<sub>${op.name}</sub>(${a}) = ${b}` : op.t==='t' ? `t<sub>${vecN(op.name[0], op.name[1])}</sub>(${a}) = ${b}` : `r(${op.name}, ${degTxt(op.deg)})(${a}) = ${b}`;
+
+/* --- zin schrijven bij een tekening of notatie, nagekeken op kernwoorden (ook in een proeftoets) --- */
+function zinQ(parent, st, save, id, q){
+  const qid = QID(id); const quiz = QZ; if(!quiz) CLvraag(qid);
+  const s = st[id] || (st[id] = {v:''});
+  const row = el('div','q'); parent.append(row);
+  row.append(el('div','q-text block', (q.nr?`<span class="q-num">${q.nr}</span>`:'') + q.html));
+  if(q.fig) q.fig(row);
+  const ta = document.createElement('textarea'); ta.className = 'zin-ta'; ta.placeholder = 'Schrijf een volledige zin…'; ta.value = s.v || ''; row.append(ta);
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button'; act.append(bC); if(quiz) bC.hidden = true;
+  const fb = el('div','fb'); row.append(act, fb);
+  const check = () => q.check ? q.check(ta.value) : zinChk(ta.value, q);
+  ta.addEventListener('input', ()=>{ s.v = ta.value; ta.classList.remove('ok','bad'); fb.className = 'fb'; fb.textContent = ''; save(); });
+  function show(miss){ const ok = !miss.length; ta.classList.remove('ok','bad'); ta.classList.add(ok?'ok':'bad');
+    fb.className = 'fb ' + (ok?'ok':'bad'); fb.innerHTML = ok ? '✅ Juist!' + (q.model ? ' Bijvoorbeeld: ' + q.model : '') : '❌ Nog niet volledig. Er ontbreekt: ' + miss.join(', ') + '.' + (quiz && q.model ? ' Bijvoorbeeld: ' + q.model : ''); }
+  function run(silent){ if(!ta.value.trim()){ fb.className = 'fb info'; fb.textContent = 'Schrijf eerst een zin.'; return; }
+    const miss = check(); show(miss); s.checked = true; save(); if(!silent) CLres(qid, !miss.length); }
+  bC.addEventListener('click', ()=>run(false)); if(s.checked && !quiz) run(true);
+  if(quiz) quiz.push({ pts:q.pts||1, grade:()=>!!ta.value.trim() && !check().length, reveal:(ok)=>{ if(!ta.value.trim()){ fb.className='fb bad'; fb.innerHTML = '❌ Niet ingevuld.' + (q.model ? ' Bijvoorbeeld: ' + q.model : ''); return; } show(check()); }, lock:()=>{ ta.readOnly = true; } });
+}
+/* kernwoorden van een eigenschap */
+const EIG_KW = {col:/collineair/i, evw:/evenwijdig/i, lood:/loodrecht/i, len:/lengte|even lang/i, hoek:/hoek/i, opp:/oppervlakte/i, omt:/omtrek/i, vorm:/vorm|congruent/i};
+const T_KW = {s:/spiegeling|spiegelen|gespiegeld/i, t:/translatie|verschuiving|verschuiven|verschoven/i, r:/rotatie|draaiing|draaien|gedraaid/i, p:/puntspiegeling|spiegeling om (een|het) punt|spiegelen om (een|het) punt|rotatie over 180|halve draai/i};
+function eigChk(txt, k, e){
+  const miss = [];
+  if(!T_KW[k].test(txt)) miss.push('de naam van de transformatie');
+  if(k==='s' && /punt/i.test(txt) && !/\bas\b/i.test(txt)) miss.push('de juiste transformatie (om een as, niet om een punt)');
+  if(!EIG_KW[e].test(txt)) miss.push('de eigenschap');
+  if(!/bewaar|behoud|blijft|blijven|gelijk|even groot|even lang|dezelfde/i.test(txt)) miss.push('dat de eigenschap behouden blijft');
+  return miss;
+}
+
+/* --- notatie in een proeftoets: zin -> notatievak --- */
+function notQ(parent, st, save, id, q){
+  const qid = QID(id); const quiz = QZ; if(!quiz) CLvraag(qid);
+  const s = st[id] || (st[id] = {});
+  const row = el('div','q'); parent.append(row);
+  row.append(el('div','q-text block', (q.nr?`<span class="q-num">${q.nr}</span>`:'') + q.html));
+  if(q.fig) q.fig(row);
+  const fb = el('div','fb');
+  const box = notBox(row, s, {onChange:()=>{ fb.className = 'fb'; fb.textContent = ''; save(); }});
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button'; act.append(bC); if(quiz) bC.hidden = true; row.append(act, fb);
+  const ok = () => !box.empty() && box.ser()===q.ser;
+  function run(silent){ if(box.empty()){ fb.className = 'fb info'; fb.textContent = 'Noteer eerst de volledige notatie.'; return; }
+    const g = ok(); box.mark(g); fb.className = 'fb ' + (g?'ok':'bad'); fb.innerHTML = g ? '✅ Juist! ' + q.sol : '❌ Nog niet juist. ' + (nbFlat(box.ser())===nbFlat(q.ser) ? 'De tekens kloppen, maar kijk wat lager staat en waar de vectorpijl hoort.' : 'Vergelijk met de zin: welke transformatie, welk element, welk punt en welk beeld?');
+    s.checked = true; save(); if(!silent) CLres(qid, g); }
+  bC.addEventListener('click', ()=>run(false)); if(s.checked && !quiz) run(true);
+  if(quiz) quiz.push({ pts:q.pts||1, grade:ok, reveal:(g)=>{ box.mark(g); if(!g){ fb.className = 'fb bad'; fb.innerHTML = '❌ Juist is: ' + q.sol; } }, lock:()=>box.lock() });
+}
+
+/* --- kleine tekening van één paar (voor 'herken en wees volledig') --- */
+function pairTask(R, kind){
+  const g = [0,12,0,8];
+  const op = () => kind==='t' ? genOpK(R, g, 't') : kind==='s' ? genOpK(R, g, R.pick(['s-v','s-h','s-d'])) : kind==='r' ? {t:'r', c:[R.int(3,9), R.int(2,6)], deg:R.pick([90,-90])} : {t:'p', c:[R.int(3,9), R.int(2,6)]};
+  const T = genTask(R, 3, g, kind==='r'?'r90':kind, {op, minD:3}); if(!T) return null;
+  if(T.op.t==='t'){ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img)); T.op.name = ['U','V']; }
+  if(T.op.t==='s'){ T.op.name = R.pick(['b','c','d']); T.op.nAt = 'start'; }
+  if(T.op.t==='r') T.op.name = R.pick(['M','O','P']);
+  if(T.op.t==='p') T.op.name = R.pick(['M','O','P']);
+  return {g, ...T};
+}
+function herkenZin(b, st, save, id, R, kind, nr, pts){
+  const T = pairTask(R, kind); if(!T) return;
+  const L = R.shuffle('EFGHJKLNRSTW'.split('')).slice(0,6); const A = L.slice(0,3).join(''), B = L.slice(3).join('');
+  const q = {k:kind, e:kind==='t' ? T.op.name.join('') : T.op.name, a:A, b:B, h:T.op.deg};
+  zinQ(b, st, save, id, {nr, pts, ...q, html:`ΔR? Welke transformatie zie je? Wees zo volledig mogelijk: schrijf een zin met het beeld, de transformatie en ${kind==='r' ? 'het centrum, de hoek en de draaizin' : kind==='t' ? 'de vector' : kind==='s' ? 'de as' : 'het punt'}.`.replace('ΔR? ', ''),
+    model:`Δ${B} is het beeld van Δ${A} door ${opZin(T.op)}.`,
+    fig:row=>{ const F = gridFig(row, {g:T.g, maxw:360}); F.draw(opBase(T.op).concat([{t:'poly', pts:T.pts, c:'orig', names:A.split('')}, {t:'poly', pts:T.img, c:'img', names:B.split('')}])); }});
+}
+
+/* --- coördinaten met een tekening --- */
+function coordQs(b, st, save, R, kinds, ptsEach){
+  const g = [-6,6,-6,6]; const P = {}; const used = [[0,0]];
+  const take = () => { for(let t=0;t<200;t++){ const p = [nz(R,2,5), nz(R,2,5)]; if(!used.some(q=>ptEq(q,p)) && !used.some(q=>ptEq([-q[0],-q[1]],p))){ used.push(p); return p; } } return [1,2]; };
+  ['A','B','C','D'].forEach(n=>P[n] = take());
+  const F = gridFig(b, {g, axes:true, maxw:380});
+  F.draw(Object.entries(P).map(([n,p])=>({t:'pt', p, n, c:'orig', away:[p[0]-.7, p[1]-.7]})));
+  b.append(el('p','help','O is de oorsprong van het assenstelsel.'));
+  const nm = {sx:'s<sub>x</sub>', sy:'s<sub>y</sub>', sO:'s<sub>O</sub>', r90:'r(O, 90°)', rm90:'r(O, −90°)', t:`t<sub>${vecN('C','D')}</sub>`};
+  const f = {sx:p=>[p[0],-p[1]], sy:p=>[-p[0],p[1]], sO:p=>[-p[0],-p[1]], r90:p=>[-p[1],p[0]], rm90:p=>[p[1],-p[0]], t:p=>[p[0]+P.D[0]-P.C[0], p[1]+P.D[1]-P.C[1]]};
+  const imgN = ['K','L','M','N','R'];
+  kinds.forEach(([k, n],i)=>{ const Q = f[k](P[n]); const Lp = imgN[i];
+    qBlock(b, st, save, 'c'+i, {nr:LET[i]+'.', pts:ptsEach, html:keepTxt(`${nm[k]}(${n}) = ${Lp}([[0]], [[1]])`), size:'sm', mode:'text', check:v=>chkPt(v, Q, Lp), sol:`${Lp}${co(...Q)}`}); });
+}
+
+/* --- het juiste spiegelbeeld van een woord --- */
+function spiegelWoord(b, st, save, R){
+  const w = R.pick(['REKEN','GRAF','PLANK','KLEUR','BRUG','FJORD','ZEGEL']);
+  const svgW = (tr, txt) => `<svg viewBox="0 0 120 34" style="width:150px;height:auto;display:block"><rect x="1" y="1" width="118" height="32" rx="4" style="fill:var(--card);stroke:var(--border)"/><g transform="${tr}"><text x="60" y="24" text-anchor="middle" style="font:700 20px var(--font, sans-serif);fill:var(--ink)">${txt}</text></g></svg>`;
+  const opts = R.shuffle([['j', svgW('translate(120,0) scale(-1,1)', w)], ['o', svgW('translate(0,34) scale(1,-1)', w)], ['h', svgW('rotate(180 60 17)', w)], ['r', svgW('', w.split('').reverse().join(''))]]);
+  qChoice(b, st, save, 'w', {html:`Het woord staat voor een spiegel. De spiegel staat rechts van het woord, rechtop. Welk spiegelbeeld is juist?`, fig:`<div style="display:flex;align-items:center;gap:.6rem;margin:.4rem 0">${svgW('', w)}<span style="width:3px;height:44px;background:var(--accent-dark);display:inline-block"></span></div>`, opts, ans:'j', pts:1});
+}
+
+/* --- wiel met n spaken: twee draaihoeken --- */
+function wielQ(b, st, save, R){
+  const n = R.pick([8,10,12]); const nm = 'ABCDEFGHJKLM'.slice(0,n).split(''); let k; do{ k = R.int(2, n-2); }while(k*2===n);
+  const step = 360/n; const pos = k*step, neg = -(n-k)*step;
+  const P = nm.map((x,i)=>{ const a = (90 + i*step)*D2R; return [r6(3.6*Math.cos(a)), r6(3.6*Math.sin(a))]; });
+  const F = gridFig(b, {g:[-4.8,4.8,-4.8,4.8], plain:true, maxw:280});
+  F.draw([{t:'raw', s:`<circle cx="${X(0)}" cy="${Y(0)}" r="${f2(3.6*CU)}" style="fill:none;stroke:var(--ink);stroke-width:.6"/>`}].concat(P.map((p,i)=>({t:'line', a:[0,0], b:p, c:'seg orig'})), P.map((p,i)=>({t:'pt', p, n:nm[i], c:'orig', r:.8, away:[0,0]})), [{t:'cen', p:[0,0], n:'M', away:[1,-1]}]));
+  qBlock(b, st, save, 'w', {pts:2, html:keepTxt(`Het wiel heeft ${n} gelijke spaken. Een rotatie rond M brengt spaak A naar spaak ${nm[k]}. In tegenwijzerzin: r(M, [[0]] °). In wijzerzin: r(M, [[1]] °).`), size:'xs', mode:'text',
+    check:v=>{ const a = parseAng(v[0]), c = parseAng(v[1]); const f = [Math.abs(a-pos)<1e-6, Math.abs(c-neg)<1e-6]; return {ok:f[0]&&f[1], fields:f, msg: (!f[0]||!f[1]) ? 'Eén stap is 360° : ' + n + '. Tegenwijzerzin is positief, wijzerzin negatief.' : ''}; },
+    sol:`Eén stap is ${fmtN(step)}°. Tegenwijzerzin: ${k} stappen = ${fmtN(pos)}°. Wijzerzin: ${n-k} stappen = −${fmtN(-neg)}°.`});
+}
+if(typeof window!=='undefined' && !document.getElementById('t2css')){ const s = document.createElement('style'); s.id = 't2css'; s.textContent = `.t2-twee{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:1rem }`; document.head.append(s); }
+
+/* --- spiegelas tekenen tussen [XY] en [X′Y′] --- */
+function asTeken(b, st, save, id, R, special, pts){
+  const g = [0,12,0,8];
+  for(let t=0;t<800;t++){
+    const ax = R.pick(['v','h','d','d2']); let A, B;
+    if(ax==='v'){ const c = R.int(3,9); A = [c,0]; B = [c,8]; } else if(ax==='h'){ const c = R.int(2,6); A = [0,c]; B = [12,c]; }
+    else if(ax==='d'){ const c = R.int(-3,5); A = [0,c]; B = [1,c+1]; } else { const c = R.int(4,12); A = [0,c]; B = [1,c-1]; }
+    const op = {t:'s', p:A, q:B};
+    const X = special ? (()=>{ const on = []; for(let x=0;x<=12;x++) for(let y=0;y<=8;y++) if(Math.abs(cross3(A,B,[x,y]))<1e-9) on.push([x,y]); return on.length ? R.pick(on) : null; })() : [R.int(0,12), R.int(0,8)];
+    if(!X) continue; const Y = [R.int(0,12), R.int(0,8)];
+    const X2 = applyOp(X, op), Y2 = applyOp(Y, op);
+    if(![X,Y,X2,Y2].every(p=>inG(p,g) && Number.isInteger(r6(p[0])) && Number.isInteger(r6(p[1])))) continue;
+    if(Math.hypot(X[0]-Y[0], X[1]-Y[1])<3 || ptEq(Y,Y2) || Math.abs(cross3(A,B,Y))<1e-9) continue;
+    if(!special && (ptEq(X,X2) || Math.hypot(X[0]-X2[0], X[1]-X2[1])<2)) continue;
+    if(!special){ const sd = Math.sign(r6(cross3(A,B,X))), sy = Math.sign(r6(cross3(A,B,Y))); if(sd!==sy) continue; }
+    const lab = special ? [{t:'pt', p:X, n:'X = X′', c:'orig', r:.9, away:Y}] : [{t:'pt', p:X, n:'X', c:'orig', r:.9, away:Y}, {t:'pt', p:X2, n:'X′', c:'img', r:.9, away:Y2}];
+    const objs = () => [{t:'line', a:X, b:Y, c:'seg orig'}, {t:'line', a:X2, b:Y2, c:'seg img'}].concat(lab, [{t:'pt', p:Y, n:'Y', c:'orig', r:.9, away:X}, {t:'pt', p:Y2, n:'Y′', c:'img', r:.9, away:X2}]);
+    placeTask(b, st, save, id, {g, mode:'as', fig:{pts:[], names:[]}, op, figObjs:objs, ans:[A,B], pts, html:`Klik twee punten van de spiegelas a waarvoor [X′Y′] het beeld is van [XY].`});
+    return;
+  }
+}
+
+/* ============================================================
+   DE ZES VOORSTELLEN
+   ============================================================ */
+const tq = (sec, prompt, pts, build) => ({sec, prompt, pts, build});
+/* A · zoals de KT */
+const TOETS_A = [
+  tq('Wiskundetaal', 'Bekijk de tekening en vul de zinnen volledig aan.', 4, (b,st,save)=>{
+    const R = makeR(st); const S = tScene(R); if(!S){ b.append(el('p','','Klik op Nieuwe proeftoets.')); return; } sceneFig(b, S);
+    const words = ['het beeld','spiegeling','translatie','rotatie','de as','het punt','de vector','het centrum','hoek','wijzerzin','tegenwijzerzin'];
+    const bank = wordBank(b, words);
+    R.shuffle(S.pairs).forEach((P,i)=>{ const A = S.nm(P.src), B = S.nm(P.img); let html, ans;
+      if(P.k==='r'){ html = `${B} is [[w]] van ${A} door een [[w]] rond [[w]] O over een [[w]] van 90° in [[w]].`; ans = ['het beeld','rotatie','het centrum','hoek', zinTxt(P.op.deg)]; }
+      if(P.k==='t'){ html = `${B} is [[w]] van ${A} door een [[w]] over [[w]] ${vecN('X','Y')}.`; ans = ['het beeld','translatie','de vector']; }
+      if(P.k==='s'){ html = `${B} is [[w]] van ${A} door een [[w]] om [[w]] a.`; ans = ['het beeld','spiegeling','de as']; }
+      if(P.k==='p'){ html = `${B} is [[w]] van ${A} door een [[w]] om [[w]] Z.`; ans = ['het beeld','spiegeling','het punt']; }
+      wordFill(b, st, save, 'z'+i, {nr:LET[i]+'.', html, ans, bank}); });
+  }),
+  tq('Beeld tekenen', '', 2, (b,st,save)=>{
+    const R = makeR(st); const g = [0,12,0,8];
+    const T = genTask(R, 4, g, R.pick(['s-v','s-h']), {dek:true}); if(!T){ b.append(el('p','','Klik op Nieuwe proeftoets.')); return; }
+    T.op.name = 'b'; T.op.nAt = 'start'; const names = R.pick(NAMES4).split(''); const fig = {pts:T.pts, names};
+    placeTask(b, st, save, 'p', {g, fig, op:T.op, base:opBase(T.op), html:`Teken s<sub>b</sub>(${names.join('')}).`});
+    const dk = names.filter((n,i)=>ptEq(T.pts[i], T.img[i]));
+    qBlock(b, st, save, 'd', {html:`Welk punt is zijn eigen beeld? [[0]] noemen we een [[1]].`, size:'sm', mode:'text', check:v=>{ const f = [v[0].toUpperCase().replace(/\s/g,'')===dk.join(''), /dekpunt/i.test(v[1])]; return {ok:f[0]&&f[1], fields:f}; }, sol:`${dk.join(', ')}: een dekpunt`});
+  }),
+  tq('Foto’s', 'Welke transformatie herken je in elke foto?', 1, (b,st,save)=>{ const R = makeR(st); const grid = el('div','pair-grid'); b.append(grid); R.shuffle(PHOTOS).slice(0,2).forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.')); }),
+  tq('Herkennen', '', 2, (b,st,save)=>{ const R = makeR(st); const k = R.shuffle(['r','t','p','s']); const box = el('div','t2-twee'); b.append(box); herkenZin(box, st, save, 'h0', R, k[0], 'a.'); herkenZin(box, st, save, 'h1', R, k[1], 'b.'); }),
+  tq('Notatie lezen', '', 2, (b,st,save)=>{ const R = makeR(st); const L = R.shuffle('DEFKLMRSTUVW'.split('')).slice(0,7); const a = R.pick([35,45,60,75,120])*R.pick([1,-1]);
+    const A = L.slice(0,3).join(''), B = L.slice(3,6).join(''), C = L[6];
+    zinQ(b, st, save, 'l', {html:`Hoe lees je <span class="lg">r(${C}, ${degTxt(a)})(Δ${A}) = Δ${B}</span> ? Schrijf een volledige zin.`, k:'r', e:C, a:A, b:B, h:a, model:`Δ${B} is het beeld van Δ${A} door de rotatie rond ${C} over ${Math.abs(a)}° in ${zinTxt(a)}.`}); }),
+  tq('Noteer in symbolen', '', 2, (b,st,save)=>{ const R = makeR(st); const I = zelfItems(R); const t = I.not.find(x=>x.k==='t') || I.not[0]; const o = I.not.concat(I.zin).find(x=>x.k==='s' || x.k==='p');
+    [t, o].forEach((q,i)=>notQ(b, st, save, 'n'+i, {nr:LET[i]+'.', html:q.html, ser:q.ser, sol:q.sol})); }),
+  tq('Notatie op een rooster', 'Het rooster bestaat uit gelijke vierkanten. Vul aan met een letter of een hoek met teken. Een rechte krijgt een kleine letter, een punt een hoofdletter.', 4, (b,st,save)=>{
+    const R = makeR(st); const [c, r] = R.pick([[5,4],[4,5],[5,3]]); latNotCard(b, st, save, latScene(R, c, r), R.shuffle(['img','img','pre','el','el','vec','ang','seg']), 't'); }),
+  tq('Coördinaten', 'Bepaal de coördinaat van het beeld.', 3, (b,st,save)=>{ const R = makeR(st); const n = R.shuffle(['A','B','C']); coordQs(b, st, save, R, [['sy', n[0]], ['sO', n[1]], ['t', n[2]], ['r90', 'A']]); })
+];
+/* B · één grote tekening */
+function toetsB(){
+  let S = null; /* gedeelde tekening, gemaakt bij de eerste vraag */
+  const need = (b) => { if(!S){ b.append(el('p','','Klik op Nieuwe proeftoets.')); return false; } return true; };
+  return [
+    tq('De tekening', 'Bekijk de tekening goed. Alle vragen van deze toets gaan erover. Elke oranje driehoek is het beeld van een andere driehoek.', 4, (b,st,save)=>{
+      const R = makeR(st); S = tScene(R); if(!need(b)) return; sceneFig(b, S);
+      S.pairs.forEach((P,i)=>qChoice(b, st, save, 'k'+i, {nr:LET[i]+'.', html:`${S.nm(P.img)} is het beeld van ${S.nm(P.src)} door een …`, opts:TYPES4.map(([v,l])=>[v,l.replace(' over een vector','').replace(' rond een centrum','')]), ans:P.k})); }),
+    tq('Het element', 'Typ de as (kleine letter), de vector (twee hoofdletters) of het centrum (hoofdletter) bij elk paar.', 3, (b,st,save)=>{ if(!need(b)) return;
+      S.pairs.forEach((P,i)=>{ const want = P.k==='t' ? 'XY' : P.k==='s' ? 'a' : P.k==='r' ? 'O' : 'Z';
+        qBlock(b, st, save, 'e'+i, {nr:LET[i]+'.', html:`${S.nm(P.src)} → ${S.nm(P.img)}: [[0]]`, size:'sm', mode:'text', check:v=>({ok: P.k==='s' ? v[0].trim()===want : v[0].replace(/\s/g,'').toUpperCase()===want}), sol:want}); }); }),
+    tq('Noteer in symbolen', 'Noteer de twee paren volledig in symbolen.', 4, (b,st,save)=>{ if(!need(b)) return;
+      S.pairs.filter(P=>P.k==='r' || P.k==='t').forEach((P,i)=>{ const A = S.nm(P.src), B = S.nm(P.img);
+        notQ(b, st, save, 'n'+i, {nr:LET[i]+'.', html:`${B} is het beeld van ${A} door ${opZin(P.op)}.`, ser:opSer(P.op, A, B), sol:opNotH(P.op, A, B)}); }); }),
+    tq('De rotatie', '', 2, (b,st,save)=>{ if(!need(b)) return; const P = S.pairs.find(x=>x.k==='r');
+      qBlock(b, st, save, 'r', {html:`${S.nm(P.img)} is het beeld van ${S.nm(P.src)} door een rotatie. Centrum: [[0]]. Draaihoek met teken: [[1]] °. Draaizin: [[2]].`, size:'sm', mode:'text',
+        check:v=>{ const a = parseAng(v[1]); const f = [v[0].trim().toUpperCase()==='O', Math.abs(a-P.op.deg)<1e-6, new RegExp('^'+zinTxt(P.op.deg)+'$','i').test(v[2].trim())]; return {ok:f.every(Boolean), fields:f}; }, sol:`O, ${degTxt(P.op.deg)}, ${zinTxt(P.op.deg)}`}); }),
+    tq('Eigenschappen', '', 2, (b,st,save)=>{ if(!need(b)) return; const R = makeR(st); const P = R.pick(S.pairs);
+      const opts = EIG_ALL.filter(e=>e[0]!=='vorm').map(([e,l])=>[e, e==='par' ? 'elke zijde is evenwijdig met haar beeld' : l]);
+      qMulti(b, st, save, 'e', {html:`Wat blijft behouden tussen ${S.nm(P.src)} en ${S.nm(P.img)}? Vink alles aan.`, opts:R.shuffle(opts), ans:opts.map(o=>o[0]).filter(e=>e!=='par' || PAR_OK[P.k]), pts:2}); }),
+    tq('Evenwijdige zijden', '', 2, (b,st,save)=>{ if(!need(b)) return;
+      qMulti(b, st, save, 'p', {html:'Bij welke paren is elke zijde evenwijdig met haar beeld?', opts:S.pairs.map((P,i)=>[String(i), `${S.nm(P.src)} → ${S.nm(P.img)}`]), ans:S.pairs.map((P,i)=>PAR_OK[P.k]?String(i):null).filter(Boolean), pts:2}); }),
+    tq('Zelf tekenen', '', 2, (b,st,save)=>{ const R = makeR(st); const g = [0,12,0,8]; const T = genTask(R, 3, g, 'p', {minD:3, outside:true}); if(!T) return; T.op.name = 'M'; const names = R.pick(NAMES3).split('');
+      placeTask(b, st, save, 'p', {g, fig:{pts:T.pts, names}, op:T.op, base:opBase(T.op), html:`Teken s<sub>M</sub>(Δ${names.join('')}).`}); }),
+    tq('Foto’s', 'Welke transformatie herken je in elke foto?', 1, (b,st,save)=>{ const R = makeR(st); const grid = el('div','pair-grid'); b.append(grid); R.shuffle(PHOTOS).slice(0,2).forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.')); })
+  ];
+}
+/* C · coördinaten en redeneren */
+const WN_CO = [{s:'Bij s<sub>O</sub> veranderen beide coördinaten van teken.', ans:'w'}, {s:'Bij s<sub>x</sub> verandert de x-coördinaat van teken.', ans:'n'}, {s:'Bij s<sub>y</sub> blijft de y-coördinaat gelijk.', ans:'w'},
+  {s:'r(O, 90°) beeldt P(2, 5) af op P′(−5, 2).', ans:'w'}, {s:'r(O, −90°) beeldt P(2, 5) af op P′(−5, 2).', ans:'n'}, {s:'Een punt op de x-as is een dekpunt van s<sub>x</sub>.', ans:'w'},
+  {s:'De oorsprong O is een dekpunt van elke rotatie rond O.', ans:'w'}, {s:'Bij een translatie heeft het beeld van (0, 0) altijd de coördinaten van de vector.', ans:'n'}];
+const TOETS_C = [
+  tq('Coördinaten aflezen', 'Bepaal de coördinaat van het beeld.', 4, (b,st,save)=>{ const R = makeR(st); const n = R.shuffle(['A','B','C','D']); coordQs(b, st, save, R, [['sx', n[0]], ['sy', n[1]], ['sO', n[2]], ['rm90', n[3]]]); }),
+  tq('Zonder tekening', '', 4, (b,st,save)=>{ const R = makeR(st); const P = [-R.int(11,29), R.int(11,39)]; const V = [nz(R,2,9), nz(R,2,9)]; let W; do{ W = [nz(R,1,9), nz(R,1,9)]; }while(W[0]===V[0] || W[1]===V[1]);
+    b.append(el('p','', `Gegeven: ${ptN('P',...P)}, ${ptN('V',...V)} en ${ptN('W',...W)}. Er is geen tekening: denk aan de regels.`));
+    [[`s<sub>x</sub>(P)`, [P[0],-P[1]]], [`s<sub>O</sub>(P)`, [-P[0],-P[1]]], [`t<sub>${vecN('V','W')}</sub>(P)`, [P[0]+W[0]-V[0], P[1]+W[1]-V[1]]], [`s<sub>y</sub>(P)`, [-P[0],P[1]]]].forEach(([t,Q],i)=>
+      qBlock(b, st, save, 'c'+i, {nr:LET[i]+'.', html:keepTxt(`${t} = P′([[0]], [[1]])`), size:'sm', mode:'text', check:v=>chkPt(v, Q, 'P′'), sol:`P′${co(...Q)}`})); }),
+  tq('Terugrekenen', '', 1, (b,st,save)=>{ const R = makeR(st); const Q = [R.int(5,19), -R.int(5,19)]; const k = R.pick(['sx','sy','sO']); const P = k==='sx' ? [Q[0],-Q[1]] : k==='sy' ? [-Q[0],Q[1]] : [-Q[0],-Q[1]];
+    qBlock(b, st, save, 't', {html:keepTxt(`s<sub>${k.slice(1)}</sub>(K) = K′${co(...Q)}. Dan is K([[0]], [[1]]).`), size:'sm', mode:'text', check:v=>chkPt(v, P, 'K'), sol:`K${co(...P)}`}); }),
+  tq('Welke transformatie?', '', 2, (b,st,save)=>{ const R = makeR(st); const A = [nz(R,2,8), nz(R,2,8)];
+    qMulti(b, st, save, 'w', {html:`Welke transformaties beelden ${ptN('A',...A)} af op A′${co(-A[0],-A[1])}? Vink alles aan wat past.`, opts:R.shuffle([['sx','s<sub>x</sub>'],['sy','s<sub>y</sub>'],['sO','s<sub>O</sub>'],['r90','r(O, 90°)'],['r180','r(O, 180°)']]), ans:['sO','r180'], pts:2}); }),
+  tq('Tekenen in een assenstelsel', '', 4, (b,st,save)=>{ const R = makeR(st); const g = [-6,6,-6,6];
+    const T = genTask(R, 3, g, 'r90', {op:()=>({t:'r', c:[0,0], deg:R.pick([90,-90])}), minD:3}); if(!T) return; T.op.name = 'O';
+    const names = ['A','B','C']; b.append(el('p','', `Gegeven: ${names.map((n,i)=>ptN(n,...T.pts[i])).join(', ')}.`));
+    placeTask(b, st, save, 'p', {g, axes:true, fig:{pts:T.pts, names}, op:T.op, base:opBase(T.op), pts:3, html:`Teken r(O, ${degTxt(T.op.deg)})(ΔABC).`});
+    qBlock(b, st, save, 'c', {html:keepTxt(`r(O, ${degTxt(T.op.deg)})(B) = B′([[0]], [[1]])`), size:'sm', mode:'text', check:v=>chkPt(v, T.img[1], 'B′'), sol:`B′${co(...T.img[1])}`}); }),
+  tq('Terugschuiven', '', 2, (b,st,save)=>{ const R = makeR(st); const K = [nz(R,1,6), nz(R,1,6)]; let L; do{ L = [nz(R,1,6), nz(R,1,6)]; }while(L[0]===K[0] || L[1]===K[1]); const M = [nz(R,1,9), nz(R,1,9)];
+    b.append(el('p','', `${ptN('K',...K)} en ${ptN('L',...L)}. Je verschuift eerst over ${vecN('K','L')}.`));
+    notQ(b, st, save, 'v', {nr:'a.', html:'Over welke vector moet je verschuiven om terug te keren? Noteer de vector met pijl.', ser:'>{LK}', sol:vecN('L','K')});
+    qBlock(b, st, save, 'c', {nr:'b.', html:keepTxt(`${ptN('M',...M)}. t<sub>${vecN('L','K')}</sub>(M) = M′([[0]], [[1]])`), size:'sm', mode:'text', check:v=>chkPt(v, [M[0]+K[0]-L[0], M[1]+K[1]-L[1]], 'M′'), sol:`M′${co(M[0]+K[0]-L[0], M[1]+K[1]-L[1])}`}); }),
+  tq('Waar of niet waar', 'Waar of niet waar?', 2, (b,st,save)=>{ const R = makeR(st); wnRows(b, st, save, 'w', R.shuffle(WN_CO).slice(0,4)); }),
+  tq('Foto’s', 'Welke transformatie herken je in elke foto?', 1, (b,st,save)=>{ const R = makeR(st); const grid = el('div','pair-grid'); b.append(grid); R.shuffle(PHOTOS).slice(0,2).forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.')); })
+];
+/* D · symmetrie en eigenschappen */
+const WN_SYM = [{s:'Een ruit heeft een symmetriemiddelpunt.', ans:'w'}, {s:'Een gelijkzijdige driehoek heeft een symmetriemiddelpunt.', ans:'n'}, {s:'Elke figuur met een symmetriemiddelpunt heeft ook een symmetrieas.', ans:'n'},
+  {s:'Een vierhoek met vier symmetrieassen is een vierkant.', ans:'w'}, {s:'Bij een spiegeling om een punt is het beeld van een rechte evenwijdig met die rechte.', ans:'w'}, {s:'Een rotatie verandert de omtrek van een figuur.', ans:'n'},
+  {s:'Een parallellogram heeft twee symmetrieassen.', ans:'n'}, {s:'Een regelmatige zeshoek heeft zes symmetrieassen.', ans:'w'}, {s:'Bij een translatie heeft elk punt een ander beeld dan zichzelf (vector niet nul).', ans:'w'}];
+const TOETS_D = [
+  tq('Spiegelbeeld', '', 1, (b,st,save)=>spiegelWoord(b, st, save, makeR(st))),
+  tq('Foto’s', 'Welke transformatie herken je in elke foto?', 4, (b,st,save)=>{ const R = makeR(st); const by = k => R.shuffle(PHOTOS.filter(p=>p[1]===k))[0]; const grid = el('div','pair-grid'); b.append(grid); R.shuffle([by('s'),by('t'),by('r'),by('p')]).forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.')); }),
+  tq('Symmetrie in het vlak', 'Duid alle symmetrieassen aan. Heeft de figuur een symmetriemiddelpunt?', 3, (b,st,save)=>{ const R = makeR(st); const box = el('div','t2-twee'); b.append(box);
+    R.shuffle(['rechthoek','ruit','gelijkbenig trapezium','vlieger','regelmatige zeshoek','ster','logo 1','gelijkzijdige driehoek','parallellogram']).slice(0,2).forEach((k,i)=>{ const d = el('div'); box.append(d); symTask(d, st, save, 'y'+i, {naam:k, polys:[VLAK[k]], cands:symCands(k, VLAK[k])}); }); }),
+  tq('Eigenschap in woorden', 'Welke eigenschap wordt geïllustreerd? Schrijf ze in een volledige zin, bijvoorbeeld "Een … bewaart …".', 4, (b,st,save)=>{ const R = makeR(st); const box = el('div','t2-twee'); b.append(box);
+    const ks = R.shuffle(['s','t','r','p']), es = R.shuffle(['len','hoek','evw','opp','lood','col']);
+    [0,1].forEach(i=>{ const k = ks[i], e = es[i]; const I = illus(R, e, k);
+      zinQ(box, st, save, 'e'+i, {nr:LET[i]+'.', html:'', check:txt=>eigChk(txt, k, e), model:EIG_ZIN[e](k), fig:row=>{ if(I){ const F = gridFig(row, {g:tightG(I), plain:true, maxw:300}); F.draw(illusObjs(I, e)); } }}); }); }),
+  tq('Waar of niet waar', 'Waar of niet waar?', 4, (b,st,save)=>{ const R = makeR(st); wnRows(b, st, save, 'w', R.shuffle(WN_SYM).slice(0,4)); }),
+  tq('Symmetrie in de ruimte', 'Hoeveel symmetrievlakken heeft elke ruimtefiguur? Typ ∞ als het er oneindig veel zijn.', 2, (b,st,save)=>{ const R = makeR(st); const box = el('div','t2-twee'); b.append(box);
+    R.shuffle(SOLIDS).slice(0,2).forEach(([k,l,n],i)=>{ const d = el('div'); box.append(d); solidFig(d, k, {maxw:200});
+      const r = qBlock(d, st, save, 'n'+i, {nr:LET[i]+'.', html:`${l}: [[0]] symmetrievlakken`, size:'xs', mode:'text', check:v=>{ const t = String(v[0]).trim().toLowerCase(); if(n==='∞') return {ok:/^(∞|oneindig( veel)?)$/.test(t)}; return {ok:parseNum(t)===n}; }, sol:`<b>${n}</b>`}); infBtn(r.row); }); }),
+  tq('Oppervlakte', '', 2, (b,st,save,key)=>SV.opp.build(b,st,save,key))
+];
+/* E · fouten zoeken en uitleggen */
+const TOETS_E = [
+  tq('Wie maakte een fout?', '', 3, (b,st,save,key)=>{ const R = makeR(st); const c = R.pick([FJ.as, FJ.rot, FJ.tr, FJ.pt]); c.build(b, st, save, key); }),
+  tq('Verbeter de notatie', '', 2, (b,st,save)=>{ const R = makeR(st); const L = R.shuffle('DEFGHKLMNRST'.split('')).slice(0,3); const [A,B,C] = L; const g = [0,12,0,6];
+    const PA = [R.int(1,3), R.int(1,5)], PB = [6, 3], PC = [12-PA[0], 6-PA[1]];
+    notQ(b, st, save, 'n', {html:`In de tekening is ${C} het beeld van ${A} door de spiegeling om het punt ${B}. Een leerling schreef s<sub>${A}</sub>(${B}) = ${C}. Noteer het juist.`, ser:`s_{${B}}(${A})=${C}`, sol:`s<sub>${B}</sub>(${A}) = ${C}`,
+      fig:row=>{ const F = gridFig(row, {g, maxw:360}); F.draw([{t:'line', a:PA, b:PC}, {t:'ticks', a:PA, b:PB, n:2}, {t:'ticks', a:PB, b:PC, n:2}, {t:'pt', p:PA, n:A, c:'orig', r:1, away:PB}, {t:'cen', p:PB, n:B, away:[PB[0], PB[1]+1]}, {t:'pt', p:PC, n:C, c:'img', r:1, away:PB}]); }}); }),
+  tq('Zoek de fout in de redenering', '', 3, (b,st,save,key)=>FJ.reken.build(b,st,save,key)),
+  tq('Klopt de uitspraak?', '', 2, (b,st,save)=>{ const R = makeR(st);
+    qChoice(b, st, save, 'u', {html:'Een leerling zegt: "Een rotatie over 180° is hetzelfde als een spiegeling om een as." Wat antwoord je?', pts:2, ans:'p', opts:R.shuffle([['p','Nee. Een rotatie over 180° is een spiegeling om een punt: het centrum is het midden van elk punt en zijn beeld.'],['j','Ja, want het beeld staat op zijn kop.'],['a','Ja, als de as door het centrum gaat.'],['t','Nee, het is een translatie over twee keer de afstand tot het centrum.']])}); }),
+  tq('Notatie op een rooster', 'Vul aan met een letter of een hoek met teken.', 4, (b,st,save)=>{ const R = makeR(st); const [c, r] = R.pick([[5,4],[4,5]]); latNotCard(b, st, save, latScene(R, c, r), R.shuffle(['img','pre','el','vec','ang','seg']), 't'); }),
+  tq('Beeld tekenen', 'Klik op het rooster waar de beeldpunten komen. Kies eerst welk punt je plaatst.', 2, (b,st,save)=>{ const R = makeR(st); tqBeeld(R.pick(['r90','t','s'])).build(b, st, save); }),
+  tq('Symmetrievlakken', '', 3, (b,st,save)=>{ const R = makeR(st); solidFig(b, 'balkvk', {maxw:200});
+    qBlock(b, st, save, 'n', {html:'Een leerling vond 2 symmetrievlakken voor een balk met een vierkant grondvlak. Hoeveel zijn het er echt? [[0]]', size:'xs', mode:'text', check:v=>({ok:parseNum(v[0])===5}), sol:'5'});
+    qChoice(b, st, save, 'k', {html:'Welke vlakken vergeet je het snelst?', pts:2, ans:'d', opts:R.shuffle([['d','de twee vlakken door twee overstaande opstaande ribben (diagonaal)'],['h','het vlak evenwijdig met het grondvlak'],['z','de vlakken door de zijvlakken zelf'],['g','er zijn er geen andere']])}); }),
+  tq('Foto’s', 'Welke transformatie herken je in elke foto?', 1, (b,st,save)=>{ const R = makeR(st); const grid = el('div','pair-grid'); b.append(grid); R.shuffle(PHOTOS).slice(0,2).forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.')); })
+];
+/* F · puzzels en bijzondere gevallen */
+const TOETS_F = [
+  tq('Draaihoek', '', 2, (b,st,save)=>wielQ(b, st, save, makeR(st))),
+  tq('Spiegelas tekenen', '', 3, (b,st,save)=>{ const R = makeR(st); const box = el('div','t2-twee'); b.append(box); const d1 = el('div'), d2 = el('div'); box.append(d1, d2); asTeken(d1, st, save, 'a0', R, false); asTeken(d2, st, save, 'a1', R, true); }),
+  tq('Vervolledig de figuur', '', 3, (b,st,save,key)=>{ const R = makeR(st); (R.pick([true,false]) ? SV.vulAs : SV.vulPt).build(b, st, save, key); }),
+  tq('Hoeken op een rooster', 'Het rooster bestaat uit gelijke vierkanten. Vul de hoek met teken aan.', 3, (b,st,save)=>{ const R = makeR(st); latNotCard(b, st, save, latScene(R, 4, 3), ['ang','ang','ang'], 't'); }),
+  tq('Een vierkant op zichzelf', '', 3, (b,st,save)=>{ symTask(b, st, save, 'y', {naam:'vierkant', polys:[VLAK['vierkant'] || [[-3,-3],[3,-3],[3,3],[-3,3]]], cands:symCands('vierkant', VLAK['vierkant'] || [[-3,-3],[3,-3],[3,3],[-3,3]]), pts:2});
+    qBlock(b, st, save, 'h', {html:keepTxt('Noem een draaihoek tussen 0° en 360° waarbij het vierkant op zichzelf valt: [[0]] °'), size:'xs', mode:'text', check:v=>{ const a = parseAng(v[0]); return {ok:!isNaN(a) && a>0 && a<360 && Math.abs(a/90 - Math.round(a/90))<1e-9}; }, sol:'90°, 180° of 270°'}); }),
+  tq('Evenwijdige beelden', '', 2, (b,st,save)=>qMulti(b, st, save, 'p', {html:'Bij welke transformaties is het beeld van <b>elke</b> rechte evenwijdig met die rechte? Vink alles aan.', opts:TYPES4, ans:['t','p'], pts:2})),
+  tq('Noteer volledig', '', 2, (b,st,save)=>{ const R = makeR(st); const L = R.shuffle('DEFGHKLMNRSTUVW'.split('')).slice(0,6); const [K,Lb,M,N,P,Q] = L;
+    notQ(b, st, save, 'n', {html:`Het lijnstuk [${M}${N}] is het beeld van het lijnstuk [${K}${Lb}] door de translatie over de vector ${vecN(P,Q)}.`, ser:`t_{>{${P}${Q}}}([${K}${Lb}])=[${M}${N}]`, sol:`t<sub>${vecN(P,Q)}</sub>([${K}${Lb}]) = [${M}${N}]`}); }),
+  tq('Lees en verklaar', '', 1, (b,st,save)=>{ const R = makeR(st);
+    qChoice(b, st, save, 'v', {html:'Wat betekent <span class="lg">s<sub>O</sub> = r(O, 180°)</span> ?', ans:'j', opts:R.shuffle([['j','Een spiegeling om het punt O geeft hetzelfde beeld als een rotatie rond O over 180°.'],['a','Een spiegeling om de as O is een halve draai.'],['t','Na een spiegeling om O draai je nog 180°.'],['n','Het beeld van O is een rotatie over 180°.']])}); }),
+  tq('Foto’s', 'Welke transformatie herken je in elke foto?', 1, (b,st,save)=>{ const R = makeR(st); const grid = el('div','pair-grid'); b.append(grid); R.shuffle(PHOTOS).slice(0,2).forEach((ph,i)=>photoQ(grid, st, save, 'f'+i, ph, LET[i]+'.')); })
+];
+const VOORSTELLEN = [['A','Zoals de KT', ()=>TOETS_A], ['B','Eén grote tekening', toetsB], ['C','Coördinaten en redeneren', ()=>TOETS_C], ['D','Symmetrie en eigenschappen', ()=>TOETS_D], ['E','Fouten zoeken en uitleggen', ()=>TOETS_E], ['F','Puzzels en bijzondere gevallen', ()=>TOETS_F]];
+/* ============================================================
    PROEFTOETSEN
    ============================================================ */
 /* Eigen vragen op het niveau van de herhalingstoets en de kleine toets.
@@ -4340,7 +4671,10 @@ const TOETS_TIP2 = 'Een proeftoets over de hele module. Je krijgt pas feedback a
 [0,1,2].forEach(i=>{ SEC['toets'+(i+1)] = { id:'toets'+(i+1), ic:'toets', nav:'Proeftoets '+(i+1), title:'Proeftoets '+(i+1), tip:TOETS_TIP2,
   cards:[ { title:'Proeftoets '+(i+1), noReset:true, build:(b,st,save,key)=>proeftoets(b,st,save,key,TOETSEN2[i]) } ] }; });
 
-const ORDER = ['herken','as','trans','rot','punt','notatie','rooster','assen','coord','eig','symv','symr','fout','toets1','toets2','toets3'];
+/* zes voorstellen om uit te kiezen (tijdelijk, tot de keuze gemaakt is) */
+VOORSTELLEN.forEach(([L, naam, items])=>{ SEC['toets'+L] = { id:'toets'+L, ic:'toets', nav:'Voorstel '+L+' · '+naam, title:'Voorstel '+L+' · '+naam, tip:TOETS_TIP2,
+  cards:[ { title:'Proeftoets '+L, noReset:true, build:(b,st,save,key)=>proeftoets(b,st,save,key,items()) } ] }; });
+const ORDER = ['herken','as','trans','rot','punt','notatie','rooster','assen','coord','eig','symv','symr','fout','toetsA','toetsB','toetsC','toetsD','toetsE','toetsF'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
