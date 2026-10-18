@@ -613,11 +613,12 @@ function tween(ms, fn, done){ const t0 = performance.now(); const tick = now=>{ 
   .cf .grid{stroke:var(--border); stroke-width:.35}
   .cf .axis{stroke:var(--ink); stroke-width:.55; fill:none}
   .cf .axhead{fill:var(--ink)}
-  .cf .num{fill:var(--ink-soft); font-size:3.5px; font-family:var(--f-body)}
-  .cf .axl{fill:var(--ink); font-size:4.6px; font-style:italic; font-family:var(--f-body)}
-  .cf .lbl{font-size:5px; font-weight:700; font-family:var(--f-body); paint-order:stroke; stroke:var(--card); stroke-width:1.4px; stroke-linejoin:round}
-  .cf .lbl.orig{fill:var(--accent-dark)} .cf .lbl.img{fill:var(--ink)} .cf .lbl.help{fill:var(--ink-soft); font-weight:400; font-size:4.2px}
-  .cf .lbl.step{fill:var(--accent-dark); font-size:4.4px}
+  .cf .num{fill:var(--ink); font-size:4.2px; font-weight:600; font-family:var(--f-body)}
+  .cf .axl{fill:var(--ink); font-size:5.4px; font-style:italic; font-family:var(--f-body)}
+  .cf .lbl{font-size:5.6px; font-weight:700; font-family:var(--f-body); paint-order:stroke; stroke:var(--card); stroke-width:1.4px; stroke-linejoin:round}
+  .cf .lbl.orig{fill:var(--accent-dark)} .cf .lbl.img{fill:var(--ink)} .cf .lbl.help{fill:var(--ink); font-weight:700; font-size:5.2px}
+  .cf text.lbl.help, .cf text.lbl.step, .cf text.lbl.hint{stroke:var(--card); stroke-width:1.4px; stroke-dasharray:none}
+  .cf .lbl.step{fill:var(--accent-dark); font-size:5.2px}
   .cf circle.orig{fill:var(--accent-dark); stroke:var(--card); stroke-width:.5}
   .cf circle.img{fill:var(--orange); stroke:var(--ink); stroke-width:.45}
   .cf circle.ghost{fill:none; stroke:var(--orange); stroke-width:.6; stroke-dasharray:1.2 1}
@@ -1396,7 +1397,7 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .cf .cpt{ fill:var(--ink) }
   .cf .lbl.cen{ fill:var(--ink) }
   .cf .lattice{ fill:var(--ink-soft) }
-  .cf .lbl.sm{ font-size:4.2px }
+  .cf .lbl.sm{ font-size:4.8px }
   .cf image{ pointer-events:none }
   .cf .rim{ fill:none; stroke:var(--ink-soft); stroke-width:.4; stroke-dasharray:1.2 1 }
   .cf .solid{ fill:none; stroke:var(--ink); stroke-width:.6; stroke-linejoin:round }
@@ -1454,7 +1455,7 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .cf .hintlh{ fill:var(--hint) }
   .cf .hintm{ stroke:var(--hint); stroke-width:.5; fill:none }
   .cf .hintring{ fill:var(--or-soft); fill-opacity:.55; stroke:var(--hint); stroke-width:.55; stroke-dasharray:1 .8 }
-  .cf .lbl.hint{ fill:var(--hint); font-size:4.6px }
+  .cf .lbl.hint{ fill:var(--hint); font-size:5.4px }
   .hintbar{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.35rem 0 }
   .hintbtn{ font:inherit; font-size:.95rem; font-weight:700; display:inline-flex; align-items:center; gap:.3rem; padding:.3rem .75rem; border-radius:.6rem; border:1.5px solid var(--or-line); background:var(--or-soft); color:var(--ink); cursor:pointer }
   .hintbtn:hover:not(:disabled){ border-color:var(--orange) }
@@ -1465,6 +1466,18 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .hint-txt:empty{ display:none }
   .klad{ margin:.4rem 0 .8rem } .klad-box{ margin-top:.4rem } .klad-info{ font-size:.92rem; color:var(--ink-soft); text-align:center; margin:.2rem 0 }
 
+  /* tabel met tekeningen */
+  .tb-grid{ display:grid; grid-template-columns:minmax(7.4rem,.7fr) repeat(4, minmax(135px,1fr)); gap:.35rem; min-width:660px; align-items:stretch }
+  .tb-slot{ min-height:3rem; display:flex; align-items:center; justify-content:center; padding:.3rem; border-radius:.6rem; text-align:center }
+  .tb-slot .chip{ margin:0 }
+  .tb-ph{ color:var(--ink-soft); font-size:.88rem; font-style:italic }
+  .tb-slot.tb-good{ border-color:var(--ok) !important; background:var(--ok-bg) }
+  .tb-slot.tb-bad{ border-color:var(--bad) !important; background:var(--bad-bg) }
+  .tb-cell{ border:1px solid var(--border); border-radius:.6rem; padding:.2rem; display:flex; align-items:center; justify-content:center; background:var(--card) }
+  .tb-cell svg{ width:100% }
+  .tb-cell .cf .lbl{ font-size:8px } .tb-cell .cf .lbl.help{ font-size:7.4px } .tb-cell .cf .lbl.axn{ font-size:8.4px }
+  .tb-cell .cf .seg, .tb-cell .cf polygon, .tb-cell .cf .axisL{ stroke-width:.9 }
+  .tb-pool{ margin-bottom:.5rem }
   /* eigenschappentabel */
   .tab-wrap{ overflow-x:auto; margin:.4rem 0 }
   .eig-tab{ border-collapse:separate; border-spacing:.3rem; min-width:620px; width:100% }
@@ -3157,7 +3170,7 @@ function illusObjs(I, prop){
 function illusQ(parent, st, save, id, R, prop, kind, nr){
   const I = illus(R, prop, kind); if(!I){ parent.append(el('p','','Klik op Nieuwe opgave.')); return; }
   const box = el('div'); parent.append(box);
-  const F = gridFig(box, {g:I.g, plain:true, maxw:420}); F.draw(illusObjs(I, prop));
+  const F = gridFig(box, {g:tightG(I), plain:true, maxw:360}); F.draw(illusObjs(I, prop));
   qChoice(box, st, save, id+'t', {nr, html:'Welke transformatie zie je?', opts:TYPES4, ans:kind, why:'', whyBad:'Kijk naar wat er getekend is: een as, een vector, een centrum met een draaihoek of een centrum dat het midden is.'});
   qChoice(box, st, save, id+'e', {html:'Welke eigenschap wordt geïllustreerd?', opts:EIG, ans:prop, why:EIG_ZIN[prop](kind), whyBad:'Kijk naar de tekens in de tekening: streepjes, een rechte hoek, een boogje, een gekleurd vlak of een rechte door drie punten.'});
 }
@@ -3173,30 +3186,60 @@ EG.benoem = { title:'Benoem de eigenschap', lvl:2, instr:'Vul bij elke tekening 
   const bank = wordBank(b, TYPES4.map(x=>x[1]).concat(EIG.map(x=>x[1])));
   const grid = el('div','pair-grid'); b.append(grid);
   props.forEach((p,i)=>{ const I = illus(R, p, kinds[i]); const box = el('div'); grid.append(box); if(!I){ box.append(el('p','','Klik op Nieuwe opgave.')); return; }
-    const F = gridFig(box, {g:I.g, plain:true, maxw:420}); F.draw(illusObjs(I, p));
+    const F = gridFig(box, {g:tightG(I), plain:true, maxw:360}); F.draw(illusObjs(I, p));
     wordFill(box, st, save, 'z'+i, {nr:LET[i]+'.', html:'Een [[w]] bewaart de [[w]].', ans:[TYPES4.find(x=>x[0]===kinds[i])[1], EIG.find(x=>x[0]===p)[1]], bank}); });
 }};
-/* --- de tabel zelf invullen --- */
-EG.tabel = { title:'Vul de tabel in', lvl:1, instr:'Klik in elk vakje: blijft de eigenschap altijd behouden, of niet altijd? Klik nog eens om te wisselen.', build:(b,st,save)=>{
-  const qid = QID('tabel'); CLvraag(qid);
-  const s = st.tab || (st.tab = {v:{}}); const K = ['s','t','r','p'];
-  const want = (e,k) => e==='par' ? (PAR_OK[k] ? 'b' : 'n') : 'b';
+/* uitsnede rond de figuur, het beeld en het element van de transformatie */
+function tightG(I){ const op = I.op; const pts = I.P.concat(I.Q);
+  if(op.c) pts.push(op.c); if(op.from) pts.push(op.from, [op.from[0]+op.v[0], op.from[1]+op.v[1]]);
+  if(op.t==='s'){ I.P.forEach(p=>pts.push(footPt(p, op.p, op.q))); }
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+  let g = [Math.min(...xs)-1.6, Math.max(...xs)+1.6, Math.min(...ys)-1.6, Math.max(...ys)+1.6];
+  return [Math.max(g[0], I.g[0]-.5), Math.min(g[1], I.g[1]+.5), Math.max(g[2], I.g[2]-.5), Math.min(g[3], I.g[3]+.5)]; }
+/* --- tabel met tekeningen: rijen = transformatie, kolommen = eigenschap ---
+   Nieuwe opgave: andere volgorde van de transformaties en 4 andere eigenschappen. */
+EG.tabel = { title:'Tabel: welke transformatie, welke eigenschap?', lvl:1, instr:'Elke tekening toont een transformatie en een eigenschap die behouden blijft. Sleep een kaartje naar een leeg vak, of tik een kaartje aan en daarna het vak. In een rij staat telkens dezelfde transformatie, in een kolom dezelfde eigenschap.', build:(b,st,save,key)=>{
+  const R = makeR(st); const qid = QID('tabel'); CLvraag(qid);
+  const K = R.shuffle(['s','t','r','p']); const E = R.shuffle(EIG.map(e=>e[0])).slice(0,4);
+  const extra = R.shuffle(EIG.map(e=>e[0]).filter(e=>!E.includes(e))).slice(0,2);
+  const s = st.tb || (st.tb = {}); /* slot -> waarde */
+  const kName = k => TYPES4.find(x=>x[0]===k)[1], eName = e => EIG.find(x=>x[0]===e)[1];
+  const pool = el('div','pool tb-pool'); b.append(pool);
   const wrap = el('div','tab-wrap'); b.append(wrap);
-  const tb = el('table','eig-tab'); wrap.append(tb);
-  tb.innerHTML = `<thead><tr><th>eigenschap</th>${K.map(k=>`<th>${TYPES4.find(x=>x[0]===k)[1]}</th>`).join('')}</tr></thead><tbody></tbody>`;
-  const body = tb.querySelector('tbody'); const cells = {};
-  EIG_ALL.forEach(([e,l])=>{ const tr = el('tr'); tr.append(el('th','', l)); K.forEach(k=>{ const td = el('td'); const bt = el('button','cell-btn'); bt.type = 'button'; td.append(bt); tr.append(td); cells[e+k] = bt;
-      bt.addEventListener('click', ()=>{ if(s.done) return; const v = s.v[e+k]; s.v[e+k] = v==='b' ? 'n' : 'b'; save(); paint(); fb.textContent=''; fb.className='fb'; }); }); body.append(tr); });
-  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type='button'; act.append(bC); const fb = el('div','fb'); b.append(act, fb);
-  function paint(chk){ Object.entries(cells).forEach(([key,bt])=>{ const v = s.v[key]; bt.textContent = v==='b' ? 'blijft' : v==='n' ? 'niet altijd' : '…'; bt.className = 'cell-btn' + (v ? ' on' : '') + (v==='n' ? ' no' : '');
-      if(chk || s.done){ const ok = v===want(key.slice(0,-1), key.slice(-1)); bt.classList.add(ok ? 'good' : 'wrong'); } }); }
+  const grid = el('div','tb-grid'); wrap.append(grid);
+  const slots = {}; const mkSlot = (id, ph) => { const z = el('div','bin tb-slot', `<span class="tb-ph">${ph}</span>`); z.dataset.id = id; slots[id] = z; return z; };
+  grid.append(el('div','tb-corner'));
+  E.forEach((e,j)=>grid.append(mkSlot('c'+j, 'eigenschap?')));
+  K.forEach((k,i)=>{ grid.append(mkSlot('r'+i, 'transformatie?'));
+    E.forEach((e,j)=>{ const cell = el('div','tb-cell'); grid.append(cell); const I = illus(R, e, k);
+      if(I){ const F = gridFig(cell, {g:tightG(I), plain:true, maxw:220}); F.draw(illusObjs(I, e)); } }); });
+  const chips = [];
+  const mkChip = (val, txt, grp) => { const c = el('span','chip', txt); c.dataset.val = val; c.dataset.grp = key+grp; chips.push(c); return c; };
+  R.shuffle(K.map(k=>mkChip(k, kName(k), 't')).concat(E.concat(extra).map(e=>mkChip(e, eName(e), 'e')))).forEach(c=>pool.append(c));
+  const fb = el('div','fb');
+  const okFor = id => id[0]==='r' ? K[+id.slice(1)] : E[+id.slice(1)];
+  const grpOf = id => key + (id[0]==='r' ? 't' : 'e');
+  function place(c, id){
+    Object.keys(s).forEach(k=>{ if(s[k]===c.dataset.val && grpOf(k)===c.dataset.grp) delete s[k]; });
+    if(id==null){ pool.append(c); }
+    else { if(grpOf(id)!==c.dataset.grp){ fb.className = 'fb info'; fb.textContent = id[0]==='r' ? 'In de rijen komt een transformatie.' : 'In de kolommen komt een eigenschap.'; pool.append(c); save(); paint(); return; }
+      const old = slots[id].querySelector('.chip'); if(old) pool.append(old); slots[id].append(c); s[id] = c.dataset.val; }
+    fb.textContent = ''; fb.className = 'fb'; save(); paint(); }
+  function paint(chk){ Object.entries(slots).forEach(([id,z])=>{ z.classList.remove('tb-good','tb-bad'); z.querySelector('.tb-ph').hidden = !!z.querySelector('.chip');
+      if(chk && s[id]) z.classList.add(s[id]===okFor(id) ? 'tb-good' : 'tb-bad'); }); }
+  chips.forEach(c=>draggable(c, (x,y)=>{ const z = Object.values(slots).find(z=>inRect(z,x,y)); place(c, z ? z.dataset.id : null); }));
+  Object.values(slots).forEach(z=>z.addEventListener('click', ()=>{ if(selChip && selChip.dataset.grp.startsWith(key)){ const c = selChip; clearSel(); place(c, z.dataset.id); } }));
+  pool.addEventListener('click', e=>{ if(e.target===pool && selChip && selChip.dataset.grp.startsWith(key)){ const c = selChip; clearSel(); place(c, null); } });
+  /* herstellen */
+  Object.entries(s).forEach(([id,v])=>{ const c = chips.find(c=>c.dataset.val===v && c.dataset.grp===grpOf(id)); if(c && slots[id]) slots[id].append(c); });
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button'; act.append(bC); b.append(act, fb);
   bC.addEventListener('click', ()=>{
-    const keys = Object.keys(cells); if(keys.some(k=>!s.v[k])){ fb.className='fb info'; fb.textContent='Vul eerst elk vakje in.'; return; }
-    const bad = keys.filter(k=>s.v[k]!==want(k.slice(0,-1), k.slice(-1))); CLres(qid, !bad.length); paint(true);
-    if(!bad.length){ s.done = true; save(); bC.hidden = true; fb.className='fb ok'; fb.innerHTML = '✅ Juist! Alle eigenschappen blijven behouden. Enkel het beeld van een rechte is niet altijd evenwijdig met die rechte: bij een spiegeling om een as en bij een rotatie kan het beeld schuin staan.'; }
-    else { fb.className='fb bad'; fb.innerHTML = `❌ ${bad.length} ${bad.length===1?'vakje klopt':'vakjes kloppen'} nog niet. Bekijk de eigenschap in de eerste oefening met de animatie.`; }
+    const ids = Object.keys(slots); if(ids.some(id=>!s[id])){ fb.className = 'fb info'; fb.textContent = 'Vul eerst elke rij en elke kolom in.'; return; }
+    const bad = ids.filter(id=>s[id]!==okFor(id)); paint(true); CLres(qid, !bad.length);
+    if(!bad.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Juist! Alle vier de transformaties bewaren deze eigenschappen. Klik op <b>↺ Nieuwe opgave</b> voor andere eigenschappen.'; }
+    else { fb.className = 'fb bad'; fb.innerHTML = `❌ ${bad.length} ${bad.length===1?'vak klopt':'vakken kloppen'} nog niet. Rij: kijk of er een as, een vector, een centrum met draaihoek of een centrum als midden getekend is. Kolom: kijk naar de tekens, zoals streepjes, een rechte hoek, een boogje of een gekleurd vlak.`; }
   });
-  paint(); if(s.done){ bC.hidden = true; fb.className='fb ok'; fb.innerHTML='✅ Juist!'; }
+  paint();
 }};
 
 /* --- rekenen met eigenschappen --- */
