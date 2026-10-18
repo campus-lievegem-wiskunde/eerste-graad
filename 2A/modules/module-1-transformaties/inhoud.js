@@ -1402,6 +1402,8 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .cf .rim{ fill:none; stroke:var(--ink-soft); stroke-width:.4; stroke-dasharray:1.2 1 }
   .cf .solid{ fill:none; stroke:var(--ink); stroke-width:.6; stroke-linejoin:round }
   .cf .hidden3{ fill:none; stroke:var(--ink-soft); stroke-width:.45; stroke-dasharray:1.4 1.1 }
+  .cf .face{ fill:var(--tq); stroke:none }
+  .cf .solid.thin3{ stroke-width:.45 }
   .cf .plane{ fill:var(--orange); fill-opacity:.38; stroke:var(--orange); stroke-width:.5 }
   .cf .face{ fill:var(--accent); fill-opacity:.08; stroke:none }
   .pick-pts{ display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; justify-content:center; margin:.35rem 0 }
@@ -1467,8 +1469,9 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .klad{ margin:.4rem 0 .8rem } .klad-box{ margin-top:.4rem } .klad-info{ font-size:.92rem; color:var(--ink-soft); text-align:center; margin:.2rem 0 }
 
   /* tabel met tekeningen */
-  .tb-grid{ display:grid; grid-template-columns:minmax(7.4rem,.7fr) repeat(4, minmax(135px,1fr)); gap:.35rem; min-width:660px; align-items:stretch }
-  .tb-slot{ min-height:3rem; display:flex; align-items:center; justify-content:center; padding:.3rem; border-radius:.6rem; text-align:center }
+  .tb-grid{ display:grid; grid-template-columns:minmax(8.6rem,.8fr) repeat(4, minmax(128px,1fr)); gap:.35rem; min-width:670px; align-items:stretch }
+  .tb-br{ flex-basis:100%; height:0 }
+  .tb-slot{ min-height:3rem; font-size:.92rem; display:flex; align-items:center; justify-content:center; padding:.3rem; border-radius:.6rem; text-align:center }
   .tb-slot .chip{ margin:0 }
   .tb-ph{ color:var(--ink-soft); font-size:.88rem; font-style:italic }
   .tb-slot.tb-good{ border-color:var(--ok) !important; background:var(--ok-bg) }
@@ -1477,7 +1480,7 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .tb-cell svg{ width:100% }
   .tb-cell .cf .lbl{ font-size:8px } .tb-cell .cf .lbl.help{ font-size:7.4px } .tb-cell .cf .lbl.axn{ font-size:8.4px }
   .tb-cell .cf .seg, .tb-cell .cf polygon, .tb-cell .cf .axisL{ stroke-width:.9 }
-  .tb-pool{ margin-bottom:.5rem }
+  .tb-pool{ margin-bottom:.5rem; position:sticky; top:calc(env(safe-area-inset-top, 0px) + .4rem); z-index:5; background:var(--card); box-shadow:0 4px 10px -6px rgba(0,0,0,.25) }
   /* eigenschappentabel */
   .tab-wrap{ overflow-x:auto; margin:.4rem 0 }
   .eig-tab{ border-collapse:separate; border-spacing:.3rem; min-width:620px; width:100% }
@@ -2034,55 +2037,78 @@ function bladePoly(n, r=4){ const pts = []; for(let k=0;k<n;k++){ const a = 360*
 /* ============================================================
    RUIMTEFIGUREN (schuine projectie)
    ============================================================ */
-const PJ = (p, k=.5, ang=35) => [p[0] + k*p[1]*Math.cos(ang*D2R), p[2] + k*p[1]*Math.sin(ang*D2R)];
+/* loodrechte projectie: licht gedraaid (YAW) en van iets boven bekeken (PIT); horizontale cirkels worden liggende ellipsen */
+const S_YAW = 28*Math.PI/180, S_PIT = 20*Math.PI/180;
+const PJ = p => { const c = Math.cos(S_YAW), s = Math.sin(S_YAW); const X = p[0]*c + p[1]*s, D = -p[0]*s + p[1]*c; return [X, p[2]*Math.cos(S_PIT) + D*Math.sin(S_PIT)]; };
+const S_VIEW = [Math.cos(S_PIT)*Math.sin(S_YAW), -Math.cos(S_PIT)*Math.cos(S_YAW), Math.sin(S_PIT)]; /* naar de kijker */
+const S_LIGHT = (()=>{ const v = [-.45,-.55,.9], L = Math.hypot(...v); return v.map(x=>x/L); })();
+let SOLID_ID = 0;
 function solidSVG(kind, o={}){
-  /* geeft {svg, planes} met planes als lijsten van 3D-punten */
+  /* geeft {vb, planes, render, P2} met planes als lijsten van 3D-punten */
   const P2 = p => { const q = PJ(p); return [f2(q[0]*CU/2), f2(-q[1]*CU/2)]; };
   const pp = p => P2(p).join(',');
-  let edges = [], hidden = [], planes = [], extra = '', faces = [];
+  const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const gid = 'sg' + (++SOLID_ID);
+  let edges = [], hidden = [], planes = [], faces = [], defs = '', under = '', curved = '', outline = [];
   const box = (l,b,h) => { const V = []; for(const z of [0,h]) for(const y of [0,b]) for(const x of [0,l]) V.push([x,y,z]); return V; };
+  /* veelvlak: zijvlakken -> zichtbare vlakken (met schaduw), zichtbare en verborgen ribben */
+  function poly(V, F){
+    const C = [0,1,2].map(k=>V.reduce((a,p)=>a+p[k],0)/V.length);
+    const info = F.map(f=>{ const P = f.map(i=>V[i]); let n = [0,0,0];
+      P.forEach((a,k)=>{ const b = P[(k+1)%P.length]; n[0] += (a[1]-b[1])*(a[2]+b[2]); n[1] += (a[2]-b[2])*(a[0]+b[0]); n[2] += (a[0]-b[0])*(a[1]+b[1]); });
+      const L = Math.hypot(...n); n = n.map(x=>x/L); const m = [0,1,2].map(k=>P.reduce((a,p)=>a+p[k],0)/P.length);
+      if(dot(n, [m[0]-C[0], m[1]-C[1], m[2]-C[2]]) < 0) n = n.map(x=>-x);
+      return {f, n, vis: dot(n, S_VIEW) > 1e-6}; });
+    const E = new Map();
+    info.forEach(({f,vis})=>f.forEach((a,k)=>{ const b = f[(k+1)%f.length]; const key = Math.min(a,b)+'-'+Math.max(a,b); E.set(key, (E.get(key)||false) || vis); }));
+    E.forEach((vis,key)=>{ const [a,b] = key.split('-').map(Number); (vis ? edges : hidden).push([V[a], V[b]]); });
+    info.filter(x=>x.vis).forEach(x=>faces.push({pts:x.f.map(i=>V[i]), op:.07 + .2*Math.max(0, dot(x.n, S_LIGHT))}));
+  }
   if(kind==='kubus' || kind==='balk' || kind==='balkvk'){
     const [l,b,h] = kind==='kubus' ? [6,6,6] : kind==='balk' ? [8,4,5] : [5,5,8];
     const V = box(l,b,h); /* index: x + 2y + 4z */
-    const E = [[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
-    E.forEach(([i,j])=>{ (i===2||j===2) ? hidden.push([V[i],V[j]]) : edges.push([V[i],V[j]]); });
+    poly(V, [[0,1,3,2],[4,5,7,6],[0,1,5,4],[2,3,7,6],[0,2,6,4],[1,3,7,5]]);
     const mx = l/2, my = b/2, mz = h/2;
     planes.push([[mx,0,0],[mx,b,0],[mx,b,h],[mx,0,h]], [[0,my,0],[l,my,0],[l,my,h],[0,my,h]], [[0,0,mz],[l,0,mz],[l,b,mz],[0,b,mz]]);
     if(l===b){ planes.push([[0,0,0],[l,b,0],[l,b,h],[0,0,h]], [[l,0,0],[0,b,0],[0,b,h],[l,0,h]]); }
     if(kind==='kubus'){ planes.push([[0,0,0],[l,0,h],[l,b,h],[0,b,0]], [[0,0,h],[l,0,0],[l,b,0],[0,b,h]], [[0,0,0],[0,b,h],[l,b,h],[l,0,0]], [[0,b,0],[0,0,h],[l,0,h],[l,b,0]]); }
-    faces.push([V[0],V[1],V[5],V[4]]);
   }
-  if(kind==='piramide'){ const a = 6, h = 7; const B = [[0,0,0],[a,0,0],[a,a,0],[0,a,0]], T = [a/2,a/2,h];
-    edges.push([B[0],B[1]],[B[1],B[2]],[B[0],T],[B[1],T],[B[2],T]); hidden.push([B[2],B[3]],[B[3],B[0]],[B[3],T]);
-    planes.push([[a/2,0,0],[a/2,a,0],T], [[0,a/2,0],[a,a/2,0],T], [B[0],B[2],T], [B[1],B[3],T]); }
+  if(kind==='piramide'){ const a = 6, h = 7; const V = [[0,0,0],[a,0,0],[a,a,0],[0,a,0],[a/2,a/2,h]];
+    poly(V, [[0,1,2,3],[0,1,4],[1,2,4],[2,3,4],[3,0,4]]);
+    planes.push([[a/2,0,0],[a/2,a,0],V[4]], [[0,a/2,0],[a,a/2,0],V[4]], [V[0],V[2],V[4]], [V[1],V[3],V[4]]); }
   if(kind==='prisma'){ const a = 5, L = 8; const t = [[0,0,0],[a,0,0],[a/2,0,a*Math.sqrt(3)/2]], u = t.map(p=>[p[0],L,p[2]]);
-    edges.push([t[0],t[1]],[t[1],t[2]],[t[2],t[0]],[t[1],u[1]],[t[2],u[2]],[u[1],u[2]]); hidden.push([t[0],u[0]],[u[0],u[1]],[u[0],u[2]]);
-    const m = [0,L/2,0]; planes.push([[0,L/2,0],[a,L/2,0],[a/2,L/2,a*Math.sqrt(3)/2]]);
+    poly(t.concat(u), [[0,1,2],[3,4,5],[0,1,4,3],[1,2,5,4],[2,0,3,5]]);
+    planes.push([[0,L/2,0],[a,L/2,0],[a/2,L/2,a*Math.sqrt(3)/2]]);
     [[0,1,2],[1,2,0],[2,0,1]].forEach(([i,j,k])=>{ const M = [(t[i][0]+t[j][0])/2, 0, (t[i][2]+t[j][2])/2]; planes.push([M, t[k], u[k], [M[0],L,M[2]]]); }); }
-  let curved = '';
-  if(kind==='cilinder'){ const r = 3, h = 8; const ell = z => { const pts = []; for(let k=0;k<=48;k++){ const a = 2*Math.PI*k/48; pts.push([r+r*Math.cos(a), r+r*Math.sin(a), z]); } return pts; };
-    const bot = ell(0), topE = ell(h);
-    curved += `<polyline class="solid" points="${topE.map(pp).join(' ')}"/>`;
-    curved += `<polyline class="solid" points="${bot.filter((p,i)=>{ const q = PJ(p); const c = PJ([r,r,0]); return q[1] <= c[1] + 1e-6; }).map(pp).join(' ')}"/>`;
-    curved += `<polyline class="hidden3" points="${bot.filter((p,i)=>{ const q = PJ(p); const c = PJ([r,r,0]); return q[1] >= c[1] - 1e-6; }).map(pp).join(' ')}"/>`;
-    /* buitenste beschrijvenden */
-    const c0 = PJ([r,r,0]); const ex = [0, Math.PI].map(a=>[r+r*Math.cos(a), r+r*Math.sin(a)]);
-    ex.forEach(e=>edges.push([[e[0],e[1],0],[e[0],e[1],h]]));
-    planes.push([[r,0,0],[r,2*r,0],[r,2*r,h],[r,0,h]], [[0,r,0],[2*r,r,0],[2*r,r,h],[0,r,h]], ell(h/2).slice(0,48), [[r-r*.707,r-r*.707,0],[r+r*.707,r+r*.707,0],[r+r*.707,r+r*.707,h],[r-r*.707,r-r*.707,h]]); }
-  if(kind==='bol'){ const r = 4; const c = P2([0,0,0]);
-    curved += `<circle class="solid" cx="${c[0]}" cy="${c[1]}" r="${f2(r*CU/2)}"/>`;
-    const eq = []; for(let k=0;k<=48;k++){ const a = 2*Math.PI*k/48; eq.push([r*Math.cos(a), r*Math.sin(a), 0]); }
-    curved += `<polyline class="hidden3" points="${eq.map(pp).join(' ')}"/>`;
-    planes.push(eq.slice(0,48)); const mer = []; for(let k=0;k<48;k++){ const a = 2*Math.PI*k/48; mer.push([r*Math.cos(a), 0, r*Math.sin(a)]); } planes.push(mer);
+  const ellPts = (c, r, n=48) => Array.from({length:n}, (_,k)=>{ const a = 2*Math.PI*k/n; return [c[0]+r*Math.cos(a), c[1]+r*Math.sin(a), c[2]]; });
+  if(kind==='cilinder'){ const r = 3, h = 8; const cb = P2([r,r,0]).map(Number), ct = P2([r,r,h]).map(Number); const rx = r*CU/2, ry = r*Math.sin(S_PIT)*CU/2;
+    defs += `<linearGradient id="${gid}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--tq);stop-opacity:.34"/><stop offset=".38" style="stop-color:var(--tq);stop-opacity:.1"/><stop offset="1" style="stop-color:var(--tq);stop-opacity:.4"/></linearGradient>`;
+    under += `<path style="fill:url(#${gid});stroke:none" d="M${f2(ct[0]-rx)},${f2(ct[1])} L${f2(cb[0]-rx)},${f2(cb[1])} A${f2(rx)},${f2(ry)} 0 0 0 ${f2(cb[0]+rx)},${f2(cb[1])} L${f2(ct[0]+rx)},${f2(ct[1])} Z"/>`;
+    under += `<ellipse style="fill:var(--card);stroke:none" cx="${f2(ct[0])}" cy="${f2(ct[1])}" rx="${f2(rx)}" ry="${f2(ry)}"/><ellipse class="face" style="fill-opacity:.22" cx="${f2(ct[0])}" cy="${f2(ct[1])}" rx="${f2(rx)}" ry="${f2(ry)}"/>`;
+    curved += `<path class="hidden3" d="M${f2(cb[0]-rx)},${f2(cb[1])} A${f2(rx)},${f2(ry)} 0 0 1 ${f2(cb[0]+rx)},${f2(cb[1])}"/>`;
+    curved += `<path class="solid" d="M${f2(cb[0]-rx)},${f2(cb[1])} A${f2(rx)},${f2(ry)} 0 0 0 ${f2(cb[0]+rx)},${f2(cb[1])}"/>`;
+    curved += `<ellipse class="solid" cx="${f2(ct[0])}" cy="${f2(ct[1])}" rx="${f2(rx)}" ry="${f2(ry)}"/>`;
+    curved += `<line class="solid" x1="${f2(ct[0]-rx)}" y1="${f2(ct[1])}" x2="${f2(cb[0]-rx)}" y2="${f2(cb[1])}"/><line class="solid" x1="${f2(ct[0]+rx)}" y1="${f2(ct[1])}" x2="${f2(cb[0]+rx)}" y2="${f2(cb[1])}"/>`;
+    outline.push(...ellPts([r,r,0], r), ...ellPts([r,r,h], r));
+    planes.push([[r,0,0],[r,2*r,0],[r,2*r,h],[r,0,h]], [[0,r,0],[2*r,r,0],[2*r,r,h],[0,r,h]], ellPts([r,r,h/2], r), [[r-r*.707,r-r*.707,0],[r+r*.707,r+r*.707,0],[r+r*.707,r+r*.707,h],[r-r*.707,r-r*.707,h]]); }
+  if(kind==='bol'){ const r = 4; const c = P2([0,0,0]).map(Number); const R0 = r*CU/2, ry = r*Math.sin(S_PIT)*CU/2;
+    defs += `<radialGradient id="${gid}" cx=".36" cy=".32" r=".75"><stop offset="0" style="stop-color:var(--tq);stop-opacity:.06"/><stop offset="1" style="stop-color:var(--tq);stop-opacity:.42"/></radialGradient>`;
+    under += `<circle style="fill:url(#${gid});stroke:none" cx="${f2(c[0])}" cy="${f2(c[1])}" r="${f2(R0)}"/>`;
+    curved += `<circle class="solid" cx="${f2(c[0])}" cy="${f2(c[1])}" r="${f2(R0)}"/>`;
+    curved += `<path class="hidden3" d="M${f2(c[0]-R0)},${f2(c[1])} A${f2(R0)},${f2(ry)} 0 0 1 ${f2(c[0]+R0)},${f2(c[1])}"/>`;
+    curved += `<path class="solid thin3" d="M${f2(c[0]-R0)},${f2(c[1])} A${f2(R0)},${f2(ry)} 0 0 0 ${f2(c[0]+R0)},${f2(c[1])}"/>`;
+    outline.push([-r*1.02,0,0],[r*1.02,0,0],[0,0,-r*1.02],[0,0,r*1.02]);
+    const eq = ellPts([0,0,0], r); planes.push(eq); const mer = []; for(let k=0;k<48;k++){ const a = 2*Math.PI*k/48; mer.push([r*Math.cos(a), 0, r*Math.sin(a)]); } planes.push(mer);
     const m2 = []; for(let k=0;k<48;k++){ const a = 2*Math.PI*k/48; m2.push([0, r*Math.cos(a), r*Math.sin(a)]); } planes.push(m2); }
-  const all = edges.concat(hidden).flat().concat(planes.flat()); const pts2 = all.map(p=>PJ(p));
-  if(kind==='bol'){ pts2.push([-4.2,-4.2],[4.2,4.2]); }
+  const all = edges.concat(hidden).flat().concat(planes.flat(), outline); let pts2 = all.map(p=>PJ(p));
+  if(kind==='bol'){ pts2 = pts2.concat([[-4.1,-4.1],[4.1,4.1]].map(q=>[q[0], q[1]])); }
   const xs = pts2.map(p=>p[0]*CU/2), ys = pts2.map(p=>-p[1]*CU/2);
   const vb = [Math.min(...xs)-4, Math.min(...ys)-4, Math.max(...xs)-Math.min(...xs)+8, Math.max(...ys)-Math.min(...ys)+8];
   const render = (pl) => {
-    let h = `<rect class="bg" x="${f2(vb[0])}" y="${f2(vb[1])}" width="${f2(vb[2])}" height="${f2(vb[3])}"/>`;
-    if(pl!=null && planes[pl]) h += `<polygon class="plane" points="${planes[pl].map(pp).join(' ')}"/>`;
+    let h = (defs ? `<defs>${defs}</defs>` : '') + `<rect class="bg" x="${f2(vb[0])}" y="${f2(vb[1])}" width="${f2(vb[2])}" height="${f2(vb[3])}"/>`;
+    h += under + faces.map(f=>`<polygon class="face" style="fill-opacity:${f2(f.op)}" points="${f.pts.map(pp).join(' ')}"/>`).join('');
     h += hidden.map(([a,b])=>`<line class="hidden3" x1="${P2(a)[0]}" y1="${P2(a)[1]}" x2="${P2(b)[0]}" y2="${P2(b)[1]}"/>`).join('');
+    if(pl!=null && planes[pl]) h += `<polygon class="plane" points="${planes[pl].map(pp).join(' ')}"/>`;
     h += edges.map(([a,b])=>`<line class="solid" x1="${P2(a)[0]}" y1="${P2(a)[1]}" x2="${P2(b)[0]}" y2="${P2(b)[1]}"/>`).join('');
     h += curved + (o.extra ? o.extra(P2) : '');
     return h;
@@ -3218,31 +3244,33 @@ function tightG(I){ const op = I.op; const pts = I.P.concat(I.Q);
   return [Math.max(g[0], I.g[0]-.5), Math.min(g[1], I.g[1]+.5), Math.max(g[2], I.g[2]-.5), Math.min(g[3], I.g[3]+.5)]; }
 /* --- tabel met tekeningen: rijen = transformatie, kolommen = eigenschap ---
    Nieuwe opgave: andere volgorde van de transformaties en 4 andere eigenschappen. */
-EG.tabel = { title:'Tabel: welke transformatie, welke eigenschap?', lvl:1, instr:'Elke tekening toont een transformatie en een eigenschap die behouden blijft. Sleep een kaartje naar een leeg vak, of tik een kaartje aan en daarna het vak. In een rij staat telkens dezelfde transformatie, in een kolom dezelfde eigenschap.', build:(b,st,save,key)=>{
+const EIG_BLIJFT = {col:'Collineaire punten blijven collineair', evw:'Evenwijdigheid blijft behouden', lood:'Loodrechte stand blijft behouden', len:'Lengte blijft behouden', hoek:'Hoekgrootte blijft behouden', opp:'Oppervlakte blijft behouden', omt:'Omtrek blijft behouden', vorm:'Vorm blijft gelijk'};
+EG.tabel = { title:'Tabel: welke transformatie, welke eigenschap?', lvl:1, instr:'Elke tekening toont een transformatie en een eigenschap die behouden blijft. Sleep een kaartje naar een leeg vak, of tik een kaartje aan en daarna het vak. Bovenaan komen de vier transformaties naast elkaar, links alle eigenschappen.', build:(b,st,save,key)=>{
   const R = makeR(st); const qid = QID('tabel'); CLvraag(qid);
-  const K = R.shuffle(['s','t','r','p']); const E = R.shuffle(EIG.map(e=>e[0])).slice(0,4);
-  const extra = R.shuffle(EIG.map(e=>e[0]).filter(e=>!E.includes(e))).slice(0,2);
-  const s = st.tb || (st.tb = {}); /* slot -> waarde */
-  const kName = k => TYPES4.find(x=>x[0]===k)[1], eName = e => EIG.find(x=>x[0]===e)[1];
+  const K = R.shuffle(['s','t','r','p']); const E = R.shuffle(EIG.map(e=>e[0]));
+  const s = st.tb2 || (st.tb2 = {}); /* slot -> waarde */
+  const kName = k => TYPES4.find(x=>x[0]===k)[1], eName = e => EIG_BLIJFT[e];
   const pool = el('div','pool tb-pool'); b.append(pool);
   const wrap = el('div','tab-wrap'); b.append(wrap);
   const grid = el('div','tb-grid'); wrap.append(grid);
   const slots = {}; const mkSlot = (id, ph) => { const z = el('div','bin tb-slot', `<span class="tb-ph">${ph}</span>`); z.dataset.id = id; slots[id] = z; return z; };
   grid.append(el('div','tb-corner'));
-  E.forEach((e,j)=>grid.append(mkSlot('c'+j, 'eigenschap?')));
-  K.forEach((k,i)=>{ grid.append(mkSlot('r'+i, 'transformatie?'));
-    E.forEach((e,j)=>{ const cell = el('div','tb-cell'); grid.append(cell); const I = illus(R, e, k);
-      if(I){ const F = gridFig(cell, {g:tightG(I), plain:true, maxw:220}); F.draw(illusObjs(I, e)); } }); });
+  K.forEach((k,j)=>grid.append(mkSlot('c'+j, 'transformatie?')));
+  E.forEach((e,i)=>{ grid.append(mkSlot('r'+i, 'eigenschap?'));
+    K.forEach((k,j)=>{ const cell = el('div','tb-cell'); grid.append(cell); const I = illus(R, e, k);
+      if(I){ const F = gridFig(cell, {g:tightG(I), plain:true, maxw:200}); F.draw(illusObjs(I, e)); } }); });
   const chips = [];
   const mkChip = (val, txt, grp) => { const c = el('span','chip', txt); c.dataset.val = val; c.dataset.grp = key+grp; chips.push(c); return c; };
-  R.shuffle(K.map(k=>mkChip(k, kName(k), 't')).concat(E.concat(extra).map(e=>mkChip(e, eName(e), 'e')))).forEach(c=>pool.append(c));
+  R.shuffle(K.map(k=>mkChip(k, kName(k), 't'))).forEach(c=>pool.append(c));
+  pool.append(el('span','tb-br'));
+  R.shuffle(E.map(e=>mkChip(e, eName(e), 'e'))).forEach(c=>pool.append(c));
   const fb = el('div','fb');
-  const okFor = id => id[0]==='r' ? K[+id.slice(1)] : E[+id.slice(1)];
-  const grpOf = id => key + (id[0]==='r' ? 't' : 'e');
+  const okFor = id => id[0]==='c' ? K[+id.slice(1)] : E[+id.slice(1)];
+  const grpOf = id => key + (id[0]==='c' ? 't' : 'e');
   function place(c, id){
     Object.keys(s).forEach(k=>{ if(s[k]===c.dataset.val && grpOf(k)===c.dataset.grp) delete s[k]; });
     if(id==null){ pool.append(c); }
-    else { if(grpOf(id)!==c.dataset.grp){ fb.className = 'fb info'; fb.textContent = id[0]==='r' ? 'In de rijen komt een transformatie.' : 'In de kolommen komt een eigenschap.'; pool.append(c); save(); paint(); return; }
+    else { if(grpOf(id)!==c.dataset.grp){ fb.className = 'fb info'; fb.textContent = id[0]==='c' ? 'Bovenaan komt een transformatie.' : 'Links komt een eigenschap.'; pool.append(c); save(); paint(); return; }
       const old = slots[id].querySelector('.chip'); if(old) pool.append(old); slots[id].append(c); s[id] = c.dataset.val; }
     fb.textContent = ''; fb.className = 'fb'; save(); paint(); }
   function paint(chk){ Object.entries(slots).forEach(([id,z])=>{ z.classList.remove('tb-good','tb-bad'); z.querySelector('.tb-ph').hidden = !!z.querySelector('.chip');
@@ -3254,10 +3282,10 @@ EG.tabel = { title:'Tabel: welke transformatie, welke eigenschap?', lvl:1, instr
   Object.entries(s).forEach(([id,v])=>{ const c = chips.find(c=>c.dataset.val===v && c.dataset.grp===grpOf(id)); if(c && slots[id]) slots[id].append(c); });
   const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button'; act.append(bC); b.append(act, fb);
   bC.addEventListener('click', ()=>{
-    const ids = Object.keys(slots); if(ids.some(id=>!s[id])){ fb.className = 'fb info'; fb.textContent = 'Vul eerst elke rij en elke kolom in.'; return; }
+    const ids = Object.keys(slots); if(ids.some(id=>!s[id])){ fb.className = 'fb info'; fb.textContent = 'Vul eerst elke kolom en elke rij in.'; return; }
     const bad = ids.filter(id=>s[id]!==okFor(id)); paint(true); CLres(qid, !bad.length);
-    if(!bad.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Juist! Alle vier de transformaties bewaren deze eigenschappen. Klik op <b>↺ Nieuwe opgave</b> voor andere eigenschappen.'; }
-    else { fb.className = 'fb bad'; fb.innerHTML = `❌ ${bad.length} ${bad.length===1?'vak klopt':'vakken kloppen'} nog niet. Rij: kijk of er een as, een vector, een centrum met draaihoek of een centrum als midden getekend is. Kolom: kijk naar de tekens, zoals streepjes, een rechte hoek, een boogje of een gekleurd vlak.`; }
+    if(!bad.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Juist! Alle vier de transformaties bewaren al deze eigenschappen. Alleen bij een translatie en een puntspiegeling is het beeld van een rechte ook altijd evenwijdig met die rechte. Klik op <b>↺ Nieuwe opgave</b> voor een andere volgorde.'; }
+    else { fb.className = 'fb bad'; fb.innerHTML = `❌ ${bad.length} ${bad.length===1?'vak klopt':'vakken kloppen'} nog niet. Kolom: kijk of er een as, een vector, een centrum met draaihoek of een centrum als midden getekend is. Rij: kijk naar de tekens, zoals streepjes, een rechte hoek, een boogje of een gekleurd vlak.`; }
   });
   paint();
 }};
