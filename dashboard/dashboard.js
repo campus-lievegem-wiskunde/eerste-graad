@@ -241,7 +241,7 @@ async function paneLeerlingen(pane, g){
 
 /* ---------- openzetten ---------- */
 function paneAanUit(pane, g){
-  const card = el('div', 'dash-card', `<h3>Wat staat open voor ${esc(g.naam)}?</h3><p class="mini">Een module die uit staat, zien de leerlingen niet. Staat een module open, dan kan je per onderdeel kiezen of het zichtbaar is. Wijzigingen worden meteen bewaard.</p>`);
+  const card = el('div', 'dash-card', `<h3>Wat staat open voor ${esc(g.naam)}?</h3><p class="mini">Een module die uit staat, zien de leerlingen niet. Staat een module open, dan kan je per onderdeel kiezen of het zichtbaar is, en of de leerlingen de knop met het rekentoestel krijgen. Wijzigingen worden meteen bewaard.</p>`);
   const sites = sitesVoor(g);
   if(!sites.length) card.append(el('p', 'mini', `Er zijn nog geen sites voor ${jaarcode(g)}.`));
   sites.forEach(s=>{
@@ -250,6 +250,7 @@ function paneAanUit(pane, g){
     const sw = el('label', 'switch', `<input type="checkbox" ${a.on ? 'checked' : ''}> ${esc(s.titel)}`);
     const st = el('span', 'mini'); sw.append(st);
     const kop = el('div', 'site-kop'); kop.append(sw, bekijkKnop(s)); blok.append(kop);
+    const rt = el('label', 'rt-keuze', `<input type="checkbox" ${a.rt ? 'checked' : ''}> Knop met het rekentoestel tonen <span class="mini">(rechtsonder op elke pagina van deze module)</span>`); rt.hidden = !a.on; blok.append(rt);
     const lijst = el('div', 'onderdelen'); lijst.hidden = !a.on;
     s.onderdelen.forEach(o=>{ const l = el('label', '', `<input type="checkbox" value="${esc(o.id)}" ${(a.uit || []).includes(o.id) ? '' : 'checked'}> ${esc(o.naam)} <a class="ond-link" href="${moduleUrl(s, o.id)}" target="_blank" rel="noopener" title="${esc(o.naam)} bekijken" aria-label="${esc(o.naam)} bekijken">${OOG}</a>`); lijst.append(l); });
     const knoppen = el('div', 'rij'); knoppen.style.marginLeft = '3.1rem'; knoppen.hidden = !a.on;
@@ -259,13 +260,15 @@ function paneAanUit(pane, g){
     const bewaar = async ()=>{
       const on = sw.querySelector('input').checked;
       const uit = [...lijst.querySelectorAll('input')].filter(i=>!i.checked).map(i=>i.value);
-      lijst.hidden = knoppen.hidden = !on;
+      const r = rt.querySelector('input').checked;
+      lijst.hidden = knoppen.hidden = rt.hidden = !on;
       st.className = 'mini'; st.textContent = ' · bewaren…';
-      try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`aan.${s.id}`]: { on, uit } }); g.aan = g.aan || {}; g.aan[s.id] = { on, uit }; st.className = 'okmsg'; st.textContent = ' · bewaard'; }
+      try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`aan.${s.id}`]: { on, uit, rt:r } }); g.aan = g.aan || {}; g.aan[s.id] = { on, uit, rt:r }; st.className = 'okmsg'; st.textContent = ' · bewaard'; }
       catch(e){ console.error(e); st.className = 'errmsg'; st.textContent = ' · bewaren lukte niet'; }
     };
     sw.querySelector('input').onchange = bewaar;
     lijst.querySelectorAll('input').forEach(i=>i.onchange = bewaar);
+    rt.querySelector('input').onchange = bewaar;
     allesAan.onclick = ()=>{ lijst.querySelectorAll('input').forEach(i=>i.checked = true); bewaar(); };
     allesUit.onclick = ()=>{ lijst.querySelectorAll('input').forEach(i=>i.checked = false); bewaar(); };
   });

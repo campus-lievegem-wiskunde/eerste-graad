@@ -11,7 +11,7 @@ const fs = require('fs'); const path = require('path'); const { chromium } = req
   await ctx.route(/\/_catalogus\.html/, r=>{ const u = new URL(r.request().url()); r.fulfill({ contentType:'text/html', body:`<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../../gedeeld/stijl.css"></head>
     <body data-site="${u.searchParams.get('site')}" data-prefix="${u.searchParams.get('prefix')}"><header class="top"><h1>t</h1></header><div class="shell"><nav class="side"><ol id="nav"></ol></nav><main id="main"><div id="app"></div><div class="pager" id="pager"></div></main></div>
     <script>window.__ids=[]; window.CL={ vraag:id=>__ids.push(id), res(){}, toets(){} };</script>
-    <script src="../../../gedeeld/kop.js"></script><script src="inhoud.js"></script></body></html>` }); });
+    <script src="../../../gedeeld/ti30xb.js"></script><script src="../../../gedeeld/kop.js"></script><script src="inhoud.js"></script></body></html>` }); });
   const uit = [];
   for(const s of SITES){
     const p = await ctx.newPage(); const fout = []; p.on('pageerror', e=>fout.push(e.message));
