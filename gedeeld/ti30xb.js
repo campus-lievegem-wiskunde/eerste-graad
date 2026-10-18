@@ -261,7 +261,7 @@ function decParts(x, S, maxDig = 10){
   if(!sci){
     let s;
     if(fix != null){ s = ax.toFixed(fix); if(s.replace('.','').replace(/^0+/,'').length > 10 && e >= 10) sci = true; }
-    else { s = Number(ax.toPrecision(maxDig)).toString(); if(/e/.test(s)){ s = ax.toFixed(Math.min(20, Math.max(0, maxDig - 1 - e))); s = s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, ''); } }
+    else { s = ax < 1 ? ax.toFixed(maxDig).replace(/0+$/, '').replace(/\.$/, '') : Number(ax.toPrecision(maxDig)).toString(); if(/e/.test(s)){ s = ax.toFixed(Math.min(20, Math.max(0, maxDig - 1 - e))); s = s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, ''); } }
     if(!sci) return { m: sg + s, e: null };
   }
   if(S.nota === 'ENG'){ e = Math.floor(e / 3) * 3; }
@@ -374,6 +374,8 @@ class Editor {
     if(this.i > 0){ a.splice(this.i - 1, 1); this.i--; return; }
     const f = this.stack[this.stack.length-1];
     if(f && f.node.s.every(s=>s.length === 0)){ this.stack.pop(); const pa = this.arr(); const k = pa.indexOf(f.node); pa.splice(k, 1); this.i = k; } }
+  /* overschrijven (standaard op het toestel): de gewone token onder de cursor wegnemen */
+  over(){ const a = this.arr(); if(this.i < a.length && !a[this.i].s) a.splice(this.i, 1); }
   /* de laatste token vlak voor de cursor (voor de toets x yzt abc) */
   prev(){ const a = this.arr(); return a[this.i - 1]; }
 }
@@ -658,6 +660,8 @@ const CSS30 = `
 .ti30 .blink{ animation:ti-b 1s steps(1) infinite; }
 .ti30 .cur{ display:inline-block; width:.55em; height:1em; vertical-align:-.12em; background:#1c2117; animation:ti-b 1s steps(1) infinite; }
 .ti30 .ins .cur{ width:.14em; }
+.ti30 .ng{ display:inline-block; transform:translateY(.28em); }
+.ti30 .ml{ display:inline-block; transform:translateY(.22em); }
 @keyframes ti-b{ 50%{ opacity:0; } }
 @media (prefers-reduced-motion: reduce){ .ti30 .cur, .ti30 .blink{ animation:none; } }
 .ti30 .fr{ display:inline-flex; flex-direction:column; vertical-align:middle; font-size:.78em; text-align:center; line-height:1.05; margin:0 .08em; }
@@ -753,7 +757,7 @@ function create(parent, opts = {}){
   function prefixAns(ed){ if(A.name === 'home' && ed.empty && st.hist.length) ed.ins(T('Ans')); }
   function edKey(ed, code, sec){
     const M = st.S.print === 'MATH';
-    const put = v => ed.ins(T(v));
+    const put = v => { if(!st.ins) ed.over(); ed.ins(T(v)); };
     if(/^[0-9]$/.test(code)){ put(code); return true; }
     switch(code){
       case '.': put(sec ? ',' : '.'); return true;
@@ -805,11 +809,14 @@ function create(parent, opts = {}){
       else { const last = [...st.hist].reverse().find(h=>h.tree); if(!last) return; tree = clone(last.tree); }
     } else { tree = clone(st.ed.root); if(st.K) tree = tree.concat(clone(st.K)); }
     try{
-      const v = evaluate(tree);
+      let v = evaluate(tree);
+      /* zoals het toestel: een breuk verschijnt eerst als kommagetal, ◂▸ wisselt (behalve als je zelf met n/d een breuk intikte) */
+      if(v.e && !v.dec && !v.disp && v.r === 1n && v.p === 0 && v.d !== 1n && !hasFrac(tree)) v = Object.assign({}, v, { dec:true });
       st.ans = v; st.hist.push({ tree, res:v }); if(st.hist.length > 40){ st.hist.shift(); st.from = Math.max(0, st.from - 1); }
-      st.ed.clear(); save();
+      st.ed.clear(); st.ins = false; save();
     }catch(e){ if(!(e instanceof Err)) throw e; go('error', { code:e.code }); }
   }
+  function hasFrac(arr){ return arr.some(n => n.t === 'frac' || n.t === 'mixed' || (n.t === 'k' && (n.v === '⁄' || n.v === '⌟')) || (n.s && n.s.some(hasFrac))); }
   function toggle(){
     const last = st.hist[st.hist.length - 1]; if(!last || !last.res) return;
     const v = last.res; let alt = null;
@@ -1045,7 +1052,16 @@ function create(parent, opts = {}){
     const arrows = A.name === 'home' && st.hist.length ? '↑↓' : '';
     return L.map(t=>`<span>${t}</span>`).join('') + `<span class="r">${arrows}</span>`;
   }
-  function render(){
+  /* het minteken van een negatief getal en het maalteken staan op het toestel lager, in het midden */
+  function signs(){
+    const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT); const todo = [];
+    while(w.nextNode()) if(/[⁻*]/.test(w.currentNode.nodeValue)) todo.push(w.currentNode);
+    todo.forEach(t => { const f = document.createDocumentFragment();
+      t.nodeValue.split(/([⁻*])/).forEach(x => { if(!x) return; if(x === '⁻' || x === '*'){ const sp = document.createElement('span'); sp.className = x === '⁻' ? 'ng' : 'ml'; sp.textContent = x; f.append(sp); } else f.append(x); });
+      t.replaceWith(f); });
+  }
+  function render(){ render0(); signs(); }
+  function render0(){
     lcd.classList.toggle('off', !st.on);
     lcd.style.filter = st.contrast ? `contrast(${1 + st.contrast * 0.12}) brightness(${1 - st.contrast * 0.04})` : '';
     root.classList.toggle('ins', !!st.ins);
@@ -1061,7 +1077,7 @@ function create(parent, opts = {}){
       const sel = body.querySelector('.sel'); if(sel) sel.scrollIntoView({ block:'nearest' }); else body.scrollTop = body.scrollHeight;
       return;
     }
-    if(n === 'error'){ const c = A.code; body.innerHTML = `<div class="err">${/ /.test(c) ? c : c + ' ERROR'}</div>`; return; }
+    if(n === 'error'){ const c = A.code; body.innerHTML = `<div class="err">${c}<br>Error</div>`; return; }
     if(n === 'mode'){
       body.innerHTML = lines(MODE_ROWS.map((row, r)=>{ const cur = modeCur(r);
         return row.map((t, c)=>{ let cls = c === cur ? 'inv' : ''; if(r === A.r && c === A.c) cls += ' blink'; return `<span class="${cls}">${t}</span>`; }).reduce((s, x, c)=> s + (r === 2 && c > 1 ? '' : c ? ' ' : '') + x, ''); }));
