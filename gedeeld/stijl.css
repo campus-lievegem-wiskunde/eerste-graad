@@ -555,6 +555,8 @@
   .card, .info-box, .tip, .howto > div, .score, .given-box{ background:linear-gradient(var(--card),var(--card)) padding-box, linear-gradient(var(--tq),var(--tq)) border-box !important; }
   .cheat-btn, .pager button, .refresh-btn, .tbtn:not([aria-pressed="true"]):not(.tool-on), .opt:not(.good):not(.wrong), .err-line:not(.found):not(.nope), .chip:not(.chip-ok):not(.chip-bad), .btn.ghost, .tab, .inp:not(.ok):not(.bad){ --er:var(--tq); }
   .cheat-btn:hover, .pager button:hover, .refresh-btn:hover, .tbtn:not([aria-pressed="true"]):not(.tool-on):hover, .opt:not(.good):not(.wrong):hover, .err-line:not(.found):not(.nope):hover, .chip:not(.chip-ok):not(.chip-bad):hover, .btn.ghost:hover, .tab:hover, .inp:not(.ok):not(.bad):hover{ --er:var(--orange); }
+  /* actief invulvak: volledig oranje omranding, ook als de muis ergens anders staat */
+  .inp:not(.ok):not(.bad):focus{ --el:var(--orange); --er:var(--orange); }
   /* actief tabblad: volledig oranje omranding */
   .tab[aria-selected="true"], .tab:last-child[aria-selected="true"]{ --el:var(--orange); --er:var(--orange); }
   /* nummering van de titels in dezelfde kleur als de titel */
