@@ -1617,6 +1617,11 @@ function gObjs(objs, g){
   });
   return s + top;
 }
+/* testhulp: meldt punten en vectoren buiten het rooster */
+function oobChk(svg, objs, g){
+  const out = q => q && !(q[0]>=g[0]-1e-6 && q[0]<=g[1]+1e-6 && q[1]>=g[2]-1e-6 && q[1]<=g[3]+1e-6);
+  objs.filter(Boolean).forEach(o=>{ const ps = o.t==='pt'||o.t==='cen' ? [o.p] : o.t==='arrow' ? [o.a,o.b] : o.t==='poly' ? o.pts : []; if(ps.some(out)){ const c = svg.closest('.card'); (window.__oob = window.__oob || []).push((c && c.querySelector('h3') ? c.querySelector('h3').textContent : '?')+' · '+o.t+' '+JSON.stringify(ps)); } });
+}
 function gridFig(parent, o={}){
   const g = o.g || [0,12,0,8];
   const B = gridBase(g, o);
@@ -1627,7 +1632,7 @@ function gridFig(parent, o={}){
   parent.append(svg);
   const gO = svg.querySelector('.objs'), top = svg.querySelector('.top');
   const F = { svg, g, base:[], token:0, last:[],
-    draw(objs){ F.last = objs||[]; gO.innerHTML = gObjs(F.base.concat(objs||[]), g); },
+    draw(objs){ F.last = objs||[]; const all = F.base.concat(objs||[]); if(window.__oobChk) oobChk(svg, all, g); gO.innerHTML = gObjs(all, g); },
     alive(tok){ return svg.isConnected && tok===F.token; },
     toW(e){ const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const r = pt.matrixTransform(svg.getScreenCTM().inverse()); return [r.x/CU, -r.y/CU]; },
     clickable(cb, opt={}){
@@ -1662,6 +1667,14 @@ function opBase(op, o={}){
   if(op.t==='r' || op.t==='p') return op.hide ? [] : [{t:'cen', p:op.c, n:op.name||'', away:o.away}];
   return [];
 }
+/* beginpunt voor een vector v die volledig in het rooster ligt, liefst niet op een punt van de figuur */
+function vecFrom(R, g, v, avoid=[]){
+  const all = [];
+  for(let x=Math.ceil(g[0]); x<=g[1]; x++) for(let y=Math.ceil(g[2]); y<=g[3]; y++){ const to = [x+v[0], y+v[1]]; if(inG(to, g)) all.push([x,y]); }
+  if(!all.length) return null;
+  const free = all.filter(fr=>!avoid.some(p=>ptEq(p,fr) || ptEq(p,[fr[0]+v[0], fr[1]+v[1]])));
+  return R.pick(free.length ? free : all);
+}
 async function animFig(F, fig, op, cap, opt={}){
   const tok = ++F.token; const say = stepSay(cap, opt.keep);
   const P = fig.pts, Q = P.map(p=>applyOp(p, op)); const nm = fig.names || [];
@@ -1686,6 +1699,13 @@ async function animFig(F, fig, op, cap, opt={}){
         done.push({t:'line', a:P[i], b:Q[i]}, {t:'ticks', a:P[i], b:op.c, n:i%3+1}, {t:'ticks', a:op.c, b:Q[i], n:i%3+1}, {t:'pt', p:Q[i], n:nm[i]? nm[i]+PR : '', c:'img', away:op.c});
         F.draw(extra.concat([orig], done));
         await pause(450);
+      }
+      if(P.some((p,i)=>!ptEq(p,Q[i]))){
+        say(`Nu de hele figuur: ze krimpt langs de lijnen naar ${cn} en groeit er aan de andere kant weer uit.`);
+        await run(1100, t=>F.draw(extra.concat([orig], done, [{t:'poly', pts:P.map(p=>lerp2(p, op.c, t)), c:'ghost', open:fig.open}])));
+        await pause(200);
+        await run(1100, t=>F.draw(extra.concat([orig], done, [{t:'poly', pts:Q.map(q=>lerp2(op.c, q, t)), c:'ghost', open:fig.open}])));
+        await pause(300);
       }
       say(fig.open ? 'Verbind de beeldpunten: zo krijg je het beeld van de hele figuur.' : 'Verbind de beeldpunten: zo krijg je het beeld van de hele figuur. Het beeld staat op zijn kop.');
       F.draw(extra.concat([orig], done, [{t:'poly', pts:Q, c:'ghost', open:fig.open}])); await pause(500);
@@ -2568,7 +2588,7 @@ TR.kijk = { title:'Bekijk hoe je verschuift', lvl:1, keep:true, noReset:true,
     reset();
   }};
 TR.waar = { title:'Vectoren: waar of niet waar?', lvl:1, instr:'ΔA′B′C′ is het beeld van ΔABC door de translatie over de vector XY. Waar of niet waar?', build:(b,st,save)=>{
-  const g = [0,12,0,8]; const op = {t:'t', v:[5,-2], from:[1,1], name:['X','Y']}; const fig = {pts:[[1,4],[4,5],[2,7]], names:['A','B','C']};
+  const g = [0,12,0,8]; const op = {t:'t', v:[5,-2], from:[6,7], name:['X','Y']}; const fig = {pts:[[1,4],[4,5],[2,7]], names:['A','B','C']};
   const F = gridFig(b, {g, maxw:440}); F.base = opBase(op); F.draw(finalFig(fig, op));
   const R = makeR(st);
   wnRows(b, st, save, 'w', R.shuffle([
@@ -2585,7 +2605,7 @@ function trTaak(title, lvl, o){
     const T = genTask(R, o.n, g, 't', {minD:3.5}); if(!T){ b.append(el('p','','Klik op Nieuwe opgave.')); return; }
     const names = (o.n===3 ? R.pick(NAMES3) : R.pick(NAMES4)).split('');
     const fig = {pts:T.pts, names};
-    if(!o.hide){ /* vector ergens vrij op het rooster */ for(let t=0;t<200;t++){ const fr = [R.int(0,12), R.int(0,8)]; const to = [fr[0]+T.op.v[0], fr[1]+T.op.v[1]]; if(inG(fr,g) && inG(to,g) && !T.pts.concat(T.img).some(p=>ptEq(p,fr)||ptEq(p,to))){ T.op.from = fr; break; } } T.op.name = ['X','Y']; }
+    if(!o.hide){ /* vector ergens vrij op het rooster */ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img)); T.op.name = ['X','Y']; }
     else T.op.hide = true;
     const v = T.op.v; const hk = `${Math.abs(v[0])} hokje${Math.abs(v[0])===1?'':'s'} naar ${v[0]>=0?'rechts':'links'} en ${Math.abs(v[1])} hokje${Math.abs(v[1])===1?'':'s'} naar ${v[1]>=0?'boven':'beneden'}`;
     const html = o.hide ? `Verschuif ${o.n===3?'ΔABC'.replace('ABC',names.join('')):'de vierhoek '+names.join('')} <b>${hk}</b>.` : `Teken het beeld van ${o.n===3?'Δ':'de vierhoek '}${names.join('')} door de translatie over ${vecN('X','Y')}.`;
@@ -3130,7 +3150,7 @@ function illus(R, prop, kind){
     const rot = R.pick([0,30,60,-30]); Object.keys(base).forEach(k=>{ base[k] = at(rotPt(base[k], [0,0], rot)); });
     let op;
     if(kind==='s'){ op = genAxis(R, g, R.pick(['v','h','d'])); }
-    if(kind==='t'){ op = genOpK(R, g, 't'); op.from = [R.int(0,10), R.int(0,8)]; }
+    if(kind==='t'){ op = genOpK(R, g, 't'); op.from = vecFrom(R, g, op.v); if(!op.from) continue; }
     if(kind==='r'){ op = {t:'r', c:[R.int(2,12), R.int(2,7)], deg:R.pick([60,90,-90,-60,120])}; }
     if(kind==='p'){ op = {t:'p', c:[R.int(3,11), R.int(2,7)]}; }
     const P = Object.values(base), Q = P.map(p=>applyOp(p, op));
@@ -3304,6 +3324,158 @@ EG.welke = { title:'Bijzondere eigenschappen', lvl:3, instr:'Vink telkens alle t
     {html:'Bij welke transformatie wordt de figuur <b>omgeklapt</b>?', ans:['s'], why:'Enkel bij een spiegeling om een as. Een spiegeling om een punt is een halve draai: de figuur klapt niet om.'},
     {html:'Bij welke transformatie verschuift <b>elk punt even ver</b>?', ans:['t'], why:'Enkel bij een translatie. Bij een rotatie gaan punten verder van het centrum ook verder.'}];
   R.shuffle(qs).forEach((q,i)=>qMulti(b, st, save, 'q'+i, {nr:LET[i]+'.', html:q.html, opts:TYPES4, ans:q.ans, why:q.why, whyBad:'Probeer elke transformatie in gedachten uit, bijvoorbeeld met een rechte of een driehoek.'}));
+}};
+
+/* --- noteer alles zelf: notatievak met alle tekens, en zinnen met kernwoorden --- */
+(function(){
+  const css = `
+  .nb{ display:flex; flex-direction:column; gap:.4rem; margin:.35rem 0 }
+  .nb-view{ position:relative; min-height:2.6rem; display:flex; align-items:flex-end; flex-wrap:wrap; padding:.45rem .7rem; border:2px solid var(--border); border-radius:.6rem; background:var(--card); font-size:1.3rem; cursor:text; line-height:1.5 }
+  .nb-view.focus{ border-color:var(--orange) }
+  .nb-view.ok{ border-color:var(--ok) } .nb-view.bad{ border-color:var(--bad) }
+  .nb-view input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; cursor:text }
+  .nb-view .nb-ph{ color:var(--ink-soft); font-size:.95rem; align-self:center }
+  .nb-view sub{ font-size:.7em } .nb-view .vec-n{ margin:0 .05em }
+  .nb-caret{ display:inline-block; width:2px; height:1.15em; background:var(--orange); margin-left:1px; align-self:center; animation:nbBl 1s steps(1) infinite }
+  .nb-view:not(.focus) .nb-caret{ display:none }
+  @keyframes nbBl{ 50%{ opacity:0 } }
+  .nb-keys{ display:flex; flex-wrap:wrap; gap:.3rem }
+  .nb-keys button{ font:inherit; font-size:1.05rem; min-width:2.3rem; padding:.25rem .55rem; border-radius:.5rem; border:1.5px solid var(--tq); background:var(--card); color:var(--ink); cursor:pointer }
+  .nb-keys button:hover{ border-color:var(--orange) }
+  .nb-keys button.on{ background:var(--or-soft); border-color:var(--orange); box-shadow:inset 0 0 0 1.5px var(--orange) }
+  .nb-keys .sep{ width:.4rem }
+  .nb-hint{ font-size:.9rem; color:var(--ink-soft) }
+  .zin-ta{ width:100%; min-height:3.2rem; font:inherit; font-size:1.02rem; padding:.45rem .6rem; border-radius:.6rem; border:2px solid var(--border); background:var(--card); color:var(--ink); resize:vertical; box-sizing:border-box }
+  .zin-ta:focus{ outline:none; border-color:var(--orange) }
+  .zin-ta.ok{ border-color:var(--ok) } .zin-ta.bad{ border-color:var(--bad) }`;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+const NB_VEC = '<svg viewBox="0 0 20 6" preserveAspectRatio="none" aria-hidden="true"><path d="M.5 3H19.3M16.2 .6L19.4 3L16.2 5.4"/></svg>';
+/* tokens {c, sub, vec}: opeenvolgende vec-tokens vormen samen één vector */
+function nbHtml(tk){
+  let h = '', i = 0;
+  while(i<tk.length){
+    const sub = tk[i].sub; let part = '';
+    while(i<tk.length && tk[i].sub===sub){
+      if(tk[i].vec){ let v = ''; while(i<tk.length && tk[i].sub===sub && tk[i].vec){ v += escH(tk[i].c); i++; } part += `<span class="vec-n"><i>${NB_VEC}</i>${v}</span>`; }
+      else { part += escH(tk[i].c); i++; }
+    }
+    h += sub ? `<sub>${part}</sub>` : part;
+  }
+  return h;
+}
+const escH = c => c==='<' ? '&lt;' : c==='>' ? '&gt;' : c==='&' ? '&amp;' : c;
+/* vaste schrijfwijze om te vergelijken: _{..} voor de index, >{..} voor een vector */
+function nbSer(tk){
+  let o = '', sub = 0, vec = 0;
+  tk.forEach(t=>{ if(vec && (!t.vec || t.sub!==sub)){ o += '}'; vec = 0; } if(t.sub!==sub){ o += t.sub ? '_{' : '}'; sub = t.sub; } if(t.vec && !vec){ o += '>{'; vec = 1; } o += t.c; });
+  if(vec) o += '}'; if(sub) o += '}';
+  return o.replace(/[−–]/g,'-').replace(/['’]/g,'′').replace(/°/g,'').replace(/\+(?=\d)/g,'');
+}
+const nbFlat = x => x.replace(/[_>]\{|\}/g,'');
+function notBox(parent, s, opt={}){
+  s.tk = s.tk || []; const mode = {sub:0, vec:0};
+  const wrap = el('div','nb'); parent.append(wrap);
+  const view = el('div','nb-view'); const inp = document.createElement('input'); inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false; inp.setAttribute('autocapitalize','off'); inp.setAttribute('aria-label','notatie');
+  const show = el('span',''); view.append(show, inp);
+  const keys = el('div','nb-keys'); wrap.append(view, keys);
+  let locked = false;
+  const paint = () => { show.innerHTML = s.tk.length ? nbHtml(s.tk) + '<span class="nb-caret"></span>' : '<span class="nb-ph">Klik hier en noteer…</span><span class="nb-caret"></span>'; bSub.classList.toggle('on', !!mode.sub); bVec.classList.toggle('on', !!mode.vec); };
+  const changed = () => { view.classList.remove('ok','bad'); paint(); opt.onChange && opt.onChange(); };
+  const add = c => { if(locked) return; if(c===' ') return; s.tk.push({c, sub:mode.sub, vec:mode.vec && /[A-Za-z]/.test(c) ? 1 : 0}); changed(); };
+  const back = () => { if(locked) return; s.tk.pop(); changed(); };
+  const k = (lab, fn, title) => { const x = el('button','', lab); x.type = 'button'; if(title) x.title = title; x.addEventListener('pointerdown', e=>e.preventDefault()); x.addEventListener('click', ()=>{ fn(); inp.focus(); }); keys.append(x); return x; };
+  const bSub = k('x<sub>□</sub> index', ()=>{ mode.sub = mode.sub ? 0 : 1; if(!mode.sub) mode.vec = 0; paint(); }, 'index aan of uit');
+  const bVec = k(`<span class="vec-n"><i>${NB_VEC}</i>AB</span> vector`, ()=>{ mode.vec = mode.vec ? 0 : 1; paint(); }, 'vector aan of uit');
+  keys.append(el('span','sep'));
+  ['s','t','r','(',')','=',',','°','−','′','Δ'].forEach(c=>k(c, ()=>add(c)));
+  keys.append(el('span','sep'));
+  k('⌫', back, 'wis het laatste teken'); k('Wis alles', ()=>{ if(locked) return; s.tk = []; changed(); });
+  inp.addEventListener('input', ()=>{ const v = inp.value; inp.value = ''; [...v].forEach(c=>{ if(/[A-Za-z0-9()=,°′'’+\-−–Δ]/.test(c)) add(c==='-'||c==='–' ? '−' : c==='\'' || c==='’' ? '′' : c); }); });
+  inp.addEventListener('keydown', e=>{ if(e.key==='Backspace'){ e.preventDefault(); back(); } else if(e.key==='Enter'){ e.preventDefault(); opt.onEnter && opt.onEnter(); } else if(e.key==='_'){ e.preventDefault(); bSub.click(); } });
+  inp.addEventListener('focus', ()=>view.classList.add('focus')); inp.addEventListener('blur', ()=>view.classList.remove('focus'));
+  paint();
+  return { view, ser:()=>nbSer(s.tk), empty:()=>!s.tk.length, lock(){ locked = true; inp.readOnly = true; keys.querySelectorAll('button').forEach(b=>b.disabled = true); }, mark(ok){ view.classList.remove('ok','bad'); view.classList.add(ok?'ok':'bad'); } };
+}
+/* één opgave: zin -> notatie */
+function zelfNotQ(parent, st, save, id, q){
+  const qid = QID(id); CLvraag(qid);
+  const s = st[id] || (st[id] = {});
+  const row = el('div','q'); parent.append(row);
+  row.append(el('div','q-text block', `<span class="q-num">${q.nr}</span>${q.html}`));
+  const fb = el('div','fb');
+  const box = notBox(row, s, {onChange:()=>{ fb.className = 'fb'; fb.textContent = ''; save(); }, onEnter:()=>run(false)});
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button'; act.append(bC); row.append(act, fb);
+  function evaluate(){
+    if(box.empty()) return {info:true, msg:'Noteer eerst de volledige notatie.'};
+    const a = box.ser(), w = q.ser;
+    if(a===w) return {ok:true};
+    const fa = nbFlat(a), fw = nbFlat(w);
+    if(fa===fw) return {msg: q.k==='t' ? 'De tekens kloppen, maar zet de vector met een pijl in de index: zet <b>index</b> en <b>vector</b> aan.' : q.k==='r' ? 'De tekens kloppen, maar bij een rotatie staat er niets in de index.' : 'De tekens kloppen, maar zet de as of het centrum in de index: zet <b>index</b> aan.'};
+    if(fa[0]!==fw[0]) return {msg:'Welke letter hoort bij deze transformatie? s voor een spiegeling, t voor een translatie, r voor een rotatie.'};
+    if(q.k==='r'){ const m = fa.match(/^r\(([^,]*),(-?\d+)\)/); if(m && Number(m[2])===-q.h) return {msg:'Kijk naar de draaizin: tegenwijzerzin is positief, wijzerzin is negatief.'}; if(!/^r\([^,]+,-?\d+\)\(/.test(fa)) return {msg:'Een rotatie noteer je als r(centrum, hoek)(punt) = beeld.'}; }
+    if(fa===fw.replace(`(${q.a})=${q.b}`, `(${q.b})=${q.a}`)) return {msg:'Let op de volgorde: tussen haakjes staat het punt dat je afbeeldt, na het gelijkheidsteken het beeld.'};
+    if(!fa.includes('=')) return {msg:'Vergeet het gelijkheidsteken en het beeld niet.'};
+    return {msg:'Vergelijk met de zin: welke transformatie, welk element (as, vector, centrum), welk punt en welk beeld?'};
+  }
+  function run(silent){
+    const r = evaluate(); fb.className = 'fb ' + (r.ok?'ok':r.info?'info':'bad'); fb.innerHTML = r.ok ? '✅ Juist! ' + q.sol : r.info ? r.msg : '❌ Nog niet juist. ' + r.msg;
+    if(r.info) return; box.mark(!!r.ok); s.checked = true; save(); if(!silent) CLres(qid, !!r.ok);
+  }
+  bC.addEventListener('click', ()=>run(false)); if(s.checked) run(true);
+}
+/* één opgave: notatie -> zin, nagekeken op kernwoorden */
+function zinChk(txt, q){
+  const t = ' ' + txt.replace(/\s+/g,' ').trim() + ' ';
+  const has = re => re.test(t); const miss = [];
+  const P = x => `(het )?(punt )?${x}(?![A-Za-z])`;
+  if(!has(/beeld/i)) miss.push('het woord <b>beeld</b>');
+  else if(!has(new RegExp(`${q.b}[^.]*beeld van ${P(q.a)}`, 'i')) && !has(new RegExp(`beeld van ${P(q.a)}[^.]*(is|=) ${P(q.b)}`, 'i'))) miss.push(`wie het beeld is van wie (${q.b} is het beeld van ${q.a})`);
+  if(q.k==='s'){ if(!has(/spiegeling/i)) miss.push('de naam van de transformatie'); if(!has(new RegExp(`(as|rechte) ${q.e}(?![A-Za-z])`))) miss.push(`de as ${q.e}`); }
+  if(q.k==='p'){ if(!has(/spiegeling/i)) miss.push('de naam van de transformatie'); if(!has(new RegExp(`punt ${q.e}(?![A-Za-z])`)) && !has(new RegExp(`puntspiegeling (om|rond) ${q.e}(?![A-Za-z])`, 'i'))) miss.push(`het punt ${q.e} waarom je spiegelt`); }
+  if(q.k==='t'){ if(!has(/translatie|verschuiving/i)) miss.push('de naam van de transformatie'); if(!has(/vector/i)) miss.push('het woord <b>vector</b>'); if(!has(new RegExp(`(?<![A-Za-z])${q.e}(?![A-Za-z])`))) miss.push(`de vector ${vecN(q.e[0], q.e[1])}`); }
+  if(q.k==='r'){ if(!has(/rotatie|draaiing/i)) miss.push('de naam van de transformatie'); if(!has(new RegExp(`(?<![A-Za-z])${q.e}(?![A-Za-z])`))) miss.push(`het centrum ${q.e}`);
+    if(!has(new RegExp(`(?<![0-9])${Math.abs(q.h)} ?(°|graden)`))) miss.push('de hoekgrootte in graden');
+    const tw = has(/tegenwijzerzin/i), w = has(/(?<!tegen)wijzerzin/i);
+    if(q.h>0 ? (!tw || w) : (!w || tw)) miss.push(tw||w ? 'de juiste draaizin (kijk naar het teken van de hoek)' : 'de draaizin (wijzerzin of tegenwijzerzin)'); }
+  return miss;
+}
+function zelfZinQ(parent, st, save, id, q){
+  const qid = QID(id); CLvraag(qid);
+  const s = st[id] || (st[id] = {v:''});
+  const row = el('div','q'); parent.append(row);
+  row.append(el('div','q-text block', `<span class="q-num">${q.nr}</span>Schrijf in woorden: <span class="lg">${q.sol}</span>`));
+  const ta = document.createElement('textarea'); ta.className = 'zin-ta'; ta.placeholder = 'Schrijf een volledige zin…'; ta.value = s.v || ''; row.append(ta);
+  const act = el('div','q-act'); const bC = el('button','btn','Controleer'); bC.type = 'button'; act.append(bC);
+  const fb = el('div','fb'); row.append(act, fb);
+  ta.addEventListener('input', ()=>{ s.v = ta.value; ta.classList.remove('ok','bad'); fb.className = 'fb'; fb.textContent = ''; save(); });
+  function run(silent){
+    if(!ta.value.trim()){ fb.className = 'fb info'; fb.textContent = 'Schrijf eerst een zin.'; return; }
+    const miss = zinChk(ta.value, q); const ok = !miss.length;
+    ta.classList.remove('ok','bad'); ta.classList.add(ok?'ok':'bad');
+    fb.className = 'fb ' + (ok?'ok':'bad'); fb.innerHTML = ok ? '✅ Juist! Bijvoorbeeld: ' + q.html : '❌ Nog niet volledig. Er ontbreekt: ' + miss.join(', ') + '.';
+    s.checked = true; save(); if(!silent) CLres(qid, ok);
+  }
+  bC.addEventListener('click', ()=>run(false)); if(s.checked) run(true);
+}
+function zelfItems(R){
+  const L = R.letters(13, 'EFGHJKLMNPRSTUVWZ');
+  const ax = R.pick(['a','b','c','d']);
+  const a1 = R.pick([40,60,70,80,110,130]), a2 = R.pick([30,45,90,120,150]);
+  const T = s => s.replace(/−/g,'-');
+  const it = {
+    t:{k:'t', e:L[0]+L[1], a:L[2], b:L[3], html:`${L[3]} is het beeld van ${L[2]} door de translatie over de vector ${vecN(L[0],L[1])}.`, sol:`t<sub>${vecN(L[0],L[1])}</sub>(${L[2]}) = ${L[3]}`, ser:`t_{>{${L[0]}${L[1]}}}(${L[2]})=${L[3]}`},
+    rp:{k:'r', e:'O', h:a1, a:L[4], b:L[5], html:`${L[5]} is het beeld van ${L[4]} door de rotatie rond het centrum O over ${a1}° in tegenwijzerzin.`, sol:`r(O, ${a1}°)(${L[4]}) = ${L[5]}`, ser:`r(O,${a1})(${L[4]})=${L[5]}`},
+    rm:{k:'r', e:'O', h:-a2, a:L[6], b:L[7], html:`${L[7]} is het beeld van ${L[6]} door de rotatie rond het centrum O over ${a2}° in wijzerzin.`, sol:`r(O, −${a2}°)(${L[6]}) = ${L[7]}`, ser:T(`r(O,−${a2})(${L[6]})=${L[7]}`)},
+    s:{k:'s', e:ax, a:L[8], b:L[9], html:`${L[9]} is het beeld van ${L[8]} door de spiegeling om de as ${ax}.`, sol:`s<sub>${ax}</sub>(${L[8]}) = ${L[9]}`, ser:`s_{${ax}}(${L[8]})=${L[9]}`},
+    p:{k:'p', e:L[10], a:L[11], b:L[12], html:`${L[12]} is het beeld van ${L[11]} door de spiegeling om het punt ${L[10]}.`, sol:`s<sub>${L[10]}</sub>(${L[11]}) = ${L[12]}`, ser:`s_{${L[10]}}(${L[11]})=${L[12]}`}};
+  const [r1, r2] = R.shuffle(['rp','rm']), [m1, m2] = R.shuffle(['s','p']);
+  return { not:R.shuffle([it.t, it[r1], it[m1]]), zin:R.shuffle([it[m2], it[r2]]) };
+}
+NT.zelf = { title:'Noteer alles zelf', lvl:2, instr:'Noteer eerst de zinnen volledig in symbolen. Typ met je toetsenbord of gebruik de knoppen. Zet <b>index</b> aan voor wat onderaan staat en <b>vector</b> voor een pijl boven twee letters. Schrijf daarna de notaties uit in een volledige zin.', build:(b,st,save)=>{
+  const R = makeR(st); const I = zelfItems(R);
+  I.not.forEach((q,i)=>zelfNotQ(b, st, save, 'n'+i, {...q, nr:LET[i]+'.'}));
+  I.zin.forEach((q,i)=>zelfZinQ(b, st, save, 'z'+i, {...q, nr:LET[i+3]+'.'}));
 }};
 /* ============================================================
    KAARTEN 7: ROOSTERS
@@ -4002,7 +4174,7 @@ function tqBeeld(kind){ return {sec:'Beeld tekenen', prompt:'Klik op het rooster
   const T = genTask(R, 3, g, k, {minD:3}); const names = R.pick(NAMES3).split(''); const fig = {pts:T.pts, names};
   let html;
   if(T.op.t==='s'){ T.op.name = 'a'; T.op.nAt = 'start'; html = `Teken s<sub>a</sub>(Δ${names.join('')}).`; }
-  if(T.op.t==='t'){ for(let t=0;t<200;t++){ const fr = [R.int(0,12), R.int(0,8)], to = [fr[0]+T.op.v[0], fr[1]+T.op.v[1]]; if(inG(to,g) && !T.pts.concat(T.img).some(p=>ptEq(p,fr)||ptEq(p,to))){ T.op.from = fr; break; } } T.op.name = ['X','Y']; html = `Teken t<sub>${vecN('X','Y')}</sub>(Δ${names.join('')}).`; }
+  if(T.op.t==='t'){ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img)); T.op.name = ['X','Y']; html = `Teken t<sub>${vecN('X','Y')}</sub>(Δ${names.join('')}).`; }
   if(T.op.t==='r'){ T.op.name = 'O'; html = `Teken r(O, ${degTxt(T.op.deg)})(Δ${names.join('')}).`; }
   if(T.op.t==='p'){ T.op.name = 'O'; html = `Teken s<sub>O</sub>(Δ${names.join('')}).`; }
   placeTask(b, st, save, 'p', {g, fig, op:T.op, base:opBase(T.op), html, pts:2});
@@ -4088,7 +4260,7 @@ SEC.notatie = { id:'notatie', ic:'tf_not', nav:'Notatie', title:'Notatie van tra
     <tr><td>t<sub>${vecN('X','Y')}</sub>(A) = B</td><td>B is het beeld van A door de translatie over ${vecN('X','Y')}.</td></tr>
     <tr><td>r(O, −90°)(A) = B</td><td>B is het beeld van A door de rotatie rond O over 90° in wijzerzin.</td></tr>
     <tr><td>s<sub>x</sub>, s<sub>y</sub></td><td>spiegeling om de x-as, om de y-as</td></tr></table>`,
-  cards:[NT.lees, NT.schrijf, NT.assen] };
+  cards:[NT.lees, NT.schrijf, NT.assen, NT.zelf] };
 ICONS.tf_rooster = '<path d="M3 6h18M3 12h18M3 18h18M6 3v18M12 3v18M18 3v18"/><circle cx="6" cy="6" r="1.6" fill="currentColor"/><circle cx="18" cy="18" r="1.6" fill="currentColor"/>';
 SEC.rooster = { id:'rooster', ic:'tf_rooster', nav:'Roosters', title:'Transformaties op een rooster',
   tip:'Op een rooster van vierkanten tel je <b>vakjes</b>. Rechten krijgen een <b>kleine letter</b>, punten een <b>hoofdletter</b>.',

@@ -336,7 +336,7 @@ export const SITES = [
     "id": "notatie",
     "naam": "Notatie",
     "toets": false,
-    "vragen": 15
+    "vragen": 20
    },
    {
     "id": "rooster",
