@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="nl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rekentoestel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+<link rel="stylesheet" href="../gedeeld/stijl.css">
+<link rel="icon" href="../gedeeld/img/beeldmerk.png">
+<style>
+  .rt-wrap{ display:flex; flex-wrap:wrap; gap:2rem; align-items:flex-start; justify-content:center; }
+  .rt-calc{ flex:none; max-width:100%; }
+  .rt-calc .ti30{ --ti-fs:clamp(11px, 3.6vw, 16px); }
+  .rt-info{ flex:1; min-width:260px; max-width:520px; }
+  .rt-info h2{ margin-top:0; }
+  .rt-info table{ border-collapse:collapse; width:100%; margin:.3rem 0 1rem; }
+  .rt-info td{ padding:.35rem .5rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  .rt-info td:first-child{ white-space:nowrap; font-weight:700; color:var(--accent-dark); }
+  .rt-info kbd{ display:inline-block; min-width:1.5em; padding:0 .35em; border:1px solid var(--border); border-bottom-width:2px; border-radius:.3em; background:var(--card); font:inherit; font-size:.9em; text-align:center; }
+  .rt-bar{ display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.6rem; }
+</style>
+</head>
+<body data-site="rekentoestel">
+<header class="top">
+  <p class="eyebrow">Wiskunde · eerste graad</p>
+  <h1>Het <em>rekentoestel</em></h1>
+  <p class="tagline">Dezelfde toetsen als je TI-30XB MultiView, gewoon op het scherm.</p>
+</header>
+<main class="page">
+  <div class="rt-wrap">
+    <div class="rt-calc" id="calc"></div>
+    <div class="rt-info">
+      <h2>Zo gebruik je het</h2>
+      <p>Klik op de toetsen zoals op je eigen toestel. Het toestel onthoudt je geheugen, je lijsten en je instellingen, ook als je de pagina sluit.</p>
+      <table>
+        <tr><td>2nd</td><td>Daarna geldt de blauwe functie boven de volgende toets.</td></tr>
+        <tr><td>◂▸</td><td>Wisselt een uitkomst tussen breuk, decimaal getal en √ of π.</td></tr>
+        <tr><td>▲ ▼</td><td>Bekijk vorige berekeningen. Met enter haal je er een terug.</td></tr>
+        <tr><td>data</td><td>De lijsten L1, L2 en L3. Met 2nd data (stat) bereken je het gemiddelde, de mediaan …</td></tr>
+        <tr><td>2nd 0</td><td>Reset: alles terug zoals een nieuw toestel.</td></tr>
+      </table>
+      <h2>Met het toetsenbord</h2>
+      <table>
+        <tr><td><kbd>0</kbd> … <kbd>9</kbd> <kbd>,</kbd></td><td>cijfers en de komma (het toestel toont een punt)</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd></td><td>plus, min, maal, gedeeld door, macht</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>enter</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></td><td>de pijltjes</td></tr>
+        <tr><td><kbd>Backspace</kbd></td><td>delete</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>clear</td></tr>
+      </table>
+      <div class="rt-bar"><button class="btn ghost" type="button" id="reset">↺ Toestel resetten</button></div>
+    </div>
+  </div>
+</main>
+<script src="../gedeeld/ti30xb.js"></script>
+<script>
+  const C = TI30XB.create(document.getElementById('calc'), { store:'ti30xb_v1' });
+  try{ C.el.focus({ preventScroll:true }); }catch(e){}
+  document.getElementById('reset').addEventListener('click', ()=>{ ['2nd','0','2'].forEach(k=>C.press(k)); C.el.focus(); });
+</script>
+<script src="../gedeeld/kop.js"></script>
+<script type="module" src="../gedeeld/aanmelden.js"></script>
+</body></html>

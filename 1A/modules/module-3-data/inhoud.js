@@ -2937,26 +2937,12 @@ MXsec('freq').push(
 );
 
 /* ============================================================
-   NAGEBOOTST REKENTOESTEL (zoals de TI-30XS MultiView)
+   NAGEBOOTST REKENTOESTEL (de TI-30XB MultiView, gedeeld/ti30xb.js)
    Enkel wat we nodig hebben: lijsten invullen (data), 1-Var Stats (2nd data = stat), resultaten bekijken.
    ============================================================ */
 (function(){
   const css = `
   .calc-wrap{ display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-start; }
-  .tcalc{ width:270px; background:#2d3436; border-radius:22px 22px 30px 30px; padding:14px 14px 18px; box-shadow:0 4px 0 #1b1f20; user-select:none; -webkit-user-select:none; }
-  .tcalc .brand{ color:#dfe6e9; font-size:.72rem; letter-spacing:.08em; margin:0 0 6px 4px; }
-  .tcalc .scr{ background:#c9d6b9; color:#1d2b14; font-family:ui-monospace, Consolas, "DejaVu Sans Mono", monospace; font-size:14.5px; line-height:1.3; height:6.6em; border-radius:6px; padding:6px 8px; white-space:pre; overflow:hidden; border:3px solid #1b1f20; }
-  .tcalc .scr .cur{ background:#1d2b14; color:#c9d6b9; }
-  .tcalc .scr .ind{ font-size:10px; height:1.1em; line-height:1.1em; }
-  .tcalc .keys{ display:grid; grid-template-columns:repeat(5,1fr); gap:7px; margin-top:12px; }
-  .tcalc .k{ font:700 12px/1 var(--f-body); color:#fff; background:#4a5357; border:none; border-radius:8px; height:32px; cursor:pointer; position:relative; box-shadow:0 2px 0 #1b1f20; }
-  .tcalc .k small{ position:absolute; top:-12px; left:0; right:0; font-size:9.5px; color:#74b9ff; font-weight:700; }
-  .tcalc .k.n{ background:#f1f2f6; color:#1b1f20; font-size:15px; }
-  .tcalc .k.zero{ grid-column:2; }
-  .tcalc .k.sec{ background:#0984e3; }
-  .tcalc .k.ent{ background:#636e72; }
-  .tcalc .k.hot{ outline:4px solid var(--orange); outline-offset:1px; transform:translateY(2px); box-shadow:none; }
-  .tcalc .keys .gap{ height:4px; grid-column:1/-1; }
   .steps-box{ flex:1; min-width:240px; }
   .steps-box ol{ padding-left:1.3rem; margin:.3rem 0; }
   .steps-box li{ margin:.25rem 0; padding:.15rem .3rem; border-radius:.4rem; }
@@ -2968,99 +2954,9 @@ MXsec('freq').push(
 })();
 const K = (t, cls) => `<span class="kbd ${cls||''}">${t}</span>`;
 
-function makeCalc(parent){
-  const box = el('div','tcalc');
-  box.innerHTML = `<div class="brand">TI-30XS MultiView (nagebootst)</div><div class="scr"></div><div class="keys"></div>`;
-  const scr = box.querySelector('.scr'), keys = box.querySelector('.keys');
-  const S = { mode:'home', second:false, L:[[],[],[]], col:0, row:0, buf:'', menu:0, opt:{data:0, frq:0}, optRow:0, res:[], resTop:0, home:'' };
-  const layout = [
-    ['2nd','sec','2nd'],['mode','','mode','quit'],['del','','delete'],['◀','','left'],['▶','','right'],
-    ['data','','data','stat'],['clear','','clear'],['▲','','up'],['▼','','down'],['enter','ent','enter'],
-    ['7','n','7'],['8','n','8'],['9','n','9'],['÷','','÷'],['×','','×'],
-    ['4','n','4'],['5','n','5'],['6','n','6'],['−','','−'],['+','','+'],
-    ['1','n','1'],['2','n','2'],['3','n','3'],['(−)','n','neg'],['.','n','.'],
-    ['0','n zero','0']
-  ];
-  const btn = {};
-  layout.forEach(([lab, cls, code, sec])=>{ const k = el('button','k '+cls, (sec?`<small>${sec}</small>`:'')+lab); k.type='button'; k.dataset.code=code; keys.append(k); btn[code]=k; k.addEventListener('click', ()=>press(code)); });
-  parent.append(box);
-  const fmtC = x => { if(x===undefined||x===null||x==='') return ''; let r = Math.round(x*1e6)/1e6; return String(r).replace('-','⁻'); };
-  function stats(){
-    const data = S.L[S.opt.data].filter(v=>v!==undefined && v!=='');
-    let fr = S.opt.frq===0 ? data.map(()=>1) : S.L[S.opt.frq-1].slice(0, data.length);
-    if(fr.length<data.length || fr.some(f=>f===undefined || f<0)) return null;
-    const all = expand(data, fr.map(Number));
-    if(!all.length) return null;
-    const n = all.length, m = mean(all), s2 = sum(all.map(x=>x*x));
-    const sx = n>1 ? Math.sqrt(sum(all.map(x=>(x-m)**2))/(n-1)) : 0, sg = Math.sqrt(sum(all.map(x=>(x-m)**2))/n);
-    const so = sorted(all), q = a => median(a);
-    const lo = so.slice(0, Math.floor(n/2)), hi = so.slice(Math.ceil(n/2));
-    return [['n',n],['x̄',m],['Sx',sx],['σx',sg],['Σx',sum(all)],['Σx²',s2],['minX',so[0]],['Q1',n>1?q(lo):so[0]],['Med',median(all)],['Q3',n>1?q(hi):so[0]],['maxX',so[n-1]]];
-  }
-  function render(){
-    const ind = `<div class="ind">${S.second?'2ND':''}</div>`;
-    let lines = [];
-    if(S.mode==='home'){ lines = ['', '', S.home||'']; }
-    else if(S.mode==='data'){
-      const top = Math.max(0, S.row-2);
-      const head = ' L1    L2    L3';
-      lines.push(head);
-      for(let r=top; r<top+3; r++){ let ln=''; for(let c=0;c<3;c++){ let v = S.L[c][r]; let t = (v===undefined?(r<=S.L[c].length?'------':''):fmtC(v)).toString().slice(0,5).padEnd(5,' '); if(c===S.col && r===S.row) t = `<span class="cur">${t}</span>`; ln += ' '+t; } lines.push(ln); }
-      lines.push(`L${S.col+1}(${S.row+1})=${S.buf}`);
-      scr.innerHTML = ind + lines.join('\n'); return;
-    }
-    else if(S.mode==='menu'){ lines = ['STAT', '1:1-Var Stats', '2:2-Var Stats', '3:StatVars'].map((t,i)=> i===S.menu+1 ? `<span class="cur">${t}</span>` : t); }
-    else if(S.mode==='onevar'){
-      const dl = ['L1','L2','L3'].map((t,i)=> i===S.opt.data ? `<span class="cur">${t}</span>` : t).join(' ');
-      const fl = ['ONE','L1','L2','L3'].map((t,i)=> i===S.opt.frq ? `<span class="cur">${t}</span>` : t).join(' ');
-      lines = ['1-Var Stats', (S.optRow===0?'▸':' ')+'DATA: '+dl, (S.optRow===1?'▸':' ')+'FRQ: '+fl, (S.optRow===2?'▸':' ')+(S.optRow===2?'<span class="cur">CALC</span>':'CALC')];
-    }
-    else if(S.mode==='res'){
-      if(!S.res){ lines = ['', 'FOUT: DIM MISMATCH', '(lijsten niet even lang)']; }
-      else { lines = ['1-Var:'+['L1','L2','L3'][S.opt.data]+(S.opt.frq?','+['L1','L2','L3'][S.opt.frq-1]:'')];
-        for(let i=S.resTop; i<S.resTop+3 && i<S.res.length; i++){ const [nm,val] = S.res[i]; lines.push(`${i+1}:${nm}=${fmtC(val)}`); } }
-    }
-    scr.innerHTML = ind + lines.join('\n');
-  }
-  function commit(){ if(S.buf===''||S.buf==='-') return; const v = Number(S.buf.replace('⁻','-')); if(!isNaN(v)){ S.L[S.col][S.row] = v; } S.buf=''; }
-  function press(code){
-    if(code==='2nd'){ S.second = !S.second; render(); return; }
-    const sec = S.second; S.second = false;
-    if(code==='data' && sec){ commit(); S.mode='menu'; S.menu=0; render(); return; }
-    if(code==='mode' && sec){ commit(); S.mode='home'; render(); return; }
-    if(code==='data'){ if(S.mode==='data'){ render(); return; } S.mode='data'; S.buf=''; render(); return; }
-    if(code==='clear'){ if(S.mode==='data'){ if(S.buf) S.buf=''; else { S.L[S.col].splice(S.row,1); } } else { S.mode='home'; S.home=''; } render(); return; }
-    if(S.mode==='data'){
-      if(/^[0-9.]$/.test(code)){ S.buf += code; }
-      else if(code==='neg'){ S.buf = S.buf.startsWith('-') ? S.buf.slice(1) : '-'+S.buf; }
-      else if(code==='enter' || code==='down'){ commit(); if(S.row < S.L[S.col].length) S.row++; }
-      else if(code==='up'){ commit(); if(S.row>0) S.row--; }
-      else if(code==='right'){ commit(); if(S.col<2){ S.col++; S.row=Math.min(S.row, S.L[S.col].length); } }
-      else if(code==='left'){ commit(); if(S.col>0){ S.col--; S.row=Math.min(S.row, S.L[S.col].length); } }
-      else if(code==='delete'){ if(S.buf) S.buf=S.buf.slice(0,-1); else { S.L[S.col].splice(S.row,1); } }
-      render(); return;
-    }
-    if(S.mode==='menu'){
-      if(code==='down') S.menu=Math.min(2,S.menu+1); else if(code==='up') S.menu=Math.max(0,S.menu-1);
-      else if(code==='1' || (code==='enter' && S.menu===0)){ S.mode='onevar'; S.optRow=0; }
-      render(); return;
-    }
-    if(S.mode==='onevar'){
-      if(code==='down') S.optRow=Math.min(2,S.optRow+1); else if(code==='up') S.optRow=Math.max(0,S.optRow-1);
-      else if(code==='right'){ if(S.optRow===0) S.opt.data=Math.min(2,S.opt.data+1); if(S.optRow===1) S.opt.frq=Math.min(3,S.opt.frq+1); }
-      else if(code==='left'){ if(S.optRow===0) S.opt.data=Math.max(0,S.opt.data-1); if(S.optRow===1) S.opt.frq=Math.max(0,S.opt.frq-1); }
-      else if(code==='enter' && S.optRow===2){ S.res = stats(); S.resTop=0; S.mode='res'; }
-      else if(code==='enter'){ S.optRow=Math.min(2,S.optRow+1); }
-      render(); return;
-    }
-    if(S.mode==='res'){
-      if(code==='down' && S.res) S.resTop=Math.min(S.res.length-3, S.resTop+1); else if(code==='up') S.resTop=Math.max(0,S.resTop-1);
-      render(); return;
-    }
-    render();
-  }
-  render();
-  return { press, btn, S, render, reset(){ S.mode='home'; S.L=[[],[],[]]; S.col=0; S.row=0; S.buf=''; S.opt={data:0,frq:0}; S.second=false; render(); } };
+/* het gedeelde rekentoestel van het platform (gedeeld/ti30xb.js), zoals de TI-30XB MultiView van de leerlingen */
+function makeCalc(parent, opts){
+  return TI30XB.create(parent, Object.assign({ size:'11px' }, opts));
 }
 
 /* --- demo: het toestel doet de stappen voor --- */
@@ -3108,7 +3004,7 @@ SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'S
         {say:`${K('2nd','sec')} ${K('data')}: het menu STAT. Kies 1:1-Var Stats.`, keys:['2nd','data','enter']},
         {say:'DATA: L1 laten staan. FRQ: met ▶ naar L2.', keys:['down','right','right']},
         {say:`Naar CALC en ${K('enter')}.`, keys:['down','enter']},
-        {say:'Lees af: n = 20 en x̄ = 40,35. Scroll naar beneden voor Med.', keys:['down','down','down','down','down','down']}
+        {say:'Lees af: n = 20 en x̄ = 40,35. Scroll naar beneden voor Med.', keys:['down','down','down','down','down','down','down','down']}
       ]})) },
     { title:'Doe het zelf op het toestel', lvl:1, instr:'Gebruik het nagebootste toestel (of je eigen rekentoestel) met dezelfde schoenmaten.',
       build:combo(html(ftabHTML(['schoenmaat', ...SCHOEN.vals.map(String)], [['aantal', ...SCHOEN.fr.map(String)]])), b=>{ const w=el('div','calc-wrap'); b.append(w); makeCalc(w); }, list([
@@ -3140,8 +3036,9 @@ SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'S
    ============================================================ */
 (function(){
   const css = `
-  .tx-mini{ width:250px; padding:10px 10px 12px; border-radius:16px; }
-  .tx-mini .scr{ height:auto; min-height:5.4em; }
+  .tx-mini{ width:250px; background:#5d6164; padding:10px; border-radius:16px; box-shadow:0 3px 0 #3e4143; }
+  .tx-mini .brand{ color:#fff; font:700 .72rem/1 var(--f-body); letter-spacing:.06em; margin:0 0 6px 4px; }
+  .tx-mini .scr{ background:#c9d0c3; color:#1c2117; font-family:"DejaVu Sans Mono", Consolas, "Courier New", monospace; font-size:14px; line-height:1.3; min-height:5.4em; border-radius:4px; padding:6px 8px; white-space:pre; overflow:hidden; box-shadow:inset 0 2px 4px rgba(0,0,0,.35); }
   .tx-row{ display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-start; margin:.4rem 0; }
   .tx-row > div:last-child{ flex:1; min-width:220px; }
   .tx-keys{ border-collapse:collapse; margin:.2rem 0; }
@@ -3154,7 +3051,7 @@ SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'S
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
 })();
 /* een stilstaand scherm van het toestel */
-const TXscr = lines => `<div class="tcalc tx-mini"><div class="brand">TI-30XS MultiView</div><div class="scr">${lines.join('\n')}</div></div>`;
+const TXscr = lines => `<div class="tx-mini"><div class="brand">30XB MultiView</div><div class="scr">${lines.join('\n')}</div></div>`;
 
 /* --- spiekkaart: klik op een rij en de toets licht op --- */
 const TX_KEYS = [
@@ -3167,7 +3064,7 @@ const TX_KEYS = [
   [['delete'], 'Eén getal uit de lijst verwijderen.'],
   [['2nd','mode'], 'QUIT: terug naar het gewone rekenscherm.']
 ];
-const TX_LAB = { data:K('data'), enter:K('enter'), right:K('▶'), up:K('▲'), down:K('▼'), '2nd':K('2nd','sec'), clear:K('clear'), delete:K('del'), mode:K('mode') };
+const TX_LAB = { data:K('data'), enter:K('enter'), right:K('▶'), up:K('▲'), down:K('▼'), '2nd':K('2nd','sec'), clear:K('clear'), delete:K('delete'), mode:K('mode') };
 function txCheat(b){
   const row = el('div','tx-row'); b.append(row);
   const cw = el('div'); row.append(cw); const C = makeCalc(cw);
@@ -3216,7 +3113,7 @@ const TX_TASKS = [
   {say:'Je typte een getal in L1. Bevestig het.', keys:[['enter']], hint:'Na elk getal druk je op dezelfde toets.'},
   {say:'Ga van L1 naar L2 om de frequenties te typen.', keys:[['right']], hint:'L2 staat rechts van L1.'},
   {say:'Open het menu STAT.', keys:[['2nd','data']], hint:'STAT staat in het blauw boven een toets: eerst 2nd.', why:'2nd data = stat.'},
-  {say:'Wis een verkeerd getal uit de lijst.', keys:[['clear'],['delete']], hint:'Gebruik clear of del.'},
+  {say:'Wis een verkeerd getal uit de lijst.', keys:[['clear'],['delete']], hint:'Gebruik clear of delete.'},
   {say:'Ga terug naar het gewone rekenscherm (QUIT).', keys:[['2nd','mode']], hint:'QUIT staat in het blauw boven mode.', why:'2nd mode = quit.'}
 ];
 
@@ -3234,11 +3131,11 @@ const TX_CASES = [
   {task:`Schoenmaat van 20 jongeren: ${ftabHTML(['maat','37','38','39','40','41','42','43','45'], [['aantal','1','3','5','1','4','3','2','1']])} Ruben zette de maten in L1 en de aantallen in L2. Zijn toestel toont:`,
     scr:['1-Var:L1','1:n=8','2:x̄=40.625','5:Σx=325'], ans:'one', why:'Er zijn 20 jongeren, maar n = 8: het toestel telde elke maat maar één keer. Bij FRQ moet L2 staan in plaats van ONE. Dan krijg je n = 20 en x̄ = 40,35.'},
   {task:'Wachttijden in minuten: 12, 7, 15, 9, 7, 20, 11, 8. Lies typte alles in L1 (FRQ: ONE). Haar toestel toont:',
-    scr:['1-Var:L1','1:n=7','2:x̄=9.857143','11:maxX=15'], ans:'verg', why:'Er zijn 8 wachttijden, maar n = 7. Het maximum is 15 in plaats van 20: Lies vergat 20 te typen.'},
+    scr:['1-Var:L1','1:n=7','2:x̄=9.857142857','B:maxX=15'], ans:'verg', why:'Er zijn 8 wachttijden, maar n = 7. Het maximum is 15 in plaats van 20: Lies vergat 20 te typen.'},
   {task:'Dezelfde wachttijden: 12, 7, 15, 9, 7, 20, 11, 8. Arne typte alles in L1 (FRQ: ONE). Zijn toestel toont:',
-    scr:['1-Var:L1','1:n=8','2:x̄=15.625','11:maxX=51'], ans:'typ', why:'n = 8 klopt, maar het maximum is 51. Dat getal staat niet in de lijst: Arne typte 51 in plaats van 15.'},
+    scr:['1-Var:L1','1:n=8','2:x̄=15.625','B:maxX=51'], ans:'typ', why:'n = 8 klopt, maar het maximum is 51. Dat getal staat niet in de lijst: Arne typte 51 in plaats van 15.'},
   {task:`Punten op 10: ${ftabHTML(['punten','5','6','7','8','9'], [['aantal','2','4','7','5','3']])} Yara typte de punten in L1 en de aantallen in L2, en koos FRQ: L2. Haar toestel toont:`,
-    scr:['','FOUT: DIM MISMATCH','(lijsten niet even lang)'], ans:'frq', why:'L1 heeft 5 getallen. Als L2 er maar 4 heeft, zijn de lijsten niet even lang. Bij elk gegeven hoort één frequentie.'},
+    scr:['','DIM MISMATCH',''], ans:'frq', why:'L1 heeft 5 getallen. Als L2 er maar 4 heeft, zijn de lijsten niet even lang. Bij elk gegeven hoort één frequentie.'},
   {task:`Aantal broers en zussen: ${ftabHTML(['aantal','3','4','5'], [['frequentie','2','5','3']])} Noor typte 3, 4, 5 in L1 en 2, 5, 3 in L2, met FRQ: L2. Haar toestel toont:`,
     scr:['1-Var:L1,L2','1:n=10','2:x̄=4.1','5:Σx=41'], ans:'ok', why:'n = 2 + 5 + 3 = 10 en Σx = 2·3 + 5·4 + 3·5 = 41. Het gemiddelde 41 : 10 = 4,1 klopt.'}
 ];
