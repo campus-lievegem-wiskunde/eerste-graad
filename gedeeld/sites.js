@@ -497,7 +497,7 @@ export const SITES = [
     "id": "rooster",
     "naam": "Roosters",
     "toets": false,
-    "vragen": 47
+    "vragen": 46
    },
    {
     "id": "assen",
@@ -536,38 +536,20 @@ export const SITES = [
     "vragen": 7
    },
    {
-    "id": "toetsA",
-    "naam": "Voorstel A · Zoals de KT",
+    "id": "toets1",
+    "naam": "Proeftoets 1",
     "toets": true,
     "vragen": 0
    },
    {
-    "id": "toetsB",
-    "naam": "Voorstel B · Eén grote tekening",
+    "id": "toets2",
+    "naam": "Proeftoets 2",
     "toets": true,
     "vragen": 0
    },
    {
-    "id": "toetsC",
-    "naam": "Voorstel C · Coördinaten en redeneren",
-    "toets": true,
-    "vragen": 0
-   },
-   {
-    "id": "toetsD",
-    "naam": "Voorstel D · Symmetrie en eigenschappen",
-    "toets": true,
-    "vragen": 0
-   },
-   {
-    "id": "toetsE",
-    "naam": "Voorstel E · Fouten zoeken en uitleggen",
-    "toets": true,
-    "vragen": 0
-   },
-   {
-    "id": "toetsF",
-    "naam": "Voorstel F · Puzzels en bijzondere gevallen",
+    "id": "toets3",
+    "naam": "Proeftoets 3",
     "toets": true,
     "vragen": 0
    }
