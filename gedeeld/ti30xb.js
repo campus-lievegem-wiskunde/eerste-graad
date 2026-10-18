@@ -1,5 +1,5 @@
 /* Nagebootst rekentoestel TI-30XB MultiView voor het oefenplatform (Campus Lievegem).
-   Gebruik: TI30XB.create(element, {size:'14px', store:'sleutel'}) geeft {el, btn, press(code), reset(), setLists([[...],[...]])}.
+   Gebruik: TI30XB.create(element, {size:'14px', store:'sleutel'}) geeft {el, btn, press(code), reset(), setLists(...)}; TI30XB.open() opent het toestel in een venster, TI30XB.fab() zet een knop rechtsonder, TI30XB.icon() geeft het mini-toestel als svg.
    Bron: aparte bestanden in 1A-module-3/bron/rekentoestel (zie overdrachtsdocument). */
 (function(root){
 'use strict';
@@ -1176,5 +1176,54 @@ function create(parent, opts = {}){
     screenText(){ return lcd.innerText; }
   };
 }
-root.TI30XB = { create, version:'1.0' };
+/* ============================================================
+   KNOP EN VENSTER: een mini-toestel (ontwerp B, turkoois) dat het grote toestel opent
+   ============================================================ */
+/* het icoon heeft dezelfde verhoudingen als het toestel: 44 breed op 100 hoog */
+function icon(){
+  let k = ''; const x0 = 5.2, y0 = 45, cw = 6.9, rh = 5.75;
+  for(let r = 0; r < 9; r++) for(let c = 0; c < 5; c++){
+    if(r < 2 && c >= 3) continue;
+    const enter = r === 8 && c === 4, x = x0 + c*cw, y = y0 + r*rh;
+    k += `<rect x="${(x+.6).toFixed(2)}" y="${(y+.7).toFixed(2)}" width="${(cw-1.6).toFixed(2)}" height="${(rh-1.9).toFixed(2)}" rx="1.4" fill="${enter ? '#FCAF17' : '#fff'}"${enter ? '' : ' fill-opacity=".92"'}/>`;
+  }
+  return `<svg viewBox="0 0 44 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x=".5" y=".5" width="43" height="99" rx="7" fill="#3BC1C5"/><rect x=".5" y="94" width="43" height="5.5" rx="2.5" fill="#1d8a8e"/><rect x="5" y="7" width="34" height="25" rx="2.4" fill="#fff"/><rect x="9" y="13" width="14" height="2" rx="1" fill="#3BC1C5"/><rect x="22" y="22" width="13" height="3.2" rx="1.2" fill="#1d8a8e"/><circle cx="33.9" cy="40.6" r="5.8" fill="#fff"/><circle cx="33.9" cy="40.6" r="2.2" fill="#3BC1C5"/>${k}</svg>`;
+}
+const CSSPOP = `
+.ti30-veil{ position:fixed; inset:0; z-index:300; background:rgba(20,40,42,.55); display:grid; place-items:center; padding:max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px)); }
+.ti30-pop{ position:relative; max-height:100%; overflow:auto; }
+.ti30-pop .ti30{ --ti-fs:clamp(9px, min(3.4vw, 1.3vh), 16px); }
+.ti30-x{ position:absolute; top:.3rem; right:.3rem; z-index:2; width:2.3rem; height:2.3rem; border-radius:50%; border:none; background:#FCAF17; color:#1f2d2e; font:700 1.3rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; box-shadow:0 2px 0 rgba(0,0,0,.25); }
+.ti30-x:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
+.ti30-fab{ position:fixed; z-index:150; right:calc(16px + env(safe-area-inset-right, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); height:64px; padding:0; border:none; background:none; cursor:pointer; line-height:0; filter:drop-shadow(0 3px 5px rgba(20,50,55,.3)); transition:transform .12s; }
+.ti30-fab svg{ height:100%; width:auto; display:block; }
+.ti30-fab:hover{ transform:translateY(-2px) scale(1.06); }
+.ti30-fab:focus-visible{ outline:3px solid #FCAF17; outline-offset:3px; border-radius:6px; }
+@media print{ .ti30-fab{ display:none; } }
+`;
+let popOpen = null;
+/* het grote toestel in een venster; één toestel per pagina, het onthoudt alles (store) */
+function open(opts = {}){
+  if(popOpen) return popOpen;
+  addCSS(); if(!document.getElementById('ti30-pop-css')){ const s = document.createElement('style'); s.id = 'ti30-pop-css'; s.textContent = CSSPOP; document.head.append(s); }
+  const last = document.activeElement;
+  const veil = document.createElement('div'); veil.className = 'ti30-veil'; veil.setAttribute('role', 'dialog'); veil.setAttribute('aria-label', 'Rekentoestel');
+  const pop = document.createElement('div'); pop.className = 'ti30-pop'; veil.append(pop);
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Rekentoestel sluiten'); pop.append(x);
+  const C = create(pop, Object.assign({ store:'ti30xb_v1' }, opts));
+  const close = () => { veil.remove(); popOpen = null; document.removeEventListener('keydown', esc, true); try{ last && last.focus(); }catch(e){} };
+  const esc = e => { if(e.key === 'Escape' && !C.el.contains(document.activeElement)){ e.preventDefault(); close(); } };
+  x.addEventListener('click', close); veil.addEventListener('click', e => { if(e.target === veil) close(); });
+  document.addEventListener('keydown', esc, true);
+  document.body.append(veil); try{ C.el.focus(); }catch(e){}
+  popOpen = { calc:C, close }; return popOpen;
+}
+/* een zwevende knop rechtsonder */
+function fab(opts = {}){
+  if(document.querySelector('.ti30-fab')) return;
+  addCSS(); if(!document.getElementById('ti30-pop-css')){ const s = document.createElement('style'); s.id = 'ti30-pop-css'; s.textContent = CSSPOP; document.head.append(s); }
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'ti30-fab'; b.title = 'Rekentoestel'; b.setAttribute('aria-label', 'Rekentoestel openen');
+  b.innerHTML = icon(); b.addEventListener('click', () => open(opts)); document.body.append(b); return b;
+}
+root.TI30XB = { create, open, fab, icon, version:'1.1' };
 })(typeof window !== 'undefined' ? window : globalThis);
