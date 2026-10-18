@@ -3026,7 +3026,7 @@ NT.vlak = { title:'Een vlakvulling met driehoeken', lvl:3, instr:'De figuur best
   const two = el('div','cf-two'); b.append(two); const Lf = el('div'), Rt = el('div'); two.append(Lf, Rt);
   const F = gridFig(Lf, {g:[-4.8,4.8,-3.9,3.9], plain:true, maxw:380});
   const o = []; names.forEach(a=>names.forEach(c=>{ if(a<c && Math.abs(Math.hypot(pts[a][0]-pts[c][0], pts[a][1]-pts[c][1])-2)<1e-6) o.push({t:'line', a:pts[a], b:pts[c], c:'latline'}); }));
-  names.forEach(n=>o.push({t:'pt', p:pts[n], n, c:'orig', r:1, away:[pts[n][0]-.5, pts[n][1]-1.6]}));
+  names.forEach(n=>o.push({t:'pt', p:pts[n], n, c:'orig', r:1.35, away:[pts[n][0]-.5, pts[n][1]-1.6]}));
   F.draw(o);
   const sc = {pts, ops: ops.map(op=>op.t==='s' ? {...op, name:op.name} : op)};
   /* een as door twee punten noteer je met die twee letters */
@@ -3325,7 +3325,7 @@ function latBase(sc){
   /* streepjes: alle zijden van de vakjes zijn even lang */
   for(let r=0;r<sc.rows;r++) for(let c=0;c<sc.cols-1;c++) o.push({t:'ticks', a:[LS*c, LS*r], b:[LS*c+LS, LS*r], n:2});
   for(let c=0;c<sc.cols;c++) for(let r=0;r<sc.rows-1;r++) o.push({t:'ticks', a:[LS*c, LS*r], b:[LS*c, LS*r+LS], n:2});
-  sc.names.forEach(n=>{ const p = sc.pts[n]; o.push({t:'pt', p, n, c:'orig', r:.75, away:[p[0]+1, p[1]-1.4]}); });
+  sc.names.forEach(n=>{ const p = sc.pts[n]; o.push({t:'pt', p, n, c:'orig', r:1.35, away:[p[0]+1, p[1]-1.4]}); });
   return o;
 }
 function latFig(parent, sc, o={}){
@@ -3426,8 +3426,8 @@ function latTasks(parent, st, save, id, sc, tasks, cfg={}){
     let h = null;
     if(hStage && s.r[s.cur]!==true) h = latHint(sc, t, hStage);
     if(h) o.push(...h.objs);
-    if(s.r[s.cur]===true) o.push(...latHint(sc, t, 2).objs, {t:'pt', p:sc.pts[t.kind==='pre' ? t.from : t.to], c:'img', r:1.2});
-    else if(s.a[s.cur]) o.push({t:'pt', p:sc.pts[s.a[s.cur]], c:'mine', r:1.3});
+    if(s.r[s.cur]===true) o.push(...latHint(sc, t, 2).objs, {t:'pt', p:sc.pts[t.kind==='pre' ? t.from : t.to], c:'img', r:1.65});
+    else if(s.a[s.cur]) o.push({t:'pt', p:sc.pts[s.a[s.cur]], c:'mine', r:1.75});
     F.draw(o);
     if(hBar){ hBar.hidden = locked || s.r[s.cur]===true; hBtn.innerHTML = hStage ? '💡 Volgende hint' : '💡 Hint'; hBtn.disabled = hStage>=2; hOff.hidden = !hStage;
       hInfo.textContent = hStage ? `hint ${hStage} van 2 bij ${LET[s.cur]}.` : ''; hTxt.innerHTML = h ? h.txt : ''; }
@@ -3579,7 +3579,7 @@ RO.kijk = { title:'Zo werk je op een rooster', lvl:1, instr:'Alle vakjes zijn vi
     F.draw(base); say(`Opgave: <span class="lg">${note}</span>`); await wait(REDUCED?30:1300*SLOW); if(!ok()) return;
     const h1 = latHint(sc, t, 1); F.draw(base.concat(h1.objs)); say(h1.txt); await wait(REDUCED?30:2200*SLOW); if(!ok()) return;
     const h2 = latHint(sc, t, 2); F.draw(base.concat(h2.objs)); say(h2.txt); await wait(REDUCED?30:2000*SLOW); if(!ok()) return;
-    F.draw(base.concat(h2.objs, [{t:'pt', p:sc.pts[t.kind==='pre' ? t.from : t.to], c:'img', r:1.2}]));
+    F.draw(base.concat(h2.objs, [{t:'pt', p:sc.pts[t.kind==='pre' ? t.from : t.to], c:'img', r:1.65}]));
     say(`Dus <span class="lg">${t.html.replace('[[?]]', `<b>${t.ans[0]}</b>`)}</span>`);
   }
 }};
