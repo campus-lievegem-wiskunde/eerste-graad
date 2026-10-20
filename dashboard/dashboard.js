@@ -6,7 +6,7 @@ const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const root = $('#dash'); root.classList.add('dash');
-const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false };
+const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open' };
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
 const naamVan = e => { const l = ST.leerlingen && ST.leerlingen.get(e); return l ? `${l.familienaam} ${l.voornaam}` : e; };
@@ -28,11 +28,11 @@ function render(){
   root.innerHTML = '';
   const top = el('div', 'dash-top');
   const tabs = el('div', 'tabs'); tabs.setAttribute('role', 'tablist');
-  const items = [['groepen', 'Mijn groepen']]; if(ST.rol === 'beheerder') items.push(['beheer', 'Beheer']);
+  const items = [['groepen', 'Mijn groepen'], ['fout', 'Fout melden']]; if(ST.rol === 'beheerder') items.push(['beheer', 'Beheer']);
   items.forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(ST.view === k)); b.onclick = ()=>{ ST.view = k; render(); }; tabs.append(b); });
   top.append(tabs); root.append(top);
   const body = el('div'); root.append(body);
-  (ST.view === 'beheer' ? viewBeheer : viewGroepen)(body);
+  ({ beheer:viewBeheer, fout:viewFout, groepen:viewGroepen })[ST.view](body);
 }
 
 /* =========================================================
@@ -276,9 +276,92 @@ function paneAanUit(pane, g){
 }
 
 /* =========================================================
+   FOUT MELDEN (leerkracht) en FOUTEN (beheer)
+   collectie fouten/{id}: melder, naam, site, onderdeel, waar, fout, alternatief, status, reactie, datum, bijgewerkt
+   ========================================================= */
+const STATUS = { nieuw:'Nieuw', bezig:'In behandeling', opgelost:'Opgelost', niet:'Niet aangepast' };
+const siteVan = id => SITES.find(s=>s.id === id);
+const ondNaam = (site, id) => { const o = site && site.onderdelen.find(o=>o.id === id); return o ? o.naam : id; };
+const datumTxt = d => { try{ return new Date(d).toLocaleString('nl-BE', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }); }catch(e){ return d || ''; } };
+const plaats = f => { const s = siteVan(f.site); return `${esc(s ? s.titel : f.site || 'Andere pagina')}${f.onderdeel ? ' › ' + esc(ondNaam(s, f.onderdeel)) : ''}`; };
+const nieuwId = () => new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14) + '_' + Math.random().toString(36).slice(2, 7);
+async function laadFouten(){
+  const q = ST.rol === 'beheerder' ? F.collection(db, 'fouten') : F.query(F.collection(db, 'fouten'), F.where('melder', '==', ST.me));
+  const s = await F.getDocs(q); ST.fouten = s.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a, b)=>String(b.datum).localeCompare(String(a.datum)));
+}
+/* blok met de drie velden van een melding */
+function foutTekst(f){
+  return `<dl class="fout-dl"><dt>Waar</dt><dd>${plaats(f)}${f.waar ? '<br>' + esc(f.waar) : ''}</dd><dt>Wat is fout</dt><dd>${esc(f.fout)}</dd><dt>Gewenst alternatief</dt><dd>${esc(f.alternatief)}</dd></dl>`;
+}
+function viewFout(body){
+  const card = el('div', 'dash-card', `<h3>Fout melden</h3><p class="mini">Zag je een fout in een module? Omschrijf waar ze staat, wat er fout is en wat het zou moeten zijn. De beheerder krijgt je melding en past de module aan.</p>`);
+  const vk = ST.voorkeur || {}; ST.voorkeur = null;
+  const per = {}; SITES.forEach(s=>{ (per[s.jaar] = per[s.jaar] || []).push(s); });
+  const sm = el('select', '', '<option value="">Kies een module</option>' + Object.keys(per).sort().map(j=>`<optgroup label="${esc(j)}">${per[j].map(s=>`<option value="${esc(s.id)}" ${vk.site === s.id ? 'selected' : ''}>${esc(s.titel)}</option>`).join('')}</optgroup>`).join('') + `<option value="ander" ${vk.site === 'ander' ? 'selected' : ''}>Andere pagina (startpagina, dashboard, rekentoestel …)</option>`);
+  const so = el('select'); sm.id = 'f-site'; so.id = 'f-ond';
+  const vulOnd = ()=>{ const s = siteVan(sm.value); so.innerHTML = '<option value="">Heel de module of weet ik niet</option>' + (s ? s.onderdelen.map(o=>`<option value="${esc(o.id)}" ${vk.ond === o.id ? 'selected' : ''}>${esc(o.naam)}</option>`).join('') : ''); so.disabled = !s; };
+  sm.onchange = ()=>{ vk.ond = null; vulOnd(); }; vulOnd();
+  const veld = (id, lab, ph, groot)=>{ const w = el('div', 'f-veld'); const l = el('label', '', lab); l.htmlFor = id; const i = el(groot ? 'textarea' : 'input'); i.id = id; i.placeholder = ph; if(groot) i.rows = 3; else i.type = 'text'; w.append(l, i); return [w, i]; };
+  const r1 = el('div', 'f-veld'); const l1 = el('label', '', 'Module en onderdeel'); l1.htmlFor = 'f-site'; const rr = el('div', 'rij'); rr.append(sm, so); r1.append(l1, rr);
+  const [w2, waar] = veld('f-waar', 'Welke kaart of vraag?', 'bv. kaart 3 bij Oefenen, vraag b; of de tekst van de vraag');
+  const [w3, fout] = veld('f-fout', 'Wat is er fout? *', 'Omschrijf de fout zo goed mogelijk: wat staat er, wat loopt mis?', true);
+  const [w4, alt] = veld('f-alt', 'Wat zou het moeten zijn? *', 'Het gewenste alternatief: juiste antwoord, betere uitleg, andere formulering …', true);
+  const r = el('div', 'rij'); const ok = el('button', 'btn', 'Melding versturen'); ok.type = 'button'; const m = el('span', 'mini'); r.append(ok, m);
+  card.append(r1, w2, w3, w4, r); body.append(card);
+  ok.onclick = async ()=>{
+    if(!sm.value || !fout.value.trim() || !alt.value.trim()){ m.className = 'errmsg'; m.textContent = 'Kies een module en vul in wat er fout is en wat het zou moeten zijn.'; return; }
+    const nu = new Date().toISOString();
+    const data = { melder:ST.me, naam:lkNaam(ST.me), site:sm.value, onderdeel:so.value || '', waar:waar.value.trim(), fout:fout.value.trim(), alternatief:alt.value.trim(), status:'nieuw', reactie:'', datum:nu, bijgewerkt:nu };
+    ok.disabled = true; m.className = 'mini'; m.textContent = 'Bezig met versturen…';
+    try{ const id = nieuwId(); await F.setDoc(F.doc(db, 'fouten', id), data); (ST.fouten = ST.fouten || []).unshift(Object.assign({ id }, data)); ST.verstuurd = true; render(); }
+    catch(e){ console.error(e); ok.disabled = false; m.className = 'errmsg'; m.textContent = 'Versturen lukte niet: ' + (e.message || e); }
+  };
+  if(ST.verstuurd){ ST.verstuurd = false; card.prepend(el('div', 'okmsg f-ok', 'Bedankt! Je melding is verstuurd naar de beheerder.')); }
+  /* mijn meldingen */
+  const mijn = el('div', 'dash-card', '<h3>Mijn meldingen</h3>'); body.append(mijn);
+  const toon = ()=>{ const lijst = (ST.fouten || []).filter(f=>f.melder === ST.me);
+    if(!lijst.length){ mijn.append(el('p', 'mini', 'Je hebt nog niets gemeld.')); return; }
+    lijst.forEach(f=>{ const it = el('div', 'fout-item', `<div class="fout-kop"><span class="st st-${esc(f.status)}">${esc(STATUS[f.status] || f.status)}</span><span class="mini">${esc(datumTxt(f.datum))}</span></div>${foutTekst(f)}${f.reactie ? `<p class="fout-reactie"><b>Reactie van de beheerder:</b> ${esc(f.reactie)}</p>` : ''}`);
+      if(f.status === 'nieuw'){ const rm = el('button', 'btn ghost klein', 'Melding intrekken'); rm.type = 'button';
+        rm.onclick = async ()=>{ if(!confirm('Deze melding intrekken?')) return; try{ await F.deleteDoc(F.doc(db, 'fouten', f.id)); ST.fouten = ST.fouten.filter(x=>x !== f); render(); }catch(e){ alert('Mislukt: ' + (e.message || e)); } };
+        it.append(rm); }
+      mijn.append(it); }); };
+  if(ST.fouten) toon(); else { const w = el('p', 'mini', 'Meldingen ophalen…'); mijn.append(w); laadFouten().then(()=>{ w.remove(); toon(); }).catch(e=>{ console.error(e); w.className = 'errmsg'; w.textContent = 'Meldingen ophalen lukte niet. Zijn de toegangsregels (firestore.rules) gepubliceerd?'; }); }
+}
+function foutenBeheer(body){
+  const card = el('div', 'dash-card', '<h3>Fouten gemeld door leerkrachten</h3>'); body.append(card);
+  if(!ST.fouten){ card.append(el('p', 'mini', 'Meldingen ophalen…')); laadFouten().then(render).catch(e=>{ console.error(e); card.append(el('p', 'errmsg', 'Meldingen ophalen lukte niet. Zijn de toegangsregels (firestore.rules) gepubliceerd?')); }); return; }
+  const r = el('div', 'rij'); const fl = el('select', '', [['open', 'Nieuw en in behandeling'], ['alle', 'Alle meldingen'], ...Object.entries(STATUS)].map(([k, t])=>`<option value="${k}" ${ST.filter === k ? 'selected' : ''}>${t}</option>`).join(''));
+  fl.onchange = ()=>{ ST.filter = fl.value; render(); };
+  const ver = el('button', 'btn ghost klein', 'Vernieuwen'); ver.type = 'button'; ver.onclick = async ()=>{ await laadFouten(); render(); };
+  const tel = Object.keys(STATUS).map(k=>`${STATUS[k]}: ${ST.fouten.filter(f=>f.status === k).length}`).join(' · ');
+  r.append(el('label', '', 'Toon'), fl, ver, el('span', 'mini', tel)); card.append(r);
+  const lijst = ST.fouten.filter(f=>ST.filter === 'alle' ? true : ST.filter === 'open' ? (f.status === 'nieuw' || f.status === 'bezig') : f.status === ST.filter);
+  if(!lijst.length){ card.append(el('p', 'mini', ST.fouten.length ? 'Geen meldingen met deze status.' : 'Er zijn nog geen meldingen.')); return; }
+  lijst.forEach(f=>{
+    const s = siteVan(f.site);
+    const it = el('div', 'fout-item', `<div class="fout-kop"><span class="st st-${esc(f.status)}">${esc(STATUS[f.status] || f.status)}</span><b>${esc(f.naam || f.melder)}</b><span class="mini">${esc(datumTxt(f.datum))}</span></div>${foutTekst(f)}`);
+    if(s){ const a = bekijkKnop(s); a.href = moduleUrl(s, f.onderdeel); a.classList.add('fout-bekijk'); it.querySelector('.fout-kop').append(a); }
+    const rr = el('div', 'rij');
+    const st = el('select', '', Object.entries(STATUS).map(([k, t])=>`<option value="${k}" ${f.status === k ? 'selected' : ''}>${t}</option>`).join('')); st.setAttribute('aria-label', 'Status');
+    const re = el('input'); re.type = 'text'; re.value = f.reactie || ''; re.placeholder = 'Reactie voor de leerkracht (optioneel)'; re.className = 'fout-re';
+    const ok = el('button', 'btn klein', 'Bewaren'), rm = el('button', 'btn gevaar klein', 'Verwijderen'); ok.type = rm.type = 'button'; const m = el('span', 'mini');
+    rr.append(st, re, ok, rm, m); it.append(rr); card.append(it);
+    ok.onclick = async ()=>{ const data = { status:st.value, reactie:re.value.trim(), bijgewerkt:new Date().toISOString() }; ok.disabled = true;
+      try{ await F.updateDoc(F.doc(db, 'fouten', f.id), data); Object.assign(f, data); render(); }catch(e){ ok.disabled = false; m.className = 'errmsg'; m.textContent = 'Mislukt: ' + (e.message || e); } };
+    rm.onclick = async ()=>{ if(!confirm(`Melding van ${f.naam || f.melder} verwijderen?`)) return;
+      try{ await F.deleteDoc(F.doc(db, 'fouten', f.id)); ST.fouten = ST.fouten.filter(x=>x !== f); render(); }catch(e){ alert('Mislukt: ' + (e.message || e)); } };
+  });
+}
+
+/* =========================================================
    BEHEER
    ========================================================= */
 function viewBeheer(body){
+  const sub = el('div', 'tabs'); const nieuw = (ST.fouten || []).filter(f=>f.status === 'nieuw').length;
+  [['beheren', 'Beheren'], ['fouten', `Fouten${nieuw ? ` <span class="cnt-badge">${nieuw}</span>` : ''}`]].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.bsub === k)); b.onclick = ()=>{ ST.bsub = k; render(); }; sub.append(b); });
+  body.append(sub);
+  if(ST.bsub === 'fouten'){ foutenBeheer(body); return; }
   importKaart(body);
   leerkrachtenKaart(body);
   groepenKaart(body);
@@ -519,12 +602,15 @@ function wisKaart(body){
 }
 
 /* ---------- start ---------- */
-async function laadAlles(){ await Promise.all([laadGroepen(), laadLeerkrachten()]); }
+async function laadAlles(){ await Promise.all([laadGroepen(), laadLeerkrachten()]); if(ST.rol === 'beheerder') await laadFouten().catch(e=>console.error(e)); }
 const s = await klaar;
 ST.me = s.email; ST.rol = s.rol;
 if(s.rol === 'leerling'){
   root.append(el('div', 'tip', '<div><b>Dit dashboard is enkel voor leerkrachten.</b> Ga naar de <a href="../">oefeningen</a>.</div>'));
 } else {
-  try{ await laadAlles(); if(ST.rol === 'beheerder' && !ST.groepen.length) ST.view = 'beheer'; render(); }
+  /* snelkoppeling "Fout melden" vanuit een module: ?melden=<site-id>&ond=<onderdeel-id> */
+  const u = new URLSearchParams(location.search);
+  if(u.has('melden')){ ST.view = 'fout'; ST.voorkeur = { site:u.get('melden'), ond:u.get('ond') }; history.replaceState(null, '', location.pathname); }
+  try{ await laadAlles(); if(ST.rol === 'beheerder' && !ST.groepen.length && ST.view !== 'fout') ST.view = 'beheer'; render(); }
   catch(e){ console.error(e); root.append(el('p', 'errmsg', 'Gegevens ophalen lukte niet. Zijn de toegangsregels (firestore.rules) gepubliceerd?')); }
 }

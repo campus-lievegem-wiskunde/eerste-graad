@@ -68,3 +68,28 @@ table.dt th .th-link:hover{ color:var(--accent-dark); text-decoration:underline;
 
 .rt-keuze{ display:flex; align-items:center; gap:.45rem; margin:.5rem 0 .2rem 3.1rem; font-weight:700; cursor:pointer; }
 .rt-keuze .mini{ font-weight:400; }
+
+/* fout melden en fouten */
+.f-veld{ margin:.7rem 0; }
+.f-veld > label{ display:block; font-weight:700; font-size:.92rem; margin:0 0 .25rem; }
+.f-veld textarea, .f-veld input[type=text]{ width:100%; box-sizing:border-box; }
+.f-veld select{ max-width:100%; }
+.dash textarea{ font:inherit; padding:.45rem .6rem; border:2px solid var(--tq); border-radius:.5rem; background:var(--card); color:var(--ink); resize:vertical; }
+.dash textarea:focus{ outline:none; border-color:var(--orange); box-shadow:0 0 0 3px var(--or-soft); }
+.f-ok{ margin:0 0 .6rem; }
+.fout-item{ border-top:1.5px solid var(--border); padding:.8rem 0 .4rem; }
+.fout-item:first-of-type{ border-top:none; }
+.fout-kop{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+.fout-kop .fout-bekijk{ margin-left:auto; }
+.fout-dl{ display:grid; grid-template-columns:max-content 1fr; gap:.25rem .9rem; margin:.5rem 0; font-size:.93rem; }
+.fout-dl dt{ font-weight:700; color:var(--accent-dark); }
+.fout-dl dd{ margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.fout-reactie{ background:var(--tq-soft); border-radius:.5rem; padding:.4rem .6rem; margin:.3rem 0 .5rem; font-size:.93rem; }
+.fout-re{ flex:1; min-width:14rem; }
+.st{ display:inline-block; border-radius:999px; padding:.05rem .6rem; font-size:.8rem; font-weight:800; border:1.5px solid var(--border); }
+.st-nieuw{ border-color:var(--orange); background:var(--or-soft); color:var(--ink); }
+.st-bezig{ border-color:var(--tq); color:var(--accent-dark); }
+.st-opgelost{ border-color:var(--ok); color:var(--ok); }
+.st-niet{ color:var(--ink-soft); }
+.cnt-badge{ display:inline-block; min-width:1.2rem; padding:0 .35rem; margin-left:.25rem; border-radius:999px; background:var(--orange); color:#173436; font-size:.78rem; font-weight:800; text-align:center; }
+@media (max-width:560px){ .fout-dl{ grid-template-columns:1fr; } .fout-dl dd{ margin-bottom:.3rem; } }

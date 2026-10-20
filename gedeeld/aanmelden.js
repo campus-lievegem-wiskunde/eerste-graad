@@ -71,9 +71,12 @@ function userChip(user, rol){
   const naam = (user.displayName || user.email).split(' ')[0];
   const isLk = rol === 'leerkracht' || rol === 'beheerder';
   const up = new URL('../', import.meta.url).href;
-  const chip = el('div', 'user-chip', `<span class="u-av" aria-hidden="true">${naam.slice(0,1).toUpperCase()}</span><span class="t">Aangemeld als <b></b>${isLk ? ` <a class="linkbtn" href="${up}dashboard/">Dashboard</a>` : ''}<button type="button" class="linkbtn">Afmelden</button></span>`);
+  const chip = el('div', 'user-chip', `<span class="u-av" aria-hidden="true">${naam.slice(0,1).toUpperCase()}</span><span class="t">Aangemeld als <b></b>${isLk ? ` <a class="linkbtn" href="${up}dashboard/">Dashboard</a>${PREFIX ? ` <a class="linkbtn fout-link" href="${up}dashboard/?melden=${encodeURIComponent(site)}">Fout melden</a>` : ''}` : ''}<button type="button" class="linkbtn">Afmelden</button></span>`);
   chip.querySelector('b').textContent = naam; chip.title = user.email;
   chip.querySelector('button').addEventListener('click', afmelden);
+  /* Fout melden: het onderdeel dat nu open staat gaat mee (laatst bewaard tabblad van de module, anders de hash) */
+  const fl = chip.querySelector('.fout-link');
+  if(fl) fl.addEventListener('click', ()=>{ const ond = ls.get(PREFIX + 'tab') || location.hash.slice(1) || ''; fl.href = `${up}dashboard/?melden=${encodeURIComponent(site)}${ond ? '&ond=' + encodeURIComponent(ond) : ''}`; });
   const nav = document.querySelector('nav.side');
   if(nav){ const ol = nav.querySelector('ol'); nav.insertBefore(chip, ol); }
   else { const bar = document.querySelector('.tts-bar'); (bar || main).prepend(chip); }
