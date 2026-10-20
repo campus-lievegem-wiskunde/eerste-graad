@@ -93,3 +93,8 @@ table.dt th .th-link:hover{ color:var(--accent-dark); text-decoration:underline;
 .st-niet{ color:var(--ink-soft); }
 .cnt-badge{ display:inline-block; min-width:1.2rem; padding:0 .35rem; margin-left:.25rem; border-radius:999px; background:var(--orange); color:#173436; font-size:.78rem; font-weight:800; text-align:center; }
 @media (max-width:560px){ .fout-dl{ grid-template-columns:1fr; } .fout-dl dd{ margin-bottom:.3rem; } }
+/* namen van een groep in Beheer, Niveaugroepen */
+table.dt tr.groep-namen td{ white-space:normal; background:var(--tq-soft); }
+table.dt tr.groep-namen:hover td{ background:var(--tq-soft); }
+ol.namen{ margin:.2rem 0; padding-left:1.6rem; columns:16rem auto; column-gap:2rem; }
+ol.namen li{ break-inside:avoid; padding:.05rem 0; }

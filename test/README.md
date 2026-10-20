@@ -11,6 +11,7 @@ node test/catalogus.js        # gedeeld/sites.js opnieuw maken (na een nieuwe of
 node test/fouten.js           # Fout melden (leerkracht) en Fouten (beheer)
 node test/toeschouwer.js      # toeschouwer (directeur): echte gegevens lezen, wijzigingen enkel lokaal
 node test/alsleerling.js      # Bekijk als leerling in een module
+node test/groepsoverzicht.js  # Beheer: namen per groep, leerlingen zonder groep, kolom Groep bij opzoeken
 ```
 
 | Bestand | Rol |
