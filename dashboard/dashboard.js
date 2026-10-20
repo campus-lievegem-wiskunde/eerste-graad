@@ -6,7 +6,7 @@ const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const root = $('#dash'); root.classList.add('dash');
-const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open' };
+const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open', open:new Set(), zgJaar:'' };
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
 const naamVan = e => { const l = ST.leerlingen && ST.leerlingen.get(e); return l ? `${l.familienaam} ${l.voornaam}` : e; };
@@ -367,6 +367,7 @@ function viewBeheer(body){
   leerkrachtenKaart(body);
   if(!ST.toeschouwer) toeschouwersKaart(body);
   groepenKaart(body);
+  zonderGroepKaart(body);
   leerlingenKaart(body);
   wisKaart(body);
 }
@@ -525,8 +526,13 @@ function groepenKaart(body){
   const card = el('div', 'dash-card', '<h3>Niveaugroepen</h3>');
   const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Groep</th><th>Jaar</th><th>Soort</th><th>Leerkracht(en)</th><th>Leerlingen</th><th></th></tr></thead>';
   const tb = el('tbody');
-  ST.groepen.forEach(g=>{ const tr = el('tr', '', `<td>${esc(g.naam)}</td><td>${esc(jaarcode(g))}</td><td>${esc(g.soort || '')}</td><td class="lk-cel"></td><td class="c">${g.leerlingen.length}</td>`);
+  ST.groepen.forEach(g=>{ const tr = el('tr', '', `<td>${esc(g.naam)}</td><td>${esc(jaarcode(g))}</td><td>${esc(g.soort || '')}</td><td class="lk-cel"></td><td class="c"></td>`);
     const cel = tr.querySelector('.lk-cel');
+    /* aantal leerlingen: klik om de namen open te klappen */
+    const open = ST.open.has(g.id); const nb = el('button', 'btn ghost klein', `${g.leerlingen.length} ${open ? '▾' : '▸'}`); nb.type = 'button';
+    nb.title = open ? `Namen van ${g.naam} verbergen` : `Namen van ${g.naam} tonen`; nb.setAttribute('aria-expanded', String(open)); nb.disabled = !g.leerlingen.length;
+    nb.onclick = async ()=>{ if(open) ST.open.delete(g.id); else { ST.open.add(g.id); if(!ST.leerlingen){ nb.textContent = '…'; await laadLeerlingen(); } } render(); };
+    tr.children[4].append(nb);
     const zet = async (veld, mail)=>{ await F.updateDoc(F.doc(db, 'groepen', g.id), { leerkrachten:F[veld](mail) }); await laadGroepen(); render(); };
     g.leerkrachten.forEach(mail=>{ const ch = el('span', 'lk-chip', esc(lkNaam(mail)));
       const x = el('button', '', '×'); x.type = 'button'; x.title = `${lkNaam(mail)} van ${g.naam} halen`; x.setAttribute('aria-label', x.title);
@@ -536,7 +542,10 @@ function groepenKaart(body){
       sel.onchange = ()=>{ if(sel.value) zet('arrayUnion', sel.value); }; cel.append(sel); }
     const td = el('td'); const rm = el('button', 'btn gevaar klein', 'Verwijderen'); rm.type = 'button';
     rm.onclick = async ()=>{ if(!confirm(`Groep ${g.naam} verwijderen? De voortgang van de leerlingen blijft bewaard.`)) return; await F.deleteDoc(F.doc(db, 'groepen', g.id)); await laadGroepen(); render(); };
-    td.append(rm); tr.append(td); tb.append(tr); });
+    td.append(rm); tr.append(td); tb.append(tr);
+    if(open && ST.leerlingen){ const lijst = [...g.leerlingen].sort((a,b)=>naamVan(a).localeCompare(naamVan(b), 'nl'))
+        .map(e=>{ const l = ST.leerlingen.get(e); return `<li>${esc(naamVan(e))}${l && l.klas ? ` <span class="mini">${esc(l.klas)}</span>` : l ? '' : ' <span class="mini">(niet in de leerlingenlijst)</span>'}</li>`; }).join('');
+      const dr = el('tr', 'groep-namen', `<td colspan="6"><ol class="namen">${lijst}</ol></td>`); tb.append(dr); } });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); card.append(w);
   const r = el('div', 'rij'); const n = el('input'); n.type = 'text'; n.placeholder = 'Naam, bv. 1ANg2a';
   const j = el('select', '', '<option value="1A">1A</option><option value="2A">2A</option><option value="1B">1B</option><option value="2B">2B</option>');
@@ -544,6 +553,35 @@ function groepenKaart(body){
   ok.onclick = async ()=>{ const naam = n.value.trim(); if(!naam) return;
     await F.setDoc(F.doc(db, 'groepen', groepId(naam)), { naam, jaar:j.value[0], stroom:j.value[1], soort:'', leerkrachten:[], leerlingen:[], aan:{} }, { merge:true }); await laadGroepen(); render(); };
   body.append(card);
+}
+
+/* ---------- leerlingen die nog in geen enkele groep zitten ---------- */
+async function zonderGroepKaart(body){
+  const card = el('div', 'dash-card', '<h3>Leerlingen zonder groep</h3><p class="mini">Leerlingen uit de leerlingenlijst die nog in geen enkele groep zitten. Kies een groep om ze meteen in te delen.</p>');
+  const out = el('div', '', '<p class="mini">Lijst ophalen…</p>'); card.append(out); body.append(card);
+  if(!ST.leerlingen) await laadLeerlingen();
+  const ingedeeld = new Set(ST.groepen.flatMap(g=>g.leerlingen));
+  const alle = [...ST.leerlingen.entries()].filter(([e])=>!ingedeeld.has(e))
+    .sort(([, a], [, b])=>`${a.jaar}${a.stroom} ${a.klas} ${a.familienaam} ${a.voornaam}`.localeCompare(`${b.jaar}${b.stroom} ${b.klas} ${b.familienaam} ${b.voornaam}`, 'nl'));
+  out.innerHTML = '';
+  if(!ST.leerlingen.size){ out.append(el('p', 'mini', 'Er is nog geen leerlingenlijst opgeladen.')); return; }
+  if(!alle.length){ out.append(el('p', 'okmsg', `Alle ${ST.leerlingen.size} leerlingen zitten in een groep.`)); return; }
+  const per = {}; alle.forEach(([, l])=>{ const k = `${l.jaar}${l.stroom}`; per[k] = (per[k] || 0) + 1; });
+  if(ST.zgJaar && !per[ST.zgJaar]) ST.zgJaar = '';
+  const r = el('div', 'rij'); const jf = el('select', '', `<option value="">Alle jaren (${alle.length})</option>` + Object.keys(per).sort().map(k=>`<option value="${k}" ${k === ST.zgJaar ? 'selected' : ''}>${k} (${per[k]})</option>`).join(''));
+  jf.onchange = ()=>{ ST.zgJaar = jf.value; teken(); }; r.append(jf); out.append(r);
+  const lijst = el('div'); out.append(lijst);
+  const teken = ()=>{ lijst.innerHTML = ''; const toon = alle.filter(([, l])=>!ST.zgJaar || `${l.jaar}${l.stroom}` === ST.zgJaar);
+    const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Leerling</th><th>Klas</th><th>Jaar</th><th>Indelen in</th></tr></thead>'; const tb = el('tbody');
+    toon.forEach(([e, l])=>{ const tr = el('tr', '', `<td>${esc(l.familienaam)} ${esc(l.voornaam)}</td><td>${esc(l.klas)}</td><td>${esc(l.jaar)}${esc(l.stroom)}</td>`);
+      const opties = ST.groepen.filter(g=>jaarcode(g) === `${l.jaar}${l.stroom}`);
+      const td = el('td'); const s = el('select', '', '<option value="">…</option>' + opties.map(g=>`<option value="${esc(g.id)}">${esc(g.naam)}</option>`).join(''));
+      s.onchange = async ()=>{ const g = opties.find(x=>x.id === s.value); if(!g) return; s.disabled = true;
+        await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen:F.arrayUnion(e) }); g.leerlingen = [...new Set([...g.leerlingen, e])]; render(); };
+      if(!opties.length) td.append(el('span', 'mini', 'geen groep voor dit jaar')); else td.append(s);
+      tr.append(td); tb.append(tr); });
+    t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); lijst.append(w); };
+  teken();
 }
 
 /* ---------- leerling opzoeken en wijzigen ---------- */
@@ -556,9 +594,9 @@ function leerlingenKaart(body){
     out.innerHTML = ''; const q = z.value.trim().toLowerCase(); if(q.length < 2){ out.append(el('p', 'mini', `${ST.leerlingen.size} leerlingen in de lijst. Typ minstens 2 letters.`)); return; }
     const hits = [...ST.leerlingen.entries()].filter(([e, l])=>`${l.familienaam} ${l.voornaam} ${l.klas} ${e}`.toLowerCase().includes(q)).slice(0, 40);
     if(!hits.length){ out.append(el('p', 'mini', 'Geen leerling gevonden.')); return; }
-    const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Familienaam</th><th>Voornaam</th><th>Klas</th><th>Jaar</th><th>E-mail</th><th></th></tr></thead>'; const tb = el('tbody');
+    const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Familienaam</th><th>Voornaam</th><th>Klas</th><th>Jaar</th><th>E-mail</th><th>Groep</th><th></th></tr></thead>'; const tb = el('tbody');
     hits.forEach(([e, l])=>{
-      const tr = el('tr', '', `<td>${esc(l.familienaam)}</td><td>${esc(l.voornaam)}</td><td>${esc(l.klas)}</td><td>${esc(l.jaar)}${esc(l.stroom)}</td><td>${esc(e)}</td>`);
+      const tr = el('tr', '', `<td>${esc(l.familienaam)}</td><td>${esc(l.voornaam)}</td><td>${esc(l.klas)}</td><td>${esc(l.jaar)}${esc(l.stroom)}</td><td>${esc(e)}</td><td>${esc(ST.groepen.filter(g=>g.leerlingen.includes(e)).map(g=>g.naam).join(', ')) || '<span class="mini">geen</span>'}</td>`);
       const td = el('td'); const ed = el('button', 'btn ghost klein', 'Wijzigen'); ed.type = 'button'; td.append(ed); tr.append(td); tb.append(tr);
       ed.onclick = ()=>{
         const vals = [l.familienaam, l.voornaam, l.klas, `${l.jaar}${l.stroom}`, e];
