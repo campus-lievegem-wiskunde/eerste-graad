@@ -2372,7 +2372,7 @@ HK.fotos = { title:'Foto’s: welke transformatie herken je?', lvl:1, instr:'Kij
 /* --- 4. in je leefwereld (sorteren) --- */
 HK.leef = { title:'Transformaties in je leefwereld', lvl:2, instr:'Sleep elke kaart naar de juiste bak, of tik een kaart aan en daarna de bak.', build:(b,st,save,key)=>{
   const items = [['Een berg en zijn spiegelbeeld in een stil meer',0],['Een lift gaat van verdieping 0 naar verdieping 3',1],['De grote wijzer van een klok van 12.00 u tot 12.15 u',2],['Een schuifdeur die opengaat',1],
-    ['De wieken van een windmolen draaien een kwartslag',2],['De linker- en de rechtervleugel van een vlinder',0],['Het cijfer 6 en het cijfer 9 op een deurnummer',3],['Een toren op een schaakbord schuift drie vakjes op',1]];
+    ['De wieken van een windmolen draaien een kwartslag',2],['De linker- en de rechtervleugel van een vlinder',0],['De bovenste en de onderste helft van de letter S',3],['Een toren op een schaakbord schuift drie vakjes op',1]];
   const R = makeR(st);
   sortEx(b, st, save, key, ['spiegeling om een as','translatie','rotatie','spiegeling om een punt'], R.shuffle(items).map(([t,a])=>({t, ans:a, why:['Er is een spiegelas.','Alles schuift even ver in dezelfde richting.','Er wordt gedraaid rond een centrum.','Een halve draai rond het midden.'][a]})));
 }};
