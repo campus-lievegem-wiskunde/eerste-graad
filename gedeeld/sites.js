@@ -554,5 +554,130 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "2a-m2",
+  "titel": "Module 2 · Algebraïsche uitdrukkingen",
+  "kort": "Module 2",
+  "jaar": "2A",
+  "rubriek": "modules",
+  "pad": "2A/modules/module-2-algebraische-uitdrukkingen/",
+  "prefix": "2a_m2_algebra_v1_",
+  "onderdelen": [
+   {
+    "id": "letters",
+    "naam": "Letters gebruiken",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "eentermen",
+    "naam": "Eentermen",
+    "toets": false,
+    "vragen": 9
+   },
+   {
+    "id": "gelijksoortig",
+    "naam": "Gelijksoortige eentermen",
+    "toets": false,
+    "vragen": 9
+   },
+   {
+    "id": "veeltermen",
+    "naam": "Veeltermen en graad",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "patronen",
+    "naam": "Patronen en formules",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "herleiden",
+    "naam": "Herleiden",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "getalwaarde",
+    "naam": "Getalwaarde",
+    "toets": false,
+    "vragen": 11
+   },
+   {
+    "id": "omtrek",
+    "naam": "Omtrek als veelterm",
+    "toets": false,
+    "vragen": 8
+   },
+   {
+    "id": "som",
+    "naam": "Som van veeltermen",
+    "toets": false,
+    "vragen": 8
+   },
+   {
+    "id": "verschil",
+    "naam": "Verschil van veeltermen",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "maal",
+    "naam": "Eenterm maal eenterm",
+    "toets": false,
+    "vragen": 7
+   },
+   {
+    "id": "distr",
+    "naam": "Distributieve eigenschap",
+    "toets": false,
+    "vragen": 11
+   },
+   {
+    "id": "distrherl",
+    "naam": "Distributief en herleiden",
+    "toets": false,
+    "vragen": 11
+   },
+   {
+    "id": "toepassingen",
+    "naam": "Toepassingen",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "fout",
+    "naam": "Zoek de fout",
+    "toets": false,
+    "vragen": 10
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
  }
 ];
