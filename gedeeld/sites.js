@@ -309,6 +309,12 @@ export const SITES = [
     "vragen": 79
    },
    {
+    "id": "zeeslag",
+    "naam": "Zeeslag",
+    "toets": false,
+    "vragen": 0
+   },
+   {
     "id": "lijn",
     "naam": "Lijndiagrammen",
     "toets": false,

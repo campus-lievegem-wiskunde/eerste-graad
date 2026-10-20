@@ -1340,6 +1340,411 @@ const CHOCO = {labels:['0','2','4','6','8','10','12','14'], series:[{values:[80,
   );
   sec.cards = sec.cards.map((c,i)=>[c,i]).sort((a,b)=>(a[0].lvl||1)-(b[0].lvl||1) || a[1]-b[1]).map(x=>x[0]);
 })();
+/* ============================================================
+   ZEESLAG IN HET ASSENSTELSEL (eigen hoofdstuk onder Coördinaten)
+   Schieten = zelf een koppel (x, y) intikken. Schiet de tegenstander op jou,
+   dan klik je zelf het juiste punt aan in jouw zee. Zo oefen je beide richtingen.
+   Online, Firestore: zeeslag/{code} = { a, an, b, bn, stap, klaarA, klaarB, beurt, schoten[], winnaar }
+              zeeslag/{code}/geheim/{e-mail} = { schepen } (enkel de eigenaar leest zijn schepen)
+   De verdediger beoordeelt elk schot zelf (door het aan te klikken): zo ziet niemand de schepen van de ander.
+   ============================================================ */
+(function(){
+  const css = `
+  .zs{ --zs-bg:#f6efdc; --zs-was:rgba(70,140,195,.16); --zs-was2:rgba(59,193,197,.14); --zs-rand:#d8c79e; --zs-papier:#fbf7ec; --zs-ink:#1d3a52; --zs-zacht:#5b6f7d;
+       --zs-lijn:#c9d6dc; --zs-romp:#b7c6cf; --zs-mis:#3d8fc6; --zs-raak:#c62a1e; --zs-hover:rgba(252,175,23,.45); --zs-chip:#fff3d6;
+       position:relative; background:radial-gradient(ellipse 60% 45% at 12% 18%, var(--zs-was), transparent 70%), radial-gradient(ellipse 55% 50% at 92% 85%, var(--zs-was2), transparent 70%), radial-gradient(ellipse 40% 35% at 70% 10%, var(--zs-was), transparent 70%), var(--zs-bg);
+       color:var(--zs-ink); border:2px solid var(--zs-rand); border-radius:1rem; box-shadow:inset 0 0 0 5px var(--zs-bg), inset 0 0 0 6px var(--zs-rand); padding:1rem clamp(.6rem, 2.5vw, 1.4rem) 1.1rem; margin:.3rem 0 .4rem; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .zs{ --zs-bg:#0f2130; --zs-was:rgba(70,140,195,.18); --zs-was2:rgba(59,193,197,.12); --zs-rand:#2e4c60; --zs-papier:#132a3b; --zs-ink:#dbe9f2; --zs-zacht:#93abbb;
+       --zs-lijn:#2a4659; --zs-romp:#36546a; --zs-mis:#6fb8ea; --zs-raak:#ff7b72; --zs-hover:rgba(252,175,23,.4); --zs-chip:#3a2c0e; } }
+  :root[data-theme="dark"] .zs{ --zs-bg:#0f2130; --zs-was:rgba(70,140,195,.18); --zs-was2:rgba(59,193,197,.12); --zs-rand:#2e4c60; --zs-papier:#132a3b; --zs-ink:#dbe9f2; --zs-zacht:#93abbb;
+       --zs-lijn:#2a4659; --zs-romp:#36546a; --zs-mis:#6fb8ea; --zs-raak:#ff7b72; --zs-hover:rgba(252,175,23,.4); --zs-chip:#3a2c0e; }
+  .zs-kop{ display:grid; grid-template-columns:56px 1fr 56px; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+  .zs-kop svg{ width:56px; height:56px; color:var(--zs-ink); }
+  .zs-kop h3{ margin:0; text-align:center; font-size:clamp(1.05rem, 3.4vw, 1.55rem); letter-spacing:.14em; text-transform:uppercase; color:var(--zs-ink); text-wrap:balance; }
+  .zs-kop .zs-sub{ display:block; text-align:center; font-size:.85rem; letter-spacing:.2em; text-transform:uppercase; color:var(--zs-zacht); margin-top:.15rem; }
+  .zs-stat{ font-size:1.08rem; margin:.3rem 0 .5rem; color:var(--zs-ink); }
+  .zs-stat.mijn{ font-weight:800; }
+  .zs-actie{ display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; background:var(--zs-papier); border:2px solid var(--zs-rand); border-radius:.8rem; padding:.55rem .8rem; margin:.4rem 0 .6rem; }
+  .zs-actie .bigq{ color:var(--zs-ink); }
+  .zs-actie .inp{ background:var(--card); }
+  .zs-vuur{ font-weight:800; }
+  .zs-co{ display:inline-block; font-weight:800; font-size:1.25rem; color:var(--zs-ink); background:var(--zs-chip); border:2px solid var(--orange); border-radius:.5rem; padding:0 .45rem; letter-spacing:.03em; }
+  .zs-inkomend{ border-color:var(--orange); }
+  .zs-zeeen{ display:flex; flex-wrap:wrap; gap:1rem 1.4rem; align-items:flex-start; }
+  .zs-zeeen > div{ flex:1 1 280px; min-width:0; max-width:430px; }
+  .zs-zeeen h4{ margin:.1rem 0 .3rem; font-size:.95rem; letter-spacing:.16em; text-transform:uppercase; color:var(--zs-ink); }
+  .zs .viz{ background:var(--zs-papier); border-color:var(--zs-rand); margin:0 0 .5rem; max-width:none; }
+  .zs .ch .gr{ stroke:var(--zs-lijn); }
+  .zs .ch .ax{ stroke:var(--zs-ink); }
+  .zs .ch .ax[fill]{ fill:var(--zs-ink); }
+  .zs-bord.klik .viz{ border-color:var(--orange); animation:zsGlow 1.4s ease-in-out infinite alternate; }
+  @keyframes zsGlow{ from{ box-shadow:0 0 0 0 rgba(252,175,23,.0); } to{ box-shadow:0 0 0 5px rgba(252,175,23,.35); } }
+  @media (prefers-reduced-motion: reduce){ .zs-bord.klik .viz{ animation:none; box-shadow:0 0 0 4px rgba(252,175,23,.35); } }
+  .ch .zs-dot{ fill:var(--zs-papier); stroke:var(--zs-ink); stroke-width:1.6; }
+  .ch .zs-dot.vol{ fill:var(--zs-ink); }
+  .ch .zs-romp{ fill:var(--zs-romp); fill-opacity:.6; stroke:var(--zs-ink); stroke-width:1.5; stroke-linejoin:round; }
+  .ch .zs-dek{ fill:none; stroke:var(--zs-ink); stroke-width:1; opacity:.35; }
+  .ch .zs-mis{ fill:var(--zs-mis); fill-opacity:.25; stroke:var(--zs-mis); stroke-width:2; }
+  .ch .zs-x{ stroke:var(--zs-raak); stroke-width:3.2; stroke-linecap:round; }
+  .ch .zs-zonk{ fill:var(--zs-raak); fill-opacity:.2; stroke:var(--zs-raak); stroke-width:1.5; }
+  .ch .zs-wacht{ fill:none; stroke:var(--orange); stroke-width:3; animation:zsBlink 1s ease-in-out infinite; }
+  @keyframes zsBlink{ 50%{ opacity:.25; } }
+  .ch .zs-fout{ fill:none; stroke:var(--orange); stroke-width:3; stroke-dasharray:4 3; animation:zsWeg 1.6s ease forwards; }
+  @keyframes zsWeg{ 0%,60%{ opacity:1; } 100%{ opacity:0; } }
+  .ch .zs-hit{ fill:transparent; cursor:crosshair; }
+  .ch .zs-hit:hover{ fill:var(--zs-hover); }
+  .zs-vloot{ background:var(--zs-papier); border:2px solid var(--zs-rand); border-radius:.8rem; padding:.45rem .7rem; }
+  .zs-vloot h5{ margin:0 0 .25rem; font-size:.8rem; letter-spacing:.18em; text-transform:uppercase; color:var(--zs-zacht); }
+  .zs-schip{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.15rem .6rem; padding:.3rem 0; border-top:1px dashed var(--zs-rand); }
+  .zs-schip:first-of-type{ border-top:0; }
+  .zs-schip b{ color:var(--zs-ink); }
+  .zs-schip .lbl{ font-size:.85rem; color:var(--zs-zacht); text-align:right; }
+  .zs-schip.weg b{ text-decoration:line-through; text-decoration-color:var(--zs-raak); text-decoration-thickness:2px; }
+  .zs-schip.weg .lbl{ color:var(--zs-raak); font-weight:700; }
+  .zs-schip svg{ grid-column:1 / -1; height:26px; width:auto; max-width:100%; color:var(--zs-ink); }
+  .zs-log{ margin:.1rem 0 .5rem; padding:0; list-style:none; display:flex; flex-direction:column; gap:.15rem; }
+  .zs-log li{ color:var(--zs-ink); }
+  .zs-voet{ margin:.7rem 0 0; text-align:center; font-size:.9rem; color:var(--zs-zacht); font-style:italic; }
+  .zs-knoppen{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+  .zs-lobby{ display:flex; flex-wrap:wrap; gap:1rem 1.6rem; align-items:flex-end; margin:.4rem 0; }
+  .zs-lobby > div{ display:flex; flex-direction:column; gap:.35rem; }
+  .zs-code{ font:800 2rem/1 var(--f-body); letter-spacing:.25em; color:var(--zs-ink); background:var(--zs-chip); border:2px dashed var(--orange); border-radius:.6rem; padding:.3rem .2rem .3rem .45rem; display:inline-block; }
+  .zs-in{ width:7.5rem; text-transform:uppercase; letter-spacing:.2em; font-weight:800; }
+  .zs .fb:empty{ display:none; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+const ZS_LEN = [5, 4, 3], ZS_M = 3; /* rooster van −3 tot 3 */
+const ZS_NAMEN = ['Slagschip', 'Kruiser', 'Torpedobootjager'];
+const ZS_TEKENS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const zsEsc = s => String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const zsZeg = r => r === 'mis' ? '💧 mis' : r === 'raak' ? '💥 raak!' : '🔥 raak en gezonken!';
+/* kompasroos en meeuw voor de kop, zoals op het werkblad */
+const ZS_KOMPAS = `<svg viewBox="0 0 56 56" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="28" cy="28" r="20" stroke-width="1.5"/><circle cx="28" cy="28" r="15" stroke-width=".8" stroke-dasharray="2 2"/>
+  <path d="M28 4 L32 28 L28 52 L24 28 Z" fill="currentColor" fill-opacity=".85" stroke-width="1"/><path d="M4 28 L28 24 L52 28 L28 32 Z" fill="currentColor" fill-opacity=".35" stroke-width="1"/>
+  <path d="M28 4 L32 28 L28 28 Z" fill="#fcaf17" stroke="none"/><text x="28" y="3.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-weight="700">N</text></svg>`;
+const ZS_MEEUW = `<svg viewBox="0 0 56 56" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 26 q8 -10 16 0 q8 -10 16 0"/><path d="M30 40 q5 -6 10 0 q5 -6 10 0" stroke-width="1.5" opacity=".6"/></svg>`;
+function zsKader(sub){
+  const z = el('div','zs');
+  z.append(el('div','zs-kop', `${ZS_KOMPAS}<h3>⚓ Zeeslag assenstelsel ⚓<span class="zs-sub">${sub}</span></h3>${ZS_MEEUW}`));
+  return z;
+}
+const zsVoet = () => el('p','zs-voet','Gebruik (x, y) om te schieten. Schiet de ander op jou? Klik dan zelf het juiste punt aan in jouw zee.');
+/* Firebase via aanmelden.js (zelfde module als de pagina, dus dezelfde aanmelding) */
+let ZS_FB = null;
+async function zsFirebase(){
+  if(ZS_FB) return ZS_FB;
+  const kop = document.querySelector('script[src*="gedeeld/kop.js"]');
+  if(!kop) throw new Error('geen platform');
+  const M = await import(new URL('aanmelden.js', kop.src).href);
+  const s = await Promise.race([M.klaar, new Promise((_, rej)=>setTimeout(()=>rej(new Error('niet aangemeld')), 15000))]);
+  ZS_FB = { F:M.F, db:M.db, me:s.email, naam:(s.user && s.user.displayName) || s.email.split('@')[0] };
+  return ZS_FB;
+}
+function zsSchepen(){
+  /* schepen mogen op een as liggen (anders past een schip van 5 niet), maar raken elkaar niet */
+  for(let poging=0;poging<500;poging++){
+    const occ = new Set(), ships = [];
+    for(const len of ZS_LEN){ for(let t=0;t<200;t++){ const hor = Math.random()<.5; const x = rInt(Math.random, -ZS_M, hor?ZS_M-len+1:ZS_M), y = rInt(Math.random, -ZS_M, hor?ZS_M:ZS_M-len+1);
+      const cells = [...Array(len)].map((_,i)=>hor?[x+i,y]:[x,y+i]);
+      if(cells.some(c=>occ.has(c+''))) continue;
+      if(cells.some(([cx,cy])=>[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>occ.has([cx+dx,cy+dy]+'')))) continue;
+      cells.forEach(c=>occ.add(c+'')); ships.push(cells); break; } }
+    if(ships.length === ZS_LEN.length) return ships;
+  }
+  return null;
+}
+/* een romp rond de roosterpunten van een schip: ronde achtersteven, spitse boeg */
+function zsRomp(g, P, cells){
+  const u = P.u, xs = cells.map(c=>c[0]), ys = cells.map(c=>c[1]), hor = new Set(ys).size === 1;
+  const n = cells.length, L = (n-1)*u, h = u*.34;
+  const d = `M${-u*.42},${-h} L${L+u*.05},${-h} Q${L+u*.36},${-h} ${L+u*.52},0 Q${L+u*.36},${h} ${L+u*.05},${h} L${-u*.42},${h} Q${-u*.56},0 ${-u*.42},${-h} Z`;
+  const tf = hor ? `translate(${P.X(Math.min(...xs))},${P.Y(ys[0])})` : `translate(${P.X(xs[0])},${P.Y(Math.min(...ys))}) rotate(-90)`;
+  const gg = svgEl('g', { transform:tf }, g);
+  svgEl('path', { d, class:'zs-romp' }, gg);
+  svgEl('line', { x1:-u*.3, y1:0, x2:L+u*.3, y2:0, class:'zs-dek' }, gg);
+}
+/* een zee: rooster met open bolletjes, eventueel eigen schepen (●) en schoten.
+   o.klik(x, y) maakt de zee aanklikbaar (alleen om een binnenkomend schot aan te duiden). */
+function zsZee(titel, schoten, schepen, o = {}){
+  const w = el('div','zs-bord' + (o.klik ? ' klik' : '')); w.append(el('h4','', titel));
+  const P = plane({ min:-ZS_M, max:ZS_M, u:42 }); w.append(planeBox(P.svg));
+  P.svg.setAttribute('aria-label', titel);
+  const g = svgEl('g', {}, P.layer);
+  const opSchip = new Set(); (schepen || []).forEach(s=>{ zsRomp(g, P, s); s.forEach(c=>opSchip.add(c+'')); });
+  for(let x=-ZS_M;x<=ZS_M;x++) for(let y=-ZS_M;y<=ZS_M;y++) svgEl('circle', { cx:P.X(x), cy:P.Y(y), r:5.5, class:'zs-dot' + (opSchip.has([x,y]+'') ? ' vol' : '') }, g);
+  schoten.forEach(q=>{ const X = P.X(q.x), Y = P.Y(q.y);
+    if(!q.r){ svgEl('circle', { cx:X, cy:Y, r:11, class:'zs-wacht' }, g); return; }
+    if(q.r === 'mis'){ svgEl('circle', { cx:X, cy:Y, r:9, class:'zs-mis' }, g); return; }
+    if(q.zonk || q.r === 'gezonken') svgEl('circle', { cx:X, cy:Y, r:13, class:'zs-zonk' }, g);
+    svgEl('line', { x1:X-8, y1:Y-8, x2:X+8, y2:Y+8, class:'zs-x' }, g); svgEl('line', { x1:X-8, y1:Y+8, x2:X+8, y2:Y-8, class:'zs-x' }, g); });
+  if(o.klik){
+    const hits = svgEl('g', {}, P.top);
+    for(let x=-ZS_M;x<=ZS_M;x++) for(let y=-ZS_M;y<=ZS_M;y++){
+      const c = svgEl('circle', { cx:P.X(x), cy:P.Y(y), r:P.u*.46, class:'zs-hit', 'data-x':x, 'data-y':y }, hits);
+      c.addEventListener('click', ()=>o.klik(x, y));
+    }
+  }
+  w.fout = (x, y) => svgEl('circle', { cx:P.X(x), cy:P.Y(y), r:12, class:'zs-fout' }, g);
+  return w;
+}
+/* vlootlijst zoals op het werkblad: naam, lengte, bolletjes (rood = geraakt) */
+function zsVloot(titel, rijen){
+  const v = el('div','zs-vloot'); v.append(el('h5','', titel));
+  rijen.forEach((r, i)=>{
+    const n = ZS_LEN[i], u = 18, W = n*u + u*1.4;
+    const bol = [...Array(n)].map((_, k)=>`<circle cx="${u*.7 + k*u}" cy="13" r="5" fill="${r.geraakt[k] ? 'var(--zs-raak)' : 'var(--zs-papier)'}" stroke="currentColor" stroke-width="1.4"/>`).join('');
+    const romp = `<path d="M2,6 L${W-u*.6},6 Q${W-u*.2},6 ${W-1},13 Q${W-u*.2},20 ${W-u*.6},20 L2,20 Q-1,13 2,6 Z" fill="var(--zs-romp)" stroke="currentColor" stroke-width="1.2"/>`;
+    const rij = el('div','zs-schip' + (r.weg ? ' weg' : ''), `<b>${ZS_NAMEN[i]} (${n})</b><span class="lbl">${r.weg ? 'gezonken' : r.status || ''}</span><svg viewBox="-2 0 ${W+4} 26" aria-hidden="true">${romp}${bol}</svg>`);
+    v.append(rij);
+  });
+  return v;
+}
+/* rijen voor je eigen vloot uit de schoten van de tegenstander */
+const zsEigenVloot = (schepen, schoten) => schepen.map(s=>{ const geraakt = s.map(c=>schoten.some(q=>q.r && q.r !== 'mis' && q.x===c[0] && q.y===c[1])); return { geraakt, weg:geraakt.every(Boolean), status:geraakt.some(Boolean) ? 'geraakt' : 'drijft nog' }; });
+/* uitleg bij een foute klik: waar ligt het juiste punt? */
+function zsTip(x, y, kx, ky){
+  const rl = x === 0 ? 'blijf op de y-as' : `ga ${Math.abs(x)} naar ${x > 0 ? 'rechts' : 'links'}`;
+  const ob = y === 0 ? 'blijf op de x-as' : `${Math.abs(y)} naar ${y > 0 ? 'boven' : 'onder'}`;
+  return `Je klikte op ${coStr(kx, ky)}. Het schot is op ${coStr(x, y)}: vertrek in de oorsprong, ${rl} (x) en dan ${ob} (y).`;
+}
+/* invulregel om te schieten: ( x , y ) + Vuur! */
+function zsSchietRij(box, onVuur, focus){
+  const a = el('div','zs-actie');
+  const form = el('span','bigq', 'Schiet op ( <input class="inp xs" inputmode="text" aria-label="x"> , <input class="inp xs" inputmode="text" aria-label="y"> )');
+  const go = el('button','btn zs-vuur','💣 Vuur!'); go.type = 'button'; a.append(form, go); box.append(a);
+  const fb = el('div','fb'); box.append(fb);
+  const [ix, iy] = form.querySelectorAll('input'); if(focus) setTimeout(()=>ix.focus({ preventScroll:true }), 50);
+  const vuur = ()=>{ const x = parseLoose(ix.value), y = parseLoose(iy.value);
+    if(!Number.isInteger(x) || !Number.isInteger(y) || Math.abs(x)>ZS_M || Math.abs(y)>ZS_M){ fb.className = 'fb info'; fb.textContent = 'Typ twee gehele getallen van −3 tot 3.'; return; }
+    const m = onVuur(x, y); if(m){ fb.className = 'fb info'; fb.textContent = m; } else go.disabled = true; };
+  go.onclick = vuur; [ix, iy].forEach(i=>i.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); vuur(); } }));
+}
+/* balk bij een binnenkomend schot */
+function zsInkomend(box, wie, x, y){
+  const a = el('div','zs-actie zs-inkomend', `<span class="bigq">💣 ${wie} schiet op <span class="zs-co">${coStr(x, y)}</span>. Klik dat punt aan in <b>jouw zee</b>.</span>`);
+  a.dataset.x = x; a.dataset.y = y; box.append(a);
+  const fb = el('div','fb'); box.append(fb); return fb;
+}
+
+function zeeslagOnline(b, st, save, key){
+  if(QZ) return;
+  const z = zsKader('tegen een klasgenoot'); b.append(z);
+  const box = el('div'); z.append(box, zsVoet());
+  let FB = null, unsub = null, ref = null, rol = null, code = null, mijnSchepen = null, bezig = false, mis = 0;
+  const zelf = () => rol === 'a' ? 'b' : 'a';
+  function stop(){ if(unsub){ unsub(); unsub = null; } }
+  function lobby(msg){
+    stop(); code = null; rol = null; mijnSchepen = null; delete st.code; save();
+    box.innerHTML = '';
+    box.append(el('p','zs-stat','Speel tegen een klasgenoot, elk op je eigen toestel. Eén van jullie maakt een spel en krijgt een code. De ander tikt die code in.'));
+    const row = el('div','zs-lobby');
+    const l = el('div'); const nieuw = el('button','btn','Nieuw spel maken'); nieuw.type = 'button'; l.append(el('b','', 'Ik maak een spel'), nieuw);
+    const r = el('div'); const inp = el('input','inp zs-in'); inp.maxLength = 4; inp.setAttribute('aria-label','Code van het spel'); inp.placeholder = 'CODE';
+    const mee = el('button','btn ghost','Meedoen'); mee.type = 'button'; const rr = el('div','zs-knoppen'); rr.append(inp, mee); r.append(el('b','', 'Ik heb een code'), rr);
+    row.append(l, r); box.append(row);
+    const fb = el('div','fb'); box.append(fb);
+    if(msg){ fb.className = 'fb info'; fb.innerHTML = msg; }
+    nieuw.onclick = ()=>maak().catch(e=>{ fb.className = 'fb bad'; fb.textContent = fout(e); });
+    const join = ()=>meedoen(inp.value.trim().toUpperCase()).catch(e=>{ fb.className = 'fb bad'; fb.textContent = fout(e); });
+    mee.onclick = join; inp.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); join(); } });
+  }
+  const fout = e => /aangemeld|platform|module|fetch/i.test(e.message) ? 'Zeeslag tegen elkaar werkt alleen als je aangemeld bent op het oefenplatform.' : /permission|insufficient/i.test(e.message) ? 'Dit lukt nog niet: je leerkracht moet zeeslag eerst aanzetten in Firebase.' : e.message;
+  async function maak(){
+    FB = await zsFirebase(); const { F, db } = FB;
+    for(let t=0;t<20;t++){
+      const c = [...Array(4)].map(()=>ZS_TEKENS[Math.floor(Math.random()*ZS_TEKENS.length)]).join('');
+      const r = F.doc(db, 'zeeslag', c); const s = await F.getDoc(r);
+      if(s.exists()) continue;
+      await F.setDoc(r, { a:FB.me, an:FB.naam, b:null, bn:'', stap:'wacht', klaarA:false, klaarB:false, beurt:'a', schoten:[], winnaar:null, gemaakt:F.serverTimestamp() });
+      return volg(c, 'a');
+    }
+    throw new Error('Geen vrije code gevonden. Probeer opnieuw.');
+  }
+  async function meedoen(c){
+    if(!/^[A-Z0-9]{4}$/.test(c)) throw new Error('Een code heeft 4 tekens.');
+    FB = await zsFirebase(); const { F, db } = FB;
+    const r = F.doc(db, 'zeeslag', c); const s = await F.getDoc(r);
+    if(!s.exists()) throw new Error(`Er is geen spel met code ${c}.`);
+    const d = s.data();
+    if(d.a === FB.me) return volg(c, 'a');
+    if(d.b === FB.me) return volg(c, 'b');
+    if(d.b) throw new Error('Dit spel heeft al twee spelers.');
+    await F.updateDoc(r, { b:FB.me, bn:FB.naam, stap:'plaatsen' });
+    return volg(c, 'b');
+  }
+  async function volg(c, rl){
+    code = c; rol = rl; st.code = c; save();
+    const { F, db } = FB; ref = F.doc(db, 'zeeslag', c);
+    try{ const g = await F.getDoc(F.doc(db, 'zeeslag', c, 'geheim', FB.me)); if(g.exists()) mijnSchepen = g.data().schepen.map(s=>s.map(p=>[p.x, p.y])); }catch(e){}
+    stop(); unsub = F.onSnapshot(ref, snap=>{ if(!snap.exists()){ lobby('Het spel bestaat niet meer.'); return; } toon(snap.data()); }, e=>{ const f = box.querySelector('.fb'); if(f){ f.className = 'fb bad'; f.textContent = fout(e); } });
+  }
+  /* de verdediger heeft het binnenkomende schot juist aangeklikt: beoordelen en doorgeven */
+  async function beoordeel(d){
+    if(bezig || !mijnSchepen) return; const last = d.schoten[d.schoten.length-1];
+    if(!last || last.w === rol || last.r) return;
+    bezig = true;
+    try{
+      const tegen = d.schoten.filter(q=>q.w === last.w);
+      const geraakt = c => tegen.some(q=>q.x===c[0] && q.y===c[1]);
+      const schip = mijnSchepen.find(s=>s.some(c=>c[0]===last.x && c[1]===last.y));
+      const r = !schip ? 'mis' : schip.every(geraakt) ? 'gezonken' : 'raak';
+      const alles = mijnSchepen.every(s=>s.every(geraakt));
+      const nieuw = Object.assign({}, last, { r }); if(r === 'gezonken') nieuw.l = schip.length;
+      const upd = { schoten:d.schoten.slice(0, -1).concat([nieuw]), beurt:rol };
+      if(alles){ upd.stap = 'klaar'; upd.winnaar = last.w; }
+      await FB.F.updateDoc(ref, upd);
+    } finally { bezig = false; }
+  }
+  function toon(d){
+    const ik = rol, ander = zelf(), naamAnder = zsEsc((ander === 'a' ? d.an : d.bn) || 'je tegenspeler');
+    box.innerHTML = '';
+    const kop = el('div','zs-lobby'); kop.append(el('div','', `<span class="mini">Code van dit spel</span><span class="zs-code">${code}</span>`));
+    const weg = el('button','linkbtn','Spel verlaten'); weg.type = 'button'; weg.onclick = ()=>lobby(); kop.append(weg); box.append(kop);
+    if(d.stap === 'wacht'){ box.append(el('p','zs-stat', 'Geef de code aan je tegenspeler. Het spel start zodra die meedoet.')); return; }
+    const klaar = ik === 'a' ? d.klaarA : d.klaarB, klaarAnder = ander === 'a' ? d.klaarA : d.klaarB;
+    if(d.stap === 'plaatsen'){
+      if(!klaar){
+        if(!mijnSchepen) mijnSchepen = zsSchepen();
+        box.append(el('p','zs-stat', `Je speelt tegen <b>${naamAnder}</b>. Jouw schepen liggen op de roosterpunten (●). Ze kunnen ook op een as liggen. Tevreden? Dan liggen ze klaar.`));
+        const zz = el('div','zs-zeeen'); zz.append(zsZee('Jouw zee', [], mijnSchepen), zsVloot('Jouw vloot', zsEigenVloot(mijnSchepen, []))); box.append(zz);
+        const bar = el('div','zs-knoppen');
+        const ander_ = el('button','btn ghost','↻ Andere ligging'); ander_.type = 'button'; const ok = el('button','btn','⚓ Mijn schepen liggen klaar'); ok.type = 'button'; bar.append(ander_, ok); box.append(bar);
+        ander_.onclick = ()=>{ mijnSchepen = zsSchepen(); toon(d); };
+        ok.onclick = async ()=>{ ok.disabled = true; const { F, db } = FB;
+          await F.setDoc(F.doc(db, 'zeeslag', code, 'geheim', FB.me), { schepen:mijnSchepen.map(s=>s.map(([x,y])=>({x,y}))) });
+          await F.updateDoc(ref, ik === 'a' ? { klaarA:true } : { klaarB:true }); };
+        return;
+      }
+      if(klaarAnder){ FB.F.updateDoc(ref, { stap:'spel' }).catch(()=>{}); }
+      box.append(el('p','zs-stat', `Wachten tot ${naamAnder} de schepen klaar heeft…`)); return;
+    }
+    /* spel of klaar */
+    const mijnSchoten = d.schoten.filter(q=>q.w === ik), zijnSchoten = d.schoten.filter(q=>q.w === ander);
+    const last = d.schoten[d.schoten.length-1], open = d.stap === 'spel' && last && !last.r;
+    const aanZet = d.stap === 'spel' && d.beurt === ik && !open, opMij = open && last.w === ander;
+    const stat = el('p','zs-stat' + (aanZet || opMij ? ' mijn' : ''));
+    if(d.stap === 'klaar') stat.innerHTML = d.winnaar === ik ? `🎉 Gewonnen! Je liet alle schepen van ${naamAnder} zinken in ${mijnSchoten.length} schoten.` : `${naamAnder} won dit keer. Probeer het nog eens!`;
+    else stat.innerHTML = aanZet ? 'Jij bent aan de beurt: typ een coördinaat en vuur.' : opMij ? `${naamAnder} heeft geschoten. Duid het schot aan.` : open ? `Wachten tot ${naamAnder} jouw schot op ${coStr(last.x, last.y)} aanduidt…` : `${naamAnder} is aan de beurt…`;
+    box.append(stat);
+    let fbIn = null, eigen = null;
+    if(aanZet) zsSchietRij(box, (x, y)=>{
+      if(mijnSchoten.some(q=>q.x===x && q.y===y)) return `Op ${coStr(x,y)} schoot je al.`;
+      FB.F.updateDoc(ref, { schoten:d.schoten.concat([{ w:ik, x, y, r:'' }]) }); mis = 0; }, true);
+    if(opMij) fbIn = zsInkomend(box, naamAnder, last.x, last.y);
+    const log = el('ul','zs-log');
+    const mijnLaatste = [...mijnSchoten].reverse().find(q=>q.r), zijnLaatste = [...zijnSchoten].reverse().find(q=>q.r);
+    if(mijnLaatste) log.append(el('li','', `Jouw schot op ${coStr(mijnLaatste.x, mijnLaatste.y)}: ${zsZeg(mijnLaatste.r)}`));
+    if(zijnLaatste && !opMij) log.append(el('li','', `Schot van ${naamAnder} op ${coStr(zijnLaatste.x, zijnLaatste.y)}: ${zsZeg(zijnLaatste.r)}`));
+    if(log.children.length) box.append(log);
+    const zz = el('div','zs-zeeen');
+    const zonkLen = mijnSchoten.filter(q=>q.r === 'gezonken').map(q=>q.l);
+    const doel = el('div'); doel.append(zsZee(`Zee van ${naamAnder}`, mijnSchoten.filter(q=>q.w), null),
+      zsVloot(`Vloot van ${naamAnder}`, ZS_LEN.map(n=>{ const w = zonkLen.includes(n); return { geraakt:Array(n).fill(w), weg:w, status:'drijft nog' }; })));
+    const mijn = el('div');
+    eigen = zsZee('Jouw zee', opMij ? zijnSchoten.slice(0, -1) : zijnSchoten, mijnSchepen, opMij ? { klik:(x, y)=>{
+      if(x === last.x && y === last.y){ fbIn.className = 'fb ok'; fbIn.textContent = 'Juist aangeduid!'; mis = 0; beoordeel(d); return; }
+      mis++; eigen.fout(x, y); fbIn.className = 'fb bad'; fbIn.textContent = mis >= 2 ? zsTip(last.x, last.y, x, y) : `Dat is ${coStr(x, y)}. Kijk nog eens: eerst x (horizontaal), dan y (verticaal).`; } } : {});
+    mijn.append(eigen, zsVloot('Jouw vloot', zsEigenVloot(mijnSchepen, zijnSchoten)));
+    zz.append(doel, mijn); box.append(zz);
+    if(d.stap === 'klaar'){ const opnieuw = el('button','btn','Nieuw spel'); opnieuw.type = 'button'; opnieuw.onclick = ()=>lobby(); box.append(opnieuw); }
+  }
+  /* na herladen terug in hetzelfde spel */
+  if(st.code){ zsFirebase().then(f=>{ FB = f; return meedoen(st.code); }).catch(()=>lobby()); }
+  else lobby();
+}
+
+/* ---- tegen de computer: jij zoekt zijn schepen, hij zoekt de jouwe ---- */
+const zsRaak = (schepen, x, y) => schepen.find(sh=>sh.some(c=>c[0]===x && c[1]===y));
+function zsUitslag(schepen, schoten, x, y){
+  const sh = zsRaak(schepen, x, y); if(!sh) return 'mis';
+  const alle = schoten.concat([{x,y}]);
+  return sh.every(c=>alle.some(q=>q.x===c[0] && q.y===c[1])) ? 'gezonken' : 'raak';
+}
+const zsAlles = (schepen, schoten) => schepen.every(sh=>sh.every(c=>schoten.some(q=>q.x===c[0] && q.y===c[1])));
+/* de computer: eerst willekeurig (dambordpatroon), na een treffer de buren afzoeken */
+function zsComputerSchot(zijn){
+  const gedaan = new Set(zijn.map(q=>q.x+','+q.y)), vrij = (x,y) => Math.abs(x)<=ZS_M && Math.abs(y)<=ZS_M && !gedaan.has(x+','+y);
+  const open = zijn.filter(q=>q.r === 'raak');
+  const doelen = [];
+  open.forEach(q=>{ [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{ const x = q.x+dx, y = q.y+dy; if(vrij(x,y)) doelen.push([x,y]); }); });
+  /* liefst in het verlengde van twee treffers op een rij */
+  const rij = doelen.filter(([x,y])=>open.some(a=>open.some(b=>a!==b && ((a.y===b.y && a.y===y) || (a.x===b.x && a.x===x)))));
+  const kies = arr => arr[Math.floor(Math.random()*arr.length)];
+  if(rij.length) return kies(rij);
+  if(doelen.length) return kies(doelen);
+  const alle = []; for(let x=-ZS_M;x<=ZS_M;x++) for(let y=-ZS_M;y<=ZS_M;y++) if(vrij(x,y) && (x+y)%2===0) alle.push([x,y]);
+  if(alle.length) return kies(alle);
+  for(let x=-ZS_M;x<=ZS_M;x++) for(let y=-ZS_M;y<=ZS_M;y++) if(vrij(x,y)) alle.push([x,y]);
+  return kies(alle);
+}
+function zeeslagComputer(b, st, save, key){
+  if(QZ) return;
+  if(!st.mijn || !st.comp){ st.mijn = zsSchepen(); st.comp = zsSchepen(); st.ik = []; st.zijn = []; st.stap = 'plaatsen'; st.in = null; st.juist = 0; save(); }
+  if(st.juist == null) st.juist = 0;
+  const z = zsKader('tegen de computer'); b.append(z);
+  const box = el('div'); z.append(box, zsVoet());
+  let wacht = false, mis = 0;
+  function toon(){
+    box.innerHTML = '';
+    if(st.stap === 'plaatsen'){
+      box.append(el('p','zs-stat', 'Jouw schepen liggen op de roosterpunten (●). De computer verstopte er ook drie. Om beurten schieten jullie. Wie eerst alle schepen van de ander laat zinken, wint.'));
+      const zz = el('div','zs-zeeen'); zz.append(zsZee('Jouw zee', [], st.mijn), zsVloot('Jouw vloot', zsEigenVloot(st.mijn, []))); box.append(zz);
+      const bar = el('div','zs-knoppen');
+      const an = el('button','btn ghost','↻ Andere ligging'); an.type = 'button'; const ok = el('button','btn','⚓ Start het spel'); ok.type = 'button'; bar.append(an, ok); box.append(bar);
+      an.onclick = ()=>{ st.mijn = zsSchepen(); save(); toon(); };
+      ok.onclick = ()=>{ st.stap = 'spel'; save(); toon(); };
+      return;
+    }
+    const gewonnen = zsAlles(st.comp, st.ik), verloren = zsAlles(st.mijn, st.zijn), inc = st.in;
+    const bezig = !gewonnen && !verloren;
+    const stat = el('p','zs-stat' + (bezig && !wacht ? ' mijn' : ''));
+    const score = st.zijn.length ? ` Je duidde ${st.juist} van de ${st.zijn.length} schoten van de computer meteen juist aan.` : '';
+    stat.innerHTML = gewonnen ? `🎉 Gewonnen! Je liet alle schepen van de computer zinken in ${st.ik.length} schoten.${score}` : verloren ? `De computer won dit keer. Probeer het nog eens!${score}` : wacht ? 'De computer mikt…' : inc ? 'De computer heeft geschoten. Duid het schot aan.' : 'Jij bent aan de beurt: typ een coördinaat en vuur.';
+    box.append(stat);
+    let fbIn = null, eigen = null;
+    if(bezig && !wacht && !inc) zsSchietRij(box, (x, y)=>{
+      if(st.ik.some(q=>q.x===x && q.y===y)) return `Op ${coStr(x,y)} schoot je al.`;
+      st.ik.push({ x, y, r:zsUitslag(st.comp, st.ik, x, y) }); save();
+      if(zsAlles(st.comp, st.ik)){ toon(); return; }
+      wacht = true; toon();
+      setTimeout(()=>{ const [cx, cy] = zsComputerSchot(st.zijn); st.in = { x:cx, y:cy }; mis = 0; save(); wacht = false; toon(); }, 900);
+    }, st.ik.length > 0);
+    if(bezig && inc) fbIn = zsInkomend(box, 'De computer', inc.x, inc.y);
+    const log = el('ul','zs-log'), l1 = st.ik[st.ik.length-1], l2 = st.zijn[st.zijn.length-1];
+    if(l1) log.append(el('li','', `Jouw schot op ${coStr(l1.x, l1.y)}: ${zsZeg(l1.r)}`));
+    if(l2 && !inc && !wacht) log.append(el('li','', `De computer schoot op ${coStr(l2.x, l2.y)}: ${zsZeg(l2.r)}`));
+    if(log.children.length) box.append(log);
+    const zz = el('div','zs-zeeen');
+    const doel = el('div'); doel.append(zsZee('Zee van de computer', st.ik, gewonnen || verloren ? st.comp : null),
+      zsVloot('Vloot van de computer', st.comp.map(s=>{ const w = s.every(c=>st.ik.some(q=>q.x===c[0] && q.y===c[1])); return { geraakt:s.map(()=>w), weg:w, status:'drijft nog' }; })));
+    const mijn = el('div');
+    eigen = zsZee('Jouw zee', st.zijn, st.mijn, bezig && inc ? { klik:(x, y)=>{
+      if(x === inc.x && y === inc.y){ if(!mis) st.juist++; st.zijn.push({ x, y, r:zsUitslag(st.mijn, st.zijn, x, y) }); st.in = null; save(); toon(); return; }
+      mis++; eigen.fout(x, y); fbIn.className = 'fb bad'; fbIn.textContent = mis >= 2 ? zsTip(inc.x, inc.y, x, y) : `Dat is ${coStr(x, y)}. Kijk nog eens: eerst x (horizontaal), dan y (verticaal).`; } } : {});
+    mijn.append(eigen, zsVloot('Jouw vloot', zsEigenVloot(st.mijn, st.zijn)));
+    zz.append(doel, mijn); box.append(zz);
+    if(!bezig){ const n = el('button','btn','Nieuw spel'); n.type = 'button'; n.onclick = ()=>{ delete st.mijn; delete st.comp; save(); b.innerHTML = ''; zeeslagComputer(b, st, save, key); }; box.append(n); }
+  }
+  toon();
+}
+
+/* ---- apart hoofdstuk Zeeslag, vlak onder Coördinaten ---- */
+ICONS.zeeslag = '<path d="M3 15h18l-2.5 4.5h-13z"/><path d="M7 15V9h7l3 6"/><path d="M10 9V5"/><path d="M2.5 21.5c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0"/>';
+(function(){
+  const c = SECTIONS.find(s=>s.id==='coord');
+  /* de oude zeeslag uit Coördinaten weghalen, maar zijn plaats houden: zo blijven de bewaarde antwoorden bij de juiste kaart */
+  const k = c.cards.findIndex(x=>x.title==='Zeeslag'); if(k >= 0) c.cards[k] = { title:'', lvl:c.cards[k].lvl, skip:true, build:()=>{} };
+  const i = SECTIONS.indexOf(c);
+  SECTIONS.splice(i+1, 0, { id:'zeeslag', ic:'zeeslag', nav:'Zeeslag', title:'Zeeslag in het assenstelsel',
+    tip:'Een schot is een koppel (x, y): eerst x (horizontaal), dan y (verticaal). Jij tikt de coördinaat in om te schieten. Schiet de ander op jou, dan klik je zelf het juiste punt aan.',
+    cards:[
+      { title:'Zeeslag tegen de computer', lvl:2, instr:'Om beurten schieten: jij tikt een coördinaat in, de computer roept er een af en jij klikt dat punt aan in jouw zee. Het telt niet mee.',
+        build:(b,st,save,key)=>zeeslagComputer(b,st,save,key) },
+      { title:'Zeeslag tegen een klasgenoot', lvl:2, instr:'Online, elk op je eigen toestel. Eén van jullie maakt een spel, de ander tikt de code in. Het telt niet mee.',
+        build:(b,st,save,key)=>zeeslagOnline(b,st,save,key) }
+    ]});
+})();
 
 /* ============================================================
    SORTEREN IN BAKKEN
@@ -5023,6 +5428,7 @@ SECTIONS.forEach((sec, si)=>{
     p2.append(el('div','tip', icon('bulb') + '<div>Verdieping is moeilijker. Probeer deze oefeningen als je <b>Basis en oefenen</b> goed kan.</div>'));
   }
   sec.cards.forEach((card,ci)=>{
+    if(card.skip) return; /* lege plaats: houdt de nummering (en dus de bewaarde antwoorden) van de volgende kaarten */
     const key = sec.id + '_' + ci;
     const c = el('div','card');
     const ch = el('div','card-head', `<h3>${card.title}${card.lvl?LVL[card.lvl]:''}</h3>`);

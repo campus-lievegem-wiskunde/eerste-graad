@@ -10,7 +10,7 @@ function apply(d,k,v){
   d[k]=v;
 }
 export function getFirestore(){ return {}; }
-export function doc(db,col,id){ return {path:col+'/'+id, id}; }
+export function doc(db,...parts){ return {path:parts.join('/'), id:parts[parts.length-1]}; }
 export function collection(db,col){ return {col}; }
 export function where(f,op,v){ return {f,op,v}; }
 export function query(c,...w){ return {col:c.col,w}; }
@@ -27,3 +27,4 @@ export async function setDoc(r,p,o){ const all=store(); const d=(o&&o.merge)?(al
 export async function updateDoc(r,p){ const all=store(); const d=all[r.path]; if(!d) throw new Error('not found '+r.path); for(const [k,v] of Object.entries(p)) apply(d,k,v); save(all); }
 export async function deleteDoc(r){ const all=store(); delete all[r.path]; save(all); }
 export function writeBatch(){ const ops=[]; return { set(r,d,o){ ops.push([r,d,o]); }, delete(r){ ops.push([r,null]); }, async commit(){ for(const [r,d,o] of ops){ if(d===null) await deleteDoc(r); else await setDoc(r,d,o); } } }; }
+export function onSnapshot(r,cb){ let last; const tick=()=>{ const d=store()[r.path]; const j=JSON.stringify(d===undefined?null:d); if(j!==last){ last=j; cb({exists:()=>!!d, data:()=>d, id:r.id}); } }; tick(); const t=setInterval(tick,200); return ()=>clearInterval(t); }

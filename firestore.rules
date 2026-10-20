@@ -41,5 +41,17 @@ service cloud.firestore {
       allow read, write: if aangemeld() && docId.matches(request.auth.uid + '_.*');
       allow read, delete: if leerkracht();
     }
+    // zeeslag tegen elkaar (Module 3): spel per code; elke speler bewaart zijn schepen apart en leest enkel die van zichzelf
+    match /zeeslag/{code} {
+      allow read: if aangemeld();
+      allow create: if aangemeld() && request.resource.data.a == mail() && request.resource.data.b == null;
+      allow update: if aangemeld() && (mail() == resource.data.a || mail() == resource.data.b
+                    || (resource.data.b == null && request.resource.data.b == mail()));
+      allow delete: if leerkracht();
+      match /geheim/{email} {
+        allow read, write: if aangemeld() && mail() == email;
+        allow delete: if leerkracht();
+      }
+    }
   }
 }
