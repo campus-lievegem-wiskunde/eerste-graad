@@ -1629,6 +1629,13 @@ function oobChk(svg, objs, g){
   const out = q => q && !(q[0]>=g[0]-1e-6 && q[0]<=g[1]+1e-6 && q[1]>=g[2]-1e-6 && q[1]<=g[3]+1e-6);
   objs.filter(Boolean).forEach(o=>{ const ps = o.t==='pt'||o.t==='cen' ? [o.p] : o.t==='arrow' ? [o.a,o.b] : o.t==='poly' ? o.pts : []; if(ps.some(out)){ const c = svg.closest('.card'); (window.__oob = window.__oob || []).push((c && c.querySelector('h3') ? c.querySelector('h3').textContent : '?')+' · '+o.t+' '+JSON.stringify(ps)); } });
 }
+/* meting (enkel bij tests): hoe dicht staan de figuren bij de rand van het rooster */
+function margChk(svg, objs, g){
+  const ps = []; objs.filter(Boolean).forEach(o=>{ if(o.t==='pt'||o.t==='cen') ps.push(o.p); else if(o.t==='arrow') ps.push(o.a,o.b); else if(o.t==='poly') ps.push(...o.pts); });
+  if(!ps.length) return; const xs = ps.map(q=>q[0]), ys = ps.map(q=>q[1]);
+  const m = [Math.min(...xs)-g[0], g[1]-Math.max(...xs), Math.min(...ys)-g[2], g[3]-Math.max(...ys)];
+  const c = svg.closest('.card'); (window.__margMap = window.__margMap || new Map()).set(svg, {t:(c && c.querySelector('h3') ? c.querySelector('h3').textContent : '?').slice(0,40), m, w:g[1]-g[0], h:g[3]-g[2]});
+}
 function gridFig(parent, o={}){
   const g = o.g || [0,12,0,8];
   const B = gridBase(g, o);
@@ -1639,7 +1646,7 @@ function gridFig(parent, o={}){
   parent.append(svg);
   const gO = svg.querySelector('.objs'), top = svg.querySelector('.top');
   const F = { svg, g, base:[], token:0, last:[],
-    draw(objs){ F.last = objs||[]; const all = F.base.concat(objs||[]); if(window.__oobChk) oobChk(svg, all, g); gO.innerHTML = gObjs(all, g); },
+    draw(objs){ F.last = objs||[]; const all = F.base.concat(objs||[]); if(window.__oobChk) oobChk(svg, all, g); if(window.__margChk) margChk(svg, all, g); gO.innerHTML = gObjs(all, g); },
     alive(tok){ return svg.isConnected && tok===F.token; },
     toW(e){ const pt = svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const r = pt.matrixTransform(svg.getScreenCTM().inverse()); return [r.x/CU, -r.y/CU]; },
     clickable(cb, opt={}){
@@ -1675,12 +1682,19 @@ function opBase(op, o={}){
   return [];
 }
 /* beginpunt voor een vector v die volledig in het rooster ligt, liefst niet op een punt van de figuur */
-function vecFrom(R, g, v, avoid=[]){
+function vecFrom(R, g, v, avoid=[], polys=[]){
   const all = [];
   for(let x=Math.ceil(g[0]); x<=g[1]; x++) for(let y=Math.ceil(g[2]); y<=g[3]; y++){ const to = [x+v[0], y+v[1]]; if(inG(to, g)) all.push([x,y]); }
   if(!all.length) return null;
   const free = all.filter(fr=>!avoid.some(p=>ptEq(p,fr) || ptEq(p,[fr[0]+v[0], fr[1]+v[1]])));
-  return R.pick(free.length ? free : all);
+  /* de vector loopt niet door een figuur en niet vlak langs een punt */
+  const clear = fr => { for(let i=0;i<=12;i++){ const q = [fr[0]+v[0]*i/12, fr[1]+v[1]*i/12]; if(avoid.some(p=>Math.hypot(p[0]-q[0], p[1]-q[1])<1.1) || polys.some(P=>inPoly(q, P))) return false; } return true; };
+  const clr = free.filter(clear);
+  const inner = clr.filter(fr=>inG(fr, g, 1) && inG([fr[0]+v[0], fr[1]+v[1]], g, 1));   /* liefst niet tegen de rand */
+  const pool = inner.length ? inner : (clr.length ? clr : (free.length ? free : all));
+  const cx = (g[0]+g[1])/2, cy = (g[2]+g[3])/2; const sc = fr => Math.hypot(fr[0]+v[0]/2-cx, fr[1]+v[1]/2-cy);
+  const best = Math.min(...pool.map(sc));
+  return R.pick(pool.filter(fr=>sc(fr)<=best+1.5));
 }
 async function animFig(F, fig, op, cap, opt={}){
   const tok = ++F.token; const say = stepSay(cap, opt.keep);
@@ -2169,6 +2183,22 @@ function genOpK(R, g, kind){
   if(kind==='r180') return {t:'r', c:[R.int(g[0]+2,g[1]-2), R.int(g[2]+2,g[3]-2)], deg:180};
   if(kind==='p') return {t:'p', c:[R.int(g[0]+2,g[1]-2), R.int(g[2]+2,g[3]-2)]};
 }
+/* de hele opgave (figuur, beeld en element van de transformatie) in het midden van het rooster zetten */
+function centerShift(g, P, op){
+  const pts = P.slice();
+  if(op.t==='r' || op.t==='p') pts.push(op.c);
+  if(op.t==='s') pts.push(footPt(centroid(P), op.p, op.q));
+  if(op.t==='t' && op.from){ pts.push(op.from, [op.from[0]+op.v[0], op.from[1]+op.v[1]]); }
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+  return [Math.round((g[0]+g[1])/2-(Math.min(...xs)+Math.max(...xs))/2), Math.round((g[2]+g[3])/2-(Math.min(...ys)+Math.max(...ys))/2)];
+}
+function shiftOp(op, d, g){
+  const mv = p => [p[0]+d[0], p[1]+d[1]];
+  if(op.t==='s'){ let p = mv(op.p), q = mv(op.q); if(op.p[0]===op.q[0]){ p = [p[0], g[2]]; q = [q[0], g[3]]; } else if(op.p[1]===op.q[1]){ p = [g[0], p[1]]; q = [g[1], q[1]]; } return {...op, p, q}; }
+  if(op.t==='r' || op.t==='p') return {...op, c:mv(op.c)};
+  if(op.t==='t' && op.from) return {...op, from:mv(op.from)};
+  return op;
+}
 /* opgave: figuur + transformatie waarvan het beeld in het rooster past */
 function genTask(R, n, g, kind, o={}){
   for(let t=0;t<800;t++){
@@ -2193,6 +2223,11 @@ function genTask(R, n, g, kind, o={}){
       if(op.t==='p' && o.outside && Math.min(...pts.map(p=>Math.hypot(p[0]-op.c[0],p[1]-op.c[1])))<2) continue;
     }
     if(o.check && !o.check(pts, img, op)) continue;
+    if(g[0]<0 && !pts.concat(img).every(p=>inG(p, g, 1))) continue;   /* rooster met assen: niet tegen de rand */
+    if(g[0]>=0){ const d = centerShift(g, pts.concat(img), op);
+      const np = pts.map(p=>[p[0]+d[0], p[1]+d[1]]), ni = img.map(p=>[p[0]+d[0], p[1]+d[1]]);
+      if(!np.concat(ni).every(p=>inG(p, g, t<500 ? 1 : 0))) continue;   /* eerst met een rand van 1 hokje, daarna zonder */
+      return {pts:np, img:ni, op:shiftOp(op, d, g)}; }
     return {pts, img, op};
   }
   return null;
@@ -2217,8 +2252,10 @@ function iconPairObjs(nm, box, op, tt=1, showEl=true){
   if(showEl) o.push(...opBaseAny(op));
   o.push({t:'img', href:figHref(nm), box});
   if(tt>0) o.push({t:'img', href:figHref(nm), box, m:opMatAny(op, tt), op2: tt<1 ? .75 : null});
-  o.push({t:'txt', p:[C[0], C[1]+R0], s:'f', c:'orig', dy:-.4});
-  if(tt>=1) o.push({t:'txt', p:[Cq[0], Cq[1]+R0], s:'f'+PR, c:'img', dy:-.4});
+  const side = box[4] || {f:1, q:1};
+  const lab = (P, up) => [P[0], up>0 ? P[1]+R0 : P[1]-R0-.85];
+  o.push({t:'txt', p:lab(C, side.f), s:'f', c:'orig', dy:-.4});
+  if(tt>=1) o.push({t:'txt', p:lab(Cq, side.q), s:'f'+PR, c:'img', dy:-.4});
   return o;
 }
 /* samengestelde transformaties (lijst) voor de 'geen'-gevallen */
@@ -2242,9 +2279,22 @@ function genIconPair(R, kind, g, sz=2.6){
     else if(kind==='g'){ const v = R.pick(['v','h']); const ax = genAxis(R, g, v); const d = R.pick([3,4,-3,-4]); op = [ax, {t:'t', v: v==='v' ? [0,d] : [d,0]}];
       const side = [[box[0],box[1]],[box[0]+box[2],box[1]],[box[0],box[1]+box[3]],[box[0]+box[2],box[1]+box[3]]].map(p=>Math.sign(cross3(ax.p,ax.q,p))); if(side.includes(0) || (side.includes(1)&&side.includes(-1))) continue; }
     if(!iconBoxOK(box, op, g)) continue;
-    const Cq = applyOpAny(C, op); if(Math.hypot(C[0]-Cq[0], C[1]-Cq[1]) < sz*1.12) continue;
+    let Cq = applyOpAny(C, op); if(Math.hypot(C[0]-Cq[0], C[1]-Cq[1]) < sz*1.12) continue;
     if((kind==='r'||kind==='p') && Math.hypot(C[0]-op.c[0], C[1]-op.c[1]) < 1.2) continue;
-    return {nm, box, op};
+    /* de hele opgave in het midden van het rooster zetten */
+    const corners = b => [[b[0],b[1]],[b[0]+b[2],b[1]],[b[0],b[1]+b[3]],[b[0]+b[2],b[1]+b[3]]];
+    const el1 = Array.isArray(op) ? op[0] : op;
+    const allP = corners(box).concat(corners(box).map(q=>applyOpAny(q, op)));
+    if(el1.t==='r' || el1.t==='p') allP.push(el1.c); if(el1.t==='s') allP.push(footPt(C, el1.p, el1.q));
+    const xs = allP.map(q=>q[0]), ys = allP.map(q=>q[1]);
+    const d = [Math.round((g[0]+g[1])/2-(Math.min(...xs)+Math.max(...xs))/2), Math.round((g[2]+g[3])/2-(Math.min(...ys)+Math.max(...ys))/2)];
+    let box2 = box, op2 = op;
+    if(d[0]||d[1]){ box2 = [box[0]+d[0], box[1]+d[1], box[2], box[3]]; op2 = Array.isArray(op) ? [shiftOp(op[0], d, g), op[1]] : shiftOp(op, d, g); }
+    if(!iconBoxOK(box2, op2, g)) continue;
+    const C2 = [box2[0]+box2[2]/2, box2[1]+box2[3]/2]; Cq = applyOpAny(C2, op2); const R0 = Math.max(box2[2], box2[3])/2 + .55;
+    const sideOf = P => P[1]+R0+.8 <= g[3] ? 1 : (P[1]-R0-.85 >= g[2] ? -1 : 0);
+    const sf = sideOf(C2), sq = sideOf(Cq); if(!sf || !sq) continue;
+    return {nm, box:[box2[0], box2[1], box2[2], box2[3], {f:sf, q:sq}], op:op2};
   }
   return null;
 }
@@ -2305,7 +2355,7 @@ HK.welke2 = herkenKaart('Vink alle transformaties aan die passen', 2, true);
 
 /* --- 3. foto's --- */
 /* foto's die de leerkracht koos (fotokeuze), met de transformatie die erbij hoort */
-const PHOTOS = [['s_kasteel','s'],['s_vlinder','s'],['s_berg','s'],['t_voetstappen','t'],['t_vissen','t'],['t_autos','t'],['t_kapstokken','t'],['r_reuzenrad','r'],['r_windmolen','r'],['r_frangipani','r'],['r_roosvenster','r'],['r_molentje','r'],['r_scheepsschroef','r'],['r_ventilator','r'],['p_speelkaart','p'],['p_yinyang','p'],['p_speelkaart2','p'],['p_tegel','p']];
+const PHOTOS = [['s_kasteel','s'],['s_vlinder','s'],['s_berg','s'],['t_voetstappen','t'],['t_vissen','t'],['t_autos','t'],['t_kapstokken','t'],['r_reuzenrad','r'],['r_windmolen','r'],['r_frangipani','r'],['r_molentje','r'],['r_scheepsschroef','r'],['r_ventilator','r'],['p_speelkaart','p'],['p_speelkaart2','p'],['p_tegel','p']];
 const PHOTO_WHY = {s:'Het ene deel is het spiegelbeeld van het andere: er is een spiegelas.', t:'Dezelfde figuur komt telkens terug, verschoven over dezelfde vector.', r:'De figuur valt op zichzelf als je ze rond het midden draait.', p:'Draai de figuur een halve slag rond het midden: ze valt op zichzelf. Dat is een spiegeling om een punt.'};
 function photoQ(parent, st, save, id, ph, nr){
   const host = el('div','photo-q'); parent.append(host);
@@ -2322,7 +2372,7 @@ HK.fotos = { title:'Foto’s: welke transformatie herken je?', lvl:1, instr:'Kij
 /* --- 4. in je leefwereld (sorteren) --- */
 HK.leef = { title:'Transformaties in je leefwereld', lvl:2, instr:'Sleep elke kaart naar de juiste bak, of tik een kaart aan en daarna de bak.', build:(b,st,save,key)=>{
   const items = [['Een berg en zijn spiegelbeeld in een stil meer',0],['Een lift gaat van verdieping 0 naar verdieping 3',1],['De grote wijzer van een klok van 12.00 u tot 12.15 u',2],['Een schuifdeur die opengaat',1],
-    ['De wieken van een windmolen draaien een kwartslag',2],['De linker- en de rechtervleugel van een vlinder',0],['De bovenste en de onderste helft van een heer op een speelkaart',3],['Een toren op een schaakbord schuift drie vakjes op',1]];
+    ['De wieken van een windmolen draaien een kwartslag',2],['De linker- en de rechtervleugel van een vlinder',0],['De bovenste en de onderste helft van de letter S',3],['Een toren op een schaakbord schuift drie vakjes op',1]];
   const R = makeR(st);
   sortEx(b, st, save, key, ['spiegeling om een as','translatie','rotatie','spiegeling om een punt'], R.shuffle(items).map(([t,a])=>({t, ans:a, why:['Er is een spiegelas.','Alles schuift even ver in dezelfde richting.','Er wordt gedraaid rond een centrum.','Een halve draai rond het midden.'][a]})));
 }};
@@ -2362,10 +2412,10 @@ function wordBank(parent, words){
   return { focus:row=>{ target = row; } };
 }
 HK.zinnen = { title:'Wiskundetaal: zinnen aanvullen', lvl:2, instr:'Bekijk de tekening en vul aan met de juiste begrippen.', build:(b,st,save)=>{
-  const g = [0,18,0,12];
+  const g = [-1,19,-1,13];
   const A = [8,5], B = [11,5], C = [9,8];
   const T = [A,B,C];
-  const rot = {t:'r', c:[7,8], deg:80}, tr = {t:'t', v:[6,2]}, sa = {t:'s', p:[6,0], q:[6,12]}, sz = {t:'p', c:[10,4]};
+  const rot = {t:'r', c:[7,8], deg:80}, tr = {t:'t', v:[6,2]}, sa = {t:'s', p:[6,-1], q:[6,13]}, sz = {t:'p', c:[10,4]};
   const F = gridFig(b, {g, maxw:560});
   const nm = (op, n) => ({t:'poly', pts:T.map(p=>applyOp(p,op)), c:'img', names:n});
   F.draw([{t:'axis', p:sa.p, q:sa.q, n:'a', nAt:'end'}, {t:'arrow', a:[11,10], b:[17,12]}, {t:'pt', p:[11,10], n:'X', c:'orig', r:.9, away:[17,12]}, {t:'pt', p:[17,12], n:'Y', c:'orig', r:.9, away:[11,10]},
@@ -2420,7 +2470,9 @@ HK.volledig = { title:'Wees volledig: welke transformaties passen?', lvl:3, inst
       if(P.some(p=>Q.some(q=>ptEq(p,q))) ) continue;
       const C1 = centroid(P), C2 = centroid(Q); if(Math.hypot(C1[0]-C2[0], C1[1]-C2[1]) < 3) continue;
       if(op.t==='s'){ const side = P.map(p=>Math.sign(r6(cross3(op.p, op.q, p)))); if(side.includes(0) || (side.includes(1)&&side.includes(-1))) continue; }
-      task = {P, Q, op, ans: classifyPair(P, Q)};
+      const d = centerShift(g, P.concat(Q), {t:'x'}); const P2 = P.map(p=>[p[0]+d[0], p[1]+d[1]]), Q2 = Q.map(p=>[p[0]+d[0], p[1]+d[1]]);
+      if(!P2.concat(Q2).every(p=>inG(p, g, t<400 ? 1 : 0))) continue;   /* niet tegen de rand */
+      task = {P:P2, Q:Q2, op:shiftOp(op, d, g), ans: classifyPair(P2, Q2)};
     }
     if(!task) return;
     const box = el('div'); grid.append(box);
@@ -2635,7 +2687,7 @@ function trTaak(title, lvl, o){
     const T = genTask(R, o.n, g, 't', {minD:3.5}); if(!T){ b.append(el('p','','Klik op Nieuwe opgave.')); return; }
     const names = (o.n===3 ? R.pick(NAMES3) : R.pick(NAMES4)).split('');
     const fig = {pts:T.pts, names};
-    if(!o.hide){ /* vector ergens vrij op het rooster */ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img)); T.op.name = ['X','Y']; }
+    if(!o.hide){ /* vector ergens vrij op het rooster */ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img), [T.pts, T.img]); T.op.name = ['X','Y']; }
     else T.op.hide = true;
     const v = T.op.v; const hk = `${Math.abs(v[0])} hokje${Math.abs(v[0])===1?'':'s'} naar ${v[0]>=0?'rechts':'links'} en ${Math.abs(v[1])} hokje${Math.abs(v[1])===1?'':'s'} naar ${v[1]>=0?'boven':'beneden'}`;
     const html = o.hide ? `Verschuif ${o.n===3?'ΔABC'.replace('ABC',names.join('')):'de vierhoek '+names.join('')} <b>${hk}</b>.` : `Teken het beeld van ${o.n===3?'Δ':'de vierhoek '}${names.join('')} door de translatie over ${vecN('X','Y')}.`;
@@ -2663,8 +2715,8 @@ TR.welke = { title:'Welke vector hoort bij de verschuiving?', lvl:2, build:(b,st
   while(cands.length<4) cands.push([v[0]+cands.length, v[1]]);
   placed = []; segs = []; objs = [{t:'poly', pts:T.pts, c:'orig'}, {t:'poly', pts:T.img, c:'img'}]; ok = 0;
   [T.pts, T.img].forEach(P=>P.forEach((p,j)=>segs.push([p, P[(j+1)%P.length]])));
-  cands.slice(0,4).forEach((w,i)=>{ for(let t=0;t<600;t++){ const fr = [R.int(0,14), R.int(0,9)], to = [fr[0]+w[0], fr[1]+w[1]];
-    if(!inG(to,g)) continue; if(placed.some(p=>Math.hypot(p[0]-fr[0],p[1]-fr[1])<2.5 || Math.hypot(p[0]-to[0],p[1]-to[1])<2.5)) continue;
+  cands.slice(0,4).forEach((w,i)=>{ for(let t=0;t<600;t++){ const fr = [R.int(1,13), R.int(1,8)], to = [fr[0]+w[0], fr[1]+w[1]];
+    if(!inG(to,g,1)) continue; if(placed.some(p=>Math.hypot(p[0]-fr[0],p[1]-fr[1])<2.5 || Math.hypot(p[0]-to[0],p[1]-to[1])<2.5)) continue;
     if(T.pts.concat(T.img).some(p=>Math.hypot(p[0]-fr[0],p[1]-fr[1])<1.5 || Math.hypot(p[0]-to[0],p[1]-to[1])<1.5)) continue;
     if(segs.some(q=>segX(q[0],q[1],fr,to))) continue;
     segs.push([fr,to]); placed.push(fr, to); objs.push({t:'arrow', a:fr, b:to, c:'vec'}, {t:'pt', p:fr, n:labels[i][0], c:'orig', r:.8, away:to}, {t:'pt', p:to, n:labels[i][1], c:'orig', r:.8, away:fr}); ok++; break; } });
@@ -2681,9 +2733,9 @@ TR.gelijk = { title:'Gelijke en tegengestelde vectoren', lvl:3, instr:'Gelijke v
   const L = ['AB','CD','EF','GH','KL','MN','PQ'];
   const objs = []; const placed = []; const info = [];
   const base = [R.int(0,3), R.int(0,8)];
-  let main = null; for(let t=0;t<400 && !main;t++){ const fr = [R.int(0,14), R.int(0,8)], to = [fr[0]+v[0], fr[1]+v[1]]; if(inG(to,g)){ main = [fr,to]; placed.push(fr,to); } }
+  let main = null; for(let t=0;t<400 && !main;t++){ const fr = [R.int(1,13), R.int(1,7)], to = [fr[0]+v[0], fr[1]+v[1]]; if(inG(to,g,1)){ main = [fr,to]; placed.push(fr,to); } }
   objs.push({t:'arrow', a:main[0], b:main[1], c:'vec img'}, {t:'pt', p:main[0], n:'X', c:'img', r:.8, away:main[1]}, {t:'pt', p:main[1], n:'Y', c:'img', r:.8, away:main[0]});
-  list.forEach(([k,w],i)=>{ for(let t=0;t<600;t++){ const fr = [R.int(0,14), R.int(0,8)], to = [fr[0]+w[0], fr[1]+w[1]]; if(!inG(to,g)) continue; if(placed.some(p=>Math.hypot(p[0]-fr[0],p[1]-fr[1])<2 || Math.hypot(p[0]-to[0],p[1]-to[1])<2)) continue;
+  list.forEach(([k,w],i)=>{ for(let t=0;t<600;t++){ const fr = [R.int(1,13), R.int(1,7)], to = [fr[0]+w[0], fr[1]+w[1]]; if(!inG(to,g,1)) continue; if(placed.some(p=>Math.hypot(p[0]-fr[0],p[1]-fr[1])<2 || Math.hypot(p[0]-to[0],p[1]-to[1])<2)) continue;
     placed.push(fr,to); objs.push({t:'arrow', a:fr, b:to}, {t:'pt', p:fr, n:L[i][0], c:'orig', r:.8, away:to}, {t:'pt', p:to, n:L[i][1], c:'orig', r:.8, away:fr}); info.push({n:L[i], k}); break; } });
   const F = gridFig(b, {g, maxw:520}); F.draw(objs);
   const opts = info.map(x=>[x.n, vecN(x.n[0], x.n[1])]);
@@ -3018,18 +3070,18 @@ function assenScene(R){
   const pool = R.shuffle(UPP.replace('O','').replace('V','').replace('W','').replace('X','').replace('Y','').split(''));
   for(let t=0;t<400;t++){
     let v; do{ v = [R.int(-5,5), R.int(-5,5)]; }while(Math.hypot(...v)<3 || !v[0] || !v[1]);
-    const V = [R.int(-6,6), R.int(-6,6)], W = [V[0]+v[0], V[1]+v[1]]; if(!inG(W,[-6,6,-6,6])) continue;
+    const V = [R.int(-5,5), R.int(-5,5)], W = [V[0]+v[0], V[1]+v[1]]; if(!inG(W,[-5,5,-5,5])) continue;
     const OPS = [{t:'s', p:[0,0], q:[0,1], name:'y', key:'sy'}, {t:'s', p:[0,0], q:[1,0], name:'x', key:'sx'}, {t:'p', c:[0,0], name:'O', key:'sO'}, {t:'r', c:[0,0], deg:90, name:'O', key:'r90'}, {t:'r', c:[0,0], deg:-90, name:'O', key:'rm90'}, {t:'t', v, name:['V','W'], key:'t'}];
     const plan = R.shuffle(OPS).slice(0,4).concat([OPS[5], R.pick(OPS.slice(0,5))]);
     const pts = {}; let k = 0; const all = [[0,0], V, W]; let fail = false; const rows = [];
-    const add = p => { if(!inG(p,[-6,6,-6,6]) || all.some(q=>ptEq(q,p)) ) return null; all.push(p); const n = pool[k++]; pts[n] = p; return n; };
+    const add = p => { if(!inG(p,[-5,5,-5,5]) || all.some(q=>ptEq(q,p)) ) return null; all.push(p); const n = pool[k++]; pts[n] = p; return n; };
     plan.forEach((op,i)=>{ if(fail) return; let ok = false;
-      for(let u=0;u<60 && !ok;u++){ const A = [R.int(-5,5), R.int(-5,5)]; if(!A[0] || !A[1]) continue; const B = applyOp(A, op); if(!inG(B,[-6,6,-6,6]) || ptEq(A,B) || all.some(q=>ptEq(q,A)||ptEq(q,B))) continue;
+      for(let u=0;u<60 && !ok;u++){ const A = [R.int(-5,5), R.int(-5,5)]; if(!A[0] || !A[1]) continue; const B = applyOp(A, op); if(!inG(B,[-5,5,-5,5]) || ptEq(A,B) || all.some(q=>ptEq(q,A)||ptEq(q,B))) continue;
         const na = add(A), nb = add(B); const pre = i===3 || i===5;
         rows.push(pre ? {html:`${opNot(op)}([[0]]) = ${nb}`, ans:[na], kind:'pt', sol:`<b>${na}</b>`} : {html:`${opNot(op)}(${na}) = [[0]]`, ans:[nb], kind:'pt', sol:`<b>${nb}</b>`}); ok = true; }
       if(!ok) fail = true; });
     if(fail) continue;
-    for(let d=0; d<3; d++){ for(let u=0;u<40;u++){ const p = [R.int(-6,6), R.int(-6,6)]; if(add(p)) break; } }
+    for(let d=0; d<3; d++){ for(let u=0;u<40;u++){ const p = [R.int(-5,5), R.int(-5,5)]; if(add(p)) break; } }
     return {pts, V, W, rows};
   }
   return null;
@@ -3310,7 +3362,8 @@ EG.reken = { title:'Rekenen met eigenschappen', lvl:2, build:(b,st,save)=>{
 EG.wn = { title:'Een parallellogram gespiegeld om een punt', lvl:2, instr:'KLMN is het beeld van het parallellogram ABCD door de spiegeling om het punt O. Waar of niet waar?', build:(b,st,save)=>{
   const R = makeR(st); const g = [0,14,0,9];
   let P, O; for(let t=0;t<500;t++){ const A = [R.int(0,5), R.int(0,4)], w = R.int(3,4), sx = R.int(1,2), hh = R.int(2,3); P = [A, [A[0]+w, A[1]], [A[0]+w+sx, A[1]+hh], [A[0]+sx, A[1]+hh]]; O = [R.int(5,9), R.int(3,6)];
-    const Q = P.map(p=>applyOp(p, {t:'p', c:O})); if(Q.every(p=>inG(p,g)) && Math.hypot(centroid(P)[0]-O[0], centroid(P)[1]-O[1])>=3.2 && !P.some(p=>Math.hypot(p[0]-O[0],p[1]-O[1])<1.5) && !Q.some(q=>inPoly(q,P) || P.some(p=>ptEq(p,q))) && !P.some(p=>inPoly(p,Q))) break; }
+    const Q = P.map(p=>applyOp(p, {t:'p', c:O})); const bb = P.concat(Q), bx = bb.map(p=>p[0]), by = bb.map(p=>p[1]); if(Math.max(...bx)-Math.min(...bx)<=g[1]-g[0]-2 && Math.max(...by)-Math.min(...by)<=g[3]-g[2]-2 && Math.hypot(centroid(P)[0]-O[0], centroid(P)[1]-O[1])>=3.2 && !P.some(p=>Math.hypot(p[0]-O[0],p[1]-O[1])<1.5) && !Q.some(q=>inPoly(q,P) || P.some(p=>ptEq(p,q))) && !P.some(p=>inPoly(p,Q))) break; }
+  { const Q0 = P.map(p=>applyOp(p, {t:'p', c:O})); const d = centerShift(g, P.concat(Q0), {t:'p', c:O}); P = P.map(p=>[p[0]+d[0], p[1]+d[1]]); O = [O[0]+d[0], O[1]+d[1]]; }
   const F = gridFig(b, {g, maxw:460}); const op = {t:'p', c:O};
   F.draw([{t:'poly', pts:P, c:'orig', names:['A','B','C','D']}, {t:'poly', pts:P.map(p=>applyOp(p,op)), c:'img', names:['K','L','M','N']}, {t:'cen', p:O, n:'O'}]);
   const pool = [{s:'KLMN en ABCD zijn congruent.', ans:'w', why:'Een spiegeling om een punt bewaart vorm en grootte.'}, {s:'A, O en K liggen op één rechte.', ans:'w', why:'O is het midden van [AK].'},
@@ -3329,13 +3382,17 @@ EG.slim = { title:'Slim tekenen met eigenschappen', lvl:3, instr:'Teken het beel
   kinds.forEach((k,i)=>{
     let A, B, op; for(let t=0;t<600;t++){
       const d = R.pick([[1,2],[2,1],[1,-1],[2,-1],[1,-2],[1,1]]); A = [R.int(1,6), R.int(1,7)]; B = [A[0]+d[0], A[1]+d[1]];
-      if(k==='t'){ op = genOpK(R, g, 't'); op.from = [R.int(0,8), R.int(0,8)]; op.name = ['X','Y']; if(!inG([op.from[0]+op.v[0], op.from[1]+op.v[1]], g)) continue; }
+      if(k==='t'){ op = genOpK(R, g, 't'); op.from = vecFrom(R, g, op.v, [A,B]); op.name = ['X','Y']; if(!op.from) continue; }
       if(k==='p'){ op = {t:'p', c:[R.int(3,9), R.int(2,6)], name:'O'}; }
       if(k==='r'){ op = {t:'r', c:[R.int(3,9), R.int(2,6)], deg:R.pick([90,-90]), name:'O'}; }
       if(k==='s'){ const c = R.int(4,8); op = {t:'s', p:[c,0], q:[c,8], name:'a', nAt:'start'}; const tS = (c-A[0])/d[0]; if(Math.abs(tS-Math.round(tS))>1e-9 || !inG([c, A[1]+tS*d[1]], g, 1)) continue; }
       const A2 = applyOp(A, op), B2 = applyOp(B, op); if(!inG(A,g) || !inG(B,g) || !inG(A2,g) || !inG(B2,g) || ptEq(A,A2)) continue;
       if(k!=='s' && Math.abs(cross3(A, B, A2))<1e-9) continue;
       if(k==='s' && Math.abs(A[0]-op.p[0])<1) continue;
+      /* alles in het midden van het rooster */
+      const dd = centerShift(g, [A,B,A2,B2], op); const mv = p=>[p[0]+dd[0], p[1]+dd[1]]; const Ac = mv(A), Bc = mv(B), opc = shiftOp(op, dd, g);
+      if(![Ac, Bc, applyOp(Ac,opc), applyOp(Bc,opc)].every(p=>inG(p, g, t<400 ? 1 : 0))) continue;
+      A = Ac; B = Bc; op = opc;
       break; }
     const A2 = applyOp(A, op), B2 = applyOp(B, op);
     const help = {t:'Een translatie bewaart de evenwijdigheid, en het beeld van een rechte is een evenwijdige rechte. Dus l′ ∥ l door A′.', p:'Bij een spiegeling om een punt is het beeld van een rechte een evenwijdige rechte. Dus l′ ∥ l door A′.', r:'Een rotatie over 90° bewaart de loodrechte stand: l′ staat loodrecht op l en gaat door A′.', s:'Het snijpunt van l met de as is een dekpunt. l′ gaat door dat punt en door A′.'}[k];
@@ -3960,12 +4017,12 @@ SV.para = { title:'Heeft een parallellogram een symmetrieas?', lvl:2, instr:'Kli
 const HALF_AS = [ {n:'raket', pts:[[6,9],[4,7],[4,4],[2,2],[4,2],[5,0],[6,0]]}, {n:'kerstboom', pts:[[6,9],[3,6],[4,6],[2,3],[5,3],[5,0],[6,0]]}, {n:'huisje', pts:[[6,8],[2,5],[3,5],[3,1],[5,1],[5,3],[6,3]]} ];
 const HALF_PT = [ {pts:[[6,4],[4,4],[4,7],[1,7],[1,5],[3,5]]}, {pts:[[6,4],[6,6],[3,6],[3,8],[1,8],[1,5]]}, {pts:[[6,4],[3,4],[3,7],[5,7],[5,6]]} ];
 SV.vulAs = { title:'Vervolledig zodat a een symmetrieas is', lvl:2, instr:'Klik op het rooster waar de ontbrekende hoekpunten komen. Kies eerst welk punt je plaatst. De punten op de as liggen al vast.', build:(b,st,save)=>{
-  const R = makeR(st); const H = R.pick(HALF_AS); const g = [0,12,0,9]; const op = {t:'s', p:[6,0], q:[6,9], name:'a', nAt:'start'};
+  const R = makeR(st); const H = R.pick(HALF_AS); const g = [-1,13,-1,10]; const op = {t:'s', p:[6,-1], q:[6,10], name:'a', nAt:'start'};
   const names = 'ABCDEFG'.split('').slice(0, H.pts.length); const last = H.pts.length-1;
   placeTask(b, st, save, 'v', {g, fig:{pts:H.pts, names, open:true}, op, base:opBase(op), fixed:{0:H.pts[0], [last]:H.pts[last]}, html:`Vervolledig de ${H.n || 'figuur'} zodat de rechte <i>a</i> een symmetrieas is.`, end:'De figuur valt op zichzelf als je spiegelt om a: a is een symmetrieas.'});
 }};
 SV.vulPt = { title:'Vervolledig zodat M het symmetriemiddelpunt is', lvl:2, instr:'Klik op het rooster waar de ontbrekende hoekpunten komen. M ligt al vast.', build:(b,st,save)=>{
-  const R = makeR(st); const H = R.pick(HALF_PT); const g = [0,12,0,8]; const op = {t:'p', c:[6,4], name:'M'};
+  const R = makeR(st); const H = R.pick(HALF_PT); const g = [-1,13,-1,9]; const op = {t:'p', c:[6,4], name:'M'};
   const names = 'MBCDEF'.split('').slice(0, H.pts.length);
   placeTask(b, st, save, 'v', {g, fig:{pts:H.pts, names, open:true}, op, base:[], fixed:{0:H.pts[0]}, html:'Vervolledig de figuur zodat M het symmetriemiddelpunt is.', end:'Na een halve draai rond M valt de figuur op zichzelf.'});
 }};
@@ -3998,7 +4055,7 @@ SV.opp = { title:'Oppervlakte met spiegelingen', lvl:3, build:(b,st,save)=>{
   const R = makeR(st); const z = R.int(3,8);
   const S = [[0,0],[4,0],[4,4],[0,4]], M = [2,2];
   const tri = [[[0,0],[4,0],[2,-2]],[[4,0],[4,4],[6,2]],[[4,4],[0,4],[2,6]],[[0,4],[0,0],[-2,2]]];
-  const g = [-2.5,6.5,-2.5,6.5]; const F = gridFig(b, {g, plain:true, maxw:300});
+  const g = [-3,7,-3,7]; const F = gridFig(b, {g, plain:true, maxw:300});
   F.draw([{t:'poly', pts:S, c:'fill'}].concat(tri.map(T=>({t:'poly', pts:T, c:'soft'})), [{t:'line', a:[0,0], b:[4,4]}, {t:'line', a:[4,0], b:[0,4]}, {t:'cen', p:M}, {t:'txt', p:[2,0], s:`${z} cm`, c:'help', dy:-2}]));
   b.append(el('p','', `De middelste figuur is een vierkant met zijde ${z} cm. Elke grijze driehoek is het spiegelbeeld van een stukje van het vierkant.`));
   qChoice(b, st, save, 'k', {nr:'a.', html:'Welke transformatie zie je bij elke grijze driehoek?', opts:R.shuffle([['s','een spiegeling om een zijde van het vierkant'],['p','een spiegeling om het midden van het vierkant'],['t','een translatie over een zijde'],['r','een rotatie over 45°']]), ans:'s', why:'Elke grijze driehoek is het spiegelbeeld van een kwart van het vierkant, om een zijde.', whyBad:'Kijk welke driehoek in het vierkant even groot is als een grijze driehoek, en hoe die erop komt.'});
@@ -4105,11 +4162,13 @@ function foutKaart(title, who, kind){
       A = [R.int(1,11), R.int(1,7)];
       if(kind==='s'){ op = genAxis(R, g, R.pick(['v','h'])); op.name = 'a'; op.nAt = 'start'; const Q = applyOp(A, op); const S = footPt(A, op.p, op.q); const d = [op.q[0]-op.p[0], op.q[1]-op.p[1]]; const L = Math.hypot(...d); const sh = R.pick([2,-2,3,-3]); W = [Q[0]+d[0]/L*sh, Q[1]+d[1]/L*sh]; if(Math.hypot(A[0]-S[0], A[1]-S[1])<2) continue; }
       if(kind==='r'){ op = {t:'r', c:[R.int(3,9), R.int(2,6)], deg:90, name:'O'}; W = rotPt(A, op.c, -90); }
-      if(kind==='t'){ op = genOpK(R, g, 't'); op.from = [R.int(0,10), R.int(0,8)]; op.name = ['X','Y']; if(!inG([op.from[0]+op.v[0], op.from[1]+op.v[1]], g)) continue; W = [A[0]-op.v[0], A[1]-op.v[1]]; }
+      if(kind==='t'){ op = genOpK(R, g, 't'); op.from = vecFrom(R, g, op.v, [A]); op.name = ['X','Y']; if(!op.from) continue; W = [A[0]-op.v[0], A[1]-op.v[1]]; }
       if(kind==='p'){ op = {t:'p', c:[R.int(4,8), R.int(3,5)], name:'O'}; W = [3*op.c[0]-2*A[0], 3*op.c[1]-2*A[1]]; if(Math.hypot(A[0]-op.c[0],A[1]-op.c[1])<1.5) continue; }
       const Q = applyOp(A, op); if(!inG(Q,g) || !inG(W,g) || ptEq(A,op.c||[-9,-9]) || ptEq(Q,A)) continue;
       if(kind==='r' && Math.hypot(A[0]-op.c[0],A[1]-op.c[1])<2) continue;
       break; }
+    { const Q0 = applyOp(A, op); const d = centerShift(g, [A, Q0, W], op);
+      if(d[0]||d[1]){ const mv = p=>[p[0]+d[0], p[1]+d[1]]; const A2 = mv(A), W2 = mv(W), op2 = shiftOp(op, d, g); if([A2, W2, applyOp(A2, op2)].every(p=>inG(p,g))){ A = A2; W = W2; op = op2; } } }
     const Q = applyOp(A, op); const shown = right ? Q : W;
     const F = gridFig(b, {g, maxw:440}); F.base = opBase(op);
     const work = () => { const o = [{t:'pt', p:A, n:'A', c:'orig'}, {t:'pt', p:shown, n:'A'+PR, c:'img', away:A}];
@@ -4183,7 +4242,7 @@ function tScene(R){
       if(dd < 2 || figs[i].some(p=>inPoly(p, figs[j])) || figs[j].some(p=>inPoly(p, figs[i]))) ok = false; }
     if(!ok) continue;
     if(!ops.t.v[0] && !ops.t.v[1]) continue;
-    ops.t.from = vecFrom(R, g, ops.t.v, figs.flat()); if(!ops.t.from) continue;
+    ops.t.from = vecFrom(R, g, ops.t.v, figs.flat(), figs); if(!ops.t.from) continue;
     const marks = [ops.t.from, [ops.t.from[0]+ops.t.v[0], ops.t.from[1]+ops.t.v[1]], ops.r.c, ops.p.c];
     if(marks.some(m=>!inG(m,g) || figs.some(F=>F.some(p=>Math.hypot(p[0]-m[0], p[1]-m[1])<1.5) || inPoly(m, F)))) continue;
     if(marks.some((m,i)=>marks.some((n,j)=>j>i && Math.hypot(m[0]-n[0], m[1]-n[1])<2.5))) continue;
@@ -4262,7 +4321,7 @@ function pairTask(R, kind){
   const g = [0,12,0,8];
   const op = () => kind==='t' ? genOpK(R, g, 't') : kind==='s' ? genOpK(R, g, R.pick(['s-v','s-h','s-d'])) : kind==='r' ? {t:'r', c:[R.int(3,9), R.int(2,6)], deg:R.pick([90,-90])} : {t:'p', c:[R.int(3,9), R.int(2,6)]};
   const T = genTask(R, 3, g, kind==='r'?'r90':kind, {op, minD:3}); if(!T) return null;
-  if(T.op.t==='t'){ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img)); T.op.name = ['U','V']; }
+  if(T.op.t==='t'){ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img), [T.pts, T.img]); T.op.name = ['U','V']; }
   if(T.op.t==='s'){ T.op.name = R.pick(['b','c','d']); T.op.nAt = 'start'; }
   if(T.op.t==='r') T.op.name = R.pick(['M','O','P']);
   if(T.op.t==='p') T.op.name = R.pick(['M','O','P']);
@@ -4462,7 +4521,7 @@ function tqBeeld(kind){ return {sec:'Beeld tekenen', prompt:'Klik op het rooster
   const T = genTask(R, 3, g, k, {minD:3}); const names = R.pick(NAMES3).split(''); const fig = {pts:T.pts, names};
   let html;
   if(T.op.t==='s'){ T.op.name = 'a'; T.op.nAt = 'start'; html = `Teken s<sub>a</sub>(Δ${names.join('')}).`; }
-  if(T.op.t==='t'){ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img)); T.op.name = ['X','Y']; html = `Teken t<sub>${vecN('X','Y')}</sub>(Δ${names.join('')}).`; }
+  if(T.op.t==='t'){ T.op.from = vecFrom(R, g, T.op.v, T.pts.concat(T.img), [T.pts, T.img]); T.op.name = ['X','Y']; html = `Teken t<sub>${vecN('X','Y')}</sub>(Δ${names.join('')}).`; }
   if(T.op.t==='r'){ T.op.name = 'O'; html = `Teken r(O, ${degTxt(T.op.deg)})(Δ${names.join('')}).`; }
   if(T.op.t==='p'){ T.op.name = 'O'; html = `Teken s<sub>O</sub>(Δ${names.join('')}).`; }
   placeTask(b, st, save, 'p', {g, fig, op:T.op, base:opBase(T.op), html, pts:2});
