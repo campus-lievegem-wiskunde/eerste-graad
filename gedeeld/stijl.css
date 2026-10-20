@@ -555,6 +555,8 @@
   .card, .info-box, .tip, .howto > div, .score, .given-box{ background:linear-gradient(var(--card),var(--card)) padding-box, linear-gradient(var(--tq),var(--tq)) border-box !important; }
   .cheat-btn, .pager button, .refresh-btn, .tbtn:not([aria-pressed="true"]):not(.tool-on), .opt:not(.good):not(.wrong), .err-line:not(.found):not(.nope), .chip:not(.chip-ok):not(.chip-bad), .btn.ghost, .tab, .inp:not(.ok):not(.bad){ --er:var(--tq); }
   .cheat-btn:hover, .pager button:hover, .refresh-btn:hover, .tbtn:not([aria-pressed="true"]):not(.tool-on):hover, .opt:not(.good):not(.wrong):hover, .err-line:not(.found):not(.nope):hover, .chip:not(.chip-ok):not(.chip-bad):hover, .btn.ghost:hover, .tab:hover, .inp:not(.ok):not(.bad):hover{ --er:var(--orange); }
+  /* actief invulvak: volledig oranje omranding, ook als de muis ergens anders staat */
+  .inp:not(.ok):not(.bad):focus{ --el:var(--orange); --er:var(--orange); }
   /* actief tabblad: volledig oranje omranding */
   .tab[aria-selected="true"], .tab:last-child[aria-selected="true"]{ --el:var(--orange); --er:var(--orange); }
   /* nummering van de titels in dezelfde kleur als de titel */
@@ -616,6 +618,7 @@
   .login-hulp .mini{ word-break:break-all; }
   .user-chip{ display:flex; align-items:center; gap:.5rem; margin:0 0 .7rem; padding:.3rem .2rem; font-size:.84rem; color:var(--ink-soft); }
   .user-chip .u-av{ display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:50%; background:var(--accent-soft); color:var(--accent-dark); font-weight:800; }
+  .ic-fout{ width:1.05em; height:1.05em; vertical-align:-.17em; margin-right:.2em; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .user-chip .t b{ color:var(--ink); } .user-chip .linkbtn{ margin-left:.3rem; font-size:.82rem; padding:0; }
   .tts-bar .user-chip{ margin:0 auto 0 0; }
   @media (min-width:881px){ body.nav-collapsed .user-chip{ justify-content:center; } body.nav-collapsed .user-chip .t{ display:none; } }

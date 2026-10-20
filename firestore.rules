@@ -36,6 +36,13 @@ service cloud.firestore {
       allow create, delete: if beheerder();
       allow update: if leerkracht();
     }
+    // fouten gemeld door leerkrachten: elke leerkracht meldt op eigen naam en ziet zijn eigen meldingen; de beheerder ziet en behandelt alles
+    match /fouten/{id} {
+      allow create: if leerkracht() && request.resource.data.melder == mail() && request.resource.data.status == 'nieuw';
+      allow read: if beheerder() || (leerkracht() && resource.data.melder == mail());
+      allow update: if beheerder();
+      allow delete: if beheerder() || (leerkracht() && resource.data.melder == mail() && resource.data.status == 'nieuw');
+    }
     // voortgang: document <uid>_<site>; een leerling leest en schrijft enkel zijn eigen documenten
     match /voortgang/{docId} {
       allow read, write: if aangemeld() && docId.matches(request.auth.uid + '_.*');
