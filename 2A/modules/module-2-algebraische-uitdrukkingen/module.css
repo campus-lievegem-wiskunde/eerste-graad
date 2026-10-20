@@ -1508,9 +1508,12 @@ to{ opacity:1; transform:none; }
 .card-head h3.mhead{ flex:1 1 320px; }
 .card-head h3.mhead .lvl-badge{ margin-left:0; }
 
-/* vierkantswortel uit een getal */
-.wrt{ display:inline-flex; align-items:flex-start; white-space:nowrap; }
-.wrt-in{ border-top:1.6px solid currentColor; padding:0 1px 0 1px; margin-top:.12em; }
+/* vierkantswortel: V en streep zijn één lijn; de V raakt de schrijflijn (bij een breuk die van de noemer) */
+.wrt{ position:relative; display:inline-block; white-space:nowrap; padding-left:.55em; }
+.wrt-v{ position:absolute; left:0; top:0; width:.55em; height:calc(100% - var(--wrt-onder, .43em)); overflow:visible; }
+.wrt-in{ display:inline-block; border-top:1.6px solid currentColor; padding:.05em .12em 0 .06em; line-height:1.15; }
+.wrt-in .mx{ display:inline-flex; align-items:center; }
+.wrt-br{ --wrt-onder:.16em; }
 /* wiskunde in de kaarttitels (buiten de kaartwidget) */
 .mhead .fr{ display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin:0 .12em; line-height:1.05; }
 .mhead .fr-t{ padding:0 .15em .06em; border-bottom:2.5px solid currentColor; display:inline-flex; align-items:center; }

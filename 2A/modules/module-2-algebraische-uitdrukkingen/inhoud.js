@@ -409,8 +409,12 @@ function mathHTML(s){
       if(ex){ h += '<span class="lt">'+grp+'<sup>'+ex[1]+'</sup></span>'; i += ex[0].length; } else h += grp;
       continue;
     }
-    const wr = rest.match(/^√(\d+(?:,\d+)?)/);           // vierkantswortel uit een getal
-    if(wr){ h += '<span class="wrt">√<span class="wrt-in">'+wr[1]+'</span></span>'; i += wr[0].length; continue; }
+    const wr = rest.match(/^√(\d+(?:,\d+)?|\([^()]*\))/);   // vierkantswortel: √16 of √(9/16)
+    if(wr){
+      const bin = wr[1][0] === '(' ? mathHTML(wr[1].slice(1, -1)) : '<span class="mn">'+wr[1]+'</span>';
+      h += '<span class="wrt'+(wr[1][0] === '(' ? ' wrt-br' : '')+'"><svg class="wrt-v" viewBox="0 0 10 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0.5 60 L3 52 L6 100 L10 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg><span class="wrt-in">'+bin+'</span></span>';
+      i += wr[0].length; continue;
+    }
     let m = rest.match(/^(\d+(?:,\d+)?)(?:\/(\d+))?(\^(\d+))?/);
     if(m){
       const base = m[2] ? frHTML2(m[1], m[2]) : '<span class="mn">'+m[1]+'</span>';
