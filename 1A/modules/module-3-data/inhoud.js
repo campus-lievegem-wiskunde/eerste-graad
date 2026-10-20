@@ -2267,28 +2267,37 @@ function DXmissing2(b, s, save, key, d){
   .ph svg .acc{ fill:var(--accent-dark); font-weight:700; }
   .ph svg .orx{ fill:#b26a00; font-weight:700; }
   .ph svg .fil{ fill:var(--tq); fill-opacity:.35; }
+  .ph svg .pij{ stroke:#e08a00; stroke-width:2; fill:none; }
+  .ph svg{ max-width:460px; }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
 })();
-function pctLijn(f, tot, toon){
-  const W = 440, x0 = 30, x1 = W-30, X = v => x0 + (x1-x0)*v/tot, p = f/tot*100;
-  return `<svg viewBox="0 0 ${W} 112" role="img" aria-label="dubbele getallenlijn">
+function pctLijn(f, tot, stap){
+  /* stap 0: vraagteken · stap 1: pijl van het totaal naar 100 % · stap 2: ook de pijl bij de frequentie, met het percentage */
+  const W = 460, x0 = 110, x1 = W-50, X = v => x0 + (x1-x0)*v/tot, p = f/tot*100, k = 100/tot, kt = '· ' + nf(k, 2);
+  const pijl = x => `<path class="pij" d="M${x+5},38 C${x+24},44 ${x+24},56 ${x+5},62"/><path class="pij" d="M${x+5},62 l2,-8 M${x+5},62 l8,-3"/><text x="${x+25}" y="54" class="orx">${kt}</text>`;
+  return `<svg viewBox="0 0 ${W} 104" role="img" aria-label="dubbele getallenlijn">
     <rect class="fil" x="${x0}" y="22" width="${X(f)-x0}" height="56" rx="3"/>
     <line class="lnp" x1="${x0}" y1="30" x2="${x1}" y2="30"/><line class="lnp" x1="${x0}" y1="70" x2="${x1}" y2="70"/>
     ${[0, f, tot].map(v=>`<line class="lnp" x1="${X(v)}" y1="24" x2="${X(v)}" y2="36"/><line class="lnp" x1="${X(v)}" y1="64" x2="${X(v)}" y2="76"/>`).join('')}
-    <text x="4" y="18">aantal</text><text x="4" y="98">percentage</text>
-    <text x="${x0}" y="18" text-anchor="middle">0</text><text x="${X(f)}" y="18" text-anchor="middle" class="acc">${f}</text><text x="${x1}" y="18" text-anchor="middle" class="acc">${tot}</text>
-    <text x="${x0}" y="92" text-anchor="middle">0 %</text><text x="${X(f)}" y="92" text-anchor="middle" class="orx">${toon ? nf(p,2)+' %' : '? %'}</text><text x="${x1}" y="92" text-anchor="middle" class="acc">100 %</text></svg>`;
+    <text x="4" y="35">aantal</text><text x="4" y="75">percentage</text>
+    <text x="${x0}" y="17" text-anchor="middle">0</text><text x="${X(f)}" y="17" text-anchor="middle" class="acc">${f}</text><text x="${x1}" y="17" text-anchor="middle" class="acc">${tot}</text>
+    <text x="${x0}" y="94" text-anchor="middle">0 %</text><text x="${X(f)}" y="94" text-anchor="middle" class="orx">${stap>=2 ? nf(p,2)+' %' : '? %'}</text><text x="${x1}" y="94" text-anchor="middle" class="acc">100 %</text>
+    ${stap>=1 ? pijl(x1) : ''}${stap>=2 ? pijl(X(f)) : ''}</svg>`;
 }
 /* rij: welk gegeven als voorbeeld (de eerste) */
 function pctHulp(b, labels, fr, tot){
   const box = el('div','ph'); b.append(box);
-  const f = fr[0], q = f/tot, p = q*100, mult = 100/tot;
-  const stappen = [
-    `Het totaal is <b>${tot}</b>. Dat is <b>100 %</b>. Je zoekt welk deel <b>${labels[0]}</b> (${f}) is.` + pctLijn(f, tot, false),
+  const f = fr[0], q = f/tot, p = q*100, k = 100/tot;
+  const stappen = Number.isInteger(Math.round(k*1e6)/1e4) ? [
+    `Het totaal is <b>${tot}</b>. Dat is <b>100 %</b>. Je zoekt welk deel <b>${labels[0]}</b> (${f}) is.` + pctLijn(f, tot, 0),
+    `Van ${tot} naar 100 %: <b>· ${nf(k,2)}</b>, want ${tot} · ${nf(k,2)} = 100.` + pctLijn(f, tot, 1),
+    `Doe hetzelfde bij ${labels[0]}: <b>${f} · ${nf(k,2)} = ${nf(p, 2)} %</b>.` + pctLijn(f, tot, 2),
+    `Doe nu hetzelfde voor de andere rijen: telkens <b>· ${nf(k,2)}</b>. Controle: alle percentages samen zijn <b>100 %</b>.`
+  ] : [
+    `Het totaal is <b>${tot}</b>. Dat is <b>100 %</b>. Je zoekt welk deel <b>${labels[0]}</b> (${f}) is.` + pctLijn(f, tot, 0),
     `Deel de frequentie door het totaal: <b>${f} : ${tot} = ${nf(q, 4)}</b>.`,
-    `Maal 100: <b>${nf(q, 4)} · 100 = ${nf(p, 2)} %</b>. Dus ${labels[0]}: ${nf(p, 2)} %.` + pctLijn(f, tot, true),
-    Number.isInteger(mult) && mult > 1 ? `Sneller: 100 : ${tot} = ${mult}. Elk antwoord telt voor <b>${mult} %</b>. Dus ${f} · ${mult} = ${nf(p, 2)} %.` : `Op je rekentoestel: ${f} ÷ ${tot} × 100 enter.`,
+    `Maal 100: <b>${nf(q, 4)} · 100 = ${nf(p, 2)} %</b>. Op je rekentoestel: ${f} ÷ ${tot} × 100 enter.`,
     `Doe nu hetzelfde voor de andere rijen. Controle: alle percentages samen zijn <b>100 %</b>.`
   ];
   let n = 0;
