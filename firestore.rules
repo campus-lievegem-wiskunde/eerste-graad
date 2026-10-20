@@ -58,5 +58,29 @@ service cloud.firestore {
       allow read: if leerkracht() || toeschouwer();
       allow delete: if leerkracht();
     }
+    // zeeslag tegen elkaar (Module 3): spel per code; elke speler bewaart zijn schepen apart en leest enkel die van zichzelf
+    match /zeeslag/{code} {
+      allow read: if aangemeld();
+      allow create: if aangemeld() && request.resource.data.a == mail() && request.resource.data.b == null;
+      allow update: if aangemeld() && (mail() == resource.data.a || mail() == resource.data.b
+                    || (resource.data.b == null && request.resource.data.b == mail()));
+      allow delete: if leerkracht();
+      match /geheim/{email} {
+        allow read, write: if aangemeld() && mail() == email;
+        allow delete: if leerkracht();
+      }
+    }
+    // klassessie (Module 3): de leerkracht start een sessie met een code; de leerlingen doen tegelijk een experiment en het bord toont live de resultaten
+    match /klassessie/{code} {
+      allow read: if aangemeld();
+      allow create: if leerkracht() && request.resource.data.lk == mail();
+      allow update, delete: if leerkracht() && (resource.data.lk == mail() || beheerder());
+      match /deelnemers/{email} {
+        allow read: if leerkracht() || (aangemeld() && mail() == email);
+        allow create, update: if aangemeld() && mail() == email
+                              && exists(/databases/$(database)/documents/klassessie/$(code));
+        allow delete: if leerkracht() || (aangemeld() && mail() == email);
+      }
+    }
   }
 }
