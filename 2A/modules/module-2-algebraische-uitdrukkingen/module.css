@@ -1589,17 +1589,6 @@ to{ opacity:1; transform:none; }
 .tu-score{ font-size:2.4rem; font-weight:700; color:var(--accent-dark, #127a7f); }
 .tu-niveau{ font-size:1.1rem; margin:.2rem 0 .5rem; }
 
-/* ---------- na de toets ---------- */
-.nd-tab{ border-collapse:collapse; width:100%; min-width:560px; }
-.nd-tab th, .nd-tab td{ border-bottom:1px solid var(--border, #cbdadb); padding:.45rem .5rem; text-align:left; vertical-align:middle; }
-.nd-tab th{ font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; color:var(--accent-dark, #127a7f); }
-.nd-nr{ font-weight:700; width:3rem; }
-.nd-vink{ white-space:nowrap; }
-.nd-vink input{ width:1.1rem; height:1.1rem; vertical-align:middle; accent-color:#127a7f; }
-.nd-link{ font:inherit; font-size:.88rem; border:1.5px solid var(--accent, #3bc1c5); background:var(--card, #fff); border-radius:999px; padding:.15rem .6rem; cursor:pointer; color:var(--accent-dark, #127a7f); margin:.1rem 0; }
-.nd-link:hover{ border-color:var(--orange, #fcaf17); background:#fff4e0; }
-.nd-plan{ line-height:2.1; }
-
 /* ---------- spiekbriefjes ---------- */
 .spiek{ display:grid; gap:.55rem; line-height:1.75; }
 .spiek .sp-blok{ padding-left:.6rem; border-left:3px solid var(--accent, #3bc1c5); }

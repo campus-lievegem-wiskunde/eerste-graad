@@ -3428,7 +3428,7 @@ const K = (id, lvl) => ({ lvl, q:Q[id] });
 const G = (lvl, gen) => ({ lvl, gen });
 const SEC = {};
 const ORDER = ['letters','eentermen','gelijksoortig','veeltermen','patronen','herleiden','getalwaarde','omtrek',
-               'som','verschil','maal','distr','distrherl','toepassingen','fout','quiz','toets1','toets2','toets3','nadetoets'];
+               'som','verschil','maal','distr','distrherl','toepassingen','fout','quiz','toets1','toets2','toets3'];
 
 SEC.letters = { id:'letters', nav:'Letters gebruiken', title:'Letters gebruiken', ic:'letter',
   tip:'Een letter staat voor een getal dat je (nog) niet kent. Lees de situatie traag en vraag je af: waar staat de letter voor?',
@@ -3739,7 +3739,7 @@ function bouwToets(sec, s){
     const p = score / totaal;
     uitslag.hidden = false;
     uitslag.innerHTML = '<div class="tu-score">' + String(score).replace('.', ',') + ' / ' + totaal + '</div><div class="tu-niveau">Niveau: <b>' + toetsNiveau(p) + '</b></div>' +
-      '<p>Kijk bij elke vraag naar de rode kringen en het juiste antwoord. Ga naar <b>Na de toets</b> om te zien welke onderdelen je best nog eens oefent.</p>';
+      '<p>Kijk bij elke vraag naar de rode kringen en het juiste antwoord. Oefen daarna de onderdelen waar je nog fouten maakte.</p>';
     knop.disabled = true;
   }
   function verbeterAlles(bewaar){
@@ -3768,64 +3768,6 @@ function bouwToets(sec, s){
 ['toets1', 'toets2', 'toets3'].forEach((id, i) => {
   SEC[id] = { id, nav:'Proeftoets ' + (i + 1), title:'Proeftoets ' + (i + 1), ic:'toets', toets:true, build:s => bouwToets(SEC[id], s) };
 });
-
-/* ============================================================
-   NA DE TOETS: de leerling duidt aan welke toetsvragen fout
-   waren en krijgt de onderdelen om nog te oefenen.
-   ============================================================ */
-const KT_LIJST = [
-  { naam:'Toets lettervormen (eentermen, getalwaarde en formules)', vragen:[
-    ['1', 'Wat zijn gelijksoortige eentermen? Een voorbeeld geven.', ['gelijksoortig']],
-    ['2', 'Tabel: eenterm, coëfficiënt en lettergedeelte', ['eentermen']],
-    ['3', 'De getalwaarde berekenen', ['getalwaarde']],
-    ['4', 'Een eenterm noteren uit een beschrijving (coëfficiënt en graad)', ['eentermen']],
-    ['5', 'Patroon: tabel, figuur n en een formule', ['patronen']],
-    ['6', 'Herleiden indien mogelijk', ['herleiden']],
-    ['7', 'Aanvullen zodat de gelijkheid klopt', ['herleiden']],
-    ['8', 'De omtrek als eenterm of veelterm', ['omtrek']],
-    ['9', 'Wat stelt x voor?', ['letters']] ]},
-  { naam:'Toets som en verschil van veeltermen, distributieve eigenschap', vragen:[
-    ['1', 'Haakjes wegwerken en herleiden: som en verschil', ['som', 'verschil']],
-    ['2', 'Het juiste bewerkingsteken + of −', ['verschil']],
-    ['4', 'Lijnstuk: een lengte als veelterm', ['toepassingen']],
-    ['5', 'Haakjes wegwerken met de distributieve eigenschap', ['maal', 'distr']],
-    ['6', 'Haakjes wegwerken en herleiden', ['distrherl']],
-    ['7', 'Rechthoek: omtrek en oppervlakte als veelterm', ['omtrek', 'toepassingen']] ]}
-];
-SEC.nadetoets = { id:'nadetoets', nav:'Na de toets', title:'Na de toets: waar werk ik aan?', ic:'na', toets:true,
-  build(s){
-    const st = load('nadetoets'); st.fout = st.fout || {};
-    const save = () => store('nadetoets', st);
-    s.append(el('div', 'tip', icon('bulb') + '<div>Kreeg je je toets terug? Vink aan welke vragen fout waren. Je ziet dan meteen welke onderdelen je best nog eens oefent.</div>'));
-    const advies = el('div', 'card nd-advies');
-    KT_LIJST.forEach((kt, ki) => {
-      const kaart = el('div', 'card');
-      kaart.append(el('div', 'card-head', '<h3>' + kt.naam + '</h3>'));
-      const tab = el('table', 'nd-tab');
-      tab.innerHTML = '<thead><tr><th>Vraag</th><th>Onderwerp</th><th>Oefen in</th><th>Fout op de toets?</th></tr></thead>';
-      const tb = el('tbody');
-      kt.vragen.forEach(v => {
-        const id = ki + '_' + v[0], tr = el('tr');
-        const links = v[2].map(sid => SEC[sid] ? '<button type="button" class="nd-link" data-sec="' + sid + '">' + SEC[sid].nav + '</button>' : '').join(' ');
-        tr.innerHTML = '<td class="nd-nr">' + v[0] + '</td><td>' + v[1] + '</td><td>' + links + '</td><td class="nd-vink"><label><input type="checkbox"' + (st.fout[id] ? ' checked' : '') + '> fout</label></td>';
-        tr.querySelector('input').addEventListener('change', e => { if(e.target.checked) st.fout[id] = true; else delete st.fout[id]; save(); teken(); });
-        tb.append(tr);
-      });
-      tab.append(tb); const wrap = el('div', 'tabscroll'); wrap.append(tab); kaart.append(wrap); s.append(kaart);
-    });
-    s.append(advies);
-    function teken(){
-      const tel = {};
-      KT_LIJST.forEach((kt, ki) => kt.vragen.forEach(v => { if(st.fout[ki + '_' + v[0]]) v[2].forEach(sid => { tel[sid] = (tel[sid] || 0) + 1; }); }));
-      const ids = ORDER.filter(id => tel[id] && SEC[id]);
-      advies.innerHTML = '<div class="card-head"><h3>Mijn plan</h3></div>' + (ids.length
-        ? '<p>Oefen deze onderdelen, in deze volgorde. Begin telkens met <b>Basis en oefenen</b>.</p><ol class="nd-plan">' + ids.map(id => '<li><button type="button" class="nd-link" data-sec="' + id + '">' + SEC[id].nav + '</button></li>').join('') + '</ol>' +
-          '<p>Klaar met oefenen? Maak daarna een proeftoets.</p>'
-        : '<p>Vink hierboven aan welke vragen fout waren. Alles juist? Probeer dan de <b>Verdieping</b> of de <b>Snelle quiz</b>.</p>');
-    }
-    s.addEventListener('click', e => { const b = e.target.closest('.nd-link'); if(b) show(b.dataset.sec, true); });
-    teken();
-  } };
 
 /* ============================================================
    SPIEKBRIEFJES (rechtsboven bij elk onderdeel)
