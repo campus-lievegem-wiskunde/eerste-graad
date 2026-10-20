@@ -8,6 +8,7 @@ Benodigd: Node, Python 3, Playwright met Chromium, en (voor de Excel-import) het
 test/serve.sh                 # lokale server op http://localhost:8765 (repository als hoofdmap)
 node test/rooktest.js         # import, groepen, openzetten, leerling, voortgang: alles OK?
 node test/catalogus.js        # gedeeld/sites.js opnieuw maken (na een nieuwe of gewijzigde module)
+node test/fouten.js           # Fout melden (leerkracht) en Fouten (beheer)
 ```
 
 | Bestand | Rol |
