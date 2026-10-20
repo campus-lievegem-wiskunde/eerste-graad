@@ -14,6 +14,9 @@
   const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
   const site = document.body.dataset.site || 'site';
 
+  /* ---------- bordmodus op elke oefenpagina ---------- */
+  if(document.getElementById('app')){ const sb = document.createElement('script'); sb.src = new URL('bord.js', me.src).href; document.head.append(sb); }
+
   /* ---------- kop ---------- */
   const hdr = document.querySelector('header.top');
   if(hdr && !hdr.querySelector('.hdr-in')){
