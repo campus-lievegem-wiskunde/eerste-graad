@@ -3403,7 +3403,6 @@ function bordOpen(kaart){
   const html = document.documentElement, fs0 = html.style.fontSize; html.style.fontSize = window.innerWidth > 900 ? '140%' : '115%';
   document.body.style.overflow = 'hidden';
   BORD = {kaart, thuis, ov, toets, fs0, herstel:() => { const c2 = aqVan(kaart); if(!c2) return; c2.st.val = bewaard.val; c2.st.check = bewaard.check; c2.st.sol = bewaard.sol; c2.locked = false; withCard(c2, () => { ui.hintOn = false; }); if(kaart._tmh) kaart._tmh.sluit(); renderCard(c2); }};
-  try{ if(ov.requestFullscreen && window.innerWidth > 900) ov.requestFullscreen().catch(() => {}); }catch(e){}
   zet(); sluit.focus();
   setTimeout(hertekenAQ, 60);
 }

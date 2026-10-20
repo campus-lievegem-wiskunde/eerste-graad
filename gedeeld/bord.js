@@ -3,7 +3,9 @@
    behalve in de proeftoetsen (onderdeel-id begint met toets). Verborgen onder 700 px (gsm).
    Bouwt een module zelf al een bordknop (.px-bord-btn of .bord-btn), dan bouwt dit bestand er geen.
    Enkel leerkrachten en beheerders (body data-rol, gezet door aanmelden.js) zien Bord, ook de eigen bordknop van een module.
-   Leerlingen krijgen op dezelfde plaats ⛶ Volledig scherm: de kaart groot en op volledig scherm, zonder oplossingsstappen. */
+   Leerlingen krijgen op dezelfde plaats ⛶ Volledig scherm: de kaart groot over het hele venster, zonder oplossingsstappen.
+   Geen Fullscreen API (requestFullscreen): die toont telkens de browsermelding 'Druk op Esc om volledig scherm te sluiten'.
+   Het venster vult het browservenster met CSS (position:fixed); wie ook de browserbalk weg wil, drukt zelf op F11. */
 (function(){
   const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
   const css = `
@@ -82,24 +84,20 @@
     const mo = new MutationObserver(()=>paint()); mo.observe(card, {childList:true, subtree:true});
     const html = document.documentElement, fs0 = html.style.fontSize; html.style.fontSize = window.innerWidth>900 ? (vs ? '130%' : '150%') : '118%';
     document.body.style.overflow = 'hidden';
-    /* volledig scherm: verlaat de leerling het volledig scherm (Esc van de browser), dan sluit ook het venster */
-    const fsc = ()=>{ if(vs && !document.fullscreenElement) close(); };
-    B = {card, home, ov, key, mo, fs0, shown, fsc};
-    try{ if(ov.requestFullscreen && (vs || window.innerWidth>900)) ov.requestFullscreen().then(()=>document.addEventListener('fullscreenchange', fsc)).catch(()=>{}); }catch(e){}
+    B = {card, home, ov, key, mo, fs0, shown};
     paint(); cls.focus();
   }
   function close(){
     const b = B; if(!b) return; B = null;
-    b.mo.disconnect(); document.removeEventListener('keydown', b.key); document.removeEventListener('fullscreenchange', b.fsc);
+    b.mo.disconnect(); document.removeEventListener('keydown', b.key);
     b.shown.forEach(e=>{ if(e.classList.contains('sol') && e.isConnected){ e.hidden = true; e.classList.remove('px-shown'); const lb = solLink(e); if(lb) lb.textContent = 'Toon oplossing'; } });
-    try{ if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); }catch(e){}
     document.documentElement.style.fontSize = b.fs0; document.body.style.overflow = '';
     if(b.home.next && b.home.next.parentElement===b.home.parent) b.home.parent.insertBefore(b.card, b.home.next); else b.home.parent.append(b.card);
     b.ov.remove(); b.card.scrollIntoView({block:'start'});
     const bb = b.card.querySelector('.px-vs-btn, .px-bord-btn'); if(bb && bb.offsetParent) bb.focus({preventScroll:true});
   }
   function vsKnop(){
-    const vb = el('button','px-vs-btn','⛶ Volledig scherm'); vb.type='button'; vb.title='Toon deze oefening groot, op volledig scherm';
+    const vb = el('button','px-vs-btn','⛶ Volledig scherm'); vb.type='button'; vb.title='Toon deze oefening groot, over het hele venster';
     vb.addEventListener('click', ()=>{ const c = vb.closest('.card'); if(c) open(c, true); });
     return vb;
   }

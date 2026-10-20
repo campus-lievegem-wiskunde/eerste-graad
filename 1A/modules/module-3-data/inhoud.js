@@ -5855,7 +5855,6 @@ function PXopen(card){
   const html = document.documentElement; const fs0 = html.style.fontSize; html.style.fontSize = window.innerWidth>900 ? '150%' : '118%';
   document.body.style.overflow = 'hidden';
   PXboard = {card, home, ov, key, mo, fs0, shown};
-  try{ if(ov.requestFullscreen && window.innerWidth>900) ov.requestFullscreen().catch(()=>{}); }catch(e){}
   paint(); close.focus();
 }
 function PXclose(){
