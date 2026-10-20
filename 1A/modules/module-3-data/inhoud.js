@@ -2514,7 +2514,7 @@ SECTIONS.find(s=>s.id==='freq').cards.push(
     build:DXfresh(DXgenMiss, DXmissing) },
   { title:'De kolom percentage', lvl:2, instr:'Percentage = frequentie : totaal · 100. Met "Nieuwe opgave" krijg je nieuwe getallen.',
     build:DXfresh(DXgenPct, DXpctCol) },
-  { title:'Twee frequenties zijn weggevallen', lvl:3, instr:'Gebruik het totaal én de aanwijzing.',
+  { title:'Twee frequenties zijn weggevallen', lvl:3, naast:false, instr:'Gebruik het totaal én de aanwijzing.',
     build:DXfresh(DXgenMiss2, DXmissing2) },
   { title:'Van percentage naar aantal', lvl:3, instr:'Je kent het totaal en de percentages. Hoeveel is dat in aantallen?',
     build:DXfresh(DXgenPctBack, DXpctBack) }
@@ -5263,7 +5263,7 @@ WBsec('coord').push(
         ['F ligt op de x-as.', 'w', 'F(−2, 0): het tweede coördinaatgetal is 0, dus F ligt op de x-as.'],
         ['C ligt op de y-as.', 'w', 'C(0, −3): het eerste coördinaatgetal is 0, dus C ligt op de y-as.']
       ], WN)) },
-  { title:'Punten plaatsen (2)', lvl:2, instr:'Plaats de punten in het assenstelsel.',
+  { title:'Punten plaatsen (2)', lvl:2, naast:false, instr:'Plaats de punten in het assenstelsel.',
     build:combo((b,st,save,key)=>coordPlace(b,st,save,key, [[4,2,'J'],[0,-3,'K'],[-2,-5,'L'],[-3,3,'M'],[5,-1,'N'],[-6,0,'P']]), list([
       {html:'Welke punten hebben een strikt negatieve y-coördinaat? Typ de letters: [[0]]', size:'sm', check:WBletters('KLN', 'Kijk naar het tweede getal: kleiner dan 0, dus onder de x-as.'), sol:'K(0, −3), L(−2, −5) en N(5, −1): <b>K, L en N</b>. P(−6, 0) ligt op de x-as: 0 is niet negatief.'}
     ]))},
@@ -5448,7 +5448,7 @@ const sgKaart = items => combo(...items.flatMap(q=>q.prompt ? [`<div class="q-te
 const SG_IJS = chartBox('lijn', {labels:['1','2','3','4','5','6','7'], series:[{values:[40,80,80,60,100,70,50]}], xTitle:'Week', yTitle:'Aantal ijsjes', step:20, yMax:120, anim:false});
 (function(){
   const sec = id => SECTIONS.find(s=>s.id===id).cards;
-  sec('coord').push({ title:'Punten, kwadranten en tekens', lvl:2, instr:'Klik de punten aan en beantwoord de vragen.', build:sgKaart(SG_COORD.slice(0,3)) });
+  sec('coord').push({ title:'Punten, kwadranten en tekens', lvl:2, naast:false, instr:'Klik de punten aan en beantwoord de vragen.', build:sgKaart(SG_COORD.slice(0,3)) });
   sec('lijn').push({ title:'Een ijsjeskraam', lvl:2, instr:'Het lijndiagram toont hoeveel ijsjes een kraam per week verkocht.', build:SG_COORD[3].build });
   sec('gem').push({ title:'Gemiddelde uit een lijndiagram', lvl:2, instr:'Het lijndiagram toont hoeveel ijsjes een kraam per week verkocht. In week 8 verkocht de kraam 30 ijsjes.', build:combo(SG_IJS, SG_COORD[4].build) });
   sec('freq').push({ title:'Lievelingsfruit', lvl:2, instr:'Lees de tabel en beantwoord de vragen.', build:sgKaart(SG_DATA.slice(0,2)) });
@@ -6058,16 +6058,18 @@ SECTIONS.forEach((sec, si)=>{
 function naast(root){
   root.querySelectorAll('.viz').forEach(v=>{
     const P = v.parentElement; if(!P || v.closest('.nx, .sheet, .zs, .no-naast, .pt-q, .cg2')) return;
+    /* enkel bij één figuur per kaart: zijn er meer figuren (bv. een reeks kleine voorstellingen met elk een vraag), dan blijft alles onder elkaar */
+    const kaart = v.closest('.card'); if(kaart && kaart.querySelectorAll('.viz').length > 1) return;
     const na = []; for(let n = v.nextElementSibling; n; n = n.nextElementSibling) na.push(n);
     /* een gegeven tabel vlak boven de figuur (bv. een diagram bouwen): tabel links, figuur rechts */
     const vo = v.previousElementSibling;
     if(vo && !vo.querySelector('input') && (vo.matches('table.ftab') || vo.querySelector('table.ftab')) && ![...vo.querySelectorAll('tr')].some(tr=>tr.children.length > 4)){
-      const w = el('div','nx tv'), l = el('div','nx-l'), r = el('div','nx-r'); P.insertBefore(w, vo); l.append(vo); r.append(v); w.append(l, r); return; }
+      const w = el('div','nx tv'), l = el('div','nx-l'), r = el('div','nx-r'); w.dataset.auto='fig'; P.insertBefore(w, vo); l.append(vo); r.append(v); w.append(l, r); return; }
     if(!na.length || na.some(x=>x.matches('.viz') || x.querySelector('.viz'))) return;
     if(!na.some(x=>x.matches('input, table, select, textarea') || x.querySelector('input, table, select, textarea, .chip, .opt'))) return;
     /* een brede tabel (veel kolommen) past niet naast de figuur */
     if(na.some(x=>[...x.querySelectorAll('tr')].some(tr=>tr.children.length > 4))) return;
-    const w = el('div','nx'), l = el('div','nx-l'), r = el('div','nx-r');
+    const w = el('div','nx'), l = el('div','nx-l'), r = el('div','nx-r'); w.dataset.auto='fig';
     P.insertBefore(w, v); l.append(v); na.forEach(x=>r.append(x)); w.append(l, r);
   });
 }
@@ -6080,7 +6082,7 @@ function naastTabel(root){
     const na = []; for(let n = E.nextElementSibling; n; n = n.nextElementSibling) na.push(n);
     if(na.some(x=>x.matches('.viz, table') || x.querySelector('.viz'))) return;
     if(!na.some(x=>x.matches('input, select') || x.querySelector('input, select, .opt'))) return;
-    const P = E.parentElement, w = el('div','nx tv'), l = el('div','nx-l'), r = el('div','nx-r');
+    const P = E.parentElement, w = el('div','nx tv'); w.dataset.auto='tab'; const l = el('div','nx-l'), r = el('div','nx-r');
     P.insertBefore(w, E); l.append(E); na.forEach(x=>r.append(x)); w.append(l, r);
   });
 }
