@@ -624,6 +624,7 @@
   @media (min-width:881px){ body.nav-collapsed .user-chip{ justify-content:center; } body.nav-collapsed .user-chip .t{ display:none; } }
   .toeschouwer-balk{ position:sticky; top:0; z-index:60; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.3rem 1rem; padding:.45rem 16px; background:var(--or-soft); border-bottom:2px solid var(--orange); color:var(--ink); font-size:.9rem; text-align:center; }
   .toeschouwer-balk .linkbtn{ font-size:.88rem; padding:0; }
+  .als-kies{ margin-top:.5rem; display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; } .als-kies select{ font:inherit; border:2px solid var(--tq); border-radius:.5rem; padding:.2rem .4rem; background:var(--card); color:var(--ink); } .als-kies select:hover{ border-color:var(--orange); }
   @media (max-width:700px){ .toeschouwer-balk{ position:static; font-size:.84rem; } }
   .tegels-4{ grid-template-columns:repeat(2,minmax(0,1fr)); max-width:640px; }
   .tegels-4 a.tegel{ align-items:center; }

@@ -3,7 +3,7 @@
    Volgorde: aanmelden → rol en groepen → voortgang ophalen → inhoud.js laden → wijzigingen om de 30 s doorsturen.
    Andere modules (zoals het dashboard) gebruiken: import { klaar } from '…/aanmelden.js'; const s = await klaar;
    Een toeschouwer (collectie toeschouwers, bv. de directeur) werkt in een oefenomgeving: F en db wijzen dan naar
-   zandbak.js (alles in deze browser, niets in de echte database). F en db zijn daarom 'let' (live bindings). */
+   zandbak.js: hij leest de echte gegevens, maar wat hij wijzigt blijft in deze browser. F en db zijn daarom 'let' (live bindings). */
 const V = '10.12.2';
 export let [{ initializeApp }, A, F, C] = await Promise.all([
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
@@ -101,14 +101,14 @@ async function rolVan(email){
   const t = await F.getDoc(F.doc(db, 'toeschouwers', email)).catch(()=>null);
   return t && t.exists() ? 'toeschouwer' : 'leerling';
 }
-/* toeschouwer: vanaf nu leest en schrijft alles in de oefenomgeving; daarin is hij leerkracht en beheerder */
+/* toeschouwer: vanaf nu gaat alles via de oefenomgeving (echte gegevens lezen, wijzigingen enkel lokaal); daarin is hij leerkracht en beheerder */
 async function naarZandbak(u, email){
   const Z = await import('./zandbak.js');
-  F = Z; db = Z.open(email, u.displayName || email);
+  db = Z.open(email, u.displayName || email, F, db); F = Z;
   B.dataset.toeschouwer = '1';
-  const balk = el('div', 'toeschouwer-balk', `<span><b>Toeschouwer · oefenomgeving.</b> Je ziet een fictieve school. Wat je hier doet, ziet niemand anders en komt niet in de echte database.</span>`);
+  const balk = el('div', 'toeschouwer-balk', `<span><b>Toeschouwer · oefenomgeving.</b> Je ziet de echte gegevens. Wat je hier wijzigt, blijft in deze browser: niemand anders ziet het en de echte database verandert niet.</span>`);
   const her = el('button', 'linkbtn', 'Oefenomgeving opnieuw beginnen'); her.type = 'button';
-  her.onclick = ()=>{ if(!confirm('Alles wat je in de oefenomgeving deed wissen en opnieuw beginnen met de fictieve school?')) return; Z.herbegin(); wipeLocal(); location.reload(); };
+  her.onclick = ()=>{ if(!confirm('Alles wat je in de oefenomgeving wijzigde wissen? Je ziet daarna weer de echte gegevens zoals ze zijn.')) return; Z.herbegin(); wipeLocal(); location.reload(); };
   balk.append(her); B.prepend(balk);
   return rolVan(email);
 }
@@ -192,6 +192,45 @@ function tegelsFilteren(groepen){
   tegels.forEach(t=>{ const z = zichtbaarheid(groepen, t.dataset.site); t.hidden = !z.open; if(z.open) zicht++; });
   if(!zicht){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.')); }
 }
+/* ---------- bekijk als leerling (leerkrachten, beheerders en toeschouwers) ----------
+   De keuze staat in sessionStorage cl_als_<site> (enkel dit tabblad). De module toont dan wat een leerling van die groep ziet:
+   enkel de open onderdelen, de rekentoestelknop zoals ingesteld, geen Bord. Antwoorden worden niet bewaard. */
+const ALS = 'cl_als_' + site;
+const alsGroep = () => { try{ return sessionStorage.getItem(ALS); }catch(e){ return null; } };
+function alsUit(){ try{ sessionStorage.removeItem(ALS); }catch(e){} wipeLocal(); location.reload(); }
+async function kiesAlsLeerling(email){
+  const tip = document.querySelector('.lk-tip'); if(!tip) return;
+  let groepen = [];
+  try{
+    const { SITES } = await import('./sites.js'); const s = SITES.find(x=>x.id === site); if(!s) return;
+    groepen = (await F.getDocs(F.collection(db, 'groepen'))).docs.map(d=>Object.assign({ id:d.id }, d.data()))
+      .filter(g=>`${g.jaar}${g.stroom}` === s.jaar)
+      .sort((a, b)=>(((b.leerkrachten || []).includes(email)) - ((a.leerkrachten || []).includes(email))) || String(a.naam).localeCompare(String(b.naam), 'nl', { numeric:true }));
+  }catch(e){ console.warn('Groepen ophalen mislukt', e); return; }
+  if(!groepen.length) return;
+  const r = el('div', 'als-kies', '<label>Bekijk als leerling van </label>');
+  const sel = el('select', '', '<option value="">kies een groep</option>' + groepen.map(g=>{ const z = zichtbaarheid([g], site); return `<option value="${g.id}">${g.naam}${(g.leerkrachten || []).includes(email) ? ' (mijn groep)' : ''}${z.open ? '' : ' · module dicht'}</option>`; }).join(''));
+  sel.id = 'alsLeerling'; r.querySelector('label').htmlFor = sel.id;
+  sel.onchange = ()=>{ if(!sel.value) return; try{ sessionStorage.setItem(ALS, sel.value); }catch(e){} wipeLocal(); location.reload(); };
+  r.append(sel); tip.querySelector('div').append(r);
+}
+async function alsLeerling(email){
+  const id = alsGroep();
+  let g = null; try{ const s = await F.getDoc(F.doc(db, 'groepen', id)); if(s.exists()) g = Object.assign({ id }, s.data()); }catch(e){}
+  B.dataset.rol = 'leerling'; B.dataset.alsLeerling = '1';
+  const balk = el('div', 'toeschouwer-balk als-balk', `<span>Je bekijkt deze module <b>als leerling van ${g ? g.naam : id}</b>. Je antwoorden worden niet bewaard.</span>`);
+  const terug = el('button', 'linkbtn', 'Terug naar de leerkrachtweergave'); terug.type = 'button'; terug.onclick = alsUit;
+  balk.append(terug); B.prepend(balk);
+  if(!g){ melding('<b>Deze groep bestaat niet meer.</b>'); return; }
+  const z = zichtbaarheid([g], site);
+  if(!z.open){ melding('<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.'); return; }
+  window.CL_VERBORGEN = z.uit;
+  if(z.rt) rekentoestelKnop();
+  wipeLocal(); koppelResultaten();
+  const s = el('script'); s.src = INHOUD;
+  s.onload = ()=>document.dispatchEvent(new Event('inhoud-geladen'));
+  document.body.append(s);
+}
 async function start(u){
   if(started) return; started = true;
   user = u;
@@ -215,12 +254,15 @@ async function start(u){
     if(!z.open){ melding('<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.'); return; }
     window.CL_VERBORGEN = z.uit;
     if(z.rt) rekentoestelKnop();
+  } else if(alsGroep()){
+    await alsLeerling(email); return;
   } else {
     rekentoestelKnop();
     const m = document.querySelector('.info-box');
     if(m) m.insertAdjacentElement('afterend', el('div', 'tip lk-tip', db.zandbak
       ? '<div>Je bekijkt deze module als <b>toeschouwer</b>: je ziet alle onderdelen zoals een leerkracht. Je antwoorden blijven in je oefenomgeving in deze browser; niemand anders ziet ze.</div>'
       : '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.</div>'));
+    kiesAlsLeerling(email);
   }
 
   ref = F.doc(db, 'voortgang', `${u.uid}_${site}`);

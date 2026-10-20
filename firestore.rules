@@ -11,47 +11,52 @@ service cloud.firestore {
     function beheerder() {
       return aangemeld() && exists(/databases/$(database)/documents/beheerders/$(mail()));
     }
+    // toeschouwer (bv. de directeur): mag alles lezen wat een beheerder leest, maar nergens schrijven
+    function toeschouwer() {
+      return aangemeld() && exists(/databases/$(database)/documents/toeschouwers/$(mail()));
+    }
     function leerkracht() {
       return aangemeld() && (beheerder() || exists(/databases/$(database)/documents/leerkrachten/$(mail())));
     }
 
     // beheerders: jij beheert de lijst; iedereen mag nagaan of hij zelf beheerder is
     match /beheerders/{email} {
-      allow read: if aangemeld() && (mail() == email || beheerder());
+      allow read: if aangemeld() && (mail() == email || beheerder() || toeschouwer());
       allow write: if beheerder();
     }
     // leerkrachten met toegang tot het dashboard
     match /leerkrachten/{email} {
-      allow read: if leerkracht() || (aangemeld() && mail() == email);
+      allow read: if leerkracht() || toeschouwer() || (aangemeld() && mail() == email);
       allow write: if beheerder();
     }
-    // toeschouwers (bv. de directeur): werken in een oefenomgeving in hun eigen browser; enkel nagaan of je zelf toeschouwer bent
+    // toeschouwers (bv. de directeur): lezen alles, wijzigingen blijven in hun eigen browser; enkel nagaan of je zelf toeschouwer bent
     match /toeschouwers/{email} {
       allow read: if aangemeld() && (mail() == email || beheerder());
       allow write: if beheerder();
     }
     // jaarlijkse leerlingenlijst (uit Smartschool)
     match /leerlingen/{email} {
-      allow read: if leerkracht() || (aangemeld() && mail() == email);
+      allow read: if leerkracht() || toeschouwer() || (aangemeld() && mail() == email);
       allow write: if beheerder();
     }
     // niveaugroepen: leerkrachten kiezen hun groepen, leerlingen en wat openstaat
     match /groepen/{groep} {
-      allow read: if leerkracht() || (aangemeld() && mail() in resource.data.leerlingen);
+      allow read: if leerkracht() || toeschouwer() || (aangemeld() && mail() in resource.data.leerlingen);
       allow create, delete: if beheerder();
       allow update: if leerkracht();
     }
     // fouten gemeld door leerkrachten: elke leerkracht meldt op eigen naam en ziet zijn eigen meldingen; de beheerder ziet en behandelt alles
     match /fouten/{id} {
       allow create: if leerkracht() && request.resource.data.melder == mail() && request.resource.data.status == 'nieuw';
-      allow read: if beheerder() || (leerkracht() && resource.data.melder == mail());
+      allow read: if beheerder() || toeschouwer() || (leerkracht() && resource.data.melder == mail());
       allow update: if beheerder();
       allow delete: if beheerder() || (leerkracht() && resource.data.melder == mail() && resource.data.status == 'nieuw');
     }
     // voortgang: document <uid>_<site>; een leerling leest en schrijft enkel zijn eigen documenten
     match /voortgang/{docId} {
       allow read, write: if aangemeld() && docId.matches(request.auth.uid + '_.*');
-      allow read, delete: if leerkracht();
+      allow read: if leerkracht() || toeschouwer();
+      allow delete: if leerkracht();
     }
   }
 }

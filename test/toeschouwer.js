@@ -1,7 +1,7 @@
 /* Toeschouwer (bv. de directeur) met de nep-Firebase.
    node test/toeschouwer.js   (eerst test/serve.sh)
-   Beheerder voegt een toeschouwer toe; de toeschouwer ziet een fictieve school (dashboard, Beheer, Fout melden, module),
-   alles wat hij doet blijft in de oefenomgeving (cl_zandbak_…) en de echte (nep-)database verandert niet. */
+   Beheerder voegt een toeschouwer toe; de toeschouwer ziet de echte gegevens (dashboard, Beheer, Fout melden, module),
+   alles wat hij wijzigt blijft in de oefenomgeving (cl_zandbak_…) en de echte (nep-)database verandert niet. */
 const H = require('./helpers');
 (async()=>{
   const { b, ctx } = await H.context(); let ok = true; const check = (c, t)=>{ console.log((c ? 'OK   ' : 'FOUT ') + t); if(!c) ok = false; };
@@ -22,27 +22,28 @@ const H = require('./helpers');
   let db = await H.fakedb(p);
   check(!!db['toeschouwers/' + DIR.email] && !db['leerkrachten/' + DIR.email], 'toeschouwer bewaard, niet bij de leerkrachten');
   const echt = JSON.stringify(db);
-  /* de toeschouwer meldt aan */
+  /* de toeschouwer meldt aan: echte gegevens lezen, wijzigingen enkel in zijn laag */
   const q = await H.pagina(ctx, db);
   await H.aanmelden(q, 'dashboard/', DIR); await q.waitForTimeout(600);
   check(await q.locator('.toeschouwer-balk').isVisible(), 'oranje balk Toeschouwer');
   const tabs = await q.locator('.dash-top .tab').allTextContents();
   check(tabs.join('|').includes('Mijn groepen') && tabs.join('|').includes('Fout melden') && tabs.join('|').includes('Beheer'), 'tabbladen: ' + tabs.join(', '));
-  const chips = await q.locator('.chips .chip-btn').allTextContents();
-  check(chips.length === 2, 'twee groepen in de oefenschool: ' + chips.join(', '));
-  await q.waitForTimeout(600);
-  const cellen = await q.locator('table.dt tbody td.sc:not(.s0)').count();
-  check(cellen > 0, `voorbeeldvoortgang zichtbaar (${cellen} cellen)`);
-  const tekst = await q.locator('#dash').innerText();
-  check(!tekst.includes('Echt') && !tekst.includes('Echte Collega'), 'geen echte leerlingen of collega\'s te zien');
-  /* iets doen: groep openzetten, fout melden */
+  /* groep kiezen (wordt enkel in zijn laag bewaard) */
+  await q.click('button:has-text("Mijn groepen kiezen")'); await q.waitForTimeout(300);
+  await q.locator('.lijst-check input[value="1ANg1"]').check(); await q.click('button:has-text("Bewaren")'); await q.waitForTimeout(600);
+  check((await q.locator('.chips .chip-btn').allTextContents()).some(t=>t.startsWith('1ANg1')), 'echte groep 1ANg1 gekozen');
+  await q.click('.tab:has-text("Leerlingen")'); await q.waitForTimeout(400);
+  check((await q.locator('#dash').innerText()).includes('Echt Leerling'), 'echte leerling zichtbaar');
   await q.click('.tab:has-text("Openzetten")'); await q.waitForTimeout(300);
-  await q.locator('.site-blok').nth(1).locator('.switch input').check(); await q.waitForTimeout(400);
+  await q.locator('.site-blok').first().locator('.switch input').check(); await q.waitForTimeout(400);
+  await q.click('.dash-top .tab:has-text("Beheer")'); await q.waitForTimeout(400);
+  check((await q.locator('#dash').innerText()).includes('Echte Collega') && await q.locator('.dash-card', { hasText:'Toeschouwers' }).count() === 0, 'Beheer met echte collega, zonder kaart Toeschouwers');
   await q.click('.dash-top .tab:has-text("Fout melden")'); await q.waitForTimeout(400);
   await q.selectOption('#f-site', 'm1'); await q.fill('#f-fout', 'test toeschouwer'); await q.fill('#f-alt', 'iets anders');
   await q.click('text=Melding versturen'); await q.waitForTimeout(500);
   const zb = await q.evaluate(e=>JSON.parse(localStorage.getItem('cl_zandbak_' + e) || '{}'), DIR.email);
-  check(Object.values(zb).some(d=>d.melder === DIR.email && d.fout === 'test toeschouwer'), 'foutmelding staat in de oefenomgeving');
+  check(Object.values(zb).some(d=>d && d.melder === DIR.email && d.fout === 'test toeschouwer'), 'foutmelding staat in de oefenomgeving');
+  check(zb['groepen/1ANg1'] && zb['groepen/1ANg1'].leerkrachten.includes(DIR.email) && zb['groepen/1ANg1'].aan.m1.on, 'groepskeuze en openzetten in de oefenomgeving');
   /* module als toeschouwer, antwoord geven */
   await q.goto(H.B + '1A/modules/module-1-getallen/'); await q.waitForTimeout(1500);
   check(await q.locator('.toeschouwer-balk').isVisible() && await q.locator('nav.side .lbl').count() > 0, 'module zichtbaar met balk');
@@ -56,7 +57,7 @@ const H = require('./helpers');
   await q.goto(H.B + 'dashboard/'); await q.waitForTimeout(800);
   await q.click('.toeschouwer-balk button'); await q.waitForTimeout(1200);
   const zb3 = await q.evaluate(e=>JSON.parse(localStorage.getItem('cl_zandbak_' + e) || '{}'), DIR.email);
-  check(!zb3['voortgang/dir_m1'] && Object.keys(zb3).length > 50, 'opnieuw beginnen: verse oefenschool');
+  check(!zb3['voortgang/dir_m1'] && !zb3['groepen/1ANg1'], 'opnieuw beginnen: eigen wijzigingen weg');
   /* echte collega ziet de toeschouwer nergens */
   const c = await H.pagina(ctx, JSON.parse(echt));
   await H.aanmelden(c, 'dashboard/', { uid:'col', email:'collega.echt@svsl.be', displayName:'Echte Collega' });
