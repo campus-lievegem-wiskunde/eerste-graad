@@ -497,7 +497,7 @@ export const SITES = [
     "id": "rooster",
     "naam": "Roosters",
     "toets": false,
-    "vragen": 46
+    "vragen": 47
    },
    {
     "id": "assen",
