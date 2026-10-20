@@ -71,7 +71,7 @@ function userChip(user, rol){
   const naam = (user.displayName || user.email).split(' ')[0];
   const isLk = rol === 'leerkracht' || rol === 'beheerder';
   const up = new URL('../', import.meta.url).href;
-  const chip = el('div', 'user-chip', `<span class="u-av" aria-hidden="true">${naam.slice(0,1).toUpperCase()}</span><span class="t">Aangemeld als <b></b>${isLk ? ` <a class="linkbtn" href="${up}dashboard/">Dashboard</a>${PREFIX ? ` <a class="linkbtn fout-link" href="${up}dashboard/?melden=${encodeURIComponent(site)}">Fout melden</a>` : ''}` : ''}<button type="button" class="linkbtn">Afmelden</button></span>`);
+  const chip = el('div', 'user-chip', `<span class="u-av" aria-hidden="true">${naam.slice(0,1).toUpperCase()}</span><span class="t">Aangemeld als <b></b>${isLk ? ` <a class="linkbtn" href="${up}dashboard/">Dashboard</a>${PREFIX ? ` <a class="linkbtn fout-link" href="${up}dashboard/?melden=${encodeURIComponent(site)}"><svg class="ic-fout" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 2.6 19.6a1 1 0 0 0 .9 1.5h17a1 1 0 0 0 .9-1.5L12 3.2z"/><path d="M12 9.5v5"/><circle cx="12" cy="17.6" r=".4"/></svg>Fout melden</a>` : ''}` : ''}<button type="button" class="linkbtn">Afmelden</button></span>`);
   chip.querySelector('b').textContent = naam; chip.title = user.email;
   chip.querySelector('button').addEventListener('click', afmelden);
   /* Fout melden: het onderdeel dat nu open staat gaat mee (laatst bewaard tabblad van de module, anders de hash) */

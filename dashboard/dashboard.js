@@ -28,7 +28,7 @@ function render(){
   root.innerHTML = '';
   const top = el('div', 'dash-top');
   const tabs = el('div', 'tabs'); tabs.setAttribute('role', 'tablist');
-  const items = [['groepen', 'Mijn groepen'], ['fout', 'Fout melden']]; if(ST.rol === 'beheerder') items.push(['beheer', 'Beheer']);
+  const items = [['groepen', 'Mijn groepen'], ['fout', `${IC_FOUT}Fout melden`]]; if(ST.rol === 'beheerder') items.push(['beheer', 'Beheer']);
   items.forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(ST.view === k)); b.onclick = ()=>{ ST.view = k; render(); }; tabs.append(b); });
   top.append(tabs); root.append(top);
   const body = el('div'); root.append(body);
@@ -125,6 +125,7 @@ function verwerk(site, d){
   return { per, totaal, toets:tScore, bijgewerkt:d.bijgewerkt };
 }
 /* knop "Bekijk": opent de module in een nieuw tabblad (leerkrachten zien er altijd alle onderdelen) */
+const IC_FOUT = '<svg class="ic-fout" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 2.6 19.6a1 1 0 0 0 .9 1.5h17a1 1 0 0 0 .9-1.5L12 3.2z"/><path d="M12 9.5v5"/><circle cx="12" cy="17.6" r=".4"/></svg>';
 const OOG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const moduleUrl = (s, ond)=>`../${s.pad}${ond ? '#' + encodeURIComponent(ond) : ''}`;
 function bekijkKnop(s){ const a = el('a', 'btn ghost klein bekijk', OOG + 'Bekijk'); a.href = moduleUrl(s); a.target = '_blank'; a.rel = 'noopener'; a.title = `${s.titel} openen in een nieuw tabblad`; return a; }
