@@ -1127,7 +1127,7 @@ const SVGS = {
   rechthoek2(){
     let h = '<rect x="70" y="56" width="300" height="150" fill="#e3f3f1" stroke="#35545a" stroke-width="3"/>';
     [[70,56,1,1], [370,56,-1,1], [370,206,-1,-1], [70,206,1,-1]].forEach(c => {
-      h += '<path d="M'+(c[0]+16*c[2])+' '+c[1]+' V'+(c[1]+16*c[3])+' H'+c[0]+'" fill="none" stroke="#35545a" stroke-width="1.8"/>';
+      h += rhoekL([c[0], c[1]], [c[0]+c[2], c[1]], [c[0], c[1]+c[3]], 5, 15);   // losse L in de hoek
     });
     const it = s => s.replace(/([a-z])/g, '<tspan font-style="italic" font-family="Georgia,serif">$1</tspan>');
     h += '<text x="220" y="40" text-anchor="middle" font-size="22" font-weight="800" fill="#1d4ed8">'+it('3a − 1')+'</text>';
@@ -3096,6 +3096,8 @@ SVGS.lopp = function(){
           '<rect x="250" y="110" width="170" height="60" fill="#fff3d6" stroke="#b86e00" stroke-width="2.5"/>';
   h += '<text x="145" y="108" text-anchor="middle" font-size="22" font-weight="900" fill="#127a7f">①</text><text x="335" y="148" text-anchor="middle" font-size="22" font-weight="900" fill="#b86e00">②</text>';
   const t = (x, y, s) => '<text x="'+x+'" y="'+y+'" text-anchor="middle" font-size="18" font-weight="800" fill="#1d4ed8">'+L(s)+'</text>';
+  [[[40,30],[250,30],[40,170]], [[250,30],[40,30],[250,110]], [[420,110],[250,110],[420,170]], [[420,170],[420,110],[40,170]], [[40,170],[420,170],[40,30]]]
+    .forEach(c => { h += rhoekL(c[0], c[1], c[2], 5, 14, '#35545a', 1.8); });   // rechte hoeken als losse L
   h += t(145, 22, '3a') + t(18, 106, '2a') + t(335, 196, 'a + 5') + t(438, 146, '4');
   return '<svg class="vis-svg" viewBox="0 0 460 210" style="max-width:460px" aria-label="Figuur uit twee rechthoeken">'+h+'</svg>';
 };
