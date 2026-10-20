@@ -586,7 +586,7 @@ export const SITES = [
     "id": "veeltermen",
     "naam": "Veeltermen en graad",
     "toets": false,
-    "vragen": 6
+    "vragen": 7
    },
    {
     "id": "patronen",
@@ -598,7 +598,7 @@ export const SITES = [
     "id": "herleiden",
     "naam": "Herleiden",
     "toets": false,
-    "vragen": 12
+    "vragen": 13
    },
    {
     "id": "getalwaarde",

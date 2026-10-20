@@ -409,6 +409,8 @@ function mathHTML(s){
       if(ex){ h += '<span class="lt">'+grp+'<sup>'+ex[1]+'</sup></span>'; i += ex[0].length; } else h += grp;
       continue;
     }
+    const wr = rest.match(/^√(\d+(?:,\d+)?)/);           // vierkantswortel uit een getal
+    if(wr){ h += '<span class="wrt">√<span class="wrt-in">'+wr[1]+'</span></span>'; i += wr[0].length; continue; }
     let m = rest.match(/^(\d+(?:,\d+)?)(?:\/(\d+))?(\^(\d+))?/);
     if(m){
       const base = m[2] ? frHTML2(m[1], m[2]) : '<span class="mn">'+m[1]+'</span>';
@@ -433,7 +435,7 @@ function mathHTML(s){
 function richOrMath(t){ return String(t).indexOf('`') >= 0 ? rich(t) : mathHTML(t); }
 function rich(t){ return String(t == null ? '' : t).split('`').map((p, i) => i % 2 ? mathHTML(p) : glossify(p)).join(''); }
 function speakAlg(t){
-  return String(t).replace(/`/g, '').replace(/\^2/g, ' kwadraat').replace(/\^3/g, ' tot de derde').replace(/\^(\d+)/g, ' tot de $1de')
+  return String(t).replace(/`/g, '').replace(/√/g, ' vierkantswortel uit ').replace(/\^2/g, ' kwadraat').replace(/\^3/g, ' tot de derde').replace(/\^(\d+)/g, ' tot de $1de')
     .replace(/(\d+)\/(\d+)/g, '$1 op $2').replace(/·/g, ' maal ').replace(/≠/g, ' is niet gelijk aan ').replace(/\|([A-Z])([A-Z])\|/g, 'de lengte van $1 $2').replace(/\[([A-Z])([A-Z])\]/g, 'lijnstuk $1 $2');
 }
 
@@ -1048,6 +1050,14 @@ const FIGS = {
 
 /* ---------- extra figuren voor de omtrek: niet elke zijde staat erbij,
    streepjes tonen welke zijden even lang zijn (zoals op de toets) ---------- */
+/* rechte hoek: een losse L met even lange benen (lengte q) in de hoek, met de hoek van de L
+   op afstand g van het hoekpunt P, zodat ze de benen PA en PB niet raakt */
+function rhoekL(P, A, B, g, q, kleur, w){
+  const u = Q => { const dx = Q[0]-P[0], dy = Q[1]-P[1], L = Math.hypot(dx, dy); return [dx/L, dy/L]; };
+  const a = u(A), b = u(B), c = [P[0] + g*(a[0]+b[0]), P[1] + g*(a[1]+b[1])];
+  const f = n => Math.round(n * 10) / 10;
+  return '<path d="M'+f(c[0]+q*a[0])+' '+f(c[1]+q*a[1])+' L'+f(c[0])+' '+f(c[1])+' L'+f(c[0]+q*b[0])+' '+f(c[1]+q*b[1])+'" fill="none" stroke="'+(kleur || '#35545a')+'" stroke-width="'+(w || 1.8)+'" pointer-events="none"/>';
+}
 function polyFig(o){
   return {
     sides: o.sides.map(s => ({lab:s.lab, p:[o.pts[s.a], o.pts[s.b]], lp:s.lp, show:s.show !== false, ticks:s.ticks || 0})),
@@ -1068,11 +1078,7 @@ function polyFig(o){
           (s2.show ? '<text x="'+s2.lp[0]+'" y="'+s2.lp[1]+'" text-anchor="middle" class="sidelab">'+s2.lab.replace(/([a-z])/g, '<tspan font-style="italic">$1</tspan>')+'</text>' : '') +
           (on ? '<circle cx="'+(mx + uy * 20)+'" cy="'+(my - ux * 20)+'" r="12" fill="#127a7f"/><text x="'+(mx + uy * 20)+'" y="'+(my - ux * 20 + 5)+'" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">'+(k+1)+'</text>' : '') + '</g>';
       });
-      (o.right || []).forEach(c => {                   // rechte hoeken
-        const P = o.pts[c[0]], A = o.pts[c[1]], B = o.pts[c[2]], u = q => { const dx = q[0]-P[0], dy = q[1]-P[1], L = Math.hypot(dx, dy); return [dx/L*16, dy/L*16]; };
-        const a2 = u(A), b2 = u(B);
-        h += '<path d="M'+(P[0]+a2[0])+' '+(P[1]+a2[1])+' L'+(P[0]+a2[0]+b2[0])+' '+(P[1]+a2[1]+b2[1])+' L'+(P[0]+b2[0])+' '+(P[1]+b2[1])+'" fill="none" stroke="#35545a" stroke-width="1.8"/>';
-      });
+      (o.right || []).forEach(c => { h += rhoekL(o.pts[c[0]], o.pts[c[1]], o.pts[c[2]], 5, 15); });   // rechte hoeken
       return '<svg class="vis-svg figsvg" viewBox="'+o.view+'" style="max-width:'+o.max+'px" aria-label="'+o.label+'">'+h+'</svg>';
     }
   };
@@ -2810,12 +2816,12 @@ const VF = (() => {
   const tick = (x1, y1, x2, y2) => '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#17313a" stroke-width="2"/>';
   const dash = 'stroke="#35545a" stroke-width="1.5" stroke-dasharray="4 3"';
   return {
-    vierkant: box('<rect x="32" y="12" width="56" height="56" '+P+'/>' + t(60, 84, 'z') + tick(60,64,60,72) + tick(84,40,92,40), 'vierkant'),
-    rechthoek: box('<rect x="14" y="18" width="92" height="50" '+P+'/>' + t(60, 84, 'l') + t(114, 47, 'b'), 'rechthoek'),
-    ruit: box('<polygon points="60,6 100,44 60,82 20,44" '+P+'/><line x1="60" y1="6" x2="60" y2="82" '+dash+'/><line x1="20" y1="44" x2="100" y2="44" '+dash+'/>' + t(68, 30, 'D') + t(82, 40, 'd') + t(88, 22, 'z'), 'ruit'),
-    para: box('<polygon points="10,70 82,70 110,18 38,18" '+P+'/><line x1="44" y1="18" x2="44" y2="70" '+dash+'/>' + t(46, 86, 'b') + t(52, 50, 'h') + t(104, 50, 'a'), 'parallellogram'),
-    driehoek: box('<polygon points="10,72 110,72 72,10" '+P+'/><line x1="72" y1="10" x2="72" y2="72" '+dash+'/>' + t(60, 87, 'b') + t(80, 46, 'h'), 'driehoek'),
-    trapezium: box('<polygon points="8,72 112,72 86,16 34,16" '+P+'/><line x1="40" y1="16" x2="40" y2="72" '+dash+'/>' + t(60, 87, 'B') + t(60, 12, 'b') + t(48, 50, 'h'), 'trapezium'),
+    vierkant: box('<rect x="32" y="12" width="56" height="56" '+P+'/>' + t(60, 84, 'z') + tick(60,64,60,72) + tick(84,40,92,40) + rhoekL([32,68],[88,68],[32,12], 3, 8, '#35545a', 1.5), 'vierkant'),
+    rechthoek: box('<rect x="14" y="18" width="92" height="50" '+P+'/>' + t(60, 84, 'l') + t(114, 47, 'b') + rhoekL([14,68],[106,68],[14,18], 3, 8, '#35545a', 1.5), 'rechthoek'),
+    ruit: box('<polygon points="60,6 100,44 60,82 20,44" '+P+'/><line x1="60" y1="6" x2="60" y2="82" '+dash+'/><line x1="20" y1="44" x2="100" y2="44" '+dash+'/>' + t(68, 30, 'D') + t(82, 40, 'd') + t(88, 22, 'z') + rhoekL([60,44],[100,44],[60,82], 3, 8, '#35545a', 1.5), 'ruit'),
+    para: box('<polygon points="10,70 82,70 110,18 38,18" '+P+'/><line x1="44" y1="18" x2="44" y2="70" '+dash+'/>' + t(46, 86, 'b') + t(52, 50, 'h') + t(104, 50, 'a') + rhoekL([44,70],[82,70],[44,18], 3, 8, '#35545a', 1.5), 'parallellogram'),
+    driehoek: box('<polygon points="10,72 110,72 72,10" '+P+'/><line x1="72" y1="10" x2="72" y2="72" '+dash+'/>' + t(60, 87, 'b') + t(80, 46, 'h') + rhoekL([72,72],[110,72],[72,10], 3, 8, '#35545a', 1.5), 'driehoek'),
+    trapezium: box('<polygon points="8,72 112,72 86,16 34,16" '+P+'/><line x1="40" y1="16" x2="40" y2="72" '+dash+'/>' + t(60, 87, 'B') + t(60, 12, 'b') + t(48, 50, 'h') + rhoekL([40,72],[112,72],[40,16], 3, 8, '#35545a', 1.5), 'trapezium'),
     cirkel: box('<circle cx="60" cy="42" r="32" '+P+'/><line x1="60" y1="42" x2="92" y2="42" stroke="#17313a" stroke-width="2"/><circle cx="60" cy="42" r="2.5" fill="#17313a"/>' + t(76, 37, 'r'), 'cirkel')
   };
 })();
@@ -2903,6 +2909,17 @@ NV({ id:'ng4', type:'kleur', title:'Geef gelijksoortige eentermen dezelfde kleur
   {mk:{0:0, 1:1, 2:0, 3:2, 4:0, 5:1, 6:2, 7:2, 8:1}},
   'Schrijf de letters eerst in alfabetische volgorde: yx² = x²y en y²x = xy².');
 
+NV({ id:'ng5', type:'ctx', title:'Gelijksoortig: denk een stap verder',
+  intro:'Soms moet je een eenterm eerst korter schrijven voor je ziet of hij gelijksoortig is.',
+  parts:[{lab:'a) Zijn `x^2 · x` en `−4x^3` gelijksoortig?', k:'kies', opts:['ja', 'nee']},
+         {lab:'b) Zijn `2ab · b` en `5a^2b` gelijksoortig?', k:'kies', opts:['ja', 'nee']},
+         {lab:'c) Welke graad heeft elke eenterm die gelijksoortig is met `5a^3b^2`?', k:'nf'},
+         {lab:'d) Geef de eenterm die gelijksoortig is met `−3pq^2` en waarvan de coëfficiënt drie keer zo groot is.', k:'tr', pre:'eenterm =', prePlain:true},
+         {lab:'e) Geef de eenterm die gelijksoortig is met `4x^2y` en die samen met `4x^2y` als som 0 geeft.', k:'tr', pre:'eenterm =', prePlain:true},
+         {lab:'f) Kunnen twee gelijksoortige eentermen een verschillende graad hebben?', k:'kies', opts:['ja', 'nee']}] },
+  {ctx:[0, 1, ['', '5'], '−9pq^2', '−4x^2y', 1]},
+  'Schrijf eerst korter: x² · x = x³ en ab · b = ab². Gelijksoortige eentermen hebben dezelfde exponenten, dus ook dezelfde graad.');
+
 /* ---------- 4. veeltermen en graad ---------- */
 NV({ id:'nv1', type:'sorteer', title:'Is het een eenterm, een tweeterm of een drieterm?', bins:['eenterm', 'tweeterm', 'drieterm'],
   chips:['`−9q^3`', '`3a − 7`', '`x^2 + x + 1`', '`2/5mn`', '`6 − y^2`', '`p^3 − 2p + 4`', '`0,8k`', '`ab + b`'] },
@@ -2960,6 +2977,16 @@ NV({ id:'nh2', type:'herlrows', title:'Herleid indien mogelijk. Let op kommageta
   rows:['0,3t + 1,5t − 0,8t', '−y + y − y − y', '2,5k + 10 − 4k + 3', '6p − 9 − 5p + 4 − p + 5', '0,4m^2 − 0,4m − 0,6m + 0,2m^2', 'a + b + 3b − 4a − b', '3x^2 − 3x'] },
   MAAK.herlrows(['0,3t + 1,5t − 0,8t', '−y + y − y − y', '2,5k + 10 − 4k + 3', '6p − 9 − 5p + 4 − p + 5', '0,4m^2 − 0,4m − 0,6m + 0,2m^2', 'a + b + 3b − 4a − b', '3x^2 − 3x']),
   'Valt alles weg, dan is de uitkomst 0.');
+
+NV({ id:'nh3', type:'ctx', title:'Eerst uitrekenen, dan herleiden',
+  intro:'Reken eerst de machten en de vierkantswortels uit. Herleid daarna en rangschik volgens dalende machten.',
+  parts:[{lab:'a) `2^3a + 3^2a − √16a`', k:'tr', pre:'=', prePlain:true},
+         {lab:'b) `√36x^2 − 2^2x + (−3)^2x − 5x^2`', k:'tr', pre:'=', prePlain:true},
+         {lab:'c) `10^2p − 7^2p + √100 − 2^3`', k:'tr', pre:'=', prePlain:true},
+         {lab:'d) `−√81k + 4^2 − (−2)^3k − √4`', k:'tr', pre:'=', prePlain:true},
+         {lab:'e) `3^2y^2 − √121y + 1^5y^2 + 2^4y`', k:'tr', pre:'=', prePlain:true}] },
+  {ctx:['13a', 'x^2 + 5x', '51p + 2', '−k + 14', '10y^2 + 5y']},
+  'Bv. 2³ = 8 en √16 = 4, dus 2³a − √16a = 8a − 4a. Let op: (−2)³ = −8 en − (−8)k = + 8k.');
 
 /* ---------- 7. getalwaarde ---------- */
 NV({ id:'nw1', type:'gwtabel', expr:'3x^2 − 2', letter:'x', vals:['−2', '−1', '0', '1', '2'], title:'Vul de tabel aan voor `3x^2 − 2`. Wat valt je op?' },
@@ -3407,11 +3434,11 @@ SEC.eentermen = { id:'eentermen', nav:'Eentermen', title:'Eentermen', ic:'eenter
 
 SEC.gelijksoortig = { id:'gelijksoortig', nav:'Gelijksoortige eentermen', title:'Gelijksoortige eentermen', ic:'gelijk',
   tip:'Gelijksoortige eentermen hebben hetzelfde lettergedeelte: dezelfde letters met dezelfde exponenten. Het getal ervoor mag verschillen.',
-  cards:[ K('ex09',1), K('ex10',2), K('ex11',2), K('ex62',2), K('ex12',2), K('ng1',2), K('ng2',2), K('ng3',2), K('ng4',3) ] };
+  cards:[ K('ex09',1), K('ex10',2), K('ex11',2), K('ex62',2), K('ng1',2), K('ng2',2), K('ng3',2), K('ng4',2), K('ng5',3) ] };
 
 SEC.veeltermen = { id:'veeltermen', nav:'Veeltermen en graad', title:'Veeltermen en graad', ic:'veelterm',
   tip:'Een veelterm is een som van eentermen. Met 1 term heb je een eenterm, met 2 termen een tweeterm, met 3 termen een drieterm.',
-  cards:[ K('ex13',1), K('nv1',2), K('nv2',2), K('nv3',2), K('nv4',2), K('nv5',3) ] };
+  cards:[ K('ex13',1), K('nv1',2), K('nv2',2), K('nv3',2), K('nv4',2), K('nv5',3), K('ex12',2) ] };
 
 SEC.patronen = { id:'patronen', nav:'Patronen en formules', title:'Patronen en formules', ic:'patroon',
   tip:'Zoek wat er telkens bijkomt. Dat getal staat in de formule voor de letter.',
@@ -3419,7 +3446,7 @@ SEC.patronen = { id:'patronen', nav:'Patronen en formules', title:'Patronen en f
 
 SEC.herleiden = { id:'herleiden', nav:'Herleiden', title:'Herleiden', ic:'herleid',
   tip:'Herleiden = gelijksoortige eentermen samennemen. Je telt de coëfficiënten op, het lettergedeelte blijft hetzelfde.',
-  cards:[ K('ex21',1), K('ex65',2), K('ex22',2), K('ex23',2), K('ex24',2), K('ex25',3), K('ex26',3), K('ex63',2), K('ex27',2), G(2, GEN.herl), K('nh1',3), K('nh2',3) ] };
+  cards:[ K('ex21',1), K('ex65',2), K('ex22',2), K('ex23',2), K('ex24',2), K('ex25',3), K('ex26',3), K('ex63',2), K('ex27',2), G(2, GEN.herl), K('nh1',3), K('nh2',3), K('nh3',3) ] };
 
 SEC.getalwaarde = { id:'getalwaarde', nav:'Getalwaarde', title:'Getalwaarde', ic:'getal',
   tip:'Vervang elke letter door haar waarde. Zet een negatief getal tussen haakjes. Reken eerst de machten, dan vermenigvuldigen, dan optellen en aftrekken.',
