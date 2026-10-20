@@ -306,67 +306,73 @@ export const SITES = [
     "id": "coord",
     "naam": "Coördinaten",
     "toets": false,
-    "vragen": 79
+    "vragen": 86
+   },
+   {
+    "id": "zeeslag",
+    "naam": "Zeeslag",
+    "toets": false,
+    "vragen": 0
    },
    {
     "id": "lijn",
     "naam": "Lijndiagrammen",
     "toets": false,
-    "vragen": 30
+    "vragen": 31
    },
    {
     "id": "soort",
     "naam": "Soorten data",
     "toets": false,
-    "vragen": 30
+    "vragen": 35
    },
    {
     "id": "freq",
     "naam": "Frequentietabel",
     "toets": false,
-    "vragen": 15
+    "vragen": 19
    },
    {
     "id": "diagram",
     "naam": "Diagrammen",
     "toets": false,
-    "vragen": 45
+    "vragen": 46
    },
    {
     "id": "mislei",
     "naam": "Misleidende grafieken",
     "toets": false,
-    "vragen": 14
+    "vragen": 21
    },
    {
     "id": "modus",
     "naam": "Modus en variatiebreedte",
     "toets": false,
-    "vragen": 16
+    "vragen": 20
    },
    {
     "id": "gem",
     "naam": "Het gemiddelde",
     "toets": false,
-    "vragen": 25
+    "vragen": 32
    },
    {
     "id": "med",
     "naam": "De mediaan",
     "toets": false,
-    "vragen": 18
+    "vragen": 24
    },
    {
     "id": "interp",
     "naam": "Data interpreteren",
     "toets": false,
-    "vragen": 27
+    "vragen": 32
    },
    {
     "id": "toestel",
     "naam": "Met het rekentoestel",
     "toets": false,
-    "vragen": 36
+    "vragen": 38
    },
    {
     "id": "rekenblad",
@@ -401,12 +407,6 @@ export const SITES = [
    {
     "id": "datalab",
     "naam": "Datalab: mijn onderzoek",
-    "toets": false,
-    "vragen": 0
-   },
-   {
-    "id": "signaal",
-    "naam": "Signaaloefeningen",
     "toets": false,
     "vragen": 0
    },
