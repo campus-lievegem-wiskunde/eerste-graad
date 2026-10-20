@@ -365,6 +365,7 @@ function viewBeheer(body){
   if(ST.bsub === 'fouten'){ foutenBeheer(body); return; }
   importKaart(body);
   leerkrachtenKaart(body);
+  if(!ST.toeschouwer) toeschouwersKaart(body);
   groepenKaart(body);
   leerlingenKaart(body);
   wisKaart(body);
@@ -494,6 +495,32 @@ function leerkrachtenKaart(body){
     await F.setDoc(F.doc(db, 'leerkrachten', mail), { naam:n.value.trim() }); await laadLeerkrachten(); render(); };
   body.append(card);
 }
+/* toeschouwers (bv. de directeur): zien het platform zoals een leerkracht, maar in een oefenomgeving met een fictieve school.
+   Ze staan niet bij de leerkrachten, dus collega's zien hen nergens; ze lezen en schrijven geen echte gegevens. */
+async function toeschouwersKaart(body){
+  const card = el('div', 'dash-card', '<h3>Toeschouwers</h3><p class="mini">Een toeschouwer (bv. de directeur) ziet het platform zoals een leerkracht en beheerder en kan alles uitproberen, maar in een <b>oefenomgeving met een fictieve school</b>. Wat hij doet, blijft in zijn eigen browser: hij staat niet bij de leerkrachten, collega\'s zien hem nergens en hij ziet geen echte leerlingen of voortgang.</p>');
+  body.append(card);
+  let lijst = [];
+  try{ lijst = (await F.getDocs(F.collection(db, 'toeschouwers'))).docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a, b)=>(a.naam || '').localeCompare(b.naam || '')); }
+  catch(e){ card.append(el('p', 'errmsg', 'Toeschouwers ophalen lukte niet. Zijn de nieuwste toegangsregels (firestore.rules) gepubliceerd?')); return; }
+  if(lijst.length){
+    const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Naam</th><th>E-mail</th><th></th></tr></thead>'; const tb = el('tbody');
+    lijst.forEach(x=>{ const tr = el('tr', '', `<td>${esc(x.naam)}</td><td>${esc(x.id)}</td>`); const td = el('td');
+      const rm = el('button', 'btn gevaar klein', 'Verwijderen'); rm.type = 'button';
+      rm.onclick = async ()=>{ if(!confirm(`${x.naam || x.id} is dan geen toeschouwer meer. Doorgaan?`)) return; await F.deleteDoc(F.doc(db, 'toeschouwers', x.id)); render(); };
+      td.append(rm); tr.append(td); tb.append(tr); });
+    t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); card.append(w);
+  } else card.append(el('p', 'mini', 'Nog geen toeschouwers.'));
+  const r = el('div', 'rij'); const n = el('input'); n.type = 'text'; n.placeholder = 'Voornaam Familienaam'; const m = el('input'); m.type = 'email'; m.placeholder = `adres@${C.DOMEIN}`;
+  const ok = el('button', 'btn', 'Toevoegen'); ok.type = 'button'; const msg = el('span'); r.append(n, m, ok, msg); card.append(r);
+  ok.onclick = async ()=>{ const mail = m.value.trim().toLowerCase();
+    if(!n.value.trim() || !mail.endsWith('@' + C.DOMEIN)){ msg.className = 'errmsg'; msg.textContent = `Vul een naam en een @${C.DOMEIN}-adres in.`; return; }
+    if(ST.leerkrachten.some(x=>x.id === mail)){ msg.className = 'errmsg'; msg.textContent = 'Dit adres is een leerkracht. Trek eerst de toegang als leerkracht in (een leerkracht werkt altijd met echte gegevens).'; return; }
+    ok.disabled = true;
+    try{ await F.setDoc(F.doc(db, 'toeschouwers', mail), { naam:n.value.trim() }); render(); }
+    catch(e){ ok.disabled = false; msg.className = 'errmsg'; msg.textContent = 'Mislukt: ' + (e.message || e); }
+  };
+}
 function groepenKaart(body){
   const card = el('div', 'dash-card', '<h3>Niveaugroepen</h3>');
   const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Groep</th><th>Jaar</th><th>Soort</th><th>Leerkracht(en)</th><th>Leerlingen</th><th></th></tr></thead>';
@@ -605,7 +632,7 @@ function wisKaart(body){
 /* ---------- start ---------- */
 async function laadAlles(){ await Promise.all([laadGroepen(), laadLeerkrachten()]); if(ST.rol === 'beheerder') await laadFouten().catch(e=>console.error(e)); }
 const s = await klaar;
-ST.me = s.email; ST.rol = s.rol;
+ST.me = s.email; ST.rol = s.rol; ST.toeschouwer = s.toeschouwer;
 if(s.rol === 'leerling'){
   root.append(el('div', 'tip', '<div><b>Dit dashboard is enkel voor leerkrachten.</b> Ga naar de <a href="../">oefeningen</a>.</div>'));
 } else {

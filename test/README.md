@@ -9,6 +9,7 @@ test/serve.sh                 # lokale server op http://localhost:8765 (reposito
 node test/rooktest.js         # import, groepen, openzetten, leerling, voortgang: alles OK?
 node test/catalogus.js        # gedeeld/sites.js opnieuw maken (na een nieuwe of gewijzigde module)
 node test/fouten.js           # Fout melden (leerkracht) en Fouten (beheer)
+node test/toeschouwer.js      # toeschouwer (directeur) in de oefenomgeving: niets in de echte database
 ```
 
 | Bestand | Rol |

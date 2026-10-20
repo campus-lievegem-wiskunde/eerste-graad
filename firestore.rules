@@ -25,6 +25,11 @@ service cloud.firestore {
       allow read: if leerkracht() || (aangemeld() && mail() == email);
       allow write: if beheerder();
     }
+    // toeschouwers (bv. de directeur): werken in een oefenomgeving in hun eigen browser; enkel nagaan of je zelf toeschouwer bent
+    match /toeschouwers/{email} {
+      allow read: if aangemeld() && (mail() == email || beheerder());
+      allow write: if beheerder();
+    }
     // jaarlijkse leerlingenlijst (uit Smartschool)
     match /leerlingen/{email} {
       allow read: if leerkracht() || (aangemeld() && mail() == email);

@@ -1,9 +1,11 @@
 /* Aanmelden met het schoolaccount, rol bepalen, zichtbaarheid en voortgang.
    Een oefenpagina zet op <body>: data-site="m1" data-prefix="m1_herh_v2_" data-inhoud="inhoud.js".
    Volgorde: aanmelden → rol en groepen → voortgang ophalen → inhoud.js laden → wijzigingen om de 30 s doorsturen.
-   Andere modules (zoals het dashboard) gebruiken: import { klaar } from '…/aanmelden.js'; const s = await klaar; */
+   Andere modules (zoals het dashboard) gebruiken: import { klaar } from '…/aanmelden.js'; const s = await klaar;
+   Een toeschouwer (collectie toeschouwers, bv. de directeur) werkt in een oefenomgeving: F en db wijzen dan naar
+   zandbak.js (alles in deze browser, niets in de echte database). F en db zijn daarom 'let' (live bindings). */
 const V = '10.12.2';
-export const [{ initializeApp }, A, F, C] = await Promise.all([
+export let [{ initializeApp }, A, F, C] = await Promise.all([
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
@@ -11,7 +13,7 @@ export const [{ initializeApp }, A, F, C] = await Promise.all([
 ]);
 export const app = initializeApp(C.firebaseConfig);
 export const auth = A.getAuth(app);
-export const db = F.getFirestore(app);
+export let db = F.getFirestore(app);
 const B = document.body, site = B.dataset.site || 'site', PREFIX = B.dataset.prefix || null, INHOUD = B.dataset.inhoud || null;
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const ls = { get:k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } }, keys:()=>{ try{ return Object.keys(localStorage); }catch(e){ return []; } } };
@@ -95,7 +97,20 @@ async function rolVan(email){
     F.getDoc(F.doc(db, 'leerkrachten', email)).catch(()=>null)]);
   if(b && b.exists()) return 'beheerder';
   if(l && l.exists()) return 'leerkracht';
-  return 'leerling';
+  if(db.zandbak) return 'leerling';
+  const t = await F.getDoc(F.doc(db, 'toeschouwers', email)).catch(()=>null);
+  return t && t.exists() ? 'toeschouwer' : 'leerling';
+}
+/* toeschouwer: vanaf nu leest en schrijft alles in de oefenomgeving; daarin is hij leerkracht en beheerder */
+async function naarZandbak(u, email){
+  const Z = await import('./zandbak.js');
+  F = Z; db = Z.open(email, u.displayName || email);
+  B.dataset.toeschouwer = '1';
+  const balk = el('div', 'toeschouwer-balk', `<span><b>Toeschouwer · oefenomgeving.</b> Je ziet een fictieve school. Wat je hier doet, ziet niemand anders en komt niet in de echte database.</span>`);
+  const her = el('button', 'linkbtn', 'Oefenomgeving opnieuw beginnen'); her.type = 'button';
+  her.onclick = ()=>{ if(!confirm('Alles wat je in de oefenomgeving deed wissen en opnieuw beginnen met de fictieve school?')) return; Z.herbegin(); wipeLocal(); location.reload(); };
+  balk.append(her); B.prepend(balk);
+  return rolVan(email);
 }
 async function groepenVan(email){
   const q = F.query(F.collection(db, 'groepen'), F.where('leerlingen', 'array-contains', email));
@@ -183,12 +198,13 @@ async function start(u){
   const email = u.email.toLowerCase();
   let rol = 'leerling', groepen = [];
   try{ rol = await rolVan(email); }catch(e){}
+  if(rol === 'toeschouwer') rol = await naarZandbak(u, email);
   userChip(u, rol);
   B.dataset.rol = rol;
   if(rol === 'leerling'){
     try{ groepen = await groepenVan(email); }catch(e){ console.warn('Groepen ophalen mislukt', e); }
   }
-  resolveKlaar({ user:u, email, rol, groepen });
+  resolveKlaar({ user:u, email, rol, groepen, toeschouwer:!!db.zandbak });
   if(rol === 'leerling') tegelsFilteren(groepen);
   if(!PREFIX || !INHOUD) return;
 
@@ -202,7 +218,9 @@ async function start(u){
   } else {
     rekentoestelKnop();
     const m = document.querySelector('.info-box');
-    if(m) m.insertAdjacentElement('afterend', el('div', 'tip lk-tip', '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.</div>'));
+    if(m) m.insertAdjacentElement('afterend', el('div', 'tip lk-tip', db.zandbak
+      ? '<div>Je bekijkt deze module als <b>toeschouwer</b>: je ziet alle onderdelen zoals een leerkracht. Je antwoorden blijven in je oefenomgeving in deze browser; niemand anders ziet ze.</div>'
+      : '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.</div>'));
   }
 
   ref = F.doc(db, 'voortgang', `${u.uid}_${site}`);
