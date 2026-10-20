@@ -2267,8 +2267,8 @@ function DXmissing2(b, s, save, key, d){
   .ph svg .acc{ fill:var(--accent-dark); font-weight:700; }
   .ph svg .orx{ fill:#b26a00; font-weight:700; }
   .ph svg .fil{ fill:var(--tq); fill-opacity:.35; }
-  .ph svg .pij{ stroke:#e08a00; stroke-width:2.2; fill:none; stroke-linecap:round; }
-  .ph svg .pijk{ fill:#e08a00; }
+  .ph svg .pij{ stroke:#e08a00; stroke-width:1.8; fill:none; stroke-linecap:round; }
+  .ph svg .pijk{ fill:none; stroke:#e08a00; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
   .ph svg{ max-width:460px; }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
@@ -2278,7 +2278,7 @@ function pctLijn(f, tot, stap){
   /* stap 0: vraagteken · stap 1: pijl van het totaal naar 100 % · stap 2: ook de pijl bij de frequentie, met het percentage */
   const W = 460, x0 = 110, x1 = W-50, X = v => x0 + (x1-x0)*v/tot, p = f/tot*100, k = 100/tot, kt = '· ' + nf(k, 2);
   const id = 'pk' + (++PCT_ID), pijl = x => `<path class="pij" d="M${x+5},36 C${x+30},40 ${x+30},60 ${x+9},64" marker-end="url(#${id})"/><text x="${x+30}" y="55" class="orx">${kt}</text>`;
-  return `<svg viewBox="0 0 ${W} 104" role="img" aria-label="dubbele getallenlijn"><defs><marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="pijk"/></marker></defs>
+  return `<svg viewBox="0 0 ${W} 104" role="img" aria-label="dubbele getallenlijn"><defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M2,1.5 L9,5 L2,8.5" class="pijk"/></marker></defs>
     <rect class="fil" x="${x0}" y="22" width="${X(f)-x0}" height="56" rx="3"/>
     <line class="lnp" x1="${x0}" y1="30" x2="${x1}" y2="30"/><line class="lnp" x1="${x0}" y1="70" x2="${x1}" y2="70"/>
     ${[0, f, tot].map(v=>`<line class="lnp" x1="${X(v)}" y1="24" x2="${X(v)}" y2="36"/><line class="lnp" x1="${X(v)}" y1="64" x2="${X(v)}" y2="76"/>`).join('')}
