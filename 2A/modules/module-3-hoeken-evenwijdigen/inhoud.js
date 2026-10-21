@@ -1062,7 +1062,8 @@ const REDENOPTS = ['os','nh','ov','vb','vu','bz','uz'].map(k=>[k, REDEN[k]]);
   @media (max-width:760px){ .hint-in{grid-template-columns:1fr} }
   .stap{display:inline-block; min-width:4.2em; font-weight:700; color:var(--accent-dark)}
 .xvgl{margin:.4rem 0 1rem; padding-bottom:.6rem; border-bottom:1px dashed var(--line,#ccc)} .xvgl .stap{min-width:7.2em} .xvgl .inp.wide{max-width:100%}
-.hint-gr{margin:.2rem 0 .4rem} .hint-stap{margin:.3rem 0 .5rem; padding:.5rem .8rem .5rem 2rem; border-radius:10px; background:var(--or-soft)} .hint-stap li{margin:.25rem 0} .hint-regel{font-weight:700; margin:.15rem 0 .2rem}
+.btn.ghost.on, .dyn.hf-dyn .dyn-ctl .btn.ghost.on, .btn.ghost.on:hover{--fill:var(--accent-dark); background:var(--accent-dark); color:#fff}
+.hint-gr{margin:.2rem 0 .4rem} .hint-stap{margin:.3rem 0 .5rem; padding:.5rem .8rem .5rem 2rem; border-radius:10px; background:var(--or-soft)} .hint-stap li{margin:.25rem 0} .hint-regel{font-weight:700; margin:.15rem 0 .2rem; display:flex; flex-wrap:wrap; align-items:center; gap:.3rem} .hint-regel .sm-btn{padding:.15rem .7rem; font-size:.85rem} .hint-stap .fb{margin:.1rem 0 .2rem; min-height:0}
   .rel-ok{color:var(--ok); font-weight:700} .rel-no{color:var(--bad); font-weight:700}
   .mini-tbl{border-collapse:collapse; margin:.4rem 0; font-size:1rem}
   .mini-tbl th, .mini-tbl td{border:1.5px solid var(--border); padding:.3rem .55rem; text-align:center}
@@ -1130,6 +1131,29 @@ function linParse(src){
 function linTxt(a, b){ const xs = a===1 ? 'x' : a+'x'; return b ? `${xs} ${b<0?'−':'+'} ${Math.abs(b)}°` : xs; }
 /* vraag: vergelijking opstellen, x berekenen en eventueel de hoek
    q = {nr, html, fig, L:[a,b], R:[c,d], x, ang:{lab, v}, help, hintEq, hintSolve, sol} */
+/* invulbare hints: elke klik toont één stap met een eigen invulvak.
+   stap = [uitleg, regel] (alleen tonen) of {u, line, ans:[getallen], tol}; in line staat [[]] voor elk vak */
+const numIn = v => { const t = String(v).trim().replace(/[−–]/g,'-').replace(/\s+/g,''); return /^-?\d+([.,]\d+)?°?$/.test(t) ? parseFloat(t.replace(',','.')) : parseDeg(v); };
+function stepHints(parent, steps, o={}){
+  const hb = el('div','hint-gr'); const ol = el('ol','hint-stap'); ol.hidden = true;
+  const nb = el('button','btn ghost', o.first || '💡 Hint: toon de eerste stap'); nb.type = 'button'; let n = 0;
+  const next = () => { nb.hidden = n >= steps.length; nb.textContent = '💡 Volgende stap'; };
+  nb.addEventListener('click', ()=>{ if(n >= steps.length) return; const stp = steps[n++]; ol.hidden = false; nb.hidden = true;
+    const li = el('li'); ol.append(li);
+    if(Array.isArray(stp)){ li.innerHTML = `${stp[0]}${stp[1]?`<div class="hint-regel">${stp[1]}</div>`:''}`; next(); return; }
+    let k = 0; const line = stp.line.replace(/\[\[\]\]/g, ()=>`<input type="text" class="inp ${o.size||'sm'}" data-k="${k++}" autocomplete="off" inputmode="decimal" aria-label="hint, vak ${k}">`);
+    li.innerHTML = `${stp.u}<div class="hint-regel">${line} <button type="button" class="btn sm-btn">OK</button> <button type="button" class="linkbtn">toon</button></div><div class="fb"></div>`;
+    const ins = [...li.querySelectorAll('input')], fb = li.querySelector('.fb'), [ok, show] = li.querySelectorAll('button');
+    const done = () => { ins.forEach(x=>{ x.readOnly = true; }); ok.hidden = show.hidden = true; next(); };
+    const chk = () => { const f = ins.map((x,i)=>{ const y = numIn(x.value); return !isNaN(y) && Math.abs(y - stp.ans[i]) < (stp.tol||0.02); });
+      ins.forEach((x,i)=>{ x.classList.remove('ok','bad'); x.classList.add(f[i]?'ok':'bad'); });
+      if(f.every(Boolean)){ fb.className = 'fb ok'; fb.textContent = '✅ Juist!'; done(); } else { fb.className = 'fb bad'; fb.textContent = stp.bad || '❌ Nog niet juist. Probeer opnieuw of klik op toon.'; } };
+    ok.addEventListener('click', chk); ins.forEach(x=>x.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); chk(); } }));
+    show.addEventListener('click', ()=>{ ins.forEach((x,i)=>{ x.value = o.fmt ? o.fmt(stp.ans[i]) : String(+(+stp.ans[i]).toFixed(4)).replace('.',','); }); fb.className = 'fb info'; fb.textContent = ''; done(); });
+    if(ins[0]) ins[0].focus();
+  });
+  hb.append(ol, nb); parent.append(hb); return hb;
+}
 function xVglQ(parent, st, save, id, q){
   const wrap = el('div','xvgl'); parent.append(wrap);
   if(q.fig) wrap.append(el('div','', q.fig));
@@ -1152,22 +1176,15 @@ function xVglQ(parent, st, save, id, q){
       else if(!fx_) msg = q.hintSolve;
       else if(!ok) msg = `Vul x = ${q.x} in de uitdrukking in om ${q.ang.lab} te berekenen.`;
       return {ok, fields, msg}; }});
-  /* hint die stap voor stap de oplossing toont */
-  const steps = [...(q.pre||[]), ...linSteps(q.L, q.R), ...(q.post||[])];
-  const hb = el('div','hint-gr'); const ol = el('ol','hint-stap'); ol.hidden = true;
-  const nb = el('button','btn ghost', '💡 Hint: toon de eerste stap'); nb.type = 'button'; let n = 0;
-  nb.addEventListener('click', ()=>{ if(n >= steps.length) return; const [u, r] = steps[n++]; ol.hidden = false; ol.append(el('li','', `${u}${r?`<div class="hint-regel">${r}</div>`:''}`));
-    nb.textContent = n < steps.length ? '💡 Volgende stap' : ''; nb.hidden = n >= steps.length; });
-  hb.append(ol, nb); wrap.append(hb);
+  stepHints(wrap, [...(q.pre||[]), ...linSteps(q.L, q.R), ...(q.post||[])]);
 }
 /* stappen om a·x + b = c·x + d op te lossen: [[uitleg, regel], ...] */
 function linSteps(L, R){ const [a, b] = L, [c, d] = R; const out = []; const k = n => n===1 ? '' : n;
-  const lt = (p, q) => `${k(p)}x${q ? ` ${q<0?'−':'+'} ${Math.abs(q)}` : ''}`;
-  if(c){ out.push([`Breng ${k(c)}x naar het linkerlid: trek ${k(c)}x af in beide leden.`, `${lt(a-c, b)} = ${d}`]); }
+  const sg = q => q ? ` ${q<0?'−':'+'} ${Math.abs(q)}` : '';
   const A = a - c;
-  if(b){ out.push([`Breng ${Math.abs(b)} naar het rechterlid: ${b>0?`trek ${b} af`:`tel ${-b} op`} in beide leden.`, `${k(A)}x = ${d} ${b>0?'−':'+'} ${Math.abs(b)}<br>${k(A)}x = ${d-b}`]); }
-  if(A!==1){ const x = (d-b)/A; out.push([`Deel beide leden door ${A}.`, `x = ${d-b} : ${A}<br>x = <b>${String(+x.toFixed(4)).replace('.',',')}</b>`]); }
-  else out.push(['Nu ken je x.', `x = <b>${d-b}</b>`]);
+  if(c) out.push({u:`Breng ${k(c)}x naar het linkerlid: trek ${k(c)}x af in beide leden. Hoeveel x blijft er over?`, line:`[[]]x${sg(b)} = ${d}`, ans:[A]});
+  if(b) out.push({u:`Breng ${Math.abs(b)} naar het rechterlid: ${b>0?`trek ${b} af`:`tel ${-b} op`} in beide leden.`, line:`${k(A)}x = ${d} ${b>0?'−':'+'} ${Math.abs(b)} = [[]]`, ans:[d-b]});
+  if(A!==1) out.push({u:`Deel beide leden door ${A}.`, line:`x = ${d-b} : ${A} = [[]]`, ans:[(d-b)/A]});
   return out; }
 /* x invullen in een uitdrukking: 2x + 5° -> 2 · 12° + 5° */
 const subX = (e, x) => e.replace(/^(\d*)x/, (m,q)=>(q?q+' · ':'')+x+'°');
@@ -1292,14 +1309,20 @@ function samenItems(R, gen){ /* gen(lo, hi) geeft een hoek */
     return {outer, inner, a, st1, st2, html:`Het <b>${name[outer]}</b> van het <b>${name[inner]}</b> van ${fmtDeg(a)}`,
       sol:`Stap 1: ${name[inner]} van ${fmtDeg(a)} = ${tot[inner]}° − ${fmtDeg(a)} = ${fmtDeg(st1)}<br>Stap 2: ${name[outer]} van ${fmtDeg(st1)} = ${tot[outer]}° − ${fmtDeg(st1)} = ${fmtDeg(st2)}`}; }); }
 function samenRows(b, st, save, items, tol){
-  items.forEach((x,i)=>{ const nm = {c:'complement', s:'supplement'};
-    qBlock(b, st, save, 'r'+i, {html:`<span class="q-num">${LET[i]})</span> ${x.html}<br><span class="stap">Stap 1:</span> het ${nm[x.inner]} van ${fmtDeg(x.a)} = [[0]]<br><span class="stap">Stap 2:</span> het ${nm[x.outer]} van je uitkomst van stap 1 = [[1]]`,
-      block:true, size:tol<0.01?'md':'sm', mode:'decimal', help:SAMEN_HELP,
-      check:v=>{ const f = [x.st1, x.st2].map((t,k)=>{ const y = parseDeg(v[k]); return !isNaN(y) && Math.abs(y-t)<tol; });
-        return {ok:f[0]&&f[1], fields:f, msg: f[0]&&f[1] ? '' : !f[0] ? `Stap 1: ${nm[x.inner]} = ${x.inner==='c'?90:180}° − de hoek.` : `Stap 2: neem het ${nm[x.outer]} van je uitkomst van stap 1.`}; },
-      sol:x.sol}); }); }
+  const nm = {c:'complement', s:'supplement'}, tt = {c:90, s:180}, dms = tol < 0.01;
+  items.forEach((x,i)=>{ const w = el('div','xvgl'); b.append(w);
+    qBlock(w, st, save, 'r'+i, {html:`<span class="q-num">${LET[i]})</span> ${x.html} = [[0]]`,
+      block:true, size:dms?'md':'sm', mode:'decimal', help:SAMEN_HELP,
+      check:v=>{ const y = parseDeg(v[0]); const ok = !isNaN(y) && Math.abs(y-x.st2)<tol;
+        return {ok, msg: ok ? '' : !isNaN(y) && Math.abs(y-x.st1)<tol ? 'Dat is pas stap 1. Neem nu nog het '+nm[x.outer]+' van die uitkomst.' : 'Begin achteraan. Gebruik de hint als je vastzit.'}; },
+      sol:x.sol});
+    stepHints(w, [
+      {u:`Begin <b>achteraan</b>: bereken eerst het ${nm[x.inner]} van ${fmtDeg(x.a)}.`, line:`${tt[x.inner]}° − ${fmtDeg(x.a)} = [[]]`, ans:[x.st1], tol},
+      {u:`Neem nu het ${nm[x.outer]} van je uitkomst ${fmtDeg(x.st1)}.`, line:`${tt[x.outer]}° − ${fmtDeg(x.st1)} = [[]]`, ans:[x.st2], tol}
+    ], {size:dms?'md':'sm', fmt:fmtDeg, first:'💡 Hint: stap 1'});
+  }); }
 CP.samen = { title:'Het complement van het supplement …', lvl:1,
-  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel.',
+  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel. Lukt het niet? Klik op de hint: je vult dan elke stap zelf in.',
   build(b, st, save){ const R = makeR(st);
     samenRows(b, st, save, samenItems(R, (lo,hi)=>R.int(lo,hi)), 0.02);
   }};
@@ -1392,10 +1415,9 @@ CP.xvgl = { title:'Complementaire en supplementaire hoeken met x', lvl:2,
       const parts = [{v:v1, lab:e1, cls:'tq'}, {v:g, lab:g+'°', cls:'or'}];
       const fig = how==='fig' ? partsSvg(tot, R.f()<.5 ? parts : parts.reverse()) : null;
       xVglQ(b, st, save, 'r'+i, {nr:LET[i]+')', html, fig, L:[a, bb+g], R:[0, tot], x, ang:{lab: how==='fig' ? 'de hoek met x' : nm[0], v:v1},
-        pre:[[`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen <b>${tot}°</b>.`, ''],
-          [`Schrijf de vergelijking: hoek met x + andere hoek = ${tot}.`, `${e1.replace(/°/g,'')} + ${g} = ${tot}`],
-          ['Tel de getallen in het linkerlid samen.', `${linTxt(a, bb+g).replace(/°/g,'')} = ${tot}`]],
-        post:[['Vul x in om de hoek te berekenen.', `${subX(e1, x)} = <b>${v1}°</b>`]],
+        pre:[{u:`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen hoeveel graden? Vul de vergelijking aan.`, line:`${e1.replace(/°/g,'')} + ${g} = [[]]`, ans:[tot]},
+          {u:'Tel de getallen in het linkerlid samen.', line:`${a===1?'':a}x + [[]] = ${tot}`, ans:[bb+g]}],
+        post:[{u:'Vul x in om de hoek te berekenen.', line:`${subX(e1, x)} = [[]]°`, ans:[v1]}],
         help:`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen ${tot}°. Schrijf: ${e1.replace(/°/g,'')} + ${g} = ${tot}.`,
         hintEq:`De som van ${woord}e hoeken is ${tot}°. Tel de uitdrukking en ${g}° op en stel dat gelijk aan ${tot}.`,
         hintSolve:`Tel eerst de getallen in het linkerlid samen: ${linTxt(a, bb+g).replace(/°/g,'')} = ${tot}. Breng dan het getal naar het rechterlid.`,
@@ -1414,10 +1436,9 @@ CP.xvgl2 = { title:'Complementaire en supplementaire hoeken: x in beide hoeken',
       const fig = how==='fig' ? partsSvg(tot, [{v:t.v1, lab:e1, cls:'tq'}, {v:t.v2, lab:e2, cls:'or'}]) : null;
       const big = Math.max(t.v1, t.v2);
       xVglQ(b, st, save, 'r'+i, {nr:LET[i]+')', html, fig, L:[t.a+t.c, t.b+t.d], R:[0, tot], x:t.x, ang:{lab:'de grootste hoek', v:big},
-        pre:[[`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen <b>${tot}°</b>.`, ''],
-          [`Schrijf de vergelijking: de ene hoek + de andere hoek = ${tot}.`, `(${e1.replace(/°/g,'')}) + (${e2.replace(/°/g,'')}) = ${tot}`],
-          ['Tel de x-termen samen en tel de getallen samen.', `${linTxt(t.a+t.c, t.b+t.d).replace(/°/g,'')} = ${tot}`]],
-        post:[['Vul x in om beide hoeken te berekenen. Kies de grootste.', `${subX(e1, t.x)} = ${t.v1}°<br>${subX(e2, t.x)} = ${t.v2}°<br>De grootste hoek is <b>${big}°</b>.`]],
+        pre:[{u:`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen hoeveel graden? Vul de vergelijking aan.`, line:`(${e1.replace(/°/g,'')}) + (${e2.replace(/°/g,'')}) = [[]]`, ans:[tot]},
+          {u:'Tel de x-termen samen en tel de getallen samen.', line:`[[]]x + [[]] = ${tot}`, ans:[t.a+t.c, t.b+t.d]}],
+        post:[{u:'Vul x in en bereken beide hoeken. Welke is de grootste?', line:`${subX(e1, t.x)} = [[]]° &nbsp;en&nbsp; ${subX(e2, t.x)} = [[]]°`, ans:[t.v1, t.v2]}],
         help:`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen ${tot}°. Schrijf: (${e1}) + (${e2}) = ${tot}°.`,
         hintEq:`De som van ${woord}e hoeken is ${tot}°. Tel de twee uitdrukkingen op en stel dat gelijk aan ${tot}.`,
         hintSolve:`Vereenvoudig eerst het linkerlid: ${t.a+t.c}x ${t.b+t.d<0?'−':'+'} ${Math.abs(t.b+t.d)} = ${tot}. Breng het getal naar het rechterlid.`,
@@ -1625,8 +1646,9 @@ function osXRows(b, st, save, R, kinds){
       xVglQ(b, st, save, 'r'+i, {nr:LET[i]+')', fig,
         html: kind==='beide' ? 'Bereken x en de grootte van de twee overstaande hoeken.' : 'Bereken x.',
         L:[a, bb], R:[cc, dd], x:x0, ang: kind==='beide' ? {lab:'elke hoek', v} : null,
-        pre:[['Overstaande hoeken zijn <b>even groot</b>.', ''], ['Schrijf de vergelijking: de ene hoek = de andere hoek.', `${e1.replace(/°/g,'')} = ${e2.replace(/°/g,'')}`]],
-        post: kind==='beide' ? [['Vul x in om de hoek te berekenen.', `${subX(e1, x0)} = <b>${v}°</b>`]] : [],
+        pre: kind==='beide' ? [['Overstaande hoeken zijn <b>even groot</b>. De vergelijking is: de ene hoek = de andere hoek.', `${e1.replace(/°/g,'')} = ${e2.replace(/°/g,'')}`]]
+          : [{u:'Overstaande hoeken zijn <b>even groot</b>. Vul de vergelijking aan.', line:`${e1.replace(/°/g,'')} = [[]]`, ans:[v]}],
+        post: kind==='beide' ? [{u:'Vul x in om de hoek te berekenen.', line:`${subX(e1, x0)} = [[]]°`, ans:[v]}] : [],
         help:`Overstaande hoeken zijn even groot. Schrijf: ${e1.replace(/°/g,'')} = ${e2.replace(/°/g,'')}.`,
         hintEq:'De twee hoeken liggen schuin tegenover elkaar: ze zijn even groot. Stel de ene uitdrukking gelijk aan de andere.',
         hintSolve: kind==='beide' ? `Breng ${cc===1?'x':cc+'x'} naar het linkerlid (− ${cc===1?'x':cc+'x'}) en ${Math.abs(bb)} naar het rechterlid (${bb<0?'+':'−'} ${Math.abs(bb)}).`
@@ -1958,7 +1980,7 @@ function psExplorer(parent, cfg={}){
   const ctl = [];
   const bVals = ctlBtn('', ()=>{ S.vals = !S.vals; D.redraw(); }); ctl.push(bVals);
   const bZone = ctlBtn('', ()=>{ S.zone = !S.zone; D.redraw(); }); ctl.push(bZone);
-  let bLock = null; if(!cfg.fixedLock){ bLock = ctlBtn('', ()=>{ S.lock = !S.lock; if(S.lock) S.db = S.da; D.redraw(); }); ctl.push(bLock); }
+  let bLock = null, bFree = null; if(!cfg.fixedLock){ bLock = ctlBtn('🔒 a // b vastzetten', ()=>{ S.lock = true; S.db = S.da; D.redraw(); }); bFree = ctlBtn('🔓 a en b apart bewegen', ()=>{ S.lock = false; D.redraw(); }); ctl.push(bLock, bFree); }
   const model = S => { const m = psMake({W, H, ds:S.ds, da:S.da, db:S.db, n:cfg.n}); return m; };
   const D = dynAng(parent, {W, H, st:S, maxw:620, alt:'twee rechten a en b en een snijlijn s', ctl,
     handles:S=>{ const m = model(S); return [{k:'a', ...polar(m.A, 110, S.da)}, {k:'b', ...polar(m.B, 110, S.db)}, {k:'s', ...polar(m.A, 52, S.ds)}]; },
@@ -1979,7 +2001,7 @@ function psExplorer(parent, cfg={}){
       return s; },
     info:S=>{ const m = model(S); const v = psAllVals(m); const par = S.da===S.db;
       bVals.textContent = S.vals ? 'Verberg de hoekgroottes' : 'Toon de hoekgroottes'; bZone.textContent = S.zone ? 'Verberg de binnenstrook' : 'Kleur de strook tussen a en b';
-      if(bLock) bLock.textContent = S.lock ? '🔒 a // b staat vast (klik om los te maken)' : '🔓 a en b draaien los (klik om a // b vast te zetten)';
+      if(bLock){ bLock.classList.toggle('on', S.lock); bFree.classList.toggle('on', !S.lock); }
       Object.entries(tbtn).forEach(([t,b])=>b.classList.toggle('on', S.type===t));
       if(!S.type) return `Kies hierboven een soort hoekenpaar. Versleep de oranje bolletjes om a, b of s te draaien.` + (par ? ' Nu is <b>a // b</b>.' : ' Nu zijn a en b <b>niet</b> evenwijdig.');
       const T = PAIRTYPE[S.type];
@@ -2202,9 +2224,9 @@ const EIGZIN = t => `<b>Als</b> twee evenwijdige rechten gesneden worden door ee
 const OMGZIN = t => `<b>Als</b> twee ${PAIRTYPE[t].naam}, bepaald door twee rechten en een snijlijn, ${PAIRTYPE[t].rel==='gelijk'?'even groot':'supplementair'} zijn, <b>dan</b> zijn de twee rechten evenwijdig.`;
 const EG = {};
 EG.verk = { title:'Als a // b, dan …', lvl:1, noReset:true,
-  instr:'Hier zijn a en b altijd evenwijdig. Kies een soort hoekenpaar en kantel de figuur: wat blijft altijd waar?',
+  instr:'Zet a // b vast, kies een soort hoekenpaar en kantel de figuur: wat blijft altijd waar? Klik daarna op <b>a en b apart bewegen</b>: geldt het dan nog?',
   build(b){
-    psExplorer(b, {type:'vb', lock:true, fixedLock:true});
+    psExplorer(b, {type:'vb', lock:true});
     const box = el('div','eig'); box.innerHTML = `<span class="lbl-def">eigenschappen</span>` + TYPES5.map(t=>`<p style="margin:.3rem 0">${EIGZIN(t)}</p>`).join('');
     b.append(box);
     b.append(el('div','tip', icon('bulb') + '<div>Supplementair zijn betekent: samen 180°. Onthoud: bij evenwijdige rechten zijn er maar <b>twee</b> hoekgroottes. Twee hoeken zijn even groot of samen 180°.</div>'));
