@@ -693,13 +693,13 @@ export const SITES = [
     "id": "compl",
     "naam": "Complementair en supplementair",
     "toets": false,
-    "vragen": 45
+    "vragen": 49
    },
    {
     "id": "overst",
     "naam": "Overstaande hoeken",
     "toets": false,
-    "vragen": 11
+    "vragen": 14
    },
    {
     "id": "aanl",
