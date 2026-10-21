@@ -1112,7 +1112,7 @@ function degQ(parent, st, save, id, html, ans, o={}){
 }
 /* een rij hoekvragen met letters a), b), ... */
 function degRows(parent, st, save, items){
-  items.forEach((it,i)=> degQ(parent, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${it.html}`, it.ans, it));
+  items.forEach((it,i)=>{ degQ(parent, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${it.html}`, it.ans, it); if(it.steps) stepHints(parent, it.steps, {first:'💡 Hint: stap voor stap'}); });
 }
 /* ---------- vergelijkingen met x ---------- */
 /* lineaire uitdrukking in x lezen: geeft {a, b} voor a·x + b, of null */
@@ -1141,7 +1141,7 @@ function linTxt(a, b){ const xs = a===1 ? 'x' : a+'x'; return b ? `${xs} ${b<0?'
    q = {nr, html, fig, L:[a,b], R:[c,d], x, ang:{lab, v}, help, hintEq, hintSolve, sol} */
 /* invulbare hints: elke klik toont één stap met een eigen invulvak.
    stap = [uitleg, regel] (alleen tonen) of {u, line, ans:[getallen], tol}; in line staat [[]] voor elk vak */
-const numIn = v => { const t = String(v).trim().replace(/[−–]/g,'-').replace(/\s+/g,''); return /^-?\d+([.,]\d+)?°?$/.test(t) ? parseFloat(t.replace(',','.')) : parseDeg(v); };
+const numIn = v => { const t = String(v).trim().replace(/[−–]/g,'-'); return /^-?\d+([.,]\d+)?\s*[°′']?$/.test(t) ? parseFloat(t.replace(',','.')) : parseDeg(v); };
 function stepHints(parent, steps, o={}){
   const hb = el('div','hint-gr'); const ol = el('ol','hint-stap'); ol.hidden = true;
   const nb = el('button','btn ghost', o.first || '💡 Hint: toon de eerste stap'); nb.type = 'button'; let n = 0;
@@ -1149,7 +1149,7 @@ function stepHints(parent, steps, o={}){
   nb.addEventListener('click', ()=>{ if(n >= steps.length) return; const stp = steps[n++]; ol.hidden = false; nb.hidden = true;
     const li = el('li'); ol.append(li);
     if(Array.isArray(stp)){ li.innerHTML = `${stp[0]}${stp[1]?`<div class="hint-regel">${stp[1]}</div>`:''}`; next(); return; }
-    let k = 0; const line = stp.line.replace(/\[\[\]\]/g, ()=>`<input type="text" class="inp ${o.size||'sm'}" data-k="${k++}" autocomplete="off" inputmode="decimal" aria-label="hint, vak ${k}">`);
+    let k = 0; const line = stp.line.replace(/\[\[\]\]/g, ()=>`<input type="text" class="inp ${stp.size||o.size||'sm'}" data-k="${k++}" autocomplete="off" inputmode="decimal" aria-label="hint, vak ${k}">`);
     li.innerHTML = `${stp.u}<div class="hint-regel">${line} <button type="button" class="btn sm-btn">OK</button> <button type="button" class="linkbtn">toon</button></div><div class="fb"></div>`;
     const ins = [...li.querySelectorAll('input')], fb = li.querySelector('.fb'), [ok, show] = li.querySelectorAll('button');
     const done = () => { ins.forEach(x=>{ x.readOnly = true; }); ok.hidden = show.hidden = true; next(); };
@@ -1157,11 +1157,18 @@ function stepHints(parent, steps, o={}){
       ins.forEach((x,i)=>{ x.classList.remove('ok','bad'); x.classList.add(f[i]?'ok':'bad'); });
       if(f.every(Boolean)){ fb.className = 'fb ok'; fb.textContent = '✅ Juist!'; done(); } else { fb.className = 'fb bad'; fb.textContent = stp.bad || '❌ Nog niet juist. Probeer opnieuw of klik op toon.'; } };
     ok.addEventListener('click', chk); ins.forEach(x=>x.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); chk(); } }));
-    show.addEventListener('click', ()=>{ ins.forEach((x,i)=>{ x.value = o.fmt ? o.fmt(stp.ans[i]) : String(+(+stp.ans[i]).toFixed(4)).replace('.',','); }); fb.className = 'fb info'; fb.textContent = ''; done(); });
+    show.addEventListener('click', ()=>{ ins.forEach((x,i)=>{ x.value = stp.fmt ? stp.fmt(stp.ans[i]) : o.fmt ? o.fmt(stp.ans[i]) : String(+(+stp.ans[i]).toFixed(4)).replace('.',','); }); fb.className = 'fb info'; fb.textContent = ''; done(); });
     if(ins[0]) ins[0].focus();
   });
   hb.append(ol, nb); parent.append(hb); return hb;
 }
+/* aanvullen tot 90° of 180° bij een hoek met 30′: eerst tot de volgende graad, dan tot het totaal */
+function aanvulSteps(a, tot, naam, kop=''){ const g = Math.ceil(a), m = Math.round((g - a)*60);
+  return [
+    {u:`${kop}Hoeveel minuten moeten erbij tot de volgende graad?`, line:`${fmtDeg(a)} + [[]]′ = ${g}°`, ans:[m], fmt:String},
+    {u:`Hoeveel graden moeten er nog bij tot ${tot}°?`, line:`${g}° + [[]]° = ${tot}°`, ans:[tot - g], fmt:String},
+    {u:`Tel samen wat je erbij deed: ${tot - g}° en ${m}′. Het ${naam} van ${fmtDeg(a)} is dus`, line:`[[]]`, ans:[tot - a], fmt:fmtDeg, size:'md'}]; }
+const aanvulSol = (a, tot, naam) => { const g = Math.ceil(a); return `${fmtDeg(a)} + ${Math.round((g-a)*60)}′ = ${g}° en ${g}° + ${tot-g}° = ${tot}°, dus het ${naam} is ${fmtDeg(tot-a)}.`; };
 function xVglQ(parent, st, save, id, q){
   const wrap = el('div','xvgl'); parent.append(wrap);
   if(q.fig) wrap.append(el('div','', q.fig));
@@ -1267,6 +1274,7 @@ CP.uitleg = { title:'Complementaire en supplementaire hoeken', lvl:1, noReset:tr
     b.append(el('div','tip', icon('bulb') + '<div>Het <b>complement</b> van α is 90° − α. Het <b>supplement</b> van α is 180° − α.<br>Een hoek wordt vaak aangeduid met een Griekse letter: α (alfa), β (bèta), γ (gamma), δ (delta).</div>'));
   }};
 CP.hoeveel = { title:'Hoeveel graden meet de hoek?', lvl:1,
+  instr:'Typ 46°30′ als <b>46 30</b>.',
   build(b, st, save){ const R = makeR(st);
     const items = [];
     const c1 = R.int(12, 78), c2 = R.int(12, 78); const cm = rDegMin(R, 21, 68);
@@ -1275,9 +1283,9 @@ CP.hoeveel = { title:'Hoeveel graden meet de hoek?', lvl:1,
     items.push({html:`De hoek die supplementair is met een hoek van ${s1}°: [[0]]`, ans:180-s1, hint:SUPPL_HINT, sol:`180° − ${s1}° = ${180-s1}°`});
     items.push({html:`De hoek die complementair is met een hoek van ${c2}°: [[0]]`, ans:90-c2, hint:COMPL_HINT, sol:`90° − ${c2}° = ${90-c2}°`});
     items.push({html:`De hoek die supplementair is met een hoek van ${s2}°: [[0]]`, ans:180-s2, hint:SUPPL_HINT, sol:`180° − ${s2}° = ${180-s2}°`});
-    const c3 = R.int(3, 87), s3 = R.int(91, 177);
-    items.push({html:`Het complement van ${c3}° is [[0]]`, ans:90-c3, hint:COMPL_HINT, sol:`90° − ${c3}° = ${90-c3}°`});
-    items.push({html:`Het supplement van ${s3}° is [[0]]`, ans:180-s3, hint:SUPPL_HINT, sol:`180° − ${s3}° = ${180-s3}°`});
+    const c3 = R.int(3, 86) + 0.5, s3 = R.int(21, 160) + 0.5;
+    items.push({html:`Het complement van ${fmtDeg(c3)} is [[0]]`, ans:90-c3, size:'md', hint:'Vul eerst aan tot de volgende graad, dan tot 90°. Of open de hint.', sol:aanvulSol(c3, 90, 'complement'), steps:aanvulSteps(c3, 90, 'complement')});
+    items.push({html:`Het supplement van ${fmtDeg(s3)} is [[0]]`, ans:180-s3, size:'md', hint:'Vul eerst aan tot de volgende graad, dan tot 180°. Of open de hint.', sol:aanvulSol(s3, 180, 'supplement'), steps:aanvulSteps(s3, 180, 'supplement')});
     degRows(b, st, save, R.shuffle(items));
   }};
 CP.keuze = { title:'Complementair of supplementair?', lvl:1,
@@ -1320,19 +1328,24 @@ function samenRows(b, st, save, items, tol){
   const nm = {c:'complement', s:'supplement'}, tt = {c:90, s:180}, dms = tol < 0.01;
   items.forEach((x,i)=>{ const w = el('div','xvgl'); b.append(w);
     qBlock(w, st, save, 'r'+i, {html:`<span class="q-num">${LET[i]})</span> ${x.html} = [[0]]`,
-      block:true, size:dms?'md':'sm', mode:'decimal', help:SAMEN_HELP,
+      block:true, size:dms || x.a % 1 ? 'md':'sm', mode:'decimal', help:SAMEN_HELP,
       check:v=>{ const y = parseDeg(v[0]); const ok = !isNaN(y) && Math.abs(y-x.st2)<tol;
         return {ok, msg: ok ? '' : !isNaN(y) && Math.abs(y-x.st1)<tol ? 'Dat is pas stap 1. Neem nu nog het '+nm[x.outer]+' van die uitkomst.' : 'Begin achteraan. Gebruik de hint als je vastzit.'}; },
       sol:x.sol});
-    stepHints(w, [
+    const half = !dms && x.a % 1 !== 0;
+    stepHints(w, half ? [
+      ...aanvulSteps(x.a, tt[x.inner], nm[x.inner], `<b>Stap 1</b>: begin <b>achteraan</b> met het ${nm[x.inner]} van ${fmtDeg(x.a)}. `),
+      ...aanvulSteps(x.st1, tt[x.outer], nm[x.outer], `<b>Stap 2</b>: neem nu het ${nm[x.outer]} van ${fmtDeg(x.st1)}. `)
+    ] : [
       {u:`Begin <b>achteraan</b>: bereken eerst het ${nm[x.inner]} van ${fmtDeg(x.a)}.`, line:`${tt[x.inner]}° − ${fmtDeg(x.a)} = [[]]`, ans:[x.st1], tol},
       {u:`Neem nu het ${nm[x.outer]} van je uitkomst ${fmtDeg(x.st1)}.`, line:`${tt[x.outer]}° − ${fmtDeg(x.st1)} = [[]]`, ans:[x.st2], tol}
     ], {size:dms?'md':'sm', fmt:fmtDeg, first:'💡 Hint: stap 1'});
   }); }
 CP.samen = { title:'Het complement van het supplement …', lvl:1,
-  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel. Lukt het niet? Klik op de hint: je vult dan elke stap zelf in.',
+  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel. Lukt het niet? Klik op de hint: je vult dan elke stap zelf in. Typ 46°30′ als <b>46 30</b>.',
   build(b, st, save){ const R = makeR(st);
-    samenRows(b, st, save, samenItems(R, (lo,hi)=>R.int(lo,hi)), 0.02);
+    const half = R.int(0, 3); let n = 0;
+    samenRows(b, st, save, samenItems(R, (lo,hi)=> n++===half ? R.int(lo, hi-1) + 0.5 : R.int(lo,hi)), 0.02);
   }};
 CP.samenMin = { title:'Complement en supplement met minuten en seconden', lvl:3,
   instr:'Nu tot op de minuut en de seconde. Typ 46°30′ als <b>46 30</b> en 46°30′15″ als <b>46 30 15</b>. Tip: 90° = 89°59′60″ en 180° = 179°59′60″.',
