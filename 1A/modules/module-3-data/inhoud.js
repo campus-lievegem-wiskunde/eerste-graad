@@ -1591,7 +1591,7 @@ function zeeslagOnline(b, st, save, key){
   async function volg(c, rl){
     code = c; rol = rl; st.code = c; save();
     const { F, db } = FB; ref = F.doc(db, 'zeeslag', c);
-    try{ const g = await F.getDoc(F.doc(db, 'zeeslag', c, 'geheim', FB.me)); if(g.exists()) mijnSchepen = g.data().schepen.map(s=>s.map(p=>[p.x, p.y])); }catch(e){}
+    try{ const g = await F.getDoc(F.doc(db, 'zeeslag', c, 'geheim', FB.me)); if(g.exists()) mijnSchepen = g.data().schepen.map(s=>(s.c || s).map(p=>[p.x, p.y])); }catch(e){}
     stop(); unsub = F.onSnapshot(ref, snap=>{ if(!snap.exists()){ lobby('Het spel bestaat niet meer.'); return; } toon(snap.data()); }, e=>{ const f = box.querySelector('.fb'); if(f){ f.className = 'fb bad'; f.textContent = fout(e); } });
   }
   /* de verdediger heeft het binnenkomende schot juist aangeklikt: beoordelen en doorgeven */
@@ -1612,6 +1612,8 @@ function zeeslagOnline(b, st, save, key){
     } finally { bezig = false; }
   }
   function toon(d){
+    /* zodra beide spelers klaar zijn, begint het spel; ook als het doorgeven van stap 'spel' nog niet aangekomen is */
+    if(d.stap === 'plaatsen' && d.klaarA && d.klaarB){ FB.F.updateDoc(ref, { stap:'spel' }).catch(()=>{}); d = Object.assign({}, d, { stap:'spel' }); }
     const ik = rol, ander = zelf(), naamAnder = zsEsc((ander === 'a' ? d.an : d.bn) || 'je tegenspeler');
     box.innerHTML = '';
     const kop = el('div','zs-lobby'); kop.append(el('div','', `<span class="mini">Code van dit spel</span><span class="zs-code">${code}</span>`));
@@ -1626,12 +1628,14 @@ function zeeslagOnline(b, st, save, key){
         const bar = el('div','zs-knoppen');
         const ander_ = el('button','btn ghost','↻ Andere ligging'); ander_.type = 'button'; const ok = el('button','btn','⚓ Mijn schepen liggen klaar'); ok.type = 'button'; bar.append(ander_, ok); box.append(bar);
         ander_.onclick = ()=>{ mijnSchepen = zsSchepen(); toon(d); };
-        ok.onclick = async ()=>{ ok.disabled = true; const { F, db } = FB;
-          await F.setDoc(F.doc(db, 'zeeslag', code, 'geheim', FB.me), { schepen:mijnSchepen.map(s=>s.map(([x,y])=>({x,y}))) });
-          await F.updateDoc(ref, ik === 'a' ? { klaarA:true } : { klaarB:true }); };
+        const okFb = el('div','fb'); box.append(okFb);
+        ok.onclick = async ()=>{ ok.disabled = true; okFb.className = 'fb info'; okFb.textContent = 'Je schepen worden doorgegeven …'; const { F, db } = FB;
+          try{
+            await F.setDoc(F.doc(db, 'zeeslag', code, 'geheim', FB.me), { schepen:mijnSchepen.map(s=>({ c:s.map(([x,y])=>({x,y})) })) }  /* Firestore kent geen lijst in een lijst: elk schip is een object met zijn cellen */);
+            await F.updateDoc(ref, ik === 'a' ? { klaarA:true } : { klaarB:true });
+          }catch(e){ ok.disabled = false; okFb.className = 'fb bad'; okFb.textContent = 'Je schepen konden niet doorgegeven worden. ' + fout(e); } };
         return;
       }
-      if(klaarAnder){ FB.F.updateDoc(ref, { stap:'spel' }).catch(()=>{}); }
       box.append(el('p','zs-stat', `Wachten tot ${naamAnder} de schepen klaar heeft…`)); return;
     }
     /* spel of klaar */
