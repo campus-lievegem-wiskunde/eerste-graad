@@ -2027,7 +2027,7 @@ function psExplorer(parent, cfg={}){
       if(!par){ const X = lineInter(m.A, polar(m.A, 10, S.da), m.B, polar(m.B, 10, S.db));
         if(X){ const inside = X.x>8 && X.x<W-8 && X.y>8 && X.y<H-8;
           if(inside){ s += `<circle class="snij" cx="${fx(X.x)}" cy="${fx(X.y)}" r="4"/>` + tx(X.x, X.y-12, 'snijpunt', 'snijt'); }
-          else { const dir = X.x > W/2 ? 1 : -1; const ex = dir>0 ? W-58 : 58; s += tx(ex, 18, (dir>0?'':'← ') + 'a en b snijden elkaar' + (dir>0?' →':''), 'snijt'); } } }
+          else { const dir = X.x > W/2 ? 1 : -1; const ex = dir>0 ? W-58 : 58; s += tx(ex, 18, (dir>0?'':'← ') + 'a ∦ b' + (dir>0?' →':''), 'snijt'); } } }
       else s += tx(W-46, 18, 'a // b', 'okt');
       return s; },
     info:S=>{ const m = model(S); const v = psAllVals(m); const par = S.da===S.db;
@@ -2404,7 +2404,7 @@ OM.verk = { title:'Draai b tot a // b', lvl:1, noReset:true,
     psExplorer(b, {type:'ov', lock:false, da:4, db:-14, omgek:true});
     const box = el('div','eig'); box.innerHTML = `<span class="lbl-def">omgekeerde eigenschappen</span>` + TYPES5.map(t=>`<p style="margin:.3rem 0">${OMGZIN(t)}</p>`).join('');
     b.append(box);
-    b.append(el('div','tip', icon('bulb') + '<div>Zijn de hoeken <b>niet</b> even groot (of niet samen 180°), dan snijden a en b elkaar ergens: ze zijn niet evenwijdig.</div>'));
+    b.append(el('div','tip', icon('bulb') + '<div>Zijn de hoeken <b>niet</b> even groot (of niet samen 180°), dan is <b>a ∦ b</b> (a is niet evenwijdig met b).</div>'));
   }};
 OM.wissel = { title:'Eigenschap of omgekeerde eigenschap?', lvl:1,
   build(b, st, save){ const R = makeR(st);
@@ -2434,7 +2434,7 @@ OM.ja = { title:'Zijn a en b evenwijdig?', lvl:1,
       const sum = vA + vB;
       selQ(cell, st, save, 'j'+i, {html:`${psFig(m, {vals:{[p[0]]:vA+'°', [p[1]]:vB+'°'}, arcs:[p[0],p[1]], nums:false, maxw:380})}<span class="q-num">${LET[i]})</span> Deze hoeken zijn {0}. Is a // b? {1}`,
         opts:[TYPEOPTS, [['j','ja'],['n','neen']]], ans:[t, par?'j':'n'],
-        sol: PAIRTYPE[t].rel==='gelijk' ? `${PAIRTYPE[t].naam}: ${vA}° ${vA===vB?'=':'≠'} ${vB}°, dus ${par?'a // b (omgekeerde eigenschap)':'a en b zijn niet evenwijdig'}.` : `${PAIRTYPE[t].naam}: ${vA}° + ${vB}° = ${sum}° ${sum===180?'':'≠ 180°'}, dus ${par?'a // b (omgekeerde eigenschap)':'a en b zijn niet evenwijdig'}.`}); }
+        sol: PAIRTYPE[t].rel==='gelijk' ? `${PAIRTYPE[t].naam}: ${vA}° ${vA===vB?'=':'≠'} ${vB}°, dus ${par?'a // b (omgekeerde eigenschap)':'a ∦ b'}.` : `${PAIRTYPE[t].naam}: ${vA}° + ${vB}° = ${sum}° ${sum===180?'':'≠ 180°'}, dus ${par?'a // b (omgekeerde eigenschap)':'a ∦ b'}.`}); }
   }};
 OM.waarom = { title:'Verklaar waarom a // b', lvl:2,
   instr:'Soms moet je eerst een andere hoek berekenen met nevenhoeken of overstaande hoeken.',
@@ -2450,8 +2450,8 @@ OM.waarom = { title:'Verklaar waarom a // b', lvl:2,
     const m2 = psWithVals(R, 'A2', y, 'B1', z);
     b.append(el('div','', psFig(m2, {vals:{A2:y+'°', B1:z+'°'}, maxw:420})));
     selQ(b, st, save, 'n', {html:`${hA('A',4)} = ${y}° {0}. ${hA('A',4)} + ${hA('B',1)} = ${y+z}° {1} 180°. Dus is a {2} b.`,
-      opts:[[['os','(overstaande hoeken)'],['nh','(nevenhoeken)'],['ov','(overeenkomstige hoeken)']], [['=','='],['≠','≠']], [['//','//'],['niet //','niet //']]], ans:['os','≠','niet //'],
-      sol:`${hA('A',4)} = ${hA('A',2)} = ${y}° (overstaande hoeken). ${hA('A',4)} en ${hA('B',1)} zijn binnenhoeken aan dezelfde kant: ${y}° + ${z}° = ${y+z}° ≠ 180°. Dus a en b zijn niet evenwijdig.`});
+      opts:[[['os','(overstaande hoeken)'],['nh','(nevenhoeken)'],['ov','(overeenkomstige hoeken)']], [['=','='],['≠','≠']], [['//','//'],['niet //','∦']]], ans:['os','≠','niet //'],
+      sol:`${hA('A',4)} = ${hA('A',2)} = ${y}° (overstaande hoeken). ${hA('A',4)} en ${hA('B',1)} zijn binnenhoeken aan dezelfde kant: ${y}° + ${z}° = ${y+z}° ≠ 180°. Dus a ∦ b.`});
   }};
 OM.hoeveel = { title:'Hoe groot moet α zijn opdat a // b?', lvl:2,
   build(b, st, save){ const R = makeR(st);
