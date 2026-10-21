@@ -705,7 +705,7 @@ export const SITES = [
     "id": "aanl",
     "naam": "Aanliggende hoeken en nevenhoeken",
     "toets": false,
-    "vragen": 31
+    "vragen": 25
    },
    {
     "id": "def5",

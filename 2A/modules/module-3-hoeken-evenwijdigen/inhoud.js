@@ -1728,32 +1728,6 @@ AN.cs = { title:'Complementair, supplementair of geen van beide?', lvl:1,
         why: ans==='c' ? 'Samen vormen ze een rechte hoek: 90°.' : ans==='s' ? 'Samen vormen ze een gestrekte hoek: 180°.' : 'Je weet niet dat hun som 90° of 180° is.',
         whyBad: ans==='c' ? 'Zie je het teken voor de rechte hoek? Dan is de som 90°.' : ans==='s' ? 'De buitenste benen vormen een rechte: de som is 180°.' : (k==='os' ? 'Overstaande hoeken zijn even groot, maar hun som is niet altijd 90° of 180°.' : 'Er is geen rechte hoek en geen gestrekte hoek te zien.')}); });
   }};
-/* signaaloefening: zeshoek met ster */
-function starNet(){
-  const W = 300, H = 280, C = P(150, 140), r = 115;
-  const out = {}; ['A','B','C','D','E','F'].forEach((k,i)=>out[k] = polar(C, r, 90 - i*60));
-  const I = (p,q,u,v) => { const x = lineInter(out[p], out[q], out[u], out[v]); return P(x.x, x.y); };
-  /* binnenpunten: snijpunten van de driehoeken ACE en BDF */
-  const pts = {...out, G:I('A','C','F','B'), H:I('A','C','B','D'), Ip:I('C','E','B','D'), J:I('C','E','D','F'), K:I('E','A','D','F'), L:I('E','A','F','B')};
-  pts.I = pts.Ip; delete pts.Ip;
-  const lines = [['A','B'],['B','C'],['C','D'],['D','E'],['E','F'],['F','A'],
-    ['A','G','H','C'], ['C','I','J','E'], ['E','K','L','A'], ['B','H','I','D'], ['D','J','K','F'], ['F','L','G','B']];
-  return {W, H, pts, lines, c:C};
-}
-AN.ster = { title:'Hoeken in een ster', lvl:2,
-  build(b, st, save){ const R = makeR(st);
-    let net = starNet(); net = netRename(net, R, 'ABCDEFGHIJKLMNOPRST'.replace(/[OQ]/g,''));
-    /* kandidaat-paren per soort */
-    const cand = {os:[], aan:[], nh:[]};
-    Object.keys(net.pts).forEach(Y=>{ const g = netAngles(net, Y); for(let i=0;i<g.length;i++) for(let j=i+1;j<g.length;j++){ const r = angRelation(g[i], g[j]); if(cand[r]) cand[r].push([g[i], g[j]]); } });
-    const pick = R.shuffle(['os','os','aan','aan','nh','nh']).map(k=>[k, R.pick(cand[k])]);
-    const marks = []; const box = el('div'); b.append(box);
-    box.innerHTML = netSvg(net, {maxw:340, alt:'regelmatige zeshoek met een zespuntige ster'});
-    pick.forEach(([k,[g,h]],i)=>{
-      qChoice(b, st, save, 's'+i, {html:`<span class="q-num">${LET[i]})</span> ${angName(g)} en ${angName(h)} zijn …`, opts:NAAM3, ans:k,
-        why: k==='os'?'De benen liggen in elkaars verlengde.':k==='nh'?'Gemeenschappelijk been, en de andere benen vormen een rechte.':'Gemeenschappelijk been, de andere benen liggen aan weerszijden maar vormen geen rechte.',
-        whyBad:`Zoek het hoekpunt ${g.Y} en volg de benen van beide hoeken.`}); });
-  }};
 /* één taak: een halfrechte slepen tot een voorwaarde klopt */
 function dragTask(parent, st, save, id, cfg){
   const qid = QID(id); const quiz = QZ; if(!quiz) CLvraag(qid);
@@ -1962,7 +1936,7 @@ SEC.overst = { id:'overst', ic:'h_overst', nav:'Overstaande hoeken', title:'Over
   cheat:CHEAT5, cards:[OS.uitleg, OS.welke, OS.vier, OS.alpha, OS.bewijs, OS.alpha2] };
 SEC.aanl = { id:'aanl', ic:'h_aanl', nav:'Aanliggende hoeken en nevenhoeken', title:'Aanliggende hoeken en nevenhoeken',
   tip:'<b>Aanliggend</b>: één been gemeenschappelijk, de andere benen aan weerszijden. <b>Nevenhoeken</b>: aanliggend én samen 180°.',
-  cheat:CHEAT5, cards:[AN.uitleg, AN.naam, AN.cs, AN.ster, AN.teken, AN.ctx, AN.alpha, AN.zwaartelijn, AN.vgl] };
+  cheat:CHEAT5, cards:[AN.uitleg, AN.naam, AN.cs, AN.teken, AN.ctx, AN.alpha, AN.zwaartelijn, AN.vgl] };
 SEC.def5 = { id:'def5', ic:'h_def', nav:'De vijf hoeken', title:'De vijf hoeken: definities',
   tip:'Deze vijf definities moet je <b>woord voor woord</b> kennen. Oefen tot je ze zonder kijken kan opschrijven.',
   cheat:CHEAT5, cards:[DF.leer, DF.sleep, DF.aanvul, DF.zin, DF.schrijf, DF.herken, DF.trans] };
