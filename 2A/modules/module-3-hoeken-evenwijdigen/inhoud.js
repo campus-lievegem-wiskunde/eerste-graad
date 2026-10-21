@@ -876,6 +876,7 @@ function proofWriter(parent, st, save, id, cfg){
    De uitleg blijft staan; knoppen vorige/volgende stap en afspelen.
    ============================================================ */
 function stepAnim(parent, cfg){
+  const manual = cfg.manual !== false; /* standaard: stappen aanklikken, niet vanzelf afspelen */
   const box = el('div','sa'); parent.append(box);
   const fig = el('div','sa-fig'); const cap = el('div','sa-cap'); const ctl = el('div','sa-ctl');
   box.append(fig, cap, ctl);
@@ -884,16 +885,16 @@ function stepAnim(parent, cfg){
   const cnt = el('span','sa-cnt'); ctl.append(cnt);
   /* manual: geen automatisch afspelen, wel een knop per stap */
   let nums = [];
-  if(cfg.manual){ bPlay.hidden = true; const row = el('div','sa-nums'); row.append(el('span','sa-lab','Ga naar stap:'));
+  if(manual){ bPlay.hidden = true; const row = el('div','sa-nums'); row.append(el('span','sa-lab','Ga naar stap:'));
     nums = cfg.steps.map((_,k)=>{ const b = el('button','btn ghost sa-num', String(k+1)); b.type='button'; b.addEventListener('click', ()=>{ playing=false; go(k, true); }); row.append(b); return b; });
     box.insertBefore(row, ctl); bNext.classList.remove('ghost'); }
   let i = -1, run = 0, playing = false;
   const W = cfg.W, H = cfg.H;
   const draw = (k, t)=>{ const stp = cfg.steps[k]; fig.innerHTML = hfWrap(W, H, (cfg.base?cfg.base(k):'') + stp.draw(t), {maxw:cfg.maxw, alt:cfg.alt}); };
-  const capHtml = k => (cfg.keepCaps ? cfg.steps.slice(0,k+1).map((s,j)=>`<div class="${j===k?'now':'old'}"${cfg.manual?` data-k="${j}" title="Klik om deze stap opnieuw te bekijken" style="cursor:pointer"`:''}>${cfg.manual?`<b>${j+1}.</b> `:''}${s.cap}</div>`).join('') : cfg.steps[k].cap);
+  const capHtml = k => (cfg.keepCaps ? cfg.steps.slice(0,k+1).map((s,j)=>`<div class="${j===k?'now':'old'}"${manual?` data-k="${j}" title="Klik om deze stap opnieuw te bekijken" style="cursor:pointer"`:''}>${manual?`<b>${j+1}.</b> `:''}${s.cap}</div>`).join('') : cfg.steps[k].cap);
   function go(k, anim){ run++; const my = run; i = k; cap.innerHTML = capHtml(k); cnt.textContent = `stap ${k+1} van ${cfg.steps.length}`;
     bPrev.disabled = k<=0; bNext.disabled = k>=cfg.steps.length-1; nums.forEach((b,j)=>{ b.classList.toggle('on', j===k); b.classList.toggle('seen', j<k); });
-    if(cfg.manual) cap.querySelectorAll('[data-k]').forEach(d=>d.addEventListener('click', ()=>go(+d.dataset.k, false)));
+    if(manual) cap.querySelectorAll('[data-k]').forEach(d=>d.addEventListener('click', ()=>go(+d.dataset.k, false)));
     if(anim && !REDUCED_M){ const ms = cfg.steps[k].ms || 1400; tween(ms, t=>{ if(my===run) draw(k, t); }, ()=>{ if(my===run && playing){ if(k<cfg.steps.length-1) setTimeout(()=>{ if(my===run && playing) go(k+1, true); }, cfg.pause||900); else { playing=false; bPlay.textContent = '⟲ Opnieuw'; } } }); }
     else { draw(k, 1); if(playing){ if(k<cfg.steps.length-1) setTimeout(()=>{ if(my===run && playing) go(k+1, false); }, (cfg.pause||900)+600); else { playing=false; bPlay.textContent='⟲ Opnieuw'; } } }
   }
