@@ -679,5 +679,106 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "2a-m3",
+  "titel": "Module 3 · Hoeken, evenwijdigen en een snijlijn",
+  "kort": "Module 3",
+  "jaar": "2A",
+  "rubriek": "modules",
+  "pad": "2A/modules/module-3-hoeken-evenwijdigen/",
+  "prefix": "2a_m3_hoeken_v1_",
+  "onderdelen": [
+   {
+    "id": "compl",
+    "naam": "Complementair en supplementair",
+    "toets": false,
+    "vragen": 49
+   },
+   {
+    "id": "overst",
+    "naam": "Overstaande hoeken",
+    "toets": false,
+    "vragen": 14
+   },
+   {
+    "id": "aanl",
+    "naam": "Aanliggende hoeken en nevenhoeken",
+    "toets": false,
+    "vragen": 25
+   },
+   {
+    "id": "def5",
+    "naam": "De vijf hoeken",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "namen",
+    "naam": "Namen bij evenwijdigen en een snijlijn",
+    "toets": false,
+    "vragen": 24
+   },
+   {
+    "id": "eig",
+    "naam": "Eigenschappen",
+    "toets": false,
+    "vragen": 15
+   },
+   {
+    "id": "omgek",
+    "naam": "Omgekeerde eigenschappen",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "ctx",
+    "naam": "Hoeken in contexten",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "drie",
+    "naam": "Som van de hoeken van een driehoek",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "vier",
+    "naam": "Hoeken in driehoeken en vierhoeken",
+    "toets": false,
+    "vragen": 23
+   },
+   {
+    "id": "fout",
+    "naam": "Foutenjager",
+    "toets": false,
+    "vragen": 6
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
  }
 ];
