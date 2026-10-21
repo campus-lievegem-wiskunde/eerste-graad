@@ -939,7 +939,7 @@ function dynAng(parent, cfg){
 /* ---------- invoer en controle van hoeken ---------- */
 const degChk = (t, tol=0.02) => v => { const x = parseDeg(v); if(isNaN(x)) return null; return Math.abs(x - t) <= tol; };
 /* meerdere hoekvakken tegelijk: targets = [62, 118, ...] */
-function chkDegs(targets, extra){ return vals => { const f = targets.map((t,i)=>{ const x = parseDeg(vals[i]); return !isNaN(x) && Math.abs(x-t)<0.02; });
+function chkDegs(targets, extra){ return vals => { const f = targets.map((t,i)=>{ const x = parseDeg(vals[i]); return !isNaN(x) && Math.abs(x-t)<0.005; });
   const any = vals.some(v=>isNaN(parseDeg(v)));
   const ok = f.every(Boolean); return {ok, fields:f, msg: ok ? (extra||'') : any ? 'Noteer telkens een hoekgrootte, bijvoorbeeld 62 of 62°.' : 'Kijk naar de rode vakjes.'}; }; }
 /* keuzelijst als invulvak (select) in een qBlock: [[sel:key]] wordt niet door fillInputs gemaakt, dus eigen veld */
@@ -1165,9 +1165,9 @@ function stepHints(parent, steps, o={}){
 /* aanvullen tot 90° of 180° bij een hoek met 30′: eerst tot de volgende graad, dan tot het totaal */
 function aanvulSteps(a, tot, naam, kop=''){ const g = Math.ceil(a), m = Math.round((g - a)*60);
   return [
-    {u:`${kop}Hoeveel minuten moeten erbij tot de volgende graad?`, line:`${fmtDeg(a)} + [[]]′ = ${g}°`, ans:[m], fmt:String},
+    {u:`${kop}Hoeveel minuten moeten erbij tot de volgende graad? Tip: 1° = 60′.`, line:`${fmtDeg(a)} + [[]]′ = ${g}°`, ans:[m], fmt:String, tol:0.01},
     {u:`Hoeveel graden moeten er nog bij tot ${tot}°?`, line:`${g}° + [[]]° = ${tot}°`, ans:[tot - g], fmt:String},
-    {u:`Tel samen wat je erbij deed: ${tot - g}° en ${m}′. Het ${naam} van ${fmtDeg(a)} is dus`, line:`[[]]`, ans:[tot - a], fmt:fmtDeg, size:'md'}]; }
+    {u:`Tel samen wat je erbij deed: ${tot - g}° en ${m}′. Het ${naam} van ${fmtDeg(a)} is dus`, line:`[[]]`, ans:[tot - a], fmt:fmtDeg, size:'md', tol:MIN_TOL}]; }
 const aanvulSol = (a, tot, naam) => { const g = Math.ceil(a); return `${fmtDeg(a)} + ${Math.round((g-a)*60)}′ = ${g}° en ${g}° + ${tot-g}° = ${tot}°, dus het ${naam} is ${fmtDeg(tot-a)}.`; };
 function xVglQ(parent, st, save, id, q){
   const wrap = el('div','xvgl'); parent.append(wrap);
@@ -1219,6 +1219,9 @@ const SUPPL_HINT = 'Het supplement van een hoek vind je met 180° − de hoek.';
 function rDegMin(R, lo, hi){ const d = R.int(lo, hi); const m = R.pick([12,15,30,45,20,40,27,48]); return d + m/60; }
 /* hoek met minuten en seconden: 43°27′18″ */
 function rDms(R, lo, hi){ return R.int(lo, hi) + R.int(1, 59)/60 + R.int(1, 59)/3600; }
+/* hoek met graden en minuten (basis): 23°47′, nooit 0′ */
+const rMinuut = (R, lo, hi) => R.int(lo, hi) + R.int(1, 59)/60;
+const MIN_TOL = 0.005;
 const DMS_TOL = 0.0001;
 /* hint met een tekening: een uitklapper onder een vraag */
 function hintFig(parent, svg, txt){ const d = el('details','hint-fig', `<summary>💡 Hint met tekening</summary><div class="hint-in">${svg}<div>${txt}</div></div>`); parent.append(d); return d; }
@@ -1274,7 +1277,7 @@ CP.uitleg = { title:'Complementaire en supplementaire hoeken', lvl:1, noReset:tr
     b.append(el('div','tip', icon('bulb') + '<div>Het <b>complement</b> van α is 90° − α. Het <b>supplement</b> van α is 180° − α.<br>Een hoek wordt vaak aangeduid met een Griekse letter: α (alfa), β (bèta), γ (gamma), δ (delta).</div>'));
   }};
 CP.hoeveel = { title:'Hoeveel graden meet de hoek?', lvl:1,
-  instr:'Typ 46°30′ als <b>46 30</b>.',
+  instr:'Reken tot op de minuut. Typ 23°47′ als <b>23 47</b>.',
   build(b, st, save){ const R = makeR(st);
     const items = [];
     const c1 = R.int(12, 78), c2 = R.int(12, 78); const cm = rDegMin(R, 21, 68);
@@ -1283,9 +1286,9 @@ CP.hoeveel = { title:'Hoeveel graden meet de hoek?', lvl:1,
     items.push({html:`De hoek die supplementair is met een hoek van ${s1}°: [[0]]`, ans:180-s1, hint:SUPPL_HINT, sol:`180° − ${s1}° = ${180-s1}°`});
     items.push({html:`De hoek die complementair is met een hoek van ${c2}°: [[0]]`, ans:90-c2, hint:COMPL_HINT, sol:`90° − ${c2}° = ${90-c2}°`});
     items.push({html:`De hoek die supplementair is met een hoek van ${s2}°: [[0]]`, ans:180-s2, hint:SUPPL_HINT, sol:`180° − ${s2}° = ${180-s2}°`});
-    const c3 = R.int(3, 86) + 0.5, s3 = R.int(21, 160) + 0.5;
-    items.push({html:`Het complement van ${fmtDeg(c3)} is [[0]]`, ans:90-c3, size:'md', hint:'Vul eerst aan tot de volgende graad, dan tot 90°. Of open de hint.', sol:aanvulSol(c3, 90, 'complement'), steps:aanvulSteps(c3, 90, 'complement')});
-    items.push({html:`Het supplement van ${fmtDeg(s3)} is [[0]]`, ans:180-s3, size:'md', hint:'Vul eerst aan tot de volgende graad, dan tot 180°. Of open de hint.', sol:aanvulSol(s3, 180, 'supplement'), steps:aanvulSteps(s3, 180, 'supplement')});
+    const c3 = rMinuut(R, 3, 86), s3 = rMinuut(R, 21, 160);
+    items.push({html:`Het complement van ${fmtDeg(c3)} is [[0]]`, ans:90-c3, size:'md', tol:MIN_TOL, hint:'Vul eerst aan tot de volgende graad, dan tot 90°. Of open de hint.', sol:aanvulSol(c3, 90, 'complement'), steps:aanvulSteps(c3, 90, 'complement')});
+    items.push({html:`Het supplement van ${fmtDeg(s3)} is [[0]]`, ans:180-s3, size:'md', tol:MIN_TOL, hint:'Vul eerst aan tot de volgende graad, dan tot 180°. Of open de hint.', sol:aanvulSol(s3, 180, 'supplement'), steps:aanvulSteps(s3, 180, 'supplement')});
     degRows(b, st, save, R.shuffle(items));
   }};
 CP.keuze = { title:'Complementair of supplementair?', lvl:1,
@@ -1298,11 +1301,13 @@ CP.keuze = { title:'Complementair of supplementair?', lvl:1,
         why:`α + β = ${x}° + ${y}° = ${sum}°.`, whyBad:`Tel op: α + β = ${x}° + ${y}° = ${sum}°. ${sum===90?'Som 90°: complementair.':sum===180?'Som 180°: supplementair.':'Geen 90° en geen 180°.'}`}); });
   }};
 CP.tabel = { title:'Vul de tabel aan', lvl:2,
+  instr:'Reken tot op de minuut. Typ 23°47′ als <b>23 47</b>.',
   build(b, st, save){ const R = makeR(st);
     /* per rij: welke kolom is gegeven */
     const rows = []; const used = new Set();
     const giv = R.shuffle(['a','a','c','s','a']);
-    giv.forEach((g,i)=>{ let a; do{ a = R.int(4, 86); }while(used.has(a)); used.add(a); rows.push({g, a}); });
+    const mins = R.shuffle([0,1,2,3,4]).slice(0,2);
+    giv.forEach((g,i)=>{ let a; do{ a = R.int(4, 85); }while(used.has(a)); used.add(a); if(mins.includes(i)) a += R.int(1, 59)/60; rows.push({g, a}); });
     let html = `<table class="mini-tbl"><tr><th>α</th><th>complement van α</th><th>supplement van α</th></tr>`;
     let f = 0;
     rows.forEach(r=>{ const a = r.a, c = 90-a, s = 180-a; const cell = (v, given) => given ? fmtDeg(v) : `[[${f++}]]`;
@@ -1311,7 +1316,7 @@ CP.tabel = { title:'Vul de tabel aan', lvl:2,
     html += '</table>';
     /* de volgorde van de vakjes volgt de tabel van links naar rechts */
     const order = []; rows.forEach(r=>{ const a=r.a; ['a','c','s'].forEach(k=>{ if(r.g!==k) order.push(k==='a'?a:k==='c'?90-a:180-a); }); });
-    qBlock(b, st, save, 't', {html, block:true, size:'sm', mode:'decimal', check:chkDegs(order, ''),
+    qBlock(b, st, save, 't', {html, block:true, size:'md', mode:'decimal', check:chkDegs(order, ''),
       sol:'Complement = 90° − α en supplement = 180° − α. Is het complement gegeven, dan is α = 90° − complement. Is het supplement gegeven, dan is α = 180° − supplement.'});
   }};
 /* samengestelde vragen in twee stappen: eerst het laatste deel, dan het eerste deel */
@@ -1324,8 +1329,10 @@ function samenItems(R, gen){ /* gen(lo, hi) geeft een hoek */
     const st1 = tot[inner] - a, st2 = tot[outer] - st1;
     return {outer, inner, a, st1, st2, html:`Het <b>${name[outer]}</b> van het <b>${name[inner]}</b> van ${fmtDeg(a)}`,
       sol:`Stap 1: ${name[inner]} van ${fmtDeg(a)} = ${tot[inner]}° − ${fmtDeg(a)} = ${fmtDeg(st1)}<br>Stap 2: ${name[outer]} van ${fmtDeg(st1)} = ${tot[outer]}° − ${fmtDeg(st1)} = ${fmtDeg(st2)}`}; }); }
-function samenRows(b, st, save, items, tol){
-  const nm = {c:'complement', s:'supplement'}, tt = {c:90, s:180}, dms = tol < 0.01;
+const PROTIP = {cs:'Het complement van het supplement van een hoek is altijd <b>die hoek − 90°</b>.', sc:'Het supplement van het complement van een hoek is altijd <b>die hoek + 90°</b>.',
+  cc:'Het complement van het complement van een hoek is <b>die hoek zelf</b>.', ss:'Het supplement van het supplement van een hoek is <b>die hoek zelf</b>.'};
+function samenRows(b, st, save, items, tol, dms=false){
+  const nm = {c:'complement', s:'supplement'}, tt = {c:90, s:180};
   items.forEach((x,i)=>{ const w = el('div','xvgl'); b.append(w);
     qBlock(w, st, save, 'r'+i, {html:`<span class="q-num">${LET[i]})</span> ${x.html} = [[0]]`,
       block:true, size:dms || x.a % 1 ? 'md':'sm', mode:'decimal', help:SAMEN_HELP,
@@ -1333,25 +1340,28 @@ function samenRows(b, st, save, items, tol){
         return {ok, msg: ok ? '' : !isNaN(y) && Math.abs(y-x.st1)<tol ? 'Dat is pas stap 1. Neem nu nog het '+nm[x.outer]+' van die uitkomst.' : 'Begin achteraan. Gebruik de hint als je vastzit.'}; },
       sol:x.sol});
     const half = !dms && x.a % 1 !== 0;
+    const k = x.outer + x.inner, d = {cs:-90, sc:90, cc:0, ss:0}[k];
+    const tip = [`💡 <b>Pro-tip</b>: ${PROTIP[k]} Controleer je antwoord: ${fmtDeg(x.a)}${d ? (d<0?' − 90°':' + 90°') : ''} = ${fmtDeg(x.st2)}.`, ''];
     stepHints(w, half ? [
       ...aanvulSteps(x.a, tt[x.inner], nm[x.inner], `<b>Stap 1</b>: begin <b>achteraan</b> met het ${nm[x.inner]} van ${fmtDeg(x.a)}. `),
-      ...aanvulSteps(x.st1, tt[x.outer], nm[x.outer], `<b>Stap 2</b>: neem nu het ${nm[x.outer]} van ${fmtDeg(x.st1)}. `)
+      ...aanvulSteps(x.st1, tt[x.outer], nm[x.outer], `<b>Stap 2</b>: neem nu het ${nm[x.outer]} van ${fmtDeg(x.st1)}. `), tip
     ] : [
       {u:`Begin <b>achteraan</b>: bereken eerst het ${nm[x.inner]} van ${fmtDeg(x.a)}.`, line:`${tt[x.inner]}° − ${fmtDeg(x.a)} = [[]]`, ans:[x.st1], tol},
-      {u:`Neem nu het ${nm[x.outer]} van je uitkomst ${fmtDeg(x.st1)}.`, line:`${tt[x.outer]}° − ${fmtDeg(x.st1)} = [[]]`, ans:[x.st2], tol}
+      {u:`Neem nu het ${nm[x.outer]} van je uitkomst ${fmtDeg(x.st1)}.`, line:`${tt[x.outer]}° − ${fmtDeg(x.st1)} = [[]]`, ans:[x.st2], tol}, ...(dms ? [] : [tip])
     ], {size:dms?'md':'sm', fmt:fmtDeg, first:'💡 Hint: stap 1'});
   }); }
 CP.samen = { title:'Het complement van het supplement …', lvl:1,
-  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel. Lukt het niet? Klik op de hint: je vult dan elke stap zelf in. Typ 46°30′ als <b>46 30</b>.',
+  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel. Lukt het niet? Klik op de hint: je vult dan elke stap zelf in. Typ 23°47′ als <b>23 47</b>.',
   build(b, st, save){ const R = makeR(st);
-    const half = R.int(0, 3); let n = 0;
-    samenRows(b, st, save, samenItems(R, (lo,hi)=> n++===half ? R.int(lo, hi-1) + 0.5 : R.int(lo,hi)), 0.02);
+    const mins = R.shuffle([0,1,2,3]).slice(0,2); let n = 0;
+    samenRows(b, st, save, samenItems(R, (lo,hi)=> mins.includes(n++) ? rMinuut(R, lo, hi-1) : R.int(lo,hi)), MIN_TOL);
+    b.append(el('div','tip', icon('bulb') + `<div><b>Pro-tip</b> (als je het goed begrijpt):<br>het complement van het supplement van α = <b>α − 90°</b> &nbsp;·&nbsp; het supplement van het complement van α = <b>α + 90°</b><br>het complement van het complement en het supplement van het supplement van α = <b>α</b><br>Waarom? Het supplement is 90° groter dan het complement.</div>`));
   }};
 CP.samenMin = { title:'Complement en supplement met minuten en seconden', lvl:3,
   instr:'Nu tot op de minuut en de seconde. Typ 46°30′ als <b>46 30</b> en 46°30′15″ als <b>46 30 15</b>. Tip: 90° = 89°59′60″ en 180° = 179°59′60″.',
   build(b, st, save){ const R = makeR(st);
     const it = samenItems(R, (lo,hi)=>rDms(R, lo, hi-1)).slice(0,2);
-    samenRows(b, st, save, it, DMS_TOL);
+    samenRows(b, st, save, it, DMS_TOL, true);
     const cm = rDegMin(R, 21, 68), sm = rDms(R, 31, 140);
     degQ(b, st, save, 'm1', `<span class="q-num">c)</span> Het complement van ${fmtDeg(cm)} is [[0]]`, 90-cm, {tol:DMS_TOL, size:'md', hint:'Reken met 89°60′ in plaats van 90°.', sol:`89°60′ − ${fmtDeg(cm)} = ${fmtDeg(90-cm)}`});
     degQ(b, st, save, 'm2', `<span class="q-num">d)</span> Het supplement van ${fmtDeg(sm)} is [[0]]`, 180-sm, {tol:DMS_TOL, size:'md', hint:'Reken met 179°59′60″ in plaats van 180°.', sol:`179°59′60″ − ${fmtDeg(sm)} = ${fmtDeg(180-sm)}`});
