@@ -1057,6 +1057,12 @@ const REDENOPTS = ['os','nh','ov','vb','vu','bz','uz'].map(k=>[k, REDEN[k]]);
   .vec-n{position:relative; display:inline-block; padding-top:.3em; line-height:1} .vec-n i{position:absolute; left:0; right:0; top:0; height:.32em} .vec-n svg{display:block; width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:1.3; vector-effect:non-scaling-stroke}
   .zw{display:inline-block; width:.9em; height:.9em; border-radius:3px; vertical-align:-.1em; margin-right:.25em}
   .zw.or{background:var(--orange)} .zw.tq{background:var(--accent)} .zw.vi{background:#b9a0e6} .zw.ro{background:#f08a7e}
+  .hint-fig{margin:.2rem 0 .8rem} .hint-fig summary{cursor:pointer; font-weight:700; color:var(--accent-dark)}
+  .hint-in{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.8rem; align-items:center; padding:.4rem .6rem; border-radius:10px; background:var(--or-soft)}
+  @media (max-width:760px){ .hint-in{grid-template-columns:1fr} }
+  .stap{display:inline-block; min-width:4.2em; font-weight:700; color:var(--accent-dark)}
+.xvgl{margin:.4rem 0 1rem; padding-bottom:.6rem; border-bottom:1px dashed var(--line,#ccc)} .xvgl .stap{min-width:7.2em} .xvgl .inp.wide{max-width:100%}
+.hint-stap{padding:.4rem .8rem; border-radius:10px; background:var(--or-soft)} .hint-stap ol{margin:.2rem 0 .2rem 1.2rem; padding:0}
   .rel-ok{color:var(--ok); font-weight:700} .rel-no{color:var(--bad); font-weight:700}
   .mini-tbl{border-collapse:collapse; margin:.4rem 0; font-size:1rem}
   .mini-tbl th, .mini-tbl td{border:1.5px solid var(--border); padding:.3rem .55rem; text-align:center}
@@ -1093,16 +1099,90 @@ const CHEAT5 = `<h3>Spiekbriefje · de vijf soorten hoeken</h3><table>
 /* één hoekvraag: tekst met één invulvak */
 function degQ(parent, st, save, id, html, ans, o={}){
   return qBlock(parent, st, save, id, {html, block:true, mode:'decimal', size:o.size||'sm', sol:o.sol, why:o.why,
-    check:v=>{ const x = parseDeg(v[0]); if(isNaN(x)) return {ok:false, msg:'Noteer een hoekgrootte, bijvoorbeeld 47 of 47°30′.'}; const ok = Math.abs(x-ans)<0.02; return {ok, msg: ok ? (o.why||'') : (o.hint||'')}; }});
+    check:v=>{ const x = parseDeg(v[0]); if(isNaN(x)) return {ok:false, msg:'Noteer een hoekgrootte, bijvoorbeeld 47 of 47°30′.'}; const ok = Math.abs(x-ans) < (o.tol||0.02); return {ok, msg: ok ? (o.why||'') : (o.hint||'')}; }});
 }
 /* een rij hoekvragen met letters a), b), ... */
 function degRows(parent, st, save, items){
   items.forEach((it,i)=> degQ(parent, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${it.html}`, it.ans, it));
 }
+/* ---------- vergelijkingen met x ---------- */
+/* lineaire uitdrukking in x lezen: geeft {a, b} voor a·x + b, of null */
+function linParse(src){
+  const s = String(src).toLowerCase().replace(/[°\s]/g,'').replace(/[·×*]/g,'*').replace(/[−–]/g,'-').replace(/:/g,'/').replace(/,/g,'.');
+  let i = 0; const peek = () => s[i];
+  function expr(){ let v = term(); if(!v) return null; while(peek()==='+' || peek()==='-'){ const o = s[i++]; const w = term(); if(!w) return null; v = o==='+' ? {a:v.a+w.a, b:v.b+w.b} : {a:v.a-w.a, b:v.b-w.b}; } return v; }
+  function term(){ let v = fac(); if(!v) return null;
+    while(i < s.length){ const c = peek(); let o = null;
+      if(c==='*' || c==='/'){ o = c; i++; } else if(c==='x' || c==='(' || /[0-9.]/.test(c)) o = '*'; else break;
+      const w = fac(); if(!w) return null;
+      if(o==='*'){ if(v.a && w.a) return null; v = {a:v.a*w.b + w.a*v.b, b:v.b*w.b}; }
+      else { if(w.a || !w.b) return null; v = {a:v.a/w.b, b:v.b/w.b}; } }
+    return v; }
+  function fac(){ const c = peek();
+    if(c==='-'){ i++; const v = fac(); return v && {a:-v.a, b:-v.b}; }
+    if(c==='+'){ i++; return fac(); }
+    if(c==='x'){ i++; return {a:1, b:0}; }
+    if(c==='('){ i++; const v = expr(); if(!v || peek()!==')') return null; i++; return v; }
+    const m = s.slice(i).match(/^[0-9]+(\.[0-9]+)?/); if(!m) return null; i += m[0].length; return {a:0, b:+m[0]}; }
+  const v = expr(); return (v && i===s.length) ? v : null;
+}
+/* tekst van a·x + b, bv. 3x − 20° */
+function linTxt(a, b){ const xs = a===1 ? 'x' : a+'x'; return b ? `${xs} ${b<0?'−':'+'} ${Math.abs(b)}°` : xs; }
+/* vraag: vergelijking opstellen, x berekenen en eventueel de hoek
+   q = {nr, html, fig, L:[a,b], R:[c,d], x, ang:{lab, v}, help, hintEq, hintSolve, sol} */
+function xVglQ(parent, st, save, id, q){
+  const wrap = el('div','xvgl'); parent.append(wrap);
+  if(q.fig) wrap.append(el('div','', q.fig));
+  const C = {a:q.L[0]-q.R[0], b:q.L[1]-q.R[1]};
+  let html = `${q.nr?`<span class="q-num">${q.nr}</span> `:''}${q.html}<br><span class="stap">Vergelijking:</span> [[0:wide]]<br><span class="stap">Oplossing:</span> x = [[1]]`;
+  if(q.ang) html += `<br><span class="stap">Dus:</span> ${q.ang.lab} = [[2]]`;
+  qBlock(wrap, st, save, id, {html, block:true, size:'sm', help:q.help, sol:q.sol,
+    check:v=>{ const parts = v[0].split('=');
+      let eq = false, solved = false;
+      if(parts.length===2){ const l = linParse(parts[0]), r = linParse(parts[1]);
+        if(l && r){ const D = {a:l.a-r.a, b:l.b-r.b}; eq = Math.abs(D.a) > 1e-9 && Math.abs(D.a*C.b - D.b*C.a) < 1e-6;
+          solved = (l.a===1 && l.b===0 && !r.a) || (r.a===1 && r.b===0 && !l.a); } }
+      if(solved) eq = false;
+      const xv = parseFloat(String(v[1]).replace(',','.').replace(/[°\s]/g,'')); const fx_ = Math.abs(xv - q.x) < 0.02;
+      const fields = [eq, fx_];
+      if(q.ang){ const y = parseDeg(v[2]); fields.push(!isNaN(y) && Math.abs(y - q.ang.v) < 0.02); }
+      const ok = fields.every(Boolean);
+      let msg = '';
+      if(!eq) msg = solved ? 'Schrijf eerst de vergelijking met de uitdrukkingen uit de opgave, nog niet het antwoord.' : (parts.length!==2 ? 'Een vergelijking heeft één gelijkheidsteken, bijvoorbeeld 2x + 10 = 70.' : q.hintEq);
+      else if(!fx_) msg = q.hintSolve;
+      else if(!ok) msg = `Vul x = ${q.x} in de uitdrukking in om ${q.ang.lab} te berekenen.`;
+      return {ok, fields, msg}; }});
+  const h = el('details','hint-fig', `<summary>💡 Hint: zo los je de vergelijking op</summary><div class="hint-stap">${q.hintSteps || VGL_STAPPEN}</div>`); wrap.append(h);
+}
+const VGL_STAPPEN = '<ol><li>Zet de termen met x in het ene lid en de getallen in het andere lid. Gebruik daarvoor de tegengestelde bewerking: +&nbsp;wordt&nbsp;−, −&nbsp;wordt&nbsp;+.</li><li>Vereenvoudig beide leden.</li><li>Deel door het getal voor x.</li><li>Controleer: vul x in en kijk of beide leden gelijk zijn.</li></ol>';
+/* oplossing stap voor stap van a·x + b = c·x + d (geheel x) */
+function linSol(a, b, c, d, totTxt){
+  const L = linTxt(a,b).replace(/°/g,''), R = c ? linTxt(c,d).replace(/°/g,'') : String(d);
+  const A = a-c, Bk = d-b; let s = `${totTxt||`${L} = ${R}`}`;
+  if(totTxt) s += `<br>${L} = ${R}`;
+  if(c) s += `<br>${a===1?'':a}x − ${c===1?'':c}x = ${d}${b? (b<0?` + ${-b}`:` − ${b}`):''}`;
+  else if(b) s += `<br>${a===1?'':a}x = ${d}${b<0?` + ${-b}`:` − ${b}`}`;
+  if(c || b) s += `<br>${A===1?'':A}x = ${Bk}`; if(A!==1) s += `<br>x = ${Bk} : ${A}`; s += `<br>x = ${Bk/A}`;
+  return s;
+}
 const COMPL_HINT = 'Het complement van een hoek vind je met 90° − de hoek.';
 const SUPPL_HINT = 'Het supplement van een hoek vind je met 180° − de hoek.';
 /* hoek met minuten: 43°30′ */
-function rDegMin(R, lo, hi){ const d = R.int(lo, hi); const m = R.pick([0,0,15,30,45,20,40]); return d + m/60; }
+function rDegMin(R, lo, hi){ const d = R.int(lo, hi); const m = R.pick([12,15,30,45,20,40,27,48]); return d + m/60; }
+/* hoek met minuten en seconden: 43°27′18″ */
+function rDms(R, lo, hi){ return R.int(lo, hi) + R.int(1, 59)/60 + R.int(1, 59)/3600; }
+const DMS_TOL = 0.0001;
+/* hint met een tekening: een uitklapper onder een vraag */
+function hintFig(parent, svg, txt){ const d = el('details','hint-fig', `<summary>💡 Hint met tekening</summary><div class="hint-in">${svg}<div>${txt}</div></div>`); parent.append(d); return d; }
+/* tekening voor de vergelijkingen: een rechte of gestrekte hoek verdeeld in stukken */
+function partsSvg(total, parts, o={}){ /* parts: [{v, lab, cls}] in tegenwijzerzin vanaf 0° */
+  const W = 300, H = total>90 ? 170 : 200, V = total>90 ? P(150, 145) : P(60, 175), R0 = total>90 ? 120 : 140; let s = '', a = 0;
+  parts.forEach(p=>{ s += `<path class="wedge ${p.cls}" d="${wedgePath(V, R0-20, a, a+p.v)}"/>` + lnSvg(V, polar(V, R0, a+p.v), 'ln thin'); const m = polar(V, (R0-20)*0.66, a+p.v/2); s += tx(m.x, m.y, p.lab, 'val'); a += p.v; });
+  s += lnSvg(V, polar(V, R0, 0)) + lnSvg(V, polar(V, R0, total));
+  if(total===90) s += rightL(V, 0);
+  if(o.brace){ o.brace.forEach(([a0,a1,lab])=>{ s += `<path class="arc or" d="${arcOnly(V, R0+6, a0, a1)}"/>`; const m = polar(V, R0+18, (a0+a1)/2); s += tx(m.x, m.y, lab, 'val or'); }); }
+  s += `<circle class="pt" cx="${V.x}" cy="${V.y}" r="2.4"/>`;
+  return hfWrap(W, H, s, {maxw:340, alt:'hint: hoek verdeeld in stukken'}); }
 
 /* ---------- dynamische uitleg: complement en supplement van α ---------- */
 function complDemo(body, mode){
@@ -1134,7 +1214,7 @@ const CP = {};
 CP.uitleg = { title:'Complementaire en supplementaire hoeken', lvl:1, noReset:true,
   instr:'Versleep het oranje bolletje. Kies bovenaan het complement of het supplement.',
   build(b){
-    b.append(el('div','def', `<span class="lbl-def">definitie</span><b class="k">Complementaire hoeken</b> zijn twee hoeken waarvan de som 90° is.<br><b class="k">Supplementaire hoeken</b> zijn twee hoeken waarvan de som 180° is.`));
+    b.append(el('div','def', `<span class="lbl-def">definitie</span><b class="k">Complementaire hoeken</b> zijn twee hoeken waarvan de som 90° is.<br><b class="k">Supplementaire hoeken</b> zijn twee hoeken waarvan de som 180° is.<br><i>De twee hoeken hoeven niet tegen elkaar te liggen.</i>`));
     complDemo(b, 'c');
     b.append(el('div','tip', icon('bulb') + '<div>Het <b>complement</b> van α is 90° − α. Het <b>supplement</b> van α is 180° − α.<br>Een hoek wordt vaak aangeduid met een Griekse letter: α (alfa), β (bèta), γ (gamma), δ (delta).</div>'));
   }};
@@ -1147,9 +1227,9 @@ CP.hoeveel = { title:'Hoeveel graden meet de hoek?', lvl:1,
     items.push({html:`De hoek die supplementair is met een hoek van ${s1}°: [[0]]`, ans:180-s1, hint:SUPPL_HINT, sol:`180° − ${s1}° = ${180-s1}°`});
     items.push({html:`De hoek die complementair is met een hoek van ${c2}°: [[0]]`, ans:90-c2, hint:COMPL_HINT, sol:`90° − ${c2}° = ${90-c2}°`});
     items.push({html:`De hoek die supplementair is met een hoek van ${s2}°: [[0]]`, ans:180-s2, hint:SUPPL_HINT, sol:`180° − ${s2}° = ${180-s2}°`});
-    items.push({html:`De hoek die complementair is met een hoek van ${fmtDeg(cm)}: [[0]]`, ans:90-cm, hint:COMPL_HINT + ' Reken met 89°60′ in plaats van 90°.', sol:`90° − ${fmtDeg(cm)} = 89°60′ − ${fmtDeg(cm)} = ${fmtDeg(90-cm)}`});
-    items.push({html:`De hoek die supplementair is met een hoek van ${fmtDeg(sm)}: [[0]]`, ans:180-sm, hint:SUPPL_HINT + ' Reken met 179°60′ in plaats van 180°.', sol:`180° − ${fmtDeg(sm)} = 179°60′ − ${fmtDeg(sm)} = ${fmtDeg(180-sm)}`});
-    b.append(el('p','instructions','Minuten noteer je met een accent: 46°30′ typ je als <b>46 30</b> of <b>46°30\'</b>.'));
+    const c3 = R.int(3, 87), s3 = R.int(91, 177);
+    items.push({html:`Het complement van ${c3}° is [[0]]`, ans:90-c3, hint:COMPL_HINT, sol:`90° − ${c3}° = ${90-c3}°`});
+    items.push({html:`Het supplement van ${s3}° is [[0]]`, ans:180-s3, hint:SUPPL_HINT, sol:`180° − ${s3}° = ${180-s3}°`});
     degRows(b, st, save, R.shuffle(items));
   }};
 CP.keuze = { title:'Complementair of supplementair?', lvl:1,
@@ -1166,7 +1246,7 @@ CP.tabel = { title:'Vul de tabel aan', lvl:2,
     /* per rij: welke kolom is gegeven */
     const rows = []; const used = new Set();
     const giv = R.shuffle(['a','a','c','s','a']);
-    giv.forEach((g,i)=>{ let a; do{ a = i===4 ? rDegMin(R, 12, 78) : R.int(4, 86); }while(used.has(a)); used.add(a); rows.push({g, a}); });
+    giv.forEach((g,i)=>{ let a; do{ a = R.int(4, 86); }while(used.has(a)); used.add(a); rows.push({g, a}); });
     let html = `<table class="mini-tbl"><tr><th>α</th><th>complement van α</th><th>supplement van α</th></tr>`;
     let f = 0;
     rows.forEach(r=>{ const a = r.a, c = 90-a, s = 180-a; const cell = (v, given) => given ? fmtDeg(v) : `[[${f++}]]`;
@@ -1178,16 +1258,36 @@ CP.tabel = { title:'Vul de tabel aan', lvl:2,
     qBlock(b, st, save, 't', {html, block:true, size:'sm', mode:'decimal', check:chkDegs(order, ''),
       sol:'Complement = 90° − α en supplement = 180° − α. Is het complement gegeven, dan is α = 90° − complement. Is het supplement gegeven, dan is α = 180° − supplement.'});
   }};
-CP.samen = { title:'Het complement van het supplement …', lvl:2,
+/* samengestelde vragen in twee stappen: eerst het laatste deel, dan het eerste deel */
+const SAMEN_HELP = 'Lees de vraag <b>van achter naar voor</b>. Bereken eerst het laatste deel (stap 1). Dat resultaat gebruik je in stap 2.';
+function samenItems(R, gen){ /* gen(lo, hi) geeft een hoek */
+  const name = {c:'complement', s:'supplement'}, tot = {c:90, s:180};
+  const kinds = R.shuffle([['c','s'], ['s','c'], ['c','c'], ['s','s']]);
+  return kinds.map(([outer, inner])=>{ /* outer van inner van a */
+    let a; if(inner==='c') a = gen(5, 85); else if(outer==='c') a = gen(92, 175); else a = gen(10, 170);
+    const st1 = tot[inner] - a, st2 = tot[outer] - st1;
+    return {outer, inner, a, st1, st2, html:`Het <b>${name[outer]}</b> van het <b>${name[inner]}</b> van ${fmtDeg(a)}`,
+      sol:`Stap 1: ${name[inner]} van ${fmtDeg(a)} = ${tot[inner]}° − ${fmtDeg(a)} = ${fmtDeg(st1)}<br>Stap 2: ${name[outer]} van ${fmtDeg(st1)} = ${tot[outer]}° − ${fmtDeg(st1)} = ${fmtDeg(st2)}`}; }); }
+function samenRows(b, st, save, items, tol){
+  items.forEach((x,i)=>{ const nm = {c:'complement', s:'supplement'};
+    qBlock(b, st, save, 'r'+i, {html:`<span class="q-num">${LET[i]})</span> ${x.html}<br><span class="stap">Stap 1:</span> het ${nm[x.inner]} van ${fmtDeg(x.a)} = [[0]]<br><span class="stap">Stap 2:</span> het ${nm[x.outer]} van je uitkomst van stap 1 = [[1]]`,
+      block:true, size:tol<0.01?'md':'sm', mode:'decimal', help:SAMEN_HELP,
+      check:v=>{ const f = [x.st1, x.st2].map((t,k)=>{ const y = parseDeg(v[k]); return !isNaN(y) && Math.abs(y-t)<tol; });
+        return {ok:f[0]&&f[1], fields:f, msg: f[0]&&f[1] ? '' : !f[0] ? `Stap 1: ${nm[x.inner]} = ${x.inner==='c'?90:180}° − de hoek.` : `Stap 2: neem het ${nm[x.outer]} van je uitkomst van stap 1.`}; },
+      sol:x.sol}); }); }
+CP.samen = { title:'Het complement van het supplement …', lvl:1,
+  instr:'Zo een vraag los je in twee stappen op. Begin <b>achteraan</b>: bereken eerst het laatste deel en gebruik die uitkomst voor het eerste deel.',
   build(b, st, save){ const R = makeR(st);
-    const it = [];
-    const a1 = R.int(95, 175); it.push({html:`Het complement van het supplement van ${a1}° is [[0]]`, ans:90-(180-a1), hint:`Eerst het supplement: 180° − ${a1}°. Daarvan het complement: 90° − dat resultaat.`, sol:`supplement van ${a1}°: 180° − ${a1}° = ${180-a1}°<br>complement van ${180-a1}°: 90° − ${180-a1}° = ${a1-90}°`});
-    const a2 = R.int(10, 80); it.push({html:`Het supplement van het complement van ${a2}° is [[0]]`, ans:180-(90-a2), hint:`Eerst het complement: 90° − ${a2}°. Daarvan het supplement: 180° − dat resultaat.`, sol:`complement van ${a2}°: 90° − ${a2}° = ${90-a2}°<br>supplement van ${90-a2}°: 180° − ${90-a2}° = ${90+a2}°`});
-    const a3 = R.int(10, 80); it.push({html:`Het complement van het complement van ${a3}° is [[0]]`, ans:a3, hint:'Twee keer het complement nemen brengt je terug bij de hoek zelf.', sol:`90° − (90° − ${a3}°) = ${a3}°`});
-    const a4 = R.int(10, 170); it.push({html:`Het supplement van het supplement van ${a4}° is [[0]]`, ans:a4, hint:'Twee keer het supplement nemen brengt je terug bij de hoek zelf.', sol:`180° − (180° − ${a4}°) = ${a4}°`});
-    const a5 = R.int(15, 75); it.push({html:`α = ${a5}°. Het complement van α is [[0]] en het supplement van α is [[1]]`, multi:[90-a5, 180-a5], sol:`90° − ${a5}° = ${90-a5}° en 180° − ${a5}° = ${180-a5}°`});
-    it.forEach((x,i)=>{ if(x.multi) qBlock(b, st, save, 'r'+i, {html:`<span class="q-num">${LET[i]})</span> ${x.html}`, size:'sm', mode:'decimal', check:chkDegs(x.multi), sol:x.sol});
-      else degQ(b, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${x.html}`, x.ans, x); });
+    samenRows(b, st, save, samenItems(R, (lo,hi)=>R.int(lo,hi)), 0.02);
+  }};
+CP.samenMin = { title:'Complement en supplement met minuten en seconden', lvl:3,
+  instr:'Nu tot op de minuut en de seconde. Typ 46°30′ als <b>46 30</b> en 46°30′15″ als <b>46 30 15</b>. Tip: 90° = 89°59′60″ en 180° = 179°59′60″.',
+  build(b, st, save){ const R = makeR(st);
+    const it = samenItems(R, (lo,hi)=>rDms(R, lo, hi-1)).slice(0,2);
+    samenRows(b, st, save, it, DMS_TOL);
+    const cm = rDegMin(R, 21, 68), sm = rDms(R, 31, 140);
+    degQ(b, st, save, 'm1', `<span class="q-num">c)</span> Het complement van ${fmtDeg(cm)} is [[0]]`, 90-cm, {tol:DMS_TOL, size:'md', hint:'Reken met 89°60′ in plaats van 90°.', sol:`89°60′ − ${fmtDeg(cm)} = ${fmtDeg(90-cm)}`});
+    degQ(b, st, save, 'm2', `<span class="q-num">d)</span> Het supplement van ${fmtDeg(sm)} is [[0]]`, 180-sm, {tol:DMS_TOL, size:'md', hint:'Reken met 179°59′60″ in plaats van 180°.', sol:`179°59′60″ − ${fmtDeg(sm)} = ${fmtDeg(180-sm)}`});
   }};
 /* signaaloefening: een krat en een poort */
 function kratSvg(al){ /* krat met een schuine plank van hoek tot hoek; α tussen plank en staander, β tussen plank en bovenlat */
@@ -1225,20 +1325,74 @@ CP.poort = { title:'Hoeken in een krat en een poort', lvl:2,
     degQ(Rr, st, save, 'r2', `Als α = ${g1}°, dan is β = [[0]]`, 180-g1, {hint:SUPPL_HINT, sol:`β = 180° − ${g1}° = ${180-g1}°`});
   }};
 CP.vgl = { title:'Een hoek zoeken met een vergelijking', lvl:2,
-  instr:'Stel de hoek voor door α. Schrijf een vergelijking en los ze op.',
+  instr:'Stel de hoek voor door α. Schrijf een vergelijking en los ze op. Kom je er niet uit? Open de hint met de tekening.',
   build(b, st, save){ const R = makeR(st);
     const t = [];
-    { const k = R.pick([2,3,4,5,8,9,11]); const a = 180/(k+1); t.push({html:`Het supplement van een hoek is ${k} keer zo groot als die hoek. Bereken het <b>complement</b> van die hoek.`, ans:90-a,
-      sol:`180° − α = ${k}α<br>180° = ${k+1}α<br>α = ${a}°<br>Het complement is 90° − ${a}° = ${90-a}°.`, hint:`Begin met 180° − α = ${k}α.`}); }
-    { const k = R.pick([2,4,5,8,9,14]); const a = 90/(k+1); t.push({html:`Het complement van een hoek is ${k} keer zo groot als die hoek. Bereken het <b>supplement</b> van die hoek.`, ans:180-a,
-      sol:`90° − α = ${k}α<br>90° = ${k+1}α<br>α = ${a}°<br>Het supplement is 180° − ${a}° = ${180-a}°.`, hint:`Begin met 90° − α = ${k}α.`}); }
+    const rep = (k, cls) => Array.from({length:k}, ()=>({v:0, lab:'α', cls}));
+    { const k = R.pick([2,3,4,5,8]); const a = 180/(k+1); t.push({html:`Het supplement van een hoek is ${k} keer zo groot als die hoek. Bereken het <b>complement</b> van die hoek.`, ans:90-a,
+      sol:`180° − α = ${k}α<br>180° = ${k+1}α<br>α = ${a}°<br>Het complement is 90° − ${a}° = ${90-a}°.`, hint:`Begin met 180° − α = ${k}α.`,
+      fig:partsSvg(180, [{v:a, lab:'α', cls:'tq'}, ...rep(k,'or').map(p=>({...p, v:a}))], {brace:[[a, 180, 'supplement']]}),
+      figTxt:`De gestrekte hoek (180°) bestaat uit α en het supplement. Het supplement is ${k} keer α. Dus: α + ${k}α = 180°, of ${k+1}α = 180°.`}); }
+    { const k = R.pick([2,4,5,8]); const a = 90/(k+1); t.push({html:`Het complement van een hoek is ${k} keer zo groot als die hoek. Bereken het <b>supplement</b> van die hoek.`, ans:180-a,
+      sol:`90° − α = ${k}α<br>90° = ${k+1}α<br>α = ${a}°<br>Het supplement is 180° − ${a}° = ${180-a}°.`, hint:`Begin met 90° − α = ${k}α.`,
+      fig:partsSvg(90, [{v:a, lab:'α', cls:'tq'}, ...rep(k,'or').map(p=>({...p, v:a}))], {brace:[[a, 90, 'complement']]}),
+      figTxt:`De rechte hoek (90°) bestaat uit α en het complement. Het complement is ${k} keer α. Dus: α + ${k}α = 90°, of ${k+1}α = 90°.`}); }
     { const n = R.pick([3,4,6,7,10]); const a = (90*n-180)/(n-1); const w = {3:'drie',4:'vier',6:'zes',7:'zeven',10:'tien'}[n];
       t.push({html:`Het supplement van een hoek is ${w} keer zo groot als het complement van die hoek. Bereken die hoek.`, ans:a,
-      sol:`180° − α = ${n} · (90° − α)<br>180° − α = ${90*n}° − ${n}α<br>${n-1}α = ${90*n-180}°<br>α = ${a}°`, hint:`Begin met 180° − α = ${n} · (90° − α).`}); }
-    { const n = R.pick([4,7,10,11]); const a = (90*n-180)/(n-1); const w = {4:'vierde',7:'zevende',10:'tiende',11:'elfde'}[n];
+      sol:`180° − α = ${n} · (90° − α)<br>180° − α = ${90*n}° − ${n}α<br>${n-1}α = ${90*n-180}°<br>α = ${a}°`, hint:`Begin met 180° − α = ${n} · (90° − α).`,
+      fig:partsSvg(180, [{v:a, lab:'α', cls:'tq'}, {v:90-a, lab:'', cls:'or'}, {v:90, lab:'90°', cls:'vi'}], {brace:[[a, 90, '90° − α'], [a+0.01, 180, '']]}),
+      figTxt:`Oranje is het complement: 90° − α. Het supplement is oranje + paars: 180° − α. Het supplement moet ${n} keer zo groot zijn als het complement: 180° − α = ${n} · (90° − α).`}); }
+    { const n = R.pick([4,7,10]); const a = (90*n-180)/(n-1); const w = {4:'vierde',7:'zevende',10:'tiende'}[n];
       t.push({html:`Het complement van een hoek is een ${w} van het supplement van die hoek. Bereken die hoek.`, ans:a,
-      sol:`${n} · (90° − α) = 180° − α<br>${90*n}° − ${n}α = 180° − α<br>${90*n-180}° = ${n-1}α<br>α = ${a}°`, hint:`Het complement is ${n} keer kleiner: ${n} · (90° − α) = 180° − α.`}); }
-    degRows(b, st, save, t);
+      sol:`${n} · (90° − α) = 180° − α<br>${90*n}° − ${n}α = 180° − α<br>${90*n-180}° = ${n-1}α<br>α = ${a}°`, hint:`Het complement is ${n} keer kleiner: ${n} · (90° − α) = 180° − α.`,
+      fig:partsSvg(180, [{v:a, lab:'α', cls:'tq'}, {v:90-a, lab:'', cls:'or'}, {v:90, lab:'90°', cls:'vi'}], {brace:[[a, 90, '90° − α']]}),
+      figTxt:`Oranje is het complement (90° − α), oranje + paars is het supplement (180° − α). Het complement is een ${w} van het supplement, dus ${n} keer het complement is het supplement: ${n} · (90° − α) = 180° − α.`}); }
+    t.forEach((it,i)=>{ degQ(b, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${it.html} [[0]]`, it.ans, it); hintFig(b, it.fig, it.figTxt); });
+  }};
+/* vergelijkingen met x bij complementaire en supplementaire hoeken */
+function somItem(R, tot){ /* twee hoeken (a·x + b) en (c·x + d) met som tot */
+  for(let n=0;n<200;n++){ const x = R.int(5, tot>90?30:15), a = R.int(1, 4), c = R.int(1, 3), b = R.pick([-1,1])*R.int(0, 25);
+    const v1 = a*x + b, v2 = tot - v1, d = v2 - c*x;
+    if(v1 >= 15 && v2 >= 15 && Math.abs(d) <= 40 && !(a===c && b===d) && (b || d)) return {x, a, b, c, d, v1, v2}; }
+  return {x:20, a:2, b:10, c:1, d:20, v1:50, v2:40};
+}
+CP.xvgl = { title:'Complementaire en supplementaire hoeken met x', lvl:2,
+  instr:'Schrijf eerst een vergelijking met x. Los ze op en bereken daarna de hoek. Typ de vergelijking zo: <b>2x + 10 + x + 20 = 90</b> (zonder gradentekens mag ook).',
+  build(b, st, save){ const R = makeR(st);
+    const kinds = [['c','fig'], ['s','fig'], [R.pick(['c','s']), 'txt'], ['s','fig']];
+    kinds.forEach(([k, how], i)=>{ const tot = k==='c' ? 90 : 180; const t = somItem(R, tot);
+      const e1 = linTxt(t.a, t.b), e2 = linTxt(t.c, t.d); const woord = k==='c' ? 'complementair' : 'supplementair';
+      const nm = R.pick([['α','β'], ['Â','B̂'], ['δ','ε']]);
+      const html = how==='fig' ? `De twee hoeken in de tekening zijn ${woord}. Bereken x en de grootste hoek.`
+        : `${nm[0]} en ${nm[1]} zijn ${woord}, maar ze liggen niet tegen elkaar. ${nm[0]} = ${e1} en ${nm[1]} = ${e2}. Bereken x en de grootste hoek.`;
+      const fig = how==='fig' ? partsSvg(tot, [{v:t.v1, lab:e1, cls:'tq'}, {v:t.v2, lab:e2, cls:'or'}]) : null;
+      const big = Math.max(t.v1, t.v2);
+      xVglQ(b, st, save, 'r'+i, {nr:LET[i]+')', html, fig, L:[t.a+t.c, t.b+t.d], R:[0, tot], x:t.x, ang:{lab:'de grootste hoek', v:big},
+        help:`${woord[0].toUpperCase()+woord.slice(1)}e hoeken zijn samen ${tot}°. Schrijf: (${e1}) + (${e2}) = ${tot}°.`,
+        hintEq:`De som van ${woord}e hoeken is ${tot}°. Tel de twee uitdrukkingen op en stel dat gelijk aan ${tot}.`,
+        hintSolve:`Vereenvoudig eerst het linkerlid: ${t.a+t.c}x ${t.b+t.d<0?'−':'+'} ${Math.abs(t.b+t.d)} = ${tot}. Breng het getal naar het rechterlid.`,
+        sol:linSol(t.a+t.c, t.b+t.d, 0, tot, `(${e1}) + (${e2}) = ${tot}°`) + `<br>De hoeken zijn ${e1.replace(/^(\d*)x/, (m,q)=>(q?q+' · ':'')+t.x+'°')} = ${t.v1}° en ${tot}° − ${t.v1}° = ${t.v2}°. De grootste is <b>${big}°</b>.`});
+    });
+  }};
+/* niet-aanliggende hoeken: los van elkaar, toch complementair of supplementair */
+function losHoek(V, d0, v, lab, cls, r=46){ return `<path class="wedge ${cls}" d="${wedgePath(V, r, d0, d0+v)}"/>` + lnSvg(V, polar(V, 78, d0)) + lnSvg(V, polar(V, 78, d0+v)) + (()=>{ const m = polar(V, r+16, d0+v/2); return tx(m.x, m.y, lab, 'val'); })() + `<circle class="pt" cx="${fx(V.x)}" cy="${fx(V.y)}" r="2.4"/>`; }
+CP.los = { title:'Ook losse hoeken kunnen complementair zijn', lvl:1,
+  instr:'Complementaire of supplementaire hoeken hoeven <b>niet</b> tegen elkaar te liggen. Alleen hun som telt.',
+  build(b, st, save){ const R = makeR(st);
+    const A = P(70, 150), Bv = P(250, 120);
+    const anim = (al, be, tot, word) => stepAnim(b, {W:340, H:190, maxw:440, keepCaps:true, alt:'twee losse hoeken die tegen elkaar worden gelegd',
+      steps:[
+        {cap:`α = ${al}° en β = ${be}° liggen los van elkaar. Ze hebben geen gemeenschappelijk been.`, draw:()=> losHoek(A, 0, al, 'α', 'tq') + losHoek(Bv, 200, be, 'β', 'or')},
+        {cap:`Schuif β tegen α aan.`, ms:1800, draw:t=>{ const V = lerp(Bv, A, t); const d = 200 + (al - 200)*t; return losHoek(A, 0, al, 'α', 'tq') + losHoek(V, d, be, 'β', 'or', 40); }},
+        {cap:`Samen vormen ze een ${tot===90?'rechte':'gestrekte'} hoek: α + β = ${al}° + ${be}° = ${tot}°. α en β zijn <b>${word}</b>, ook als ze niet tegen elkaar liggen.`, draw:()=> losHoek(A, 0, al, 'α', 'tq') + losHoek(A, al, be, 'β', 'or', 40) + (tot===90 ? rightL(A, 0) : '')}
+      ]});
+    anim(35, 55, 90, 'complementair');
+    const qs = R.shuffle(['c','s','n','c','s']).slice(0,4);
+    qs.forEach((k,i)=>{ let x, y; if(k==='c'){ x = R.int(15,75); y = 90-x; } else if(k==='s'){ x = R.int(30,150); y = 180-x; } else { do{ x = R.int(20,120); y = R.int(20,120); }while(x+y===90||x+y===180); }
+      const d1 = R.int(-20, 40), d2 = R.int(120, 230);
+      const fig = hfWrap(340, 170, losHoek(P(80, 120), d1, x, x+'°', 'tq') + losHoek(P(250, 95), d2, y, y+'°', 'or'), {maxw:380, alt:'twee losse hoeken'});
+      qChoice(b, st, save, 'l'+i, {nr:LET[i]+')', html:'Deze twee hoeken zijn …', fig, opts:[['c','complementair'],['s','supplementair'],['n','geen van beide']], ans:k,
+        why:`${x}° + ${y}° = ${x+y}°.`, whyBad:`Tel op: ${x}° + ${y}° = ${x+y}°. Ze hoeven niet tegen elkaar te liggen.`}); });
   }};
 CP.waar = { title:'Waar of niet waar?', lvl:2,
   build(b, st, save){ const R = makeR(st);
@@ -1263,14 +1417,14 @@ CP.verschil = { title:'Een hoek en zijn complement of supplement', lvl:3,
     { const a = R.int(20, 80); const d = 180-2*a; t.push({html:`Het supplement van een hoek is ${d}° groter dan die hoek. Hoe groot is die hoek?`, ans:a, sol:`(180° − α) − α = ${d}°<br>180° − 2α = ${d}°<br>2α = ${180-d}°<br>α = ${a}°`, hint:'Schrijf: (180° − α) − α = …'}); }
     { const a = R.pick([30, 36, 45, 54, 60, 72]); const s = 90-a + 180-a; t.push({html:`De som van het complement en het supplement van een hoek is ${s}°. Hoe groot is die hoek?`, ans:a, sol:`(90° − α) + (180° − α) = ${s}°<br>270° − 2α = ${s}°<br>2α = ${270-s}°<br>α = ${a}°`, hint:'Schrijf: (90° − α) + (180° − α) = …'}); }
     { const k = R.pick([2,3,4]); const a = 90/(k+1)*1; const s = 180 - a; t.push({html:`Twee complementaire hoeken: de ene is ${k} keer zo groot als de andere. Bereken het supplement van de kleinste hoek.`, ans:s, sol:`α + ${k}α = 90°<br>${k+1}α = 90°<br>α = ${fmtDeg(a)}<br>supplement: 180° − ${fmtDeg(a)} = ${fmtDeg(s)}`, hint:`α + ${k}α = 90°`}); }
-    degRows(b, st, save, t);
+    degRows(b, st, save, t.map(x=>({...x, html:x.html + ' [[0]]'})));
   }};
 
 const SEC = {};
 SEC.compl = { id:'compl', ic:'h_compl', nav:'Complementair en supplementair', title:'Complementaire en supplementaire hoeken',
   tip:'<b>Complementair</b>: samen 90°. <b>Supplementair</b>: samen 180°. Ezelsbruggetje: de <b>c</b> van complement komt in het alfabet vóór de <b>s</b> van supplement, en 90 komt vóór 180.',
   cheat:CHEAT5,
-  cards:[CP.uitleg, CP.hoeveel, CP.keuze, CP.tabel, CP.samen, CP.poort, CP.vgl, CP.waar, CP.verschil] };
+  cards:[CP.uitleg, CP.hoeveel, CP.keuze, CP.tabel, CP.samen, CP.poort, CP.vgl, CP.waar, CP.verschil, CP.los, CP.samenMin, CP.xvgl] };
 
 /* ============================================================
    NETFIGUREN: punten en lijnstukken met namen; hoeken als XŶZ
@@ -1334,7 +1488,7 @@ function crossSvg(c, o={}){ /* hoek 1 tussen d1 en d2, dan 2,3,4 tegenwijzerzin 
     if(o.arcs!==false) s += `<path class="arc" d="${arcOnly(M, 26, a0, a1)}"/>`;
     const lab = o.labels ? o.labels[k] : k;
     if(o.nums!==false && lab!=null){ const p = polar(M, 16 + (sw<50?4:0), midAng(a0,a1)); s += tx(p.x, p.y, lab, 'num'); }
-    const v = o.vals && o.vals[k]; if(v){ const p = polar(M, 42 + (sw<45?10:0), midAng(a0,a1)); s += tx(p.x, p.y, v, o.vcls||'val'); } });
+    const v = o.vals && o.vals[k]; if(v){ const p = polar(M, (o.vr||42) + (sw<45?10:0) + (sw<70 && String(v).length>5 ? 12 : 0), midAng(a0,a1)); s += tx(p.x, p.y, v, o.vcls||'val'); } });
   if(o.name!==false) s += ptSvg(M, o.name||'M', {lp:polar(M, 40, d1 - 12)});
   (o.extra||[]).forEach(x=>s+=x);
   return hfWrap(W, H, s, {maxw:o.maxw||380, alt:'twee snijdende rechten'});
@@ -1346,13 +1500,13 @@ const crossVal = (c, k) => (k%2===1) ? c.x : 180-c.x;
    ============================================================ */
 const OS = {};
 OS.uitleg = { title:'Overstaande hoeken en de puntspiegeling', lvl:1, noReset:true,
-  instr:'Versleep de oranje bolletjes om de rechten te draaien. Klik dan op <b>Puntspiegeling om M</b>.',
+  instr:'Versleep de oranje bolletjes om de rechten te draaien. Klik dan op <b>Puntspiegeling om M = rotatie over 180°</b>.',
   build(b, st, save){
     b.append(el('div','def', `<span class="lbl-def">definitie</span><b class="k">Overstaande hoeken</b> zijn twee hoeken waarvan de benen in elkaars verlengde liggen.`));
     b.append(el('div','eig', `<span class="lbl-def">eigenschap</span>Overstaande hoeken zijn even groot.`));
     const W = 320, H = 210, M = P(160, 105);
     const S = {d1:15, d2:62, t:0, busy:false};
-    const bAnim = ctlBtn('▶ Puntspiegeling om M', ()=>{ if(S.busy) return; S.busy = true; S.t = 0; tween(REDUCED_M?10:2600, t=>{ S.t = t; D.redraw(); }, ()=>{ S.busy=false; S.done = true; D.redraw(); }); });
+    const bAnim = ctlBtn('▶ Puntspiegeling om M = rotatie over 180°', ()=>{ if(S.busy) return; S.busy = true; S.t = 0; tween(REDUCED_M?10:2600, t=>{ S.t = t; D.redraw(); }, ()=>{ S.busy=false; S.done = true; D.redraw(); }); });
     const D = dynAng(b, {W, H, st:S, maxw:470, alt:'twee snijdende rechten met overstaande hoeken', ctl:[bAnim],
       handles:S=>[{k:'d1', ...polar(M, 120, S.d1)}, {k:'d2', ...polar(M, 95, S.d2)}],
       drag:(k,p,S)=>{ let a = dirAng(M, p); if(k==='d1'){ a = sdiff(a, 0); a = clamp(a, -60, 60); S.d1 = Math.round(a); if(norm360(S.d2-S.d1) < 20) S.d2 = S.d1+20; if(norm360(S.d2-S.d1) > 160) S.d2 = S.d1+160; }
@@ -1406,17 +1560,30 @@ OS.vier = { title:'Noteer de grootte van de andere hoeken', lvl:1,
     qBlock(b, st, save, 'b', {html:`<span class="q-num">b)</span> In het parallellogram snijden de diagonalen elkaar in M. ${others.map((i,j)=>`hoek ${['①','②','③','④'][i]} = [[${j}]]`).join(' &nbsp; ')}`, size:'sm', mode:'decimal',
       check:chkDegs(others.map(i=>xs[i])), sol:`De overstaande hoek is even groot: ${xs[given]}°. De hoeken ernaast zijn nevenhoeken: 180° − ${xs[given]}° = ${180-xs[given]}°.`});
   }};
-OS.alpha = { title:'Bereken α met overstaande hoeken', lvl:2,
+OS.alpha = { title:'Bereken x met overstaande hoeken', lvl:2,
+  instr:'Overstaande hoeken zijn even groot. Schrijf dus een vergelijking: de ene hoek = de andere hoek. Typ ze zo: <b>3x − 20 = x + 40</b> (zonder gradentekens mag ook).',
   build(b, st, save){ const R = makeR(st);
-    for(let i=0;i<2;i++){ const c = crossMake(R, {W:280, H:170}); const v = Math.round(c.x);
-      const kind = R.pick(['+','-','2']); let expr, a, sol;
-      if(kind==='+'){ const k = R.int(5, Math.max(6, v-5)); a = v - k; expr = `α + ${k}°`; sol = `α + ${k}° = ${v}°<br>α = ${v}° − ${k}°<br>α = ${a}°`; }
-      else if(kind==='-'){ const k = R.int(8, 60); a = v + k; expr = `α − ${k}°`; sol = `α − ${k}° = ${v}°<br>α = ${v}° + ${k}°<br>α = ${a}°`; }
-      else { const vv = v%2 ? v+1 : v; c.x = vv; c.d2 = c.d1+vv; a = vv/2; expr = '2α'; sol = `2α = ${vv}°<br>α = ${vv}° : 2<br>α = ${a}°`; }
-      const vt = Math.round(c.x);
-      b.append(el('div','', crossSvg(c, {name:false, nums:false, vals:{1:vt+'°', 3:expr}, maxw:330})));
-      degQ(b, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> α = [[0]]`, a, {hint:'Overstaande hoeken zijn even groot: stel de uitdrukking gelijk aan de gegeven hoek.', sol});
-    }
+    const kinds = ['getal', R.pick(['getal','getal2']), 'beide', 'beide'];
+    kinds.forEach((kind, i)=>{ const c = crossMake(R, {W:300, H:180}); const pair = R.pick([[1,3],[2,4]]);
+      let a, bb, cc = 0, dd, x0, v;
+      for(let n=0;n<300;n++){ v = R.int(40, 140); x0 = R.int(5, 30);
+        if(kind==='beide'){ a = R.int(2, 5); cc = R.int(1, a-1); bb = v - a*x0; dd = v - cc*x0; if(Math.abs(bb)<=50 && Math.abs(dd)<=60 && bb!==0) break; }
+        else { a = kind==='getal' ? R.int(1, 3) : R.int(2, 5); bb = v - a*x0; dd = v; if(Math.abs(bb)>=3 && Math.abs(bb)<=50) break; } }
+      /* de hoeken in het paar krijgen grootte v */
+      const xs = pair[0]===1 ? v : 180 - v; c.x = xs; c.d2 = c.d1 + xs;
+      const e1 = linTxt(a, bb), e2 = kind==='beide' ? linTxt(cc, dd) : v+'°';
+      const vals = R.f()<.5 ? {[pair[0]]:e1, [pair[1]]:e2} : {[pair[0]]:e2, [pair[1]]:e1};
+      const fig = crossSvg(c, {name:false, nums:false, arcs:false, fill:{[pair[0]]:'tq', [pair[1]]:'tq'}, vals, vr:54, maxw:360, vcls:'val'});
+      const solved = linSol(a, bb, cc, dd, null);
+      xVglQ(b, st, save, 'r'+i, {nr:LET[i]+')', fig,
+        html: kind==='beide' ? 'Bereken x en de grootte van de twee overstaande hoeken.' : 'Bereken x.',
+        L:[a, bb], R:[cc, dd], x:x0, ang: kind==='beide' ? {lab:'elke hoek', v} : null,
+        help:`Overstaande hoeken zijn even groot. Schrijf: ${e1.replace(/°/g,'')} = ${e2.replace(/°/g,'')}.`,
+        hintEq:'De twee hoeken liggen schuin tegenover elkaar: ze zijn even groot. Stel de ene uitdrukking gelijk aan de andere.',
+        hintSolve: kind==='beide' ? `Breng ${cc===1?'x':cc+'x'} naar het linkerlid (− ${cc===1?'x':cc+'x'}) en ${Math.abs(bb)} naar het rechterlid (${bb<0?'+':'−'} ${Math.abs(bb)}).`
+          : (bb ? `Breng ${Math.abs(bb)} naar het rechterlid: ${bb<0?'tel op':'trek af'}.${a>1?` Deel daarna door ${a}.`:''}` : `Deel door ${a}.`),
+        sol: solved + (kind==='beide' ? `<br>Elke hoek is ${e1.replace(/^(\d*)x/, (m,q)=>(q?q+' · ':'')+x0+'°')} = <b>${v}°</b>.` : '')});
+    });
   }};
 OS.bewijs = { title:'Bewijs: overstaande hoeken zijn even groot', lvl:3,
   build(b, st, save){

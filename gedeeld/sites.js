@@ -497,7 +497,7 @@ export const SITES = [
     "id": "rooster",
     "naam": "Roosters",
     "toets": false,
-    "vragen": 46
+    "vragen": 47
    },
    {
     "id": "assen",
@@ -693,13 +693,13 @@ export const SITES = [
     "id": "compl",
     "naam": "Complementair en supplementair",
     "toets": false,
-    "vragen": 34
+    "vragen": 45
    },
    {
     "id": "overst",
     "naam": "Overstaande hoeken",
     "toets": false,
-    "vragen": 9
+    "vragen": 11
    },
    {
     "id": "aanl",
