@@ -882,12 +882,18 @@ function stepAnim(parent, cfg){
   const bPrev = el('button','btn ghost','◀ Vorige stap'), bPlay = el('button','btn', cfg.playLabel||'▶ Toon mij hoe'), bNext = el('button','btn ghost','Volgende stap ▶');
   [bPrev,bPlay,bNext].forEach(b=>{ b.type='button'; ctl.append(b); });
   const cnt = el('span','sa-cnt'); ctl.append(cnt);
+  /* manual: geen automatisch afspelen, wel een knop per stap */
+  let nums = [];
+  if(cfg.manual){ bPlay.hidden = true; const row = el('div','sa-nums'); row.append(el('span','sa-lab','Ga naar stap:'));
+    nums = cfg.steps.map((_,k)=>{ const b = el('button','btn ghost sa-num', String(k+1)); b.type='button'; b.addEventListener('click', ()=>{ playing=false; go(k, true); }); row.append(b); return b; });
+    box.insertBefore(row, ctl); bNext.classList.remove('ghost'); }
   let i = -1, run = 0, playing = false;
   const W = cfg.W, H = cfg.H;
   const draw = (k, t)=>{ const stp = cfg.steps[k]; fig.innerHTML = hfWrap(W, H, (cfg.base?cfg.base(k):'') + stp.draw(t), {maxw:cfg.maxw, alt:cfg.alt}); };
-  const capHtml = k => (cfg.keepCaps ? cfg.steps.slice(0,k+1).map((s,j)=>`<div class="${j===k?'now':'old'}">${s.cap}</div>`).join('') : cfg.steps[k].cap);
+  const capHtml = k => (cfg.keepCaps ? cfg.steps.slice(0,k+1).map((s,j)=>`<div class="${j===k?'now':'old'}"${cfg.manual?` data-k="${j}" title="Klik om deze stap opnieuw te bekijken" style="cursor:pointer"`:''}>${cfg.manual?`<b>${j+1}.</b> `:''}${s.cap}</div>`).join('') : cfg.steps[k].cap);
   function go(k, anim){ run++; const my = run; i = k; cap.innerHTML = capHtml(k); cnt.textContent = `stap ${k+1} van ${cfg.steps.length}`;
-    bPrev.disabled = k<=0; bNext.disabled = k>=cfg.steps.length-1;
+    bPrev.disabled = k<=0; bNext.disabled = k>=cfg.steps.length-1; nums.forEach((b,j)=>{ b.classList.toggle('on', j===k); b.classList.toggle('seen', j<k); });
+    if(cfg.manual) cap.querySelectorAll('[data-k]').forEach(d=>d.addEventListener('click', ()=>go(+d.dataset.k, false)));
     if(anim && !REDUCED_M){ const ms = cfg.steps[k].ms || 1400; tween(ms, t=>{ if(my===run) draw(k, t); }, ()=>{ if(my===run && playing){ if(k<cfg.steps.length-1) setTimeout(()=>{ if(my===run && playing) go(k+1, true); }, cfg.pause||900); else { playing=false; bPlay.textContent = '⟲ Opnieuw'; } } }); }
     else { draw(k, 1); if(playing){ if(k<cfg.steps.length-1) setTimeout(()=>{ if(my===run && playing) go(k+1, false); }, (cfg.pause||900)+600); else { playing=false; bPlay.textContent='⟲ Opnieuw'; } } }
   }
@@ -1063,6 +1069,7 @@ const REDENOPTS = ['os','nh','ov','vb','vu','bz','uz'].map(k=>[k, REDEN[k]]);
   .stap{display:inline-block; min-width:4.2em; font-weight:700; color:var(--accent-dark)}
 .xvgl{margin:.4rem 0 1rem; padding-bottom:.6rem; border-bottom:1px dashed var(--line,#ccc)} .xvgl .stap{min-width:7.2em} .xvgl .inp.wide{max-width:100%}
 .btn.ghost.on, .dyn.hf-dyn .dyn-ctl .btn.ghost.on, .btn.ghost.on:hover{--fill:var(--accent-dark); background:var(--accent-dark); color:#fff}
+.sa-nums{display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; padding:.45rem .6rem 0} .sa-lab{font-size:.85rem; font-weight:700; margin-right:.2rem} .sa-num{min-width:2.4rem; padding:.2rem .5rem} .sa-num.seen{opacity:.75}
 .hint-gr{margin:.2rem 0 .4rem} .hint-stap{margin:.3rem 0 .5rem; padding:.5rem .8rem .5rem 2rem; border-radius:10px; background:var(--or-soft)} .hint-stap li{margin:.25rem 0} .hint-regel{font-weight:700; margin:.15rem 0 .2rem; display:flex; flex-wrap:wrap; align-items:center; gap:.3rem} .hint-regel .sm-btn{padding:.15rem .7rem; font-size:.85rem} .hint-stap .fb{margin:.1rem 0 .2rem; min-height:0}
   .rel-ok{color:var(--ok); font-weight:700} .rel-no{color:var(--bad); font-weight:700}
   .mini-tbl{border-collapse:collapse; margin:.4rem 0; font-size:1rem}
@@ -2794,10 +2801,10 @@ function triRound(S){ const raw = {A:angBetween(dirAng(S.A,S.B), dirAng(S.A,S.C)
 
 /* ---------- het bewijs in stappen ---------- */
 DR.anim = { title:'Het bewijs stap voor stap', lvl:1, noReset:true,
-  instr:'Dit bewijs moet je kennen. Speel de animatie af en lees elke stap. Let op de hulplijn: een <b>evenwijdige door een hoekpunt</b>.',
+  instr:'Dit bewijs moet je kennen. Klik op <b>Volgende stap</b> of op een stapnummer en lees elke stap rustig. Let op de hulplijn: een <b>evenwijdige door een hoekpunt</b>.',
   build(b){
     const S = {T:triPts(58, 52, {W:340, H:220, pad:40}), n:{A:'A', B:'B', C:'C'}, X:'A', Y:'B', Z:'C'}; const L = proofLines(S);
-    stepAnim(b, {W:340, H:220, maxw:460, keepCaps:true, alt:'bewijs van de som van de hoeken van een driehoek',
+    stepAnim(b, {W:340, H:220, maxw:460, keepCaps:true, manual:true, alt:'bewijs van de som van de hoeken van een driehoek',
       steps:[
         {cap:`<b>Gegeven:</b> ${L.geg} &nbsp; <b>Te bewijzen:</b> ${L.tb}`, draw:()=> inner(proofFig(S, {par:false, mk:{A:'or', B:'tq', C2:'vi'}}))},
         {cap:`<b>Hulplijn:</b> ${L.c}`, ms:1400, draw:t=> inner(proofFig(S, {t, mk:{A:'or', B:'tq', C2:'vi'}}))},
