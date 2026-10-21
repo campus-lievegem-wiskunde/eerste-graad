@@ -1987,7 +1987,7 @@ function psExplorer(parent, cfg={}){
     drag:(k,p,S)=>{ const m = model(S);
       if(k==='s'){ S.ds = Math.round(clamp(dirAng(m.B, p), 32, 148)); return; }
       const base = k==='a' ? m.A : m.B; let x = sdiff(dirAng(base, p), 0); if(x>90) x -= 180; if(x<-90) x += 180; x = Math.round(clamp(x, -45, 45));
-      if(k==='a'){ S.da = x; if(S.lock) S.db = x; } else { S.db = x; if(S.lock) S.da = x; }
+      if(k==='a'){ const dd = x - S.da; S.da = x; if(S.lock) S.db = x; else if(cfg.aLeads) S.db = clamp(S.db + dd, -60, 60); } else { S.db = x; if(S.lock) S.da = x; }
       if(!S.lock && cfg.snap!==false && Math.abs(S.da - S.db) <= 1) S.db = S.da; },
     draw:S=>{ const m = model(S); const fill = {};
       if(S.type) PAIRTYPE[S.type].pairs.forEach((p,i)=>{ fill[p[0]] = PCOL[i]; fill[p[1]] = PCOL[i]; });
@@ -2224,9 +2224,9 @@ const EIGZIN = t => `<b>Als</b> twee evenwijdige rechten gesneden worden door ee
 const OMGZIN = t => `<b>Als</b> twee ${PAIRTYPE[t].naam}, bepaald door twee rechten en een snijlijn, ${PAIRTYPE[t].rel==='gelijk'?'even groot':'supplementair'} zijn, <b>dan</b> zijn de twee rechten evenwijdig.`;
 const EG = {};
 EG.verk = { title:'Als a // b, dan …', lvl:1, noReset:true,
-  instr:'Zet a // b vast, kies een soort hoekenpaar en kantel de figuur: wat blijft altijd waar? Klik daarna op <b>a en b apart bewegen</b>: geldt het dan nog?',
+  instr:'Kies een soort hoekenpaar. Draai je aan <b>a</b>, dan draait b evenwijdig mee. Klik op <b>a en b apart bewegen</b> en draai dan aan <b>b</b>: zolang a // b blijven de eigenschappen gelden, daarna niet meer.',
   build(b){
-    psExplorer(b, {type:'vb', lock:true});
+    psExplorer(b, {type:'vb', lock:true, aLeads:true});
     const box = el('div','eig'); box.innerHTML = `<span class="lbl-def">eigenschappen</span>` + TYPES5.map(t=>`<p style="margin:.3rem 0">${EIGZIN(t)}</p>`).join('');
     b.append(box);
     b.append(el('div','tip', icon('bulb') + '<div>Supplementair zijn betekent: samen 180°. Onthoud: bij evenwijdige rechten zijn er maar <b>twee</b> hoekgroottes. Twee hoeken zijn even groot of samen 180°.</div>'));
