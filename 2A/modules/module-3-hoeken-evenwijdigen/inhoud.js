@@ -972,7 +972,10 @@ const REDENOPTS = ['os','nh','ov','vb','vu','bz','uz'].map(k=>[k, REDEN[k]]);
   .hf .ln.tq{stroke:var(--accent); stroke-width:2.6}
   .hf .ln.thin{stroke-width:1.1; stroke:var(--ink-soft)}
   .hf .ln.ghost{stroke:var(--ink-soft); stroke-dasharray:4 4; stroke-width:1.2}
-  .hf .zone{fill:var(--accent); opacity:.13}
+  .hf .zone{fill:var(--accent); opacity:.28}
+  .hf .blink{fill:var(--accent-dark); stroke:var(--accent-dark); stroke-width:2; pointer-events:none; animation:hfBlink 1.2s ease-in-out infinite}
+  @keyframes hfBlink{0%,100%{fill-opacity:.08; stroke-opacity:.3} 50%{fill-opacity:.55; stroke-opacity:1}}
+  @media (prefers-reduced-motion:reduce){ .hf .blink{animation:none; fill-opacity:.4} }
   .hf .arc{stroke:var(--accent-dark); stroke-width:1.3; fill:none}
   .hf .arc.or{stroke:var(--orange); stroke-width:2}
   .hf .rl{stroke:var(--ink); stroke-width:1.2; fill:none; stroke-linecap:square}
@@ -2001,12 +2004,12 @@ SEC.def5 = { id:'def5', ic:'h_def', nav:'De vijf hoeken', title:'De vijf hoeken:
 const PCOL = ['or','tq','vi','ro'];
 function psExplorer(parent, cfg={}){
   const W = 360, H = 240;
-  const S = {ds:cfg.ds||66, da:cfg.da!=null?cfg.da:6, db:cfg.db!=null?cfg.db:(cfg.lock?6:-4), lock:!!cfg.lock, type:cfg.type||null, vals:cfg.vals!==false, zone:!!cfg.zone};
+  const S = {ds:cfg.ds||66, da:cfg.da!=null?cfg.da:6, db:cfg.db!=null?cfg.db:(cfg.lock?6:-4), lock:!!cfg.lock, type:cfg.type||null, vals:cfg.vals!==false, zone:!!cfg.zone, blink:null};
   if(S.lock) S.db = S.da;
   const legend = el('div','legend');
   const tbtn = {};
   const types = cfg.types || TYPES5;
-  types.forEach(t=>{ const b = el('button','opt', PAIRTYPE[t].naam); b.type='button'; b.addEventListener('click', ()=>{ S.type = S.type===t ? null : t; D.redraw(); }); tbtn[t] = b; legend.append(b); });
+  types.forEach(t=>{ const b = el('button','opt', PAIRTYPE[t].naam); b.type='button'; b.addEventListener('click', ()=>{ S.type = S.type===t ? null : t; S.blink = null; D.redraw(); }); tbtn[t] = b; legend.append(b); });
   parent.append(legend);
   const ctl = [];
   const bVals = ctlBtn('', ()=>{ S.vals = !S.vals; D.redraw(); }); ctl.push(bVals);
@@ -2022,7 +2025,9 @@ function psExplorer(parent, cfg={}){
       if(!S.lock && cfg.snap!==false && Math.abs(S.da - S.db) <= 1) S.db = S.da; },
     draw:S=>{ const m = model(S); const fill = {};
       if(S.type) PAIRTYPE[S.type].pairs.forEach((p,i)=>{ fill[p[0]] = PCOL[i]; fill[p[1]] = PCOL[i]; });
-      let s = psSvg(m, {fill, vals:S.vals, zone:S.zone});
+      let s = psSvg(m, {fill, vals:S.vals, zone:S.zone, hot:true});
+      /* aangeklikte hoek en de bijhorende hoek knipperen samen */
+      (S.blink||[]).forEach(k=>{ const [a0,a1] = psSectors(k[0]==='A'?m.da:m.db, m.ds)[k[1]]; s += `<path class="blink" d="${wedgePath(k[0]==='A'?m.A:m.B, 24, a0, a1)}"/>`; });
       const par = S.da === S.db;
       if(!par){ const X = lineInter(m.A, polar(m.A, 10, S.da), m.B, polar(m.B, 10, S.db));
         if(X){ const inside = X.x>8 && X.x<W-8 && X.y>8 && X.y<H-8;
@@ -2034,16 +2039,21 @@ function psExplorer(parent, cfg={}){
       bVals.textContent = S.vals ? 'Verberg de hoekgroottes' : 'Toon de hoekgroottes'; bZone.textContent = S.zone ? 'Verberg de binnenstrook' : 'Kleur de strook tussen a en b';
       if(bLock){ bLock.classList.toggle('on', S.lock); bFree.classList.toggle('on', !S.lock); }
       Object.entries(tbtn).forEach(([t,b])=>b.classList.toggle('on', S.type===t));
-      if(!S.type) return `Kies hierboven een soort hoekenpaar. Versleep de oranje bolletjes om a, b of s te draaien.` + (par ? ' Nu is <b>a // b</b>.' : ' Nu zijn a en b <b>niet</b> evenwijdig.');
+      if(!S.type) return `Kies hierboven een soort hoekenpaar. Versleep de oranje bolletjes om a, b of s te draaien.` + (par ? ' Nu is <b>a // b</b>.' : ' Nu zijn a en b <b>niet</b> evenwijdig.') + (S.blink ? '<div class="sa-tip">Kies eerst een soort hoekenpaar: dan knippert de bijhorende hoek mee.</div>' : '');
       const T = PAIRTYPE[S.type];
+      const bl = S.blink ? (S.blink.length===2 ? `<div class="sa-tip">${kH(m,S.blink[0])} en ${kH(m,S.blink[1])} zijn ${T.naam}.</div>` : `<div class="sa-tip">${kH(m,S.blink[0])} hoort bij geen paar ${T.naam}.</div>`) : '<div class="sa-tip">Klik op een hoek: de bijhorende hoek knippert mee.</div>';
       const rows = T.pairs.map((p,i)=>{ const x = v[p[0]], y = v[p[1]]; const okRel = T.rel==='gelijk' ? Math.abs(x-y)<0.5 : Math.abs(x+y-180)<0.5;
         const rel = T.rel==='gelijk' ? `${kH(m,p[0])} = ${Math.round(x)}° en ${kH(m,p[1])} = ${Math.round(y)}°: ${okRel?'<span class="rel-ok">even groot</span>':'<span class="rel-no">niet even groot</span>'}`
           : `${kH(m,p[0])} + ${kH(m,p[1])} = ${Math.round(x)}° + ${Math.round(y)}° = ${Math.round(x+y)}°: ${okRel?'<span class="rel-ok">supplementair</span>':'<span class="rel-no">niet supplementair</span>'}`;
         return `<div><span class="zw ${PCOL[i]}"></span>${rel}</div>`; }).join('');
-      return `<b>${T.naam[0].toUpperCase()+T.naam.slice(1)}</b>` + (S.type==='os'||S.type==='nh' ? '' : ` (${T.pairs.length} paren)`) + rows +
+      return `<b>${T.naam[0].toUpperCase()+T.naam.slice(1)}</b>` + (S.type==='os'||S.type==='nh' ? '' : ` (${T.pairs.length} paren)`) + rows + bl +
         (cfg.omgek && !par ? `<div class="sa-tip">Draai b tot de hoeken ${T.rel==='gelijk'?'even groot':'supplementair'} zijn. Wat zie je dan?</div>` : '') +
         (cfg.omgek && par ? `<div class="rel-ok">De hoeken zijn ${T.rel==='gelijk'?'even groot':'supplementair'} en a // b.</div>` : ''); }
   });
+  D.box.addEventListener('click', e=>{ const h = e.target.closest('.hot'); if(!h) return; const k = h.dataset.k;
+    if(S.blink && S.blink[0]===k){ S.blink = null; D.redraw(); return; }
+    const pr = S.type ? PAIRTYPE[S.type].pairs.find(p=>p.includes(k)) : null;
+    S.blink = pr ? [k, pr[0]===k ? pr[1] : pr[0]] : [k]; D.redraw(); });
   return D;
 }
 
@@ -2316,34 +2326,66 @@ EG.tabel = { title:'Naam en eigenschap in een tabel', lvl:2,
     qBlock(b, st, save, 't', {html, block:true, check:v=>{ const fl = v.map((x,i)=>x===ans[i]); return {ok:fl.every(Boolean), fields:fl, msg:fl.every(Boolean)?'':'Kijk naar de rode keuzes.'}; },
       sol:ts.map(t=>`${PAIRTYPE[t].naam}: ${PAIRTYPE[t].rel==='gelijk'?'even groot':'supplementair'}`).join('<br>')});
   }};
-EG.alg = { title:'Hoeken met een letter', lvl:2,
-  build(b, st, save){ const R = makeR(st);
-    for(let i=0;i<2;i++){ const t = R.pick(['bz','uz','ov','vb']); const p = R.pick(PAIRTYPE[t].pairs);
-      let a, e1, e2, sol, x;
-      if(PAIRTYPE[t].rel==='supp'){ const k = R.pick([2,3,4,5]); a = 180/(k+1); if(a%1){ continue; } e1 = 'α'; e2 = k+'α'; x = a; sol = `α + ${k}α = 180° (${PAIRTYPE[t].naam})<br>${k+1}α = 180°<br>α = ${a}°`; }
-      else { const c = R.int(10, 40); a = R.int(c+30, 125-c); e1 = `α + ${c}°`; e2 = `2α − ${a - c}°`; x = a + c; /* α + c = 2α − (a − c) => α = a */ sol = `α + ${c}° = 2α − ${a-c}° (${PAIRTYPE[t].naam})<br>${c}° + ${a-c}° = 2α − α<br>α = ${a}°`; }
-      const kA = p[0], kB = p[1]; const valA = PAIRTYPE[t].rel==='supp' ? (+kA[1]%2 ? a : 180-a) : x;
-      const x1 = (+kA[1])%2 ? (PAIRTYPE[t].rel==='supp' ? a : x) : 180 - (PAIRTYPE[t].rel==='supp' ? a : x);
-      const m = psWithAngle(R, clamp(x1, 25, 155), {});
-      b.append(el('div','', psFig(m, {vals:{[kA]:e1, [kB]:e2}, arcs:[kA,kB], fill:{[kA]:'or',[kB]:'tq'}, nums:false, maxw:440})));
-      degQ(b, st, save, 'a'+i, `<span class="q-num">${LET[i]})</span> Gegeven: a // b. Bereken α. α = [[0]]`, a, {sol, hint: PAIRTYPE[t].rel==='supp' ? 'Deze hoeken zijn samen 180°.' : 'Deze hoeken zijn even groot: stel ze gelijk.'}); }
-  }};
+/* x berekenen met de eigenschappen: kinds 'gelijk' / 'supp' (veelterm en getal), 'gelijkV' / 'suppV' (x in beide hoeken) */
+function egXRows(b, st, save, R, kinds){
+  kinds.forEach((kind, i)=>{
+    const supp = kind.startsWith('supp'), V = kind.endsWith('V');
+    const t = R.pick(supp ? ['bz','uz'] : ['ov','vb','vu']); const p = R.shuffle(R.pick(PAIRTYPE[t].pairs).slice());
+    let a, bb, cc = 0, dd, x0, v;
+    for(let n=0;n<400;n++){ v = 5*R.int(8, 28); x0 = R.int(5, 30);
+      if(!V){ a = R.int(1, 3); bb = v - a*x0; dd = supp ? 180-v : v; if(Math.abs(bb)>=3 && Math.abs(bb)<=50) break; }
+      else if(!supp){ a = R.int(2, 5); cc = R.int(1, a-1); bb = v - a*x0; dd = v - cc*x0; if(bb && Math.abs(bb)<=50 && Math.abs(dd)<=60) break; }
+      else { a = R.int(1, 4); cc = R.int(1, 3); bb = v - a*x0; dd = (180-v) - cc*x0; if(bb && dd && Math.abs(bb)<=50 && Math.abs(dd)<=60 && bb+dd>=10) break; } }
+    const kA = p[0], kB = p[1]; const w = supp ? 180-v : v;
+    const e1 = linTxt(a, bb), e2 = V ? linTxt(cc, dd) : w+'°'; const E1 = e1.replace(/°/g,''), E2 = e2.replace(/°/g,'');
+    const m = psWithAngle(R, (+kA[1])%2 ? v : 180-v, {});
+    const fig = psFig(m, {vals:{[kA]:e1, [kB]:e2}, arcs:[kA,kB], fill:{[kA]:'or',[kB]:'tq'}, nums:false, maxw:440});
+    const T = PAIRTYPE[t]; const wie = `${kH(m,kA)} en ${kH(m,kB)} zijn ${T.naam}.`;
+    const xs = q => q===1 ? 'x' : q+'x';
+    let L, Rr, pre, tot = null;
+    if(!supp){ L = [a, bb]; Rr = [cc, dd];
+      pre = V ? [[`${wie} Bij a // b zijn ze <b>even groot</b>. De vergelijking is: de ene hoek = de andere hoek.`, `${E1} = ${E2}`]]
+              : [{u:`${wie} Bij a // b zijn ze <b>even groot</b>. Vul de vergelijking aan.`, line:`${E1} = [[]]`, ans:[v]}]; }
+    else if(!V){ L = [a, bb+w]; Rr = [0, 180]; tot = `${E1} + ${w} = 180`;
+      pre = [{u:`${wie} Bij a // b zijn ze <b>supplementair</b>: samen 180°. Vul de vergelijking aan.`, line:`${E1} + ${w} = [[]]`, ans:[180]},
+             {u:'Tel de getallen in het linkerlid samen.', line:`${xs(a)} + [[]] = 180`, ans:[bb+w]}]; }
+    else { L = [a+cc, bb+dd]; Rr = [0, 180]; tot = `${E1} + ${E2} = 180`;
+      pre = [{u:`${wie} Bij a // b zijn ze <b>supplementair</b>: samen 180°. Vul de vergelijking aan.`, line:`${E1} + ${E2} = [[]]`, ans:[180]},
+             {u:'Neem de x\'en samen en de getallen samen.', line:`[[]]x + [[]] = 180`, ans:[a+cc, bb+dd]}]; }
+    const solved = linSol(L[0], L[1], Rr[0], Rr[1], tot);
+    xVglQ(b, st, save, 'r'+i, {nr:LET[i]+')', fig,
+      html: V ? `Gegeven: a // b. Bereken x en de grootte van ${kH(m,kA)}.` : 'Gegeven: a // b. Bereken x.',
+      L, R:Rr, x:x0, ang: V ? {lab:kH(m,kA), v} : null,
+      pre, post: V ? [{u:'Vul x in om de hoek te berekenen.', line:`${kT(m,kA)} = ${subX(e1, x0)} = [[]]°`, ans:[v]}] : [],
+      help: supp ? `Deze hoeken zijn supplementair. Schrijf: ${E1} + ${E2} = 180.` : `Deze hoeken zijn even groot. Schrijf: ${E1} = ${E2}.`,
+      hintEq: supp ? 'Het zijn binnen- of buitenhoeken aan dezelfde kant van de snijlijn: samen 180°. Tel de twee hoeken op en stel gelijk aan 180.' : 'Deze hoeken zijn even groot bij a // b. Stel de ene uitdrukking gelijk aan de andere.',
+      hintSolve: 'Klik op 💡 Hint: de stappen tonen hoe je de vergelijking oplost.',
+      sol: solved + (V ? `<br>${kH(m,kA)} = ${subX(e1, x0)} = <b>${v}°</b>.` : '')});
+  });
+}
+EG.alg = { title:'Bereken x met de eigenschappen', lvl:2,
+  instr:'Bij a // b zijn sommige hoeken <b>even groot</b> en andere <b>supplementair</b> (samen 180°). Schrijf een vergelijking en los ze op. Typ ze zo: <b>2x + 10 = 70</b> (zonder gradentekens mag ook).',
+  build(b, st, save){ const R = makeR(st); egXRows(b, st, save, R, R.shuffle(['gelijk','gelijk','supp','supp'])); }};
 EG.som = { title:'Hoeken uit een gegeven som of verschil', lvl:2,
   build(b, st, save){ const R = makeR(st);
-    const m = psMake({W:340, H:220, ds:R.int(55, 72), da:R.int(-6, 6)}); b.append(el('div','', psFig(m, {maxw:420})));
-    const t = R.pick(['vu','ov','vb']); const p = R.pick(PAIRTYPE[t].pairs); const v = psAllVals(m);
-    const sum = Math.round(v[p[0]]) * 2;
+    const t = R.pick(['vu','ov','vb']); const p = R.pick(PAIRTYPE[t].pairs);
+    const x = 5*R.int(8, 28); const sum = 2*x;
+    const m = psWithAngle(R, (+p[0][1])%2 ? x : 180-x, {W:340, H:220}); b.append(el('div','', psFig(m, {maxw:420})));
     b.append(el('p','instructions', `Gegeven: a // b, s snijdt a en b, en ${kH(m,p[0])} + ${kH(m,p[1])} = ${sum}°.`));
-    const x = Math.round(v[p[0]]);
-    qBlock(b, st, save, 'q', {html:`${hA('B',1)} = [[0]] &nbsp; ${hA('B',2)} = [[1]] &nbsp; ${hA('B',3)} = [[2]] &nbsp; ${hA('B',4)} = [[3]]`, block:true, size:'sm', mode:'decimal',
+    const wrap = el('div'); b.append(wrap);
+    qBlock(wrap, st, save, 'q', {html:`${hA('B',1)} = [[0]] &nbsp; ${hA('B',2)} = [[1]] &nbsp; ${hA('B',3)} = [[2]] &nbsp; ${hA('B',4)} = [[3]]`, block:true, size:'sm', mode:'decimal',
       check:chkDegs(['B1','B2','B3','B4'].map(k=>(+k[1])%2 === (+p[0][1])%2 ? x : 180-x)),
       sol:`${kH(m,p[0])} = ${kH(m,p[1])} (${PAIRTYPE[t].naam} bij a // b)<br>dus 2 · ${kH(m,p[0])} = ${sum}° en ${kH(m,p[0])} = ${x}°<br>Dan is elke hoek ${x}° of 180° − ${x}° = ${180-x}°.`});
+    stepHints(wrap, [
+      {u:`${kH(m,p[0])} en ${kH(m,p[1])} zijn ${PAIRTYPE[t].naam}. Bij a // b zijn ze even groot. De som is dus 2 keer dezelfde hoek.`, line:`${kT(m,p[0])} = ${sum}° : 2 = [[]]°`, ans:[x]},
+      {u:'Bij evenwijdige rechten zijn er maar twee hoekgroottes. Bereken de andere: het supplement.', line:`180° − ${x}° = [[]]°`, ans:[180-x]},
+      ['Elke hoek bij B is nu een van die twee. Overeenkomstige en overstaande hoeken zijn even groot, nevenhoeken zijn samen 180°.', '']]);
   }};
 EG.verschil = { title:'Een stelsel met hoeken', lvl:3,
   build(b, st, save){ const R = makeR(st);
     const m = psMake({W:340, H:220, ds:R.int(55, 72), da:R.int(-6, 6)}); b.append(el('div','', psFig(m, {maxw:420})));
     const kind = R.pick(['som','vers']);
-    let x = R.int(40, 80); if(x%2) x++;
+    const x = 5*R.int(8, 16);
     /* A2 (stomp) en B3 (scherp): buitenhoeken aan dezelfde kant: A2 + B3 = 180 */
     const d = (180 - x) - x;
     const html = kind==='som' ? `Gegeven: a // b en ${hA('A',2)} = ${hA('B',3)} + ${d}°.` : `Gegeven: a // b en ${hA('A',2)} − ${hA('A',1)} = ${d}°.`;
@@ -2375,6 +2417,9 @@ EG.trans = { title:'Bewijs met een translatie', lvl:3,
     orderEx(b, st, save, 'o3', {html:`Bewijs: als a // b, dan zijn de binnenhoeken aan dezelfde kant ${hA('A',4)} en ${hA('B',1)} supplementair.`, lines:[
       `${hA('A',1)} + ${hA('A',4)} = 180° &nbsp;<span class="r">(nevenhoeken)</span>`, `⇓ &nbsp;<span class="r">(overeenkomstige hoeken ${hA('A',1)} = ${hA('B',1)})</span>`, `${hA('B',1)} + ${hA('A',4)} = 180°`]});
   }};
+EG.algV = { title:'Hoeken met een letter: x in beide hoeken', lvl:3,
+  instr:'Nu staat x in beide hoeken. Schrijf de vergelijking en los ze op. Typ ze zo: <b>3x − 20 = x + 40</b> of <b>x + 20 + 2x + 10 = 180</b>.',
+  build(b, st, save){ const R = makeR(st); egXRows(b, st, save, R, R.shuffle(['gelijkV','suppV','gelijkV'])); }};
 function vecAB(){ return `<span class="vec-n">AB<i><svg viewBox="0 0 20 6" preserveAspectRatio="none" aria-hidden="true"><path d="M.5 3H19.3M16.2 .6L19.4 3L16.2 5.4"/></svg></i></span>`; }
 function tAB(){ return `t<sub>${vecAB()}</sub>`; }
 EG.par = { title:'Hoeken in een parallellogram', lvl:3,
@@ -2501,7 +2546,7 @@ SEC.namen = { id:'namen', ic:'h_namen', nav:'Namen bij evenwijdigen en een snijl
 const CHEATEIG = `<h3>Spiekbriefje · eigenschappen</h3><table>${TYPES5.map(t=>`<tr><td>${PAIRTYPE[t].naam}</td><td>${PAIRTYPE[t].rel==='gelijk'?'even groot':'supplementair (samen 180°)'}</td></tr>`).join('')}</table><p><b>Eigenschap</b>: als a // b, dan … (iets over de hoeken).<br><b>Omgekeerde eigenschap</b>: als de hoeken …, dan a // b.</p>`;
 SEC.eig = { id:'eig', ic:'h_eig', nav:'Eigenschappen', title:'Eigenschappen van hoeken bij evenwijdigen',
   tip:'Bij twee <b>evenwijdige</b> rechten en een snijlijn zijn alle hoeken ofwel <b>even groot</b>, ofwel <b>supplementair</b>. Noteer altijd de reden tussen haakjes.',
-  cheat:CHEATEIG, cards:[EG.verk, EG.anim, EG.zin, EG.acht, EG.reden, EG.tabel, EG.alg, EG.som, EG.verschil, EG.trans, EG.par] };
+  cheat:CHEATEIG, cards:[EG.verk, EG.anim, EG.zin, EG.acht, EG.reden, EG.tabel, EG.alg, EG.som, EG.verschil, EG.trans, EG.par, EG.algV] };
 SEC.omgek = { id:'omgek', ic:'h_omgek', nav:'Omgekeerde eigenschappen', title:'Omgekeerde eigenschappen: wanneer zijn rechten evenwijdig?',
   tip:'Met een <b>omgekeerde eigenschap</b> bewijs je dat twee rechten <b>evenwijdig</b> zijn. Je vertrekt van de hoeken.',
   cheat:CHEATEIG, cards:[OM.verk, OM.wissel, OM.ja, OM.waarom, OM.hoeveel, OM.alfa, OM.ongerijmde] };
