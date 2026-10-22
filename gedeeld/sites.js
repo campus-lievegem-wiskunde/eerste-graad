@@ -735,7 +735,7 @@ export const SITES = [
     "id": "ctx",
     "naam": "Hoeken in contexten",
     "toets": false,
-    "vragen": 13
+    "vragen": 17
    },
    {
     "id": "drie",

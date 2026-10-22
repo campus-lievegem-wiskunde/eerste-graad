@@ -2565,45 +2565,55 @@ function degRedQ(parent, st, save, id, html, ans, reasons, o={}){
 function secAng(V, dl, ds, i, o={}){ const [a0,a1] = psSectors(dl, ds)[i]; return angSvg(V, a0, a1, o); }
 const CT = {};
 
-/* ---------- ladder: de sporten zijn evenwijdig met de grond ---------- */
-function ladderSvg(g, k, o={}){
-  const W = 340, H = 240, gy = 210, wallX = 285; let s = '';
-  s += `<rect class="kade" x="0" y="${gy}" width="${W}" height="${H-gy}"/>` + `<rect class="kade" x="${wallX}" y="10" width="${W-wallX}" height="${gy-10}"/>`;
-  const F1 = P(wallX - 6 - (gy-35)/Math.tan(g*D2R) - 44, gy), F2 = P(F1.x + 44, gy);
-  const top = p => P(p.x + (p.y-35)/Math.tan(g*D2R), 35);
-  const T1 = top(F1), T2 = top(F2);
-  s += lnSvg(P(0,gy), P(wallX,gy), 'ln');
-  const hs = [38, 76, 114, 152]; const rungs = hs.map(h=>{ const y = gy - h; const xl = F1.x + h/Math.tan(g*D2R); return [P(xl, y), P(xl+44, y)]; });
-  rungs.forEach(([p,q],j)=> s += lnSvg(p, q, 'plank thin'));
-  s += lnSvg(F1, T1, 'plank') + lnSvg(F2, T2, 'plank');
-  /* gegeven hoek aan de voet van de linkerboom (tussen grond en boom) */
-  if(o.foot!==false) s += secAng(F1, 0, g, 1, {r:24, fillCls:'or', txt:o.footTxt||(g+'°'), tr:40});
-  const V = rungs[k][0];
-  (o.ask||[]).forEach(([i,txt,cls])=> s += secAng(V, 0, g, i, {r:21, fillCls:cls||'tq', txt, tr:33}));
-  return hfWrap(W, H, s, {maxw:430, alt:'ladder tegen een muur met sporten evenwijdig aan de grond'});
+/* ---------- straat: twee stoepranden en een schuine fietsoversteek ----------
+   g = hoek tussen de onderste stoeprand (naar rechts) en de oversteek; du = richting van de bovenste stoeprand (0 = evenwijdig, > 0 = loopt naar rechts omhoog) */
+function straatSvg(g, du, o={}){
+  const W = 340, H = 240, yB = 186; let s = '';
+  const F = P(o.fx || 130, yB); const U = P(170, 82);
+  const yU = x => U.y - Math.tan(du*D2R)*(x - U.x);
+  const V = lineInter(F, polar(F, 10, g), U, polar(U, 10, du));
+  s += `<rect class="kade" x="0" y="${yB}" width="${W}" height="${H-yB}"/>`;
+  s += `<polygon class="kade" points="0,0 ${W},0 ${W},${fx(yU(W))} 0,${fx(yU(0))}"/>`;
+  s += `<polygon points="0,${fx(yU(0))} ${W},${fx(yU(W))} ${W},${yB} 0,${yB}" fill="#6b7478" opacity=".85"/>`;
+  s += lnSvg(F, V, 'fiets');
+  for(let t=14; t<Math.hypot(V.x-F.x, V.y-F.y)-8; t+=16){ const q = polar(F, t, g); s += lnSvg(polar(q, -4, g), polar(q, 4, g), 'fiets-w'); }
+  s += lnSvg(P(0,yB), P(W,yB), 'ln') + lnSvg(P(0,yU(0)), P(W,yU(W)), 'ln');
+  s += lnSvg(polar(F, -30, g), polar(V, 30, g), 'ln thin');
+  s += tx(W-48, yB+20, 'stoeprand', 'cap') + tx(W-48, yU(W-48)-12, 'stoeprand', 'cap');
+  if(o.foot!==false) s += secAng(F, 0, g, 1, {r:24, fillCls:'or', txt:o.footTxt||(g+'°'), tr:40});
+  (o.ask||[]).forEach(([i,txt,cls])=> s += secAng(V, du, g, i, {r:21, fillCls:cls||'tq', txt, tr:34}));
+  return hfWrap(W, H, s, {maxw:430, alt:'bovenaanzicht van een straat met twee stoepranden en een schuine fietsoversteek'});
 }
-CT.ladder = { title:'De ladder', lvl:1,
-  instr:'De sporten van een ladder zijn evenwijdig met de grond. De ladderboom is dan een snijlijn.',
+CT.ladder = { title:'De fietsoversteek', lvl:1,
+  instr:'De twee stoepranden van de straat zijn evenwijdig. Het fietspad steekt schuin over: het is een snijlijn.',
   build(b, st, save){ const R = makeR(st);
-    const g = R.int(60, 72); const k = R.int(1, 2);
-    b.append(el('div','', ladderSvg(g, k, {ask:[[1,'α','tq'],[4,'β','vi']]})));
-    b.append(el('p','instructions', `De ladderboom maakt met de grond een hoek van ${g}°. Bereken de hoeken α en β tussen de ladderboom en een sport.`));
-    degRedQ(b, st, save, 'a', `<span class="q-num">a)</span> α = [[0]] want {R}`, g, ['ov'], {sol:`De sport is evenwijdig met de grond. De hoek aan de voet en α liggen op dezelfde plaats: het zijn <b>overeenkomstige hoeken</b>. Dus α = ${g}°.`});
-    degRedQ(b, st, save, 'b', `<span class="q-num">b)</span> β = [[0]] want {R}`, 180-g, ['nh','bz'], {sol:`β is de nevenhoek van α: β = 180° − ${g}° = ${180-g}°. Of: β en de hoek aan de voet zijn binnenhoeken aan dezelfde kant van de snijlijn, dus supplementair.`});
+    const g = R.int(55, 72); const iA = R.pick([1,3]);
+    b.append(el('div','', straatSvg(g, 0, {ask:[[iA,'α','tq'],[4,'β','vi']]})));
+    b.append(el('p','instructions', `Het fietspad maakt met de onderste stoeprand een hoek van ${g}°. Bereken de hoeken α en β tussen het fietspad en de bovenste stoeprand.`));
+    degRedQ(b, st, save, 'a', `<span class="q-num">a)</span> α = [[0]] want {R}`, g, [iA===1?'ov':'vb'],
+      {sol: iA===1 ? `De hoek van ${g}° en α liggen op dezelfde plaats: het zijn <b>overeenkomstige hoeken</b>. Dus α = ${g}°.` : `α en de hoek van ${g}° liggen tussen de stoepranden, aan verschillende kanten van het fietspad: het zijn <b>verwisselende binnenhoeken</b>. Dus α = ${g}°.`});
+    degRedQ(b, st, save, 'b', `<span class="q-num">b)</span> β = [[0]] want {R}`, 180-g, ['nh','bz'], {sol:`β is de nevenhoek van α: β = 180° − ${g}° = ${180-g}°. Of: β en de hoek van ${g}° zijn binnenhoeken aan dezelfde kant van het fietspad, dus supplementair.`});
   }};
-CT.ladderOmg = { title:'Hangt de sport scheef?', lvl:2,
-  instr:'Hier gebruik je een omgekeerde eigenschap: uit de hoeken besluit je of een sport evenwijdig is met de grond.',
+/* één vraag: wordt de straat naar rechts breder, smaller of blijft ze even breed? out = 'b' | 's' | 'e' */
+function straatQ(b, st, save, id, R, out, nr){
+  const g = R.int(58, 72); const i = R.pick([1,4]); const du = out==='e' ? 0 : (out==='b' ? 1 : -1) * R.pick([3,4,5]);
+  const meet = i===1 ? g - du : 180 - g + du;
+  b.append(el('div','', straatSvg(g, du, {ask:[[i, meet+'°', 'tq']]})));
+  const soort = i===1 ? 'overeenkomstige hoeken' : 'binnenhoeken aan dezelfde kant van het fietspad';
+  const eis = i===1 ? `${g}° ${g===meet?'=':'≠'} ${meet}°` : `${g}° + ${meet}° = ${g+meet}°`;
+  const why = out==='e' ? `Het zijn ${soort}: ${eis}${i===1?'':''}. Ze voldoen aan de omgekeerde eigenschap, dus zijn de stoepranden evenwijdig: de straat blijft <b>even breed</b>.`
+    : `Het zijn ${soort}: ${eis}${i===1?'':' ≠ 180°'}. De stoepranden zijn dus niet evenwijdig (∦). ` +
+      (i===1 ? `De hoek boven is ${meet<g?'kleiner':'groter'}: de bovenste stoeprand loopt naar rechts ${out==='b'?'omhoog':'omlaag'}, dus wordt de straat <b>${out==='b'?'breder':'smaller'}</b>.`
+             : `De som is ${g+meet>180?'groter':'kleiner'} dan 180°: de bovenste stoeprand loopt naar rechts ${out==='b'?'omhoog':'omlaag'}, dus wordt de straat <b>${out==='b'?'breder':'smaller'}</b>.`);
+  qChoice(b, st, save, id, {nr, html:`Aan de onderste stoeprand meet je ${g}°, aan de bovenste ${meet}°. Wordt de straat naar rechts toe breder, smaller of blijft ze even breed?`,
+    opts:[['b','breder'],['s','smaller'],['e','even breed']], ans:out, why,
+    whyBad:'Welke soort hoeken zijn het? Moeten ze even groot of supplementair zijn om evenwijdige stoepranden te hebben? Teken eventueel een evenwijdige rechte door het bovenste snijpunt.'});
+}
+CT.ladderOmg = { title:'Wordt de straat breder of smaller?', lvl:2,
+  instr:'Je meet de hoeken tussen de fietsoversteek en de twee stoepranden. Zijn de stoepranden evenwijdig, dan blijft de straat even breed. Gebruik een omgekeerde eigenschap.',
   build(b, st, save){ const R = makeR(st);
-    for(let q=0;q<2;q++){
-      const g = R.int(60, 74); const k = R.int(1,2); if(q===0) st.g0 = R.f()<.5; const ok = q===0 ? st.g0 : !st.g0;
-      const i = R.pick([1,4]); const exact = i===1 ? g : 180-g; const meet = ok ? exact : exact + R.pick([-4,-3,3,4]);
-      b.append(el('div','', ladderSvg(g, k, {ask:[[i, meet+'°', 'tq']]})));
-      qChoice(b, st, save, 'c'+q, {nr:LET[q]+')', html:`Aan de voet meet je ${g}°, bij een sport ${meet}°. Is die sport evenwijdig met de grond?`,
-        opts:[['j','ja'],['n','nee']], ans: ok ? 'j' : 'n',
-        why: ok ? (i===1 ? `${g}° en ${meet}° zijn gelijke <b>overeenkomstige hoeken</b>, dus is de sport evenwijdig met de grond.` : `${g}° + ${meet}° = 180°: <b>binnenhoeken aan dezelfde kant</b> die supplementair zijn, dus is de sport evenwijdig met de grond.`)
-                : (i===1 ? `${g}° ≠ ${meet}°: de overeenkomstige hoeken zijn niet even groot, dus is de sport niet evenwijdig met de grond.` : `${g}° + ${meet}° = ${g+meet}° ≠ 180°, dus is de sport niet evenwijdig met de grond.`),
-        whyBad:'Vergelijk de twee hoeken: welke soort hoeken zijn het, en moeten ze dan even groot of supplementair zijn?'});
-    }
+    const outs = R.shuffle(['b','s','e']).slice(0,2);
+    outs.forEach((o,q)=> straatQ(b, st, save, 'c'+q, R, o, LET[q]+')'));
   }};
 
 /* ---------- parkeervakken: schuine lijnen evenwijdig met elkaar, stoeprand evenwijdig met de rijbaan ---------- */
@@ -2727,9 +2737,64 @@ CT.zon = { title:'Zonnepanelen', lvl:3,
       sol:`De hulplijn is evenwijdig met de grond. De straal maakt met de hulplijn ${z}° (overeenkomstige hoeken), het paneel maakt ${p}° met de hulplijn (overeenkomstige hoeken). Samen met α vormen ze een gestrekte hoek: α = 180° − ${z}° − ${p}° = ${180-z-p}°.`});
   }};
 
+/* ---------- vakwerkbrug: boven- en onderbalk evenwijdig, schuine balken in dezelfde richting evenwijdig ---------- */
+CT.brug = { title:'De vakwerkbrug', lvl:2,
+  instr:'De bovenbalk en de onderbalk zijn evenwijdig. Ook alle schuine balken die dezelfde kant op lopen, zijn evenwijdig.',
+  build(b, st, save){ const R = makeR(st);
+    const g = R.int(52, 66); const W = 340, H = 220, yO = 170, yB = 80, h = yO - yB, half = h/Math.tan(g*D2R), x0 = 30;
+    let s = `<rect class="water" x="0" y="${yO+14}" width="${W}" height="${H-yO-14}"/>`;
+    const bot = [], top = []; for(let k=0;k<4;k++){ bot.push(P(x0 + 2*half*k, yO)); top.push(P(x0 + half + 2*half*k, yB)); }
+    s += lnSvg(P(x0-12, yO), P(bot[3].x+12, yO), 'plank') + lnSvg(P(top[0].x-12, yB), P(top[2].x+12, yB), 'plank');
+    for(let k=0;k<3;k++){ s += lnSvg(bot[k], top[k], 'leg') + lnSvg(top[k], bot[k+1], 'leg'); }
+    s += secAng(bot[1], 0, g, 1, {r:22, fillCls:'or', txt:g+'°', tr:36});
+    s += secAng(top[1], 0, g, 3, {r:18, fillCls:'tq', txt:'α', tr:30});
+    s += secAng(bot[2], 0, g, 1, {r:18, fillCls:'vi', txt:'β', tr:30});
+    s += tx(top[0].x+half, yB-14, 'bovenbalk', 'cap') + tx(x0+half, yO+28, 'onderbalk', 'cap');
+    b.append(el('div','', hfWrap(W, H, s, {maxw:440, alt:'vakwerkbrug met evenwijdige boven- en onderbalk en schuine balken'})));
+    b.append(el('p','instructions', `Een schuine balk maakt met de onderbalk een hoek van ${g}°. Bereken α en β.`));
+    degRedQ(b, st, save, 'a', `<span class="q-num">a)</span> α = [[0]] want {R}`, g, ['vb'], {sol:`Boven- en onderbalk zijn evenwijdig, de schuine balk is de snijlijn. α en de hoek van ${g}° zijn <b>verwisselende binnenhoeken</b>: α = ${g}°.`});
+    degRedQ(b, st, save, 'b', `<span class="q-num">b)</span> β = [[0]] want {R}`, g, ['ov'], {sol:`De schuine balken die naar rechts omhoog lopen, zijn evenwijdig. Nu is de onderbalk de snijlijn. β en de hoek van ${g}° liggen op dezelfde plaats: het zijn <b>overeenkomstige hoeken</b>. Dus β = ${g}°.`});
+  }};
+/* ---------- boekenrek: hangt de plank evenwijdig met de vloer? ---------- */
+function rekSvg(g, dp, i, meet){
+  const W = 340, H = 230, yV = 205, wx = 34; let s = '';
+  const ds = 180 - g; const F = P(250, yV); const Wp = P(wx, 95);
+  const V = lineInter(F, polar(F, 10, ds), Wp, polar(Wp, 10, dp));
+  s += `<rect class="kade" x="0" y="${yV}" width="${W}" height="${H-yV}"/><rect class="kade" x="0" y="0" width="${wx}" height="${yV}"/>`;
+  const pe = polar(Wp, 250, dp);
+  [40, 62, 80, 112, 130].forEach((t,j)=>{ const q = polar(Wp, t, dp); const hh = [34, 28, 38, 30, 26][j]; const top = polar(q, hh, dp+90), q2 = polar(q, 14, dp), top2 = polar(q2, hh, dp+90);
+    s += `<polygon points="${[q, top, top2, q2].map(p=>fx(p.x)+','+fx(p.y)).join(' ')}" fill="${['#e4a35b','#7fb7be','#c98bb9','#9fc97f','#e7c76a'][j]}" stroke="#555" stroke-width=".8"/>`; });
+  s += lnSvg(Wp, pe, 'plank') + lnSvg(polar(F, -6, ds), polar(V, 8, ds), 'leg');
+  s += lnSvg(P(0,yV), P(W,yV), 'ln');
+  s += secAng(F, 0, ds, 2, {r:22, fillCls:'or', txt:g+'°', tr:36});
+  s += secAng(V, dp, ds, i, {r:18, fillCls:'tq', txt:meet+'°', tr:31});
+  s += tx(W-40, yV+16, 'vloer', 'cap') + tx(pe.x-20, pe.y-48, 'plank', 'cap');
+  return hfWrap(W, H, s, {maxw:430, alt:'boekenplank aan een muur met een schuine steun naar de vloer'});
+}
+CT.rek = { title:'Hangt de boekenplank recht?', lvl:2,
+  instr:'Een schuine steun loopt van de vloer naar de boekenplank. Uit de gemeten hoeken besluit je of de plank evenwijdig is met de vloer. Gebruik een omgekeerde eigenschap.',
+  build(b, st, save){ const R = makeR(st);
+    for(let q=0;q<2;q++){
+      if(q===0) st.r0 = R.f()<.5; const ok = q===0 ? st.r0 : !st.r0;
+      const g = R.int(55, 70); const i = R.pick([3,4]); const dp = ok ? 0 : R.pick([-4,-3,3,4]);
+      const meet = i===3 ? 180 - g - dp : g + dp;
+      b.append(el('div','', rekSvg(g, dp, i, meet)));
+      const soort = i===3 ? 'binnenhoeken aan dezelfde kant van de steun' : 'verwisselende binnenhoeken';
+      qChoice(b, st, save, 'c'+q, {nr:LET[q]+')', html:`Aan de vloer meet je ${g}°, onder de plank ${meet}°. Is de plank evenwijdig met de vloer?`,
+        opts:[['j','ja'],['n','nee']], ans: ok ? 'j' : 'n',
+        why: i===3 ? `${g}° en ${meet}° zijn ${soort}: ${g}° + ${meet}° = ${g+meet}°${ok?'. Ze zijn supplementair, dus is de plank evenwijdig met de vloer.':' ≠ 180°, dus hangt de plank scheef: plank ∦ vloer.'}`
+                   : `${g}° en ${meet}° zijn ${soort}: ${ok?`ze zijn even groot, dus is de plank evenwijdig met de vloer.`:`${g}° ≠ ${meet}°, dus hangt de plank scheef: plank ∦ vloer.`}`,
+        whyBad:'Welke soort hoeken zijn het? Moeten ze dan even groot of supplementair zijn?'});
+    }
+  }};
 SEC.ctx = { id:'ctx', ic:'h_ctx', nav:'Hoeken in contexten', title:'Hoeken berekenen in contexten',
   tip:'Zoek eerst de <b>evenwijdige rechten</b> en de <b>snijlijn</b> in de situatie. Daarna gebruik je de eigenschappen zoals in een gewone figuur.',
-  cheat:CHEATEIG, cards:[CT.ladder, CT.spoor, CT.parking, CT.trap, CT.ladderOmg, CT.vouw, CT.air, CT.zon] };
+  cheat:CHEATEIG, cards:[CT.ladder, CT.spoor, CT.parking, CT.trap, CT.ladderOmg, CT.vouw, CT.air, CT.zon, CT.brug, CT.rek] };
+
+(function(){ const st = document.createElement('style'); st.textContent = `
+  .hf .fiets{stroke:#c9534a; stroke-width:20; opacity:.75}
+  .hf .fiets-w{stroke:#fff; stroke-width:3}
+`; document.head.append(st); })();
 /* ============================================================
    SOM VAN DE HOEKEN VAN EEN DRIEHOEK
    - inzicht: afscheuren (puntspiegeling om het midden van een zijde), dynamische driehoek
@@ -3408,10 +3473,11 @@ function tReken(b, st, save){ const R = makeR(st); const x = R.int(38, 142); con
   const ts = R.shuffle(TYPES5.filter(t=>PAIRTYPE[t].pairs.some(p=>p.includes(g)))).slice(0,2);
   ts.forEach((t,i)=>{ const p = PAIRTYPE[t].pairs.find(p=>p.includes(g)); const o = p[0]===g ? p[1] : p[0];
     degRedQ(b, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${kH(m,o)} = [[0]] want {R}`, Math.round(v[o]), [t], {sol:`${PAIRTYPE[t].naam}: ${Math.round(v[o])}°`}); }); }
-function tOmg(b, st, save){ const R = makeR(st); for(let i=0;i<2;i++){ const t = R.pick(TYPES5); const p = R.pick(PAIRTYPE[t].pairs); const x = R.int(52, 80); const ok = i===0 ? R.f()<.5 : !st.ok0; if(i===0) st.ok0 = ok;
+function tOmg(b, st, save){ const R = makeR(st); for(let i=0;i<1;i++){ const t = R.pick(TYPES5); const p = R.pick(PAIRTYPE[t].pairs); const x = R.int(52, 80); const ok = i===0 ? R.f()<.5 : !st.ok0; if(i===0) st.ok0 = ok;
     const want = (k, val) => (+k[1])%2 ? val : 180-val; const vA = x; const vB = PAIRTYPE[t].rel==='gelijk' ? (ok ? x : x+R.pick([3,5])) : (ok ? 180-x : 180-x-R.pick([3,5]));
     const m = psWithVals(R, p[0], vA, p[1], vB); b.append(el('div','', psFig(m, {vals:{[p[0]]:vA+'°', [p[1]]:vB+'°'}, arcs:[p[0],p[1]], fill:{[p[0]]:'or', [p[1]]:'tq'}, nums:false, maxw:360})));
-    qChoice(b, st, save, 'o'+i, {nr:LET[i]+')', html:'Zijn a en b evenwijdig?', opts:[['j','ja'],['n','nee']], ans: ok ? 'j' : 'n', why:`Het zijn ${PAIRTYPE[t].naam}: ${ok ? 'ze voldoen aan de omgekeerde eigenschap' : 'ze zijn niet ' + (PAIRTYPE[t].rel==='gelijk' ? 'even groot' : 'supplementair')}.`}); } }
+    qChoice(b, st, save, 'o'+i, {nr:LET[i]+')', html:'Zijn a en b evenwijdig?', opts:[['j','ja'],['n','nee']], ans: ok ? 'j' : 'n', why:`Het zijn ${PAIRTYPE[t].naam}: ${ok ? 'ze voldoen aan de omgekeerde eigenschap' : 'ze zijn niet ' + (PAIRTYPE[t].rel==='gelijk' ? 'even groot' : 'supplementair')}.`}); }
+  straatQ(b, st, save, 'o1', R, R.pick(['b','s','e']), 'b)'); }
 function tBewijs(b, st, save){ const R = makeR(st); const S = proofSetup(R, {names:R.pick(TRI_N)}); b.append(el('div','', proofFig(S, {par:false})));
   b.append(el('p','instructions', `Bewijs dat de som van de hoeken van Δ${S.X}${S.Y}${S.Z} 180° is. Gebruik de hulplijn p door ${S.Z}.`));
   proofWriter(b, st, save, 'pw', {rows:proofRows(S, {blind:true}), sol:proofModelHTML(S)}); }
