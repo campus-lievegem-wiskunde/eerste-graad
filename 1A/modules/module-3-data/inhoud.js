@@ -70,6 +70,7 @@ function qBlock(parent, st, save, id, q){
   });
   optBtns.forEach(b=> b.addEventListener('click', ()=>{ s.c=b.dataset.val; save(); paintChoice(); fb.textContent=''; }));
   paintChoice();
+  if(q.hint && !quiz) hintBox(row, act, s, save, id, q.hint);
 
   function run(){
     const vals = inputs.map(i=>i.value.trim());
@@ -113,10 +114,10 @@ function qChoice(parent, st, save, id, q){
   const quiz = QZ;
   function apply(val, doSave){
     if(quiz){ btns.forEach(b=>b.classList.toggle('chosen', b.dataset.val===val)); if(doSave){ st[id]=val; save(); } return; }
-    const ok = val === q.ans;
+    const ok = Array.isArray(q.ans) ? q.ans.includes(val) : val === q.ans;
     btns.forEach(b=>{ b.classList.remove('chosen','good','wrong'); if(b.dataset.val===val) b.classList.add('chosen', ok?'good':'wrong'); });
     fb.className = 'fb ' + (ok?'ok':'bad');
-    fb.innerHTML = (ok ? '✅ Juist! ' : '❌ Niet juist. ') + (q.why||'');
+    fb.innerHTML = (ok ? '✅ Juist! ' : '❌ Niet juist. ') + ((q.whys && q.whys[val]) || q.why || '');
     if(doSave){ st[id]=val; save(); CLres(qid, ok); }
   }
   btns.forEach(b=> b.addEventListener('click', ()=>apply(b.dataset.val, true)));
@@ -594,6 +595,148 @@ function ftabHTML(head, rows, opts={}){
   rows.forEach(r=> h += `<tr>${r.map((c,i)=>`<td${i===0?' class="l"':''}>${c}</td>`).join('')}</tr>`);
   return h + '</tbody></table>';
 }
+/* ============================================================
+   INVULBARE HINTS (afspraak: elke basisoefening met meer dan één stap krijgt een hint
+   met invulvakjes voor de tussenstappen, eventueel met "Meer uitleg"; niet in verdieping)
+   Gebruik in een vraag: hint:{ stappen:['12 + 18 = [[0]]', ...], ans:[30, ...], extra:'uitleg', titel:'...' }
+   De hint telt niet mee in het dashboard.
+   ============================================================ */
+(function(){
+  const css = `
+  .q-act .hint-knop{ border-style:dashed; }
+  .q-act .hint-knop.on{ border-style:solid; border-color:var(--orange); background:var(--or-soft); }
+  .hintbox{ margin:.5rem 0 .3rem; padding:.7rem .9rem; border:2px dashed var(--or-line); border-radius:12px; background:var(--or-soft); }
+  .hintbox h4{ margin:0 0 .35rem; font-size:.98rem; }
+  .hintbox ol{ margin:.2rem 0 .5rem; padding-left:1.4rem; display:grid; gap:.45rem; }
+  .hintbox li{ line-height:1.9; }
+  .hintbox .inp{ min-width:3.2rem; width:4.2rem; margin:0 .25rem; }
+  .hintbox .hb-tab{ margin:.35rem 0; }
+  .hintbox .hb-tab th{ text-align:left; padding:.2rem .5rem; }
+  .hintbox .hb-tab td{ text-align:center; padding:.2rem .3rem; }
+  .hintbox .hb-tab .inp{ width:3.4rem; min-width:2.6rem; margin:0; }
+  .hintbox .hb-scroll{ overflow-x:auto; }
+  .hintbox .inp.lg{ width:6rem; }
+  .hintbox .hb-bar{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .hintbox .hb-extra{ margin-top:.5rem; padding:.55rem .75rem; border-left:4px solid var(--accent); background:var(--card); border-radius:8px; }
+  .hintbox .fb{ margin-top:.35rem; }
+  .hintbox .ftab{ margin:.2rem 0; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* vergelijk één hintvakje met het verwachte antwoord (getal of woord) */
+function hintJuist(v, a){
+  if(Array.isArray(a)) return a.some(x=>hintJuist(v, x));
+  if(typeof a === 'number'){ const x = parseLoose(v); return !isNaN(x) && Math.abs(x - a) <= 0.0051; }
+  return String(v).trim().toLowerCase().replace(/\s+/g,' ') === String(a).toLowerCase();
+}
+
+/* bouwt de hintknop (in act) en het hintvak (na anchor) */
+function hintBox(row, act, s, save, id, h){
+  const hs = s.h || (s.h = {v:[]});
+  const knop = el('button','btn ghost hint-knop','💡 Hint'); knop.type = 'button'; act.append(knop);
+  const box = el('div','hintbox'); box.hidden = true;
+  box.append(el('h4','', '💡 ' + (h.titel || 'Hint: vul de tussenstappen in')));
+  const ol = el('ol'); box.append(ol);
+  h.stappen.forEach(st=> ol.append(el('li','', fillInputs(st, id+'-h', 'xs', 'decimal'))));
+  const bar = el('div','hb-bar'); box.append(bar);
+  const ctl = el('button','btn ghost','Controleer de hint'); ctl.type = 'button'; bar.append(ctl);
+  let extraKnop = null, extra = null;
+  if(h.extra){ extraKnop = el('button','btn ghost','🔍 Meer uitleg'); extraKnop.type = 'button'; bar.append(extraKnop);
+    extra = el('div','hb-extra', h.extra); extra.hidden = !hs.x; box.append(extra);
+    extraKnop.addEventListener('click', ()=>{ extra.hidden = !extra.hidden; hs.x = !extra.hidden; save(); }); }
+  const fb = el('div','fb'); box.append(fb);
+  row.append(box);
+  const inps = [...box.querySelectorAll('.inp')].sort((a,b)=>a.dataset.f-b.dataset.f);
+  inps.forEach((inp,i)=>{ if(hs.v[i]!=null) inp.value = hs.v[i];
+    inp.addEventListener('input', ()=>{ hs.v[i] = inp.value; save(); inp.classList.remove('ok','bad'); });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); controle(); } }); });
+  function controle(){
+    const vals = inps.map(i=>i.value.trim());
+    if(vals.every(v=>v==='')){ fb.className = 'fb info'; fb.textContent = 'Vul eerst de vakjes van de hint in.'; return; }
+    let goed = 0;
+    inps.forEach((inp,i)=>{ inp.classList.remove('ok','bad'); if(vals[i]==='') return; const ok = hintJuist(vals[i], h.ans[i]); inp.classList.add(ok?'ok':'bad'); if(ok) goed++; });
+    const leeg = vals.filter(v=>v==='').length;
+    if(goed === inps.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Alle tussenstappen kloppen. Gebruik ze nu voor je antwoord.'; }
+    else { fb.className = 'fb bad'; fb.innerHTML = (goed < inps.length - leeg ? 'De rode vakjes kloppen nog niet. ' : '') + (leeg ? 'Vul ook de lege vakjes in.' : '') + (h.extra && extra.hidden ? ' Kijk eens bij 🔍 Meer uitleg.' : ''); }
+  }
+  ctl.addEventListener('click', controle);
+  const open = o => { box.hidden = !o; knop.classList.toggle('on', o); knop.textContent = o ? '💡 Verberg hint' : '💡 Hint'; };
+  open(!!hs.o);
+  knop.addEventListener('click', ()=>{ hs.o = box.hidden; save(); open(hs.o); });
+}
+
+/* ---------- kant-en-klare hints ---------- */
+const HR = (x, d) => Math.round(x * 10**d) / 10**d;
+const Hgetal = x => [x, HR(x, 2), HR(x, 1)];
+const HTX = x => nf(x).replace('-', '−');
+
+/* percentage: deel f van totaal tot */
+function pctHint(f, tot, wat){
+  const k = 100/tot, mooi = Math.abs(HR(k, 2) - k) < 1e-9;
+  const stappen = [`Het totaal is ${tot}. Dat is <b>100 %</b>.`];
+  if(wat) stappen.unshift(wat);
+  const st0 = stappen.length;
+  const ans = [];
+  if(mooi){
+    stappen.push(`Van ${tot} naar 100: maal [[${ans.length}]]`); ans.push(k);
+    stappen.push(`${HTX(f)} · ${nf(k)} = [[${ans.length}]] %`); ans.push(Hgetal(f*k));
+  } else {
+    stappen.push(`Deel door het totaal: ${HTX(f)} : ${tot} = [[${ans.length}]]`); ans.push(Hgetal(f/tot).concat([HR(f/tot, 3), HR(f/tot, 4)]));
+    stappen.push(`Maal 100: [[${ans.length}]] %`); ans.push(Hgetal(f/tot*100));
+  }
+  return { stappen, ans, extra: mooi
+    ? `Een percentage zegt hoeveel het zou zijn <b>op 100</b>. Je maakt van het totaal ${tot} het getal 100 door te vermenigvuldigen met ${nf(k)}. Wat je met het totaal doet, doe je ook met het deel: ${HTX(f)} · ${nf(k)}.`
+    : `Een percentage zegt hoeveel het zou zijn <b>op 100</b>. ${HTX(f)} : ${tot} is het deel van één geheel. Maal 100 geeft het deel van 100, dus het percentage.` };
+}
+
+/* gemiddelde uit een lijst */
+function gemHint(v){
+  const S = sum(v), n = v.length;
+  return { stappen:[ `Tel alle gegevens op: som = [[0]]`, `Tel hoeveel gegevens er zijn: [[1]]`, `Deel de som door het aantal: [[2]] : [[3]] = [[4]]` ],
+    ans:[S, n, S, n, Hgetal(S/n)],
+    extra:'Het gemiddelde is wat elk zou krijgen als je alles eerlijk verdeelt: alles samen (de som), gedeeld door het aantal gegevens. Tel een 0 ook mee als gegeven, en let op het teken van negatieve getallen.' };
+}
+/* gemiddelde uit een frequentietabel (of dotplot) */
+function gemTabHint(w, f){
+  const P = w.map((x,i)=>x*f[i]), S = sum(P), n = sum(f), k = w.length;
+  return { stappen:[
+      ...w.map((x,i)=>`${HTX(x)} komt ${f[i]} keer voor: ${HTX(x)} · ${f[i]} = [[${i}]]`),
+      `Tel die uitkomsten op: som = [[${k}]]`,
+      `Aantal gegevens: tel de frequenties op = [[${k+1}]]`,
+      `Gemiddelde: som : aantal = [[${k+2}]]` ],
+    ans:[...P, S, n, Hgetal(S/n)],
+    extra:`Komt ${HTX(w[0])} ${f[0]} keer voor, dan is dat ${Array(Math.min(f[0],4)).fill(HTX(w[0])).join(' + ')}${f[0]>4?' + …':''} = ${HTX(w[0])} · ${f[0]}. Deel op het einde door het aantal gegevens (${n}), niet door het aantal rijen (${k}).` };
+}
+/* mediaan uit een korte lijst: eerst ordenen */
+function medHint(v){
+  const s = sorted(v), n = v.length, ans = [...s];
+  const stappen = [`Orden van klein naar groot: ${s.map((x,i)=>`[[${i}]]`).join(' , ')}`, `Aantal gegevens: [[${n}]]`]; ans.push(n);
+  if(n % 2){ stappen.push(`Het middelste staat op plaats (${n} + 1) : 2 = [[${n+1}]]`, `Me = [[${n+2}]]`); ans.push((n+1)/2, s[(n-1)/2]); }
+  else { stappen.push(`De twee middelste staan op plaats [[${n+1}]] en [[${n+2}]]`, `Me = ( [[${n+3}]] + [[${n+4}]] ) : 2 = [[${n+5}]]`); ans.push(n/2, n/2+1, s[n/2-1], s[n/2], Hgetal(median(v))); }
+  return { stappen, ans,
+    extra:'De mediaan is het middelste gegeven als alles geordend is: links en rechts ervan liggen evenveel gegevens. Bij een even aantal zijn er twee middelste: neem daarvan het gemiddelde.' };
+}
+/* mediaan uit een frequentietabel of dotplot: rangnummers per waarde */
+function medTabHint(w, f){
+  const n = sum(f), k = w.length; let c = 0; const cum = f.map(x=>c+=x);
+  const stappen = [`Aantal gegevens: tel de frequenties op = [[0]]`], ans = [n];
+  if(n % 2){ stappen.push(`Het middelste gegeven is het ( ${n} + 1 ) : 2 = [[1]]de`); ans.push((n+1)/2); }
+  else { stappen.push(`De twee middelste zijn het [[1]]de en het [[2]]de gegeven`); ans.push(n/2, n/2+1); }
+  const s = ans.length;
+  stappen.push(`Tel van klein naar groot. Wat is het laatste rangnummer bij elke waarde?<div class="hb-scroll"><table class="ftab hb-tab"><tr><th>waarde</th>${w.map(x=>`<td>${HTX(x)}</td>`).join('')}</tr><tr><th>frequentie</th>${f.map(x=>`<td>${x}</td>`).join('')}</tr><tr><th>laatste rangnummer</th>${w.map((x,i)=>`<td>[[${s+i}]]</td>`).join('')}</tr></table></div>`);
+  ans.push(...cum);
+  const me = median(expand(w, f));
+  stappen.push(`Me = [[${s+k}]]`); ans.push(me);
+  return { stappen, ans,
+    extra:`De waarden staan al geordend. Bij ${HTX(w[0])} horen de gegevens 1 tot ${cum[0]}${k>1?`, bij ${HTX(w[1])} de gegevens ${cum[0]+1} tot ${cum[1]}`:''}, enzovoort. Zoek bij welke waarde het middelste rangnummer valt.${n%2?'':' Vallen de twee middelste bij een verschillende waarde, neem dan het gemiddelde van die twee waarden.'}` };
+}
+/* lange lijst: tel eerst per waarde */
+function medLijstHint(v){ if(v.length <= 10) return medHint(v); const w = [...new Set(v)].sort((a,b)=>a-b); return medTabHint(w, w.map(x=>v.filter(y=>y===x).length)); }
+/* variatiebreedte */
+function vbHint(v){ const M = Math.max(...v), m = Math.min(...v);
+  return { stappen:[`Het grootste gegeven: [[0]]`, `Het kleinste gegeven: [[1]]`, `Variatiebreedte = grootste − kleinste = [[2]]`], ans:[M, m, M-m],
+    extra:'De variatiebreedte zegt hoe ver de gegevens uit elkaar liggen: de afstand tussen het kleinste en het grootste gegeven.' }; }
 
 /* ============================================================
    ASSENSTELSEL
@@ -1082,7 +1225,7 @@ function moveEx(b, st, save, key, cfg){
   const wrap = el('div','two'); const left = el('div'), right = el('div'); left.append(planeBox(P.svg)); wrap.append(left, right); b.append(wrap);
   right.append(el('div','readout', cfg.ask));
   let anim = null;
-  qBlock(right, st, save, key, { html:`<span class="bigq">${cfg.n}′( [[0]] , [[1]] )</span>`, size:'xs', check:v=>{ const r = nums(cfg.ans)(v); if(!r.ok) r.msg = cfg.hint; return r; }, sol:cfg.sol,
+  qBlock(right, st, save, key, { html:`<span class="bigq">${cfg.n}′( [[0]] , [[1]] )</span>`, size:'xs', check:v=>{ const r = nums(cfg.ans)(v); if(!r.ok) r.msg = cfg.hint; return r; }, sol:cfg.sol, hint:cfg.stap,
     after: async ok => { if(QZ || !ok) return; if(anim) anim.remove(); anim = svgEl('g', {}, P.top);
       const [x0,y0] = cfg.p, [x1,y1] = cfg.ans;
       if(cfg.mirror){ svgEl('line',{x1:P.X(x0), y1:P.Y(y0), x2:P.X(x1), y2:P.Y(y1), class:'proj'}, anim); }
@@ -1093,6 +1236,7 @@ const moveGen = r => { for(;;){ const p=[rInt(r,-5,5), rInt(r,-5,5)], dx=rNZ(r,-
   const n = rPick(r, ['P','Q','R','S','T']);
   return { p, n, ans:q, ask:`${n}${coStr(p[0],p[1])} schuift <b>${Math.abs(dx)} naar ${dx<0?'links':'rechts'}</b> en <b>${Math.abs(dy)} naar ${dy<0?'onder':'boven'}</b>. Wat is de coördinaat van het beeldpunt ${n}′?`,
     hint:`Naar ${dx<0?'links':'rechts'} verandert enkel x: het wordt ${dx<0?'kleiner':'groter'}. Naar ${dy<0?'onder':'boven'} verandert enkel y: het wordt ${dy<0?'kleiner':'groter'}.`,
+    stap:{stappen:[`x: ${fmt(p[0])} ${dx<0?'−':'+'} ${Math.abs(dx)} = [[0]]`, `y: ${fmt(p[1])} ${dy<0?'−':'+'} ${Math.abs(dy)} = [[1]]`], ans:[q[0], q[1]], extra:`Naar rechts of naar boven: tel op. Naar links of naar onder: trek af. ${Math.abs(dx)} naar ${dx<0?'links':'rechts'} verandert enkel het eerste coördinaatgetal (x), ${Math.abs(dy)} naar ${dy<0?'onder':'boven'} enkel het tweede (y). Tel de hokjes op het rooster om te controleren.`},
     sol:`x: ${fmt(p[0])} ${dx<0?'−':'+'} ${Math.abs(dx)} = ${fmt(q[0])}. y: ${fmt(p[1])} ${dy<0?'−':'+'} ${Math.abs(dy)} = ${fmt(q[1])}. Dus <b>${n}′${coStr(q[0],q[1])}</b>.` }; } };
 const mirrorGen = axes => r => { const p=[rNZ(r,-6,6), rNZ(r,-6,6)], m = rPick(r, axes), n = rPick(r, ['A','B','K','L','M']);
   const q = m==='x' ? [p[0],-p[1]] : m==='y' ? [-p[0],p[1]] : [-p[0],-p[1]];
@@ -1944,7 +2088,7 @@ function misleadDemo(b, cfg){
   b.append(v, bar, out);
   const [a, c] = cfg.compare;
   function paint(){ const y0 = +rg.value; lab.textContent = nf(y0)+' '+(cfg.unit||'');
-    v.innerHTML=''; v.append(drawChart('kolom', {labels:cfg.labels, series:[{values:cfg.values}], yMin:y0, yMax:cfg.yMax, step:cfg.step, title:cfg.title, yTitle:cfg.yTitle, anim:false, values:true, hi:[a,c]}));
+    v.innerHTML=''; v.append(drawChart('kolom', {labels:cfg.labels, series:[{values:cfg.values}], yMin:y0, yMax:cfg.yMax, step:cfg.step, title:cfg.title, yTitle:cfg.yTitle, anim:false, hi:[a,c]}));
     const va = cfg.values[a], vc = cfg.values[c];
     const lijkt = (vc-y0)/(va-y0), echt = vc/va;
     out.innerHTML = `Staaf ${cfg.labels[c]} <b>lijkt ${nf(lijkt,1)} keer</b> zo hoog als staaf ${cfg.labels[a]}. In werkelijkheid is ${nf(vc)} maar <b>${nf(echt,2)} keer</b> zo groot als ${nf(va)}.`; }
@@ -2063,27 +2207,31 @@ SECTIONS.push({ id:'diagram', ic:'diagram', nav:'Diagrammen', title:'Diagrammen 
     { title:'Aflezen in een staafdiagram', lvl:2, instr:'Een klas hield bij hoeveel boeken elke leerling las in de vakantie.',
       build:combo(chartBox('kolom', {labels:['0','1','2','3','4','5'], series:[{values:[3,6,8,4,2,1]}], xTitle:'Aantal gelezen boeken', yTitle:'Aantal leerlingen', step:1, yMax:9}), list([
         {html:'Hoeveel leerlingen lazen 2 boeken? [[0]]', mode:'numeric', check:exact(8), sol:'De staaf boven 2 is 8 hoog.'},
-        {html:'Hoeveel leerlingen telt de klas? [[0]]', mode:'numeric', check:exact(24), sol:'3 + 6 + 8 + 4 + 2 + 1 = <b>24</b>.'},
-        {html:'Hoeveel leerlingen lazen minstens 3 boeken? [[0]]', mode:'numeric', check:exact(7), sol:'Minstens 3: 3, 4 of 5 boeken. 4 + 2 + 1 = <b>7</b>.'},
-        {html:'Hoeveel boeken las de klas samen? [[0]]', mode:'numeric', check:exact(47), sol:'3 · 0 + 6 · 1 + 8 · 2 + 4 · 3 + 2 · 4 + 1 · 5 = 0 + 6 + 16 + 12 + 8 + 5 = <b>47</b>.'}
+        {html:'Hoeveel leerlingen telt de klas? [[0]]', mode:'numeric', check:exact(24), hint:{stappen:['Lees elke staaf af. 0 boeken: [[0]] · 1 boek: [[1]] · 2 boeken: [[2]] · 3 boeken: [[3]] · 4 boeken: [[4]] · 5 boeken: [[5]]','Tel op: [[6]] leerlingen'], ans:[3,6,8,4,2,1,24], extra:'Elke staaf zegt hoeveel leerlingen dat aantal boeken lazen. Elke leerling hoort bij precies één staaf. Tel je alle staven op, dan heb je dus alle leerlingen.'}, sol:'3 + 6 + 8 + 4 + 2 + 1 = <b>24</b>.'},
+        {html:'Hoeveel leerlingen lazen minstens 3 boeken? [[0]]', mode:'numeric', check:exact(7), hint:{stappen:['Minstens 3 boeken: dat is 3, [[0]] of [[1]] boeken','Lees af: [[2]] + [[3]] + [[4]] = [[5]] leerlingen'], ans:[4,5,4,2,1,7], extra:'<i>Minstens 3</i> betekent 3 of meer. Wie 3 boeken las, telt dus ook mee.'}, sol:'Minstens 3: 3, 4 of 5 boeken. 4 + 2 + 1 = <b>7</b>.'},
+        {html:'Hoeveel boeken las de klas samen? [[0]]', mode:'numeric', check:exact(47), hint:{stappen:['0 boeken: 3 leerlingen · 0 = [[0]]','1 boek: 6 leerlingen · 1 = [[1]]','2 boeken: 8 leerlingen · 2 = [[2]]','3 boeken: 4 leerlingen · 3 = [[3]]','4 boeken: 2 leerlingen · 4 = [[4]]','5 boeken: 1 leerling · 5 = [[5]]','Tel op: [[6]] boeken'], ans:[0,6,16,12,8,5,47], extra:'6 leerlingen lazen elk 1 boek: samen 6 boeken. 8 leerlingen lazen elk 2 boeken: 2 + 2 + 2 + 2 + 2 + 2 + 2 + 2 = 8 · 2 = 16 boeken. Doe dat voor elke staaf en tel alles op.'}, sol:'3 · 0 + 6 · 1 + 8 · 2 + 4 · 3 + 2 · 4 + 1 · 5 = 0 + 6 + 16 + 12 + 8 + 5 = <b>47</b>.'}
       ], {letters:true})) },
     { title:'Bouw het staafdiagram', lvl:2, instr:'Sleep elke staaf tot de juiste hoogte (of klik op de juiste hoogte boven een staaf).',
       build:combo(html(ftabHTML(['broodbeleg','frequentie'], [['kaas',7],['choco',9],['hesp',5],['confituur',2]])),
         (b,st,save,key)=>barBuilder(b,st,save,key,{labels:['kaas','choco','hesp','confituur'], values:[7,9,5,2], yMax:10, step:1, title:'Favoriet broodbeleg'})) },
-    { title:'Het cirkeldiagram', lvl:2, instr:'Schuif en kijk hoe het deel en de middelpuntshoek samen groeien. Beantwoord dan de vragen.',
+    { title:'Het cirkeldiagram', lvl:3, instr:'Schuif en kijk hoe het deel en de middelpuntshoek samen groeien. Beantwoord dan de vragen.',
       build:combo(b=>pieExplore(b), list([
         {html:'Van 20 leerlingen gaan er 5 met de bus. Welk percentage is dat? [[0]] %', check:exact(25), sol:'5 : 20 · 100 = <b>25 %</b>.'},
         {html:'Hoe groot is de middelpuntshoek voor die 5 leerlingen? [[0]] °', check:exact(90), sol:'5 : 20 · 360° = <b>90°</b>: een kwart van de cirkel.'},
         {html:'Van 40 leerlingen spelen er 12 een instrument. Middelpuntshoek? [[0]] °', check:exact(108), sol:'12 : 40 · 360° = <b>108°</b>.'},
         {html:'Een deel van een cirkeldiagram heeft een middelpuntshoek van 180°. Hoeveel procent is dat? [[0]] %', check:exact(50), sol:'180° is de helft van 360°: <b>50 %</b>.'}
       ], {letters:true})) },
-    { title:'Welke voorstelling past?', lvl:2, build:choiceList([
-        ['Je wil tonen hoe de temperatuur verandert tijdens een dag.', 'l', 'Een verloop in de tijd toon je met een lijndiagram.'],
-        ['Je wil tonen welk deel van je zakgeld naar kleren, snoep en sparen gaat.', 'c', 'Delen van een geheel (100 %): cirkeldiagram (of strookdiagram).'],
-        ['Je wil het aantal leerlingen per sportclub vergelijken.', 's', 'Aantallen vergelijken doe je met een staafdiagram.'],
-        ['Je wil tonen hoe vaak elke schoenmaat voorkomt in de klas (20 leerlingen).', 'd', 'Weinig numerieke gegevens: elk bolletje is een leerling. Een staafdiagram kan ook.'],
-        ['Je wil tonen hoe het aantal inwoners van je gemeente groeide van 2015 tot 2025.', 'l', 'Een evolutie door de jaren heen: lijndiagram.']
-      ], [['l','lijndiagram'],['d','dotplot'],['s','staafdiagram'],['c','cirkeldiagram']]) },
+    { title:'Welke voorstelling past?', lvl:2, instr:'Soms passen er meerdere voorstellingen. Kies er een die past: de uitleg zegt welke het best past en waarom.',
+      build:(b,st,save,key)=>{
+        const opts = [['l','lijndiagram'],['d','dotplot'],['s','staafdiagram'],['c','cirkeldiagram'],['t','strookdiagram']];
+        const DEEL = 'Een cirkel- of strookdiagram toont delen van een geheel (samen 100 %). ';
+        [ {html:'Je wil tonen hoe de temperatuur verandert tijdens een dag.', ans:['l','s'], whys:{ l:'Een verloop in de tijd toon je het best met een lijndiagram: je ziet meteen waar het stijgt en daalt.', s:'Dat kan: een staaf per uur. Maar het verloop (stijgen en dalen) zie je nog beter in een lijndiagram.', d:'Een dotplot telt hoe vaak elke waarde voorkomt. Hier wil je het verloop in de tijd zien: lijndiagram.', c:DEEL+'De temperatuur is geen deel van een geheel: lijndiagram.', t:DEEL+'De temperatuur is geen deel van een geheel: lijndiagram.'}},
+          {html:'Je wil tonen welk deel van je zakgeld naar kleren, snoep en sparen gaat.', ans:['c','t'], whys:{ c:'Delen van een geheel (al je zakgeld = 100 %): een cirkeldiagram past. Een strookdiagram ook.', t:'Delen van een geheel (al je zakgeld = 100 %): een strookdiagram past. Een cirkeldiagram ook.', s:'Je ziet dan de bedragen, maar niet goed welk <b>deel</b> van het geheel elk stuk is. Daarvoor is een cirkel- of strookdiagram beter.', l:'Er is geen verloop in de tijd. Je wil delen van een geheel tonen: cirkel- of strookdiagram.', d:'Er zijn maar drie categorieën en geen getallen om te tellen. Delen van een geheel: cirkel- of strookdiagram.'}},
+          {html:'Je wil het aantal leden per sportclub vergelijken.', ans:['s'], whys:{ s:'Aantallen vergelijken doe je het best met een staafdiagram: de hoogste staaf springt meteen in het oog.', c:DEEL+'Hier wil je aantallen vergelijken, en dat zie je beter aan de hoogte van staven.', t:DEEL+'Hier wil je aantallen vergelijken, en dat zie je beter aan de hoogte van staven.', l:'Een lijndiagram toont een verloop in de tijd. De sportclubs zijn geen tijdstippen: staafdiagram.', d:'Een sportclub kan honderden leden hebben: dat worden veel te veel bolletjes. Staafdiagram.'}},
+          {html:'Je wil tonen hoe vaak elke schoenmaat voorkomt in de klas (20 leerlingen).', ans:['d','s'], whys:{ d:'Weinig numerieke gegevens: elk bolletje is een leerling. Een staafdiagram kan ook.', s:'Dat kan: een staaf per schoenmaat. Bij zo weinig gegevens is een dotplot ook handig: elk bolletje is een leerling.', l:'Schoenmaten zijn geen tijdstippen: er is geen verloop. Dotplot of staafdiagram.', c:DEEL+'Je wil vooral zien welke maat vaak voorkomt: dotplot of staafdiagram.', t:DEEL+'Je wil vooral zien welke maat vaak voorkomt: dotplot of staafdiagram.'}},
+          {html:'Je wil tonen hoe het aantal inwoners van je gemeente groeide van 2015 tot 2025.', ans:['l','s'], whys:{ l:'Een evolutie door de jaren heen: een lijndiagram toont de groei het duidelijkst.', s:'Dat kan: een staaf per jaar. Maar de groei door de jaren zie je nog beter in een lijndiagram.', d:'Een dotplot telt hoe vaak elke waarde voorkomt. Hier wil je een verloop in de tijd: lijndiagram.', c:DEEL+'De inwoners van verschillende jaren zijn geen delen van één geheel: lijndiagram.', t:DEEL+'De inwoners van verschillende jaren zijn geen delen van één geheel: lijndiagram.'}}
+        ].forEach((q,i)=> qChoice(b, st, save, key+'_'+i, Object.assign({opts, nr:(i+1)+'.'}, q)));
+      } },
     { title:'Twee groepen vergelijken', lvl:3, instr:'Jongens en meisjes uit het eerste jaar kozen hun favoriete pauzeactiviteit.',
       build:combo(chartBox('kolom', {labels:['voetbal','praten','gsm','lezen'], series:[{name:'jongens', values:[18,10,9,3]},{name:'meisjes', values:[6,20,10,4]}], yTitle:'Aantal leerlingen', step:4, yMax:24}), list([
         {html:'Hoeveel leerlingen werden ondervraagd? [[0]]', mode:'numeric', check:exact(80), sol:'Jongens: 18 + 10 + 9 + 3 = 40. Meisjes: 6 + 20 + 10 + 4 = 40. Samen <b>80</b>.'},
@@ -2102,6 +2250,34 @@ SECTIONS.push({ id:'diagram', ic:'diagram', nav:'Diagrammen', title:'Diagrammen 
         ], [['w','Waar'],['n','Niet waar'],['o','Kan je niet weten']])) }
   ]});
 
+/* staafdiagram met een verticale as met ongelijke stappen (0, 10, 20, 50, 100), en een knop voor de eerlijke versie */
+function ongelijkeAs(b, st, save, key){
+  const labs = ['jan','feb','mrt','apr'], vals = [10, 20, 50, 100], asO = [0, 10, 20, 50, 100];
+  const v = el('div','viz mid'); b.append(v);
+  const bar = el('div','gen-bar'); const kn = el('button','btn ghost',''); kn.type = 'button'; bar.append(kn); b.append(bar);
+  function teken(){ const eerlijk = !!st.eerlijk; v.innerHTML = '';
+    const W = 460, H = 300, L = 56, R = 14, T = 30, pb = 40, pw = W-L-R, ph = H-T-pb, svg = newSvg(W, H); v.append(svg);
+    const ticks = eerlijk ? [0,10,20,30,40,50,60,70,80,90,100] : asO;
+    const Y = x => { if(eerlijk) return T + ph*(1 - x/100); const i = asO.indexOf(x); return T + ph*(1 - i/(asO.length-1)); };
+    ticks.forEach(t=>{ const y = Y(t); svgEl('line',{x1:L, y1:y, x2:L+pw, y2:y, class:'gr'}, svg); svgText(svg, L-8, y+4, String(t), {'text-anchor':'end', class:'t-soft'}); });
+    const slot = pw/labs.length, bw = slot*0.56;
+    labs.forEach((l,i)=>{ const x = L + slot*i + (slot-bw)/2, y = Y(vals[i]); svgEl('rect',{x, y, width:bw, height:T+ph-y, class:'bar'}, svg); svgText(svg, x+bw/2, T+ph+20, l, {'text-anchor':'middle'}); });
+    svgEl('line',{x1:L, y1:T, x2:L, y2:T+ph, class:'ax'}, svg); svgEl('line',{x1:L, y1:T+ph, x2:L+pw, y2:T+ph, class:'ax'}, svg);
+    svgText(svg, 8, 16, 'Aantal volgers', {class:'t-soft'});
+    if(eerlijk) svgText(svg, W-R, 16, 'Eerlijke as: elke stap is 10', {'text-anchor':'end', class:'t-soft'});
+    kn.textContent = eerlijk ? '↩ Toon de oorspronkelijke grafiek' : '⚖ Toon een eerlijke as'; }
+  kn.addEventListener('click', ()=>{ st.eerlijk = !st.eerlijk; save(); teken(); });
+  teken();
+  choiceList([['Wat is er misleidend aan de verticale as?', 'b', 'De stappen zijn niet even groot: van 0 naar 10 is 10, maar van 50 naar 100 is 50. Toch staan de streepjes even ver uit elkaar.']],
+    [['a','Ze begint niet bij 0.'],['b','De stappen tussen de getallen zijn niet even groot.'],['c','Er staan te weinig getallen op.']])(b, st, save, key+'_k');
+  list([
+    {html:'Hoeveel keer zo hoog lijkt de staaf van april als die van februari? [[0]]', mode:'numeric', check:exact(2), sol:'April is 4 hokjes hoog, februari 2 hokjes: hij lijkt <b>2 keer</b> zo hoog.',
+      hint:{stappen:['Tel de hokjes: april is [[0]] hokjes hoog','Februari is [[1]] hokjes hoog','April lijkt [[2]] : [[3]] = [[4]] keer zo hoog'], ans:[4,2,4,2,2], extra:'Kijk enkel naar de hoogte van de staven, niet naar de getallen op de as. Eén hokje is de afstand tussen twee streepjes.'}},
+    {html:'Echt: hoeveel keer zoveel volgers had de krant in april als in februari? [[0]]', mode:'numeric', check:exact(5), sol:'April 100, februari 20: 100 : 20 = <b>5 keer</b> zoveel.',
+      hint:{stappen:['Lees af: april [[0]] volgers','Februari [[1]] volgers','[[2]] : [[3]] = [[4]]'], ans:[100,20,100,20,5], extra:'Nu kijk je wel naar de getallen op de as. Klik op "Toon een eerlijke as" om te zien hoe groot het verschil echt is.'}}
+  ], {letters:true})(b, st, save, key+'_v');
+}
+
 /* ============================================================
    ONDERDEEL 6 · MISLEIDENDE GRAFIEKEN
    ============================================================ */
@@ -2110,13 +2286,13 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
   cards:[
     { title:'Schuif met de as', lvl:1, instr:'Vier soorten zaad, en de gemiddelde hoogte van de plantjes na een maand. Schuif de start van de verticale as naar 0 en kijk wat er gebeurt.',
       build:combo(b=>misleadDemo(b, {labels:['A','B','C','D'], values:[21,22,23,26], compare:[0,3], maxStart:20, yMax:27, step:1, unit:'cm', title:'Hoogte na een maand', yTitle:'Hoogte (in cm)'}), list([
-        {html:'Met de as vanaf 20 cm: hoeveel keer zo hoog <b>lijkt</b> staaf D als staaf A? [[0]]', check:exact(6), sol:'Boven 20 cm: staaf D is 26 − 20 = 6 hokjes, staaf A is 21 − 20 = 1 hokje. Hij lijkt <b>6 keer</b> zo hoog.'},
+        {html:'Met de as vanaf 20 cm: hoeveel keer zo hoog <b>lijkt</b> staaf D als staaf A? [[0]]', check:exact(6), hint:{stappen:['Staaf D boven 20 cm: 26 − 20 = [[0]] hokjes','Staaf A boven 20 cm: 21 − 20 = [[1]] hokje','D lijkt [[2]] : [[3]] = [[4]] keer zo hoog'], ans:[6,1,6,1,6], extra:'Je oog vergelijkt de lengte van de staven die je ziet. Begint de as bij 20 cm, dan zie je alleen het stuk boven 20 cm.'}, sol:'Boven 20 cm: staaf D is 26 − 20 = 6 hokjes, staaf A is 21 − 20 = 1 hokje. Hij lijkt <b>6 keer</b> zo hoog.'},
         {html:'Hoeveel cm groter is plant D echt dan plant A? [[0]] cm', check:exact(5), sol:'26 cm − 21 cm = <b>5 cm</b>.'}
       ], {letters:true}), choiceList([
         ['Plant D is meer dan dubbel zo groot als plant A.', 'n', '26 cm is lang geen 42 cm. De as die niet bij 0 begint, vergroot het verschil.']
       ], WN)) },
     { title:'Wat is er misleidend?', lvl:2, build:combo(
-        chartBox('kolom', {labels:['Bedrijf A','Bedrijf B','Bedrijf C'], series:[{values:[2350,2400,2380]}], yMin:2340, yMax:2410, step:10, title:'Gemiddeld maandloon', yTitle:'Loon (in €)', values:true}),
+        chartBox('kolom', {labels:['Bedrijf A','Bedrijf B','Bedrijf C'], series:[{values:[2350,2400,2380]}], yMin:2340, yMax:2410, step:10, title:'Gemiddeld maandloon', yTitle:'Loon (in €)'}),
         choiceList([
           ['Waarom is dit staafdiagram misleidend?', 'a', 'De verticale as begint bij 2340 €. Daardoor lijkt het verschil tussen A en B enorm, terwijl het maar 50 € is.']
         ], [['a','De verticale as begint niet bij 0.'],['b','De staven hebben een andere kleur.'],['c','Er staan te weinig bedrijven op.']]),
@@ -2130,12 +2306,14 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
         ], WN)) },
     { title:'Klopt de krantenkop?', lvl:3, build:combo(
         html('<div class="headline">"Merk C maakt tomaten dubbel zo zwaar als merk A!"</div>'),
-        chartBox('kolom', {labels:['merk A','merk B','merk C'], series:[{values:[121,123,125]}], yMin:117, yMax:126, step:1, title:'Gemiddelde massa van een tomaat', yTitle:'Massa (in g)', values:true}),
+        chartBox('kolom', {labels:['merk A','merk B','merk C'], series:[{values:[125,127,130]}], yMin:120, yMax:131, step:1, brk:false, title:'Gemiddelde massa van een tomaat', yTitle:'Massa (in g)'}),
         list([
-          {html:'Hoeveel gram zwaarder is een tomaat met merk C dan met merk A? [[0]] g', mode:'numeric', check:exact(4), sol:'125 g − 121 g = <b>4 g</b>.'},
-          {html:'Welk percentage is dat van 121 g? Rond af op 0,1. [[0]] %', check:approx(3.3, 0.051), sol:'4 : 121 · 100 ≈ <b>3,3 %</b>. Lang geen verdubbeling (dat zou 100 % zijn).'}
+          {html:'Hoeveel gram zwaarder is een tomaat met merk C dan met merk A? [[0]] g', mode:'numeric', check:exact(5), sol:'Lees af: A = 125 g en C = 130 g. 130 g − 125 g = <b>5 g</b>.'},
+          {html:'Hoeveel procent is dat van 125 g? [[0]] %', mode:'numeric', check:exact(4), sol:'5 / 125 = 1 / 25 = 4 / 100 = <b>4 %</b>. Lang geen verdubbeling (dat zou 100 % zijn).'}
         ], {letters:true}),
-        choiceList([['Klopt de krantenkop?', 'n', 'De as begint bij 117 g. Boven 117 is staaf C 8 hokjes en staaf A 4: hij lijkt dubbel zo hoog, maar de tomaat is maar 3,3 % zwaarder.']], [['j','Ja'],['n','Nee']])) }
+        choiceList([['Klopt de krantenkop?', 'n', 'De as begint bij 120 g. Boven 120 is staaf C 10 hokjes en staaf A 5: hij lijkt dubbel zo hoog, maar de tomaat is maar 4 % zwaarder.']], [['j','Ja'],['n','Nee']])) },
+    { title:'Een as met ongelijke stappen', key:'mislei_as', lvl:2, instr:'De schoolkrant telde elke maand haar volgers. Kijk goed naar de getallen op de verticale as.',
+      build:(b,st,save,key)=>ongelijkeAs(b, st, save, key) }
   ]});
 /* ============================================================
    EXTRA: FREQUENTIETABELLEN (NIEUWE OPGAVE) EN DIAGRAMMEN ZELF MAKEN
@@ -2164,6 +2342,17 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
   .dx-tile .pair{ position:absolute; top:.25rem; right:.4rem; font-weight:700; color:var(--ok); }
   .dx-raw{ display:flex; flex-wrap:wrap; gap:.3rem; margin:.4rem 0; }
   .dx-raw .dv{ cursor:pointer; }
+  .ch .dx-boog{ fill:none; stroke:var(--ink-soft); stroke-width:1.6; }
+  .ch .dx-aantal{ font-size:19px; font-weight:700; fill:var(--ink); }
+  .ch .dx-gegeven{ font-size:14px; fill:var(--ink-soft); }
+  .ch .dx-pct{ cursor:pointer; text-decoration:underline; text-decoration-style:dotted; }
+  .dx-legend .dx-pctl{ cursor:pointer; border:0; background:none; font:inherit; color:inherit; padding:0; text-decoration:underline dotted; }
+  .dx-breuk{ min-height:2.2rem; margin:.3rem 0; display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; font-size:1.05rem; }
+  .dx-breuk .fr{ display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; line-height:1.15; margin:0 .15rem; }
+  .dx-breuk .fr span:first-child{ border-bottom:2px solid currentColor; padding:0 .2rem; }
+  .ch .dx-labfo input{ width:100%; height:100%; box-sizing:border-box; text-align:center; font:inherit; font-size:15px; border:2px solid var(--tq); border-radius:8px; background:var(--card); color:var(--ink); padding:0; }
+  .ch .dx-labfo input.ok{ border-color:var(--ok); background:var(--ok-bg); }
+  .ch .dx-labfo input.bad{ border-color:var(--orange); background:var(--or-soft); }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.append(s);
 })();
@@ -2238,7 +2427,7 @@ function DXmissing(b, s, save, key, d){
   qBlock(b, s, save, 'a', {nr:'a.', mode:'numeric', html:`Wat is de frequentie van <b>${c.vals[miss]}</b>? [[0]]`, check:exact(fr[miss], 'Trek alle gekende frequenties af van het totaal.'),
     sol:`${tot} − ${known.join(' − ')} = <b>${fr[miss]}</b>`});
   const p = fr[miss]/tot*100;
-  qBlock(b, s, save, 'b', {nr:'b.', html:`Hoeveel procent is dat? [[0]] %`, check:approx(p, 0.01, 'Percentage = frequentie : totaal · 100.'),
+  qBlock(b, s, save, 'b', {nr:'b.', html:`Hoeveel procent is dat? [[0]] %`, check:approx(p, 0.01, 'Percentage = frequentie : totaal · 100.'), hint:pctHint(fr[miss], tot),
     sol:`${fr[miss]} : ${tot} · 100 = <b>${nf(p)} %</b>`});
 }
 /* twee ontbrekende frequenties met een extra aanwijzing (verdieping) */
@@ -2349,44 +2538,68 @@ function DXdivide(b, st, save, key, cfg){
   const {labels, target, U, kind} = cfg, n = labels.length;
   const quiz = QZ; const qid = QID(kind==='cirkel'?'cirkel':'strook'); if(!quiz) CLvraag(qid);
   /* grenzen: cum[0..n-2] in eenheden, oplopend */
-  if(!st.cum || st.cum.length!==n-1){ st.cum = labels.slice(1).map((l,i)=>Math.round((i+1)*U/n)); save(); }
+  if(!st.cum || st.cum.length!==n-1 || st.cum.some(x=>x>U)){ st.cum = labels.slice(1).map((l,i)=>Math.round((i+1)*U/n)); save(); }
   const cum = st.cum;
-  const v = el('div','viz '+(kind==='cirkel'?'narrow':'mid')); b.append(v);
+  const v = el('div','viz mid'); b.append(v);
   const leg = el('div','dx-legend'); b.append(leg);
   const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
   const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
-  const W = kind==='cirkel' ? 360 : 440, H = kind==='cirkel' ? 330 : 170;
+  const W = kind==='cirkel' ? 540 : 520, H = kind==='cirkel' ? 440 : 210;
   const svg = newSvg(W, H); v.append(svg);
   const cx = W/2, cy = H/2, R = 140;
-  const sx0 = 22, sx1 = W-22, sy = 44, sh = 80;
+  const breuk = el('div','dx-breuk'); b.insertBefore(breuk, leg.nextSibling);
+  const sx0 = 30, sx1 = W-30, sy = 44, sh = 80;
   const parts = () => { const c = [0, ...cum, U]; return labels.map((l,i)=>c[i+1]-c[i]); };
   const pct = k => k/U*100;
+  const exactP = k => Math.abs(Math.round(k*10000/U) - k*10000/U) < 1e-6; /* hoogstens 2 cijfers na de komma */
+  const pTxt = k => exactP(k) ? nf(pct(k), 2) : nf(pct(k), 1);
   const ang = u => -Math.PI/2 + u/U*2*Math.PI;
   const pos = u => kind==='cirkel' ? [cx+R*Math.cos(ang(u)), cy+R*Math.sin(ang(u))] : [sx0+(sx1-sx0)*u/U, sy+sh/2];
   function draw(show){
     svg.innerHTML = ''; const c = [0, ...cum, U], pr = parts();
     if(kind==='cirkel'){
       for(let u=0;u<U;u++){ const [x1,y1] = [cx+R*Math.cos(ang(u)), cy+R*Math.sin(ang(u))], [x2,y2] = [cx+(R+6)*Math.cos(ang(u)), cy+(R+6)*Math.sin(ang(u))]; svgEl('line',{x1,y1,x2,y2,class:'dx-tick'}, svg); }
+      /* aan de buitenkant: per stuk een boogje, het aantal vakjes en het gegeven */
+      labels.forEach((l,i)=>{ if(pr[i]<=0) return; const a0 = ang(c[i]), a1 = ang(c[i+1]), rb = R+14, sp = Math.min(0.03, (a1-a0)/4);
+        if(pr[i]>=U) svgEl('circle',{cx, cy, r:rb, class:'dx-boog'}, svg);
+        else svgEl('path',{d:`M${cx+rb*Math.cos(a0+sp)},${cy+rb*Math.sin(a0+sp)} A${rb},${rb} 0 ${(a1-a0)>Math.PI?1:0} 1 ${cx+rb*Math.cos(a1-sp)},${cy+rb*Math.sin(a1-sp)}`, class:'dx-boog'}, svg);
+        const am = pr[i]>=U ? -Math.PI/2 : (a0+a1)/2, co = Math.cos(am), si = Math.sin(am), anc = co>0.35 ? 'start' : co<-0.35 ? 'end' : 'middle';
+        const tx = cx+(R+30)*co, ty = cy+(R+30)*si + (si>0.35 ? 14 : si<-0.35 ? -6 : 5);
+        svgText(svg, tx, ty, String(pr[i]), {'text-anchor':anc, class:'dx-aantal'});
+        svgText(svg, tx, ty+17, l, {'text-anchor':anc, class:'dx-gegeven'}); });
       labels.forEach((l,i)=>{ const a0 = ang(c[i]), a1 = ang(c[i+1]); if(c[i+1]<=c[i]) return; const col = PAL[i%PAL.length];
         if(c[i+1]-c[i]>=U) svgEl('circle',{cx,cy,r:R,fill:col,class:'sec'}, svg);
         else svgEl('path',{d:`M${cx},${cy} L${cx+R*Math.cos(a0)},${cy+R*Math.sin(a0)} A${R},${R} 0 ${(a1-a0)>Math.PI?1:0} 1 ${cx+R*Math.cos(a1)},${cy+R*Math.sin(a1)} Z`, fill:col, class:'sec'}, svg);
-        const am = (a0+a1)/2; if(pr[i]/U>0.04){ const t = svgText(svg, cx+R*0.62*Math.cos(am), cy+R*0.62*Math.sin(am)+5, nf(pct(pr[i]),1)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
+        const am = (a0+a1)/2; if(pr[i]/U>0.04){ const t = svgText(svg, cx+R*0.62*Math.cos(am), cy+R*0.62*Math.sin(am)+5, pTxt(pr[i])+' %', {'text-anchor':'middle', class:'t-big dx-pct'}); t.dataset.i = i; t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
     } else {
-      for(let u=0;u<=U;u++){ const x = sx0+(sx1-sx0)*u/U; svgEl('line',{x1:x, y1:sy+sh, x2:x, y2:sy+sh+(u%(U/4)===0||u%(U/5)===0?10:5), class:'dx-tick'}, svg); }
-      [0,25,50,75,100].forEach(p=>svgText(svg, sx0+(sx1-sx0)*p/100, sy+sh+26, p+' %', {'text-anchor':'middle', class:'t-soft'}));
+      for(let u=0;u<=U;u++){ const x = sx0+(sx1-sx0)*u/U; svgEl('line',{x1:x, y1:sy+sh, x2:x, y2:sy+sh+6, class:'dx-tick'}, svg); }
+      /* onder de strook: per stuk een haakje, het aantal vakjes en het gegeven */
+      labels.forEach((l,i)=>{ if(pr[i]<=0) return; const x0 = sx0+(sx1-sx0)*c[i]/U + 3, x1 = sx0+(sx1-sx0)*c[i+1]/U - 3, yb = sy+sh+14;
+        svgEl('path',{d:`M${x0},${yb-5} L${x0},${yb} L${x1},${yb} L${x1},${yb-5}`, class:'dx-boog'}, svg);
+        svgText(svg, (x0+x1)/2, yb+20, String(pr[i]), {'text-anchor':'middle', class:'dx-aantal'});
+        svgText(svg, (x0+x1)/2, yb+38, l, {'text-anchor':'middle', class:'dx-gegeven'}); });
       labels.forEach((l,i)=>{ const x = sx0+(sx1-sx0)*c[i]/U, w = (sx1-sx0)*pr[i]/U; const col = PAL[i%PAL.length]; svgEl('rect',{x, y:sy, width:Math.max(0,w), height:sh, fill:col, class:'sec'}, svg);
-        if(pr[i]/U>0.06){ const t = svgText(svg, x+w/2, sy+sh/2+6, nf(pct(pr[i]),1)+' %', {'text-anchor':'middle', class:'t-big'}); t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
+        if(pr[i]/U>0.06){ const t = svgText(svg, x+w/2, sy+sh/2+6, pTxt(pr[i])+' %', {'text-anchor':'middle', class:'t-big dx-pct'}); t.dataset.i = i; t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
     }
     cum.forEach((u,k)=>{ const [x,y] = pos(u);
       if(kind!=='cirkel') svgEl('line',{x1:x, y1:sy-14, x2:x, y2:sy+sh+8, stroke:'var(--orange)', 'stroke-width':3}, svg);
+      else svgEl('line',{x1:cx, y1:cy, x2:x, y2:y, style:'stroke:var(--orange); stroke-width:3'}, svg);
       svgEl('circle',{cx:x, cy:kind==='cirkel'?y:sy-14, r:kind==='cirkel'?9:11, class:'dx-hd'}, svg);
       const h = svgEl('circle',{cx:x, cy:kind==='cirkel'?y:sy-14, r:kind==='cirkel'?22:26, class:'dx-hdhit'}, svg); h.dataset.k = k; });
     if(kind==='cirkel'){ const [x,y] = pos(0); svgEl('circle',{cx:x, cy:y, r:5, fill:'var(--ink)'}, svg); }
-    leg.innerHTML = labels.map((l,i)=>`<span><i style="background:${PAL[i%PAL.length]}"></i>${l}: <b>${nf(pct(pr[i]),1)} %</b>${show&&!quiz ? (Math.abs(pr[i]-target[i])<1e-9?' ✅':' ❌') : ''}</span>`).join('');
+    leg.innerHTML = labels.map((l,i)=>`<span><i style="background:${PAL[i%PAL.length]}"></i>${l}: <button type="button" class="dx-pctl" data-i="${i}" title="Toon de breuk"><b>${pTxt(pr[i])} %</b></button>${show&&!quiz ? (Math.abs(pr[i]-target[i])<1e-9?' ✅':' ❌') : ''}</span>`).join('');
+    if(breuk.dataset.i!=null) toonBreuk(+breuk.dataset.i);
   }
   function unitAt(ev){ const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
     if(kind==='cirkel'){ let a = Math.atan2(p.y-cy, p.x-cx) + Math.PI/2; if(a<0) a += 2*Math.PI; return Math.round(a/(2*Math.PI)*U); }
     return Math.round((p.x-sx0)/(sx1-sx0)*U); }
+  /* klik op een procent: de breuk aantal/totaal = .../100 = ... % verschijnt */
+  const FR = (a, b) => `<span class="fr"><span>${a}</span><span>${b}</span></span>`;
+  function toonBreuk(i){ const k = parts()[i], p = pct(k);
+    breuk.dataset.i = i;
+    breuk.innerHTML = `<b>${labels[i]}:</b> ` + FR(k, U) + (exactP(k) ? ` = ${FR(nf(p, 2), 100)} = <b>${nf(p, 2)} %</b>` : ` ≈ ${FR(nf(p,1), 100)} ≈ <b>${nf(p,1)} %</b>`); }
+  svg.addEventListener('click', ev=>{ const t = ev.target.closest('.dx-pct'); if(t) toonBreuk(+t.dataset.i); });
+  leg.addEventListener('click', ev=>{ const t = ev.target.closest('.dx-pctl'); if(t) toonBreuk(+t.dataset.i); });
   let drag = -1;
   svg.addEventListener('pointerdown', ev=>{ const h = ev.target.closest('.dx-hdhit'); if(!h || v.dataset.locked) return; ev.preventDefault(); drag = +h.dataset.k; try{ svg.setPointerCapture(ev.pointerId); }catch(e){} });
   svg.addEventListener('pointermove', ev=>{ if(drag<0) return; let u = unitAt(ev);
@@ -2402,24 +2615,29 @@ function DXdivide(b, st, save, key, cfg){
   if(quiz) quiz.push({grade:okAll, reveal:()=>draw(true), lock:()=>{ v.dataset.locked='1'; }});
 }
 /* cirkeldiagram: aantallen gegeven, totaal 20, 24, 30 of 40 (één leerling = één stap) */
-const DXgenPie = r => { const c = rPick(r, DX_CAT.filter(x=>x.vals.length<=5)); const n = rPick(r, [3, 4, 4]); const tot = rPick(r, [20, 20, 24, 30, 40]);
-  const vals = c.vals.slice(0, n); return {c, vals, fr:DXsplit(r, n, tot, 2, Math.round(tot*0.5)), tot}; };
+/* basis: totalen die delers zijn van 100; verdieping: andere totalen */
+const DX_TOT_BASIS = [10, 20, 20, 25, 50], DX_TOT_VERD = [12, 15, 16, 24, 30, 40];
+const DXgenParts = tots => r => { const c = rPick(r, DX_CAT.filter(x=>x.vals.length<=5)); const n = rPick(r, [3, 4, 4]); const tot = rPick(r, tots);
+  const vals = c.vals.slice(0, n); return {c, vals, fr:DXsplit(r, n, tot, Math.max(1, Math.round(tot/10)), Math.round(tot*0.5)), tot}; };
+const DXgenPie = DXgenParts(DX_TOT_BASIS);
 function DXpieBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
   b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'} (${nf(100/tot,1)} %).`));
+  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Aan de buitenkant zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
   DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Of: bereken eerst het percentage (frequentie : ${tot} · 100).`,
-    why:'Elk deel is even groot als zijn deel van het totaal: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*1000/tot)?"=":"≈"} ${nf(fr[i]/tot*100,1)} %`).join(', ') + '.'});
+    why:'Elk deel is even groot als zijn deel van het totaal: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
 }
 /* strookdiagram: percentages gegeven, stappen van 5 % */
-const DXgenStrip = r => { const c = rPick(r, DX_CAT); const n = rPick(r, [3, 4, 5]); const p = DXsplit(r, n, 20, 1, 9); return {c, vals:c.vals.slice(0,n), p}; };
+const DXgenStrip = DXgenParts(DX_TOT_BASIS);
 function DXstripBuild(b, st, save, key, d){
-  const {c, vals, p} = d;
-  b.append(el('div','', `<table class="ftab"><thead><tr><th>${c.head}</th><th>percentage</th></tr></thead><tbody>${DXrows(vals, p.map(x=>x*5+' %'))}<tr><td class="l"><b>totaal</b></td><td><b>100 %</b></td></tr></tbody></table>`));
-  b.append(el('div','sub', 'Sleep de oranje grenzen. Eén streepje onder de strook is 5 %.'));
-  DXdivide(b, st, save, key, {kind:'strook', labels:vals, target:p, U:20,
-    hint:'De hele strook is 100 %. Tel de streepjes: elk streepje is 5 %.', why:'Een strookdiagram toont welk deel van het geheel elke categorie is.'});
+  const {c, vals, fr, tot} = d;
+  if(st.cum && st.cum.some(x=>x>tot)) delete st.cum; /* oude opgave (in procent) */
+  b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
+  b.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Onder de strook zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
+  DXdivide(b, st, save, key, {kind:'strook', labels:vals, target:fr, U:tot,
+    hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Gebruik de getallen onder de strook.`,
+    why:'Een strookdiagram toont welk deel van het geheel elke categorie is: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
 }
 /* graden: middelpuntshoek uit de tabel, dan de cirkel verdelen (verdieping) */
 const DXgenDeg = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [24, 30, 36, 40, 60]); const n = 4; const vals = c.vals.slice(0,n);
@@ -2436,29 +2654,43 @@ function DXdegBuild(b, st, save, key, d){
 }
 
 /* ---------- dotplot opbouwen ---------- */
+/* verdieping: meer gegevens, een waarde die 0 keer voorkomt, en de leerling vult zelf de getallen onder de as in */
+const DX_NUMZ = [{head:'aantal doelpunten per match', lo:0, wie:'matchen'}, {head:'schoenmaat', lo:35, wie:'leerlingen'}, {head:'punten op 10', lo:3, wie:'leerlingen'},
+  {head:'aantal uren sport per week', lo:0, wie:'leerlingen'}, {head:'aantal keer naar de bioscoop dit jaar', lo:1, wie:'leerlingen'}];
+const DXgenDotZelf = r => { const z = rPick(r, DX_NUMZ); const m = rInt(r, 6, 8); const n = rInt(r, 20, 24); const nul = rInt(r, 1, m-2);
+  const fr0 = DXsplit(r, m-1, n, 1, 8); const fr = [...fr0.slice(0, nul), 0, ...fr0.slice(nul)];
+  const c = {head:z.head, wie:z.wie, vals:Array.from({length:m}, (x,i)=>String(z.lo+i))};
+  const raw = []; fr.forEach((k,i)=>{ for(let j=0;j<k;j++) raw.push(c.vals[i]); });
+  for(let i=raw.length-1;i>0;i--){ const j = Math.floor(r()*(i+1)); [raw[i],raw[j]] = [raw[j],raw[i]]; } return {c, fr, raw, zelf:true}; };
 const DXgenDotBuild = r => { const c = rPick(r, DX_NUM); const n = rInt(r, 12, 16); const fr = DXsplit(r, c.vals.length, n, 0, 5); const raw = []; fr.forEach((k,i)=>{ for(let j=0;j<k;j++) raw.push(c.vals[i]); });
   for(let i=raw.length-1;i>0;i--){ const j = Math.floor(r()*(i+1)); [raw[i],raw[j]] = [raw[j],raw[i]]; } return {c, fr, raw}; };
 function DXdotBuild(b, st, save, key, d){
-  const {c, fr, raw} = d, n = c.vals.length;
+  const {c, fr, raw} = d, n = c.vals.length, zelf = !!d.zelf;
   const quiz = QZ; const qid = QID('dotplot'); if(!quiz) CLvraag(qid);
+  if(st.c && st.c.length!==n){ st.c = null; st.t = null; st.lab = null; }
+  const lab = st.lab || (st.lab = Array(n).fill(''));
   b.append(el('div','sub', `De ruwe gegevens (${raw.length} ${c.wie}). Tik een gegeven aan om het af te vinken, als hulp.`));
   const rawBox = el('div','data-row dx-raw'); b.append(rawBox);
   const ticked = st.t || (st.t = []);
   raw.forEach((x,i)=>{ const k = el('button','dv', x); k.type='button'; k.classList.toggle('gone', !!ticked[i]); rawBox.append(k);
     k.addEventListener('click', ()=>{ ticked[i] = !ticked[i]; k.classList.toggle('gone', !!ticked[i]); save(); }); });
-  b.append(el('div','sub', 'Klik in een kolom om er een bolletje bij te zetten. Klik op het bovenste bolletje om het weg te halen.'));
+  b.append(el('div','sub', zelf ? 'Maak eerst de as: vul onder elk streepje een getal in, van het kleinste tot het grootste gegeven, telkens 1 meer. Vergeet geen getal dat niemand antwoordde! Klik daarna in een kolom om er een bolletje bij te zetten. Klik op het bovenste bolletje om het weg te halen.' : 'Klik in een kolom om er een bolletje bij te zetten. Klik op het bovenste bolletje om het weg te halen.'));
   const v = el('div','viz mid'); b.append(v);
   const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
   const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
   const cnt = st.c || (st.c = Array(n).fill(0));
-  const W = 560, H = 300, L = 30, R = 16, T = 14, base = H-46, pw = W-L-R, xs = i => L + pw*(i+0.5)/n, rr = 11;
+  const W = 560, H = zelf ? 316 : 300, L = 30, R = 16, T = 14, base = H-(zelf?62:46), pw = W-L-R, xs = i => L + pw*(i+0.5)/n, rr = 11;
   const svg = newSvg(W, H); v.append(svg);
   function draw(show){
     svg.innerHTML = '';
     svgEl('line',{x1:L-10, y1:base, x2:L+pw+6, y2:base, class:'ax'}, svg);
-    c.vals.forEach((l,i)=>{ svgEl('line',{x1:xs(i), y1:base, x2:xs(i), y2:base+5, class:'ax'}, svg); svgText(svg, xs(i), base+21, l, {'text-anchor':'middle'});
+    c.vals.forEach((l,i)=>{ svgEl('line',{x1:xs(i), y1:base, x2:xs(i), y2:base+5, class:'ax'}, svg);
+      if(!zelf) svgText(svg, xs(i), base+21, l, {'text-anchor':'middle'});
+      else { const fo = svgEl('foreignObject',{x:xs(i)-25, y:base+7, width:50, height:30, class:'dx-labfo'}, svg); const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'numeric'; inp.value = lab[i]; inp.setAttribute('aria-label', 'getal onder de as, kolom '+(i+1));
+        if(show && !quiz) inp.className = lab[i].trim()===l ? 'ok' : 'bad';
+        inp.addEventListener('input', ()=>{ lab[i] = inp.value; inp.className = ''; save(); }); fo.append(inp); }
       for(let k=0;k<cnt[i];k++) svgEl('circle',{cx:xs(i), cy:base-rr-2-k*rr*2.15, r:rr, class:'dot'+(show && !quiz && cnt[i]!==fr[i] ? ' hi':'')}, svg);
-      const col = svgEl('rect',{x:xs(i)-pw/n/2, y:T, width:pw/n, height:base-T+28, class:'dx-col'}, svg); col.dataset.i = i; });
+      const col = svgEl('rect',{x:xs(i)-pw/n/2, y:T, width:pw/n, height:base-T+(zelf?2:28), class:'dx-col'}, svg); col.dataset.i = i; });
     svgText(svg, L+pw/2, H-4, c.head, {'text-anchor':'middle', class:'t-soft'});
   }
   svg.addEventListener('click', ev=>{ if(v.dataset.locked) return; const col = ev.target.closest('.dx-col'); if(!col) return; const i = +col.dataset.i;
@@ -2466,10 +2698,12 @@ function DXdotBuild(b, st, save, key, d){
     const topY = base-rr-2-(cnt[i]-1)*rr*2.15;
     if(cnt[i]>0 && Math.abs(p.y-topY)<=rr+3) cnt[i]--; else if(cnt[i]<9) cnt[i]++;
     save(); draw(false); fb.textContent=''; });
-  const okAll = () => cnt.every((k,i)=>k===fr[i]);
+  const labOk = () => !zelf || c.vals.every((l,i)=>String(lab[i]).trim()===l);
+  const okAll = () => labOk() && cnt.every((k,i)=>k===fr[i]);
   btn.addEventListener('click', ()=>{ const ok = okAll(); draw(true); fb.className='fb '+(ok?'ok':'bad');
     const w = c.vals.filter((l,i)=>cnt[i]!==fr[i]);
-    fb.innerHTML = ok ? `✅ Juist! Elk gegeven is één bolletje: ${sum(fr)} bolletjes voor ${sum(fr)} ${c.wie}.` : `❌ Nog niet juist bij ${w.join(', ')} (oranje). Tel in de ruwe gegevens hoeveel keer dat gegeven voorkomt.`;
+    fb.innerHTML = ok ? `✅ Juist! Elk gegeven is één bolletje: ${sum(fr)} bolletjes voor ${sum(fr)} ${c.wie}.${zelf ? ` Bij ${c.vals[fr.indexOf(0)]} staat geen bolletje: niemand antwoordde dat, maar het getal hoort wel op de as.` : ''}`
+      : !labOk() ? `❌ De getallen onder de as kloppen nog niet (oranje). Begin bij het kleinste gegeven en tel telkens 1 bij, tot het grootste gegeven.` : `❌ Nog niet juist bij ${w.join(', ')} (oranje). Tel in de ruwe gegevens hoeveel keer dat gegeven voorkomt.`;
     CLres(qid, ok); st.checked = true; save(); });
   draw(!!st.checked);
   if(quiz) quiz.push({grade:okAll, reveal:()=>{}, lock:()=>{ v.dataset.locked='1'; }});
@@ -2535,8 +2769,8 @@ SECTIONS.find(s=>s.id==='freq').cards.push(
     build:DXfresh(DXgenPctBack, DXpctBack) }
 );
 SECTIONS.find(s=>s.id==='diagram').cards.push(
-  { title:'Bouw de dotplot', lvl:1, instr:'Zet voor elk gegeven één bolletje in de juiste kolom.',
-    build:DXfresh(DXgenDotBuild, DXdotBuild) },
+  { title:'Bouw de dotplot', lvl:3, instr:'Maak zelf de as en zet voor elk gegeven één bolletje in de juiste kolom.',
+    build:DXfresh(DXgenDotZelf, DXdotBuild) },
   { title:'Verdeel het cirkeldiagram', lvl:2, instr:'Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenPie, DXpieBuild) },
   { title:'Bouw het strookdiagram', lvl:2, instr:'Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
@@ -2544,7 +2778,11 @@ SECTIONS.find(s=>s.id==='diagram').cards.push(
   { title:'Welke tabel hoort bij welk diagram?', lvl:2, instr:'Vier tabellen, vier diagrammen. Koppel ze.',
     build:DXfresh(DXgenMatch, DXmatch) },
   { title:'Middelpuntshoeken en cirkeldiagram', lvl:3, instr:'Bereken eerst de middelpuntshoeken, verdeel dan de cirkel.',
-    build:DXfresh(DXgenDeg, DXdegBuild) }
+    build:DXfresh(DXgenDeg, DXdegBuild) },
+  { title:'Verdeel het cirkeldiagram (moeilijker)', key:'diagram_cirkel2', lvl:3, instr:'Nu is het totaal geen deler van 100. Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
+    build:DXfresh(DXgenParts(DX_TOT_VERD), DXpieBuild) },
+  { title:'Bouw het strookdiagram (moeilijker)', key:'diagram_strook2', lvl:3, instr:'Nu is het totaal geen deler van 100. Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
+    build:DXfresh(DXgenParts(DX_TOT_VERD), DXstripBuild) }
 );
 /* ============================================================
    SOORTEN DATA EN FREQUENTIE: extra uitleg (herwerking oktober 2026)
@@ -2895,17 +3133,17 @@ SECTIONS.push({ id:'gem', ic:'gem', nav:'Het gemiddelde', title:'Het rekenkundig
       build:(b,st,save,key)=>seesaw(b,st,save,key,{vals:[1,2,3,6,8,10], lo:0, hi:10, start:9, xTitle:'Aantal keer fruit per week'}) },
     { title:'Bereken het gemiddelde', lvl:2, instr:'Rond af op 0,1 waar nodig.',
       build:list([
-        {html:'Zakgeld per week (€): 5, 8, 10, 5, 12. x̄ = [[0]] €', check:exact(8), sol:'(5 + 8 + 10 + 5 + 12) : 5 = 40 : 5 = <b>8 €</b>.'},
-        {html:'Minuten lezen per dag: 20, 35, 0, 15, 40, 25, 30. x̄ = [[0]] min', check:approx(23.6, 0.051), sol:'Som = 165, en 165 : 7 = 23,57… ≈ <b>23,6 min</b>. Vergeet de 0 niet mee te tellen!'},
-        {html:'Temperaturen (°C): −3, 2, −1, 4, −2. x̄ = [[0]] °C', check:exact(0), sol:'−3 + 2 − 1 + 4 − 2 = 0, en 0 : 5 = <b>0 °C</b>.'},
-        {html:'Verkochte wafels: 132, 96, 120, 108. x̄ = [[0]]', mode:'numeric', check:exact(114), sol:'456 : 4 = <b>114</b>.'}
+        {html:'Zakgeld per week (€): 5, 8, 10, 5, 12. x̄ = [[0]] €', check:exact(8), hint:gemHint([5,8,10,5,12]), sol:'(5 + 8 + 10 + 5 + 12) : 5 = 40 : 5 = <b>8 €</b>.'},
+        {html:'Minuten lezen per dag: 20, 35, 0, 15, 40, 25, 30. x̄ = [[0]] min', check:approx(23.6, 0.051), hint:gemHint([20,35,0,15,40,25,30]), sol:'Som = 165, en 165 : 7 = 23,57… ≈ <b>23,6 min</b>. Vergeet de 0 niet mee te tellen!'},
+        {html:'Temperaturen (°C): −3, 2, −1, 4, −2. x̄ = [[0]] °C', check:exact(0), hint:gemHint([-3,2,-1,4,-2]), sol:'−3 + 2 − 1 + 4 − 2 = 0, en 0 : 5 = <b>0 °C</b>.'},
+        {html:'Verkochte wafels: 132, 96, 120, 108. x̄ = [[0]]', mode:'numeric', check:exact(114), hint:gemHint([132,96,120,108]), sol:'456 : 4 = <b>114</b>.'}
       ], {letters:true}) },
     { title:'Gemiddelde uit een frequentietabel', lvl:2, instr:'25 leerlingen: hoeveel uur slaap had je vannacht? Elk gegeven komt meerdere keren voor: vermenigvuldig eerst.',
       build:list([
         {html: `<table class="ftab"><thead><tr><th>uren slaap</th><th>frequentie</th><th>uren · frequentie</th></tr></thead><tbody>
           <tr><td>7</td><td>3</td><td>[[0]]</td></tr><tr><td>8</td><td>9</td><td>[[1]]</td></tr><tr><td>9</td><td>10</td><td>[[2]]</td></tr><tr><td>10</td><td>3</td><td>[[3]]</td></tr>
           <tr><td><b>totaal</b></td><td><b>25</b></td><td>[[4]]</td></tr></tbody></table>`, block:true, size:'sm', mode:'numeric', check:nums([21,72,90,30,213]), sol:'7 · 3 = 21 · 8 · 9 = 72 · 9 · 10 = 90 · 10 · 3 = 30 · samen <b>213</b> uren.'},
-        {html:'Het gemiddelde is x̄ = [[0]] uur', check:approx(8.52, 0.005), sol:'213 : 25 = <b>8,52 uur</b>. Deel door 25 (het aantal leerlingen), niet door 4!'}
+        {html:'Het gemiddelde is x̄ = [[0]] uur', check:approx(8.52, 0.005), hint:{stappen:['De som van alle uren (het totaal van de hulpkolom): [[0]]','Het aantal leerlingen: [[1]]','x̄ = [[2]] : [[3]] = [[4]]'], ans:[213,25,213,25,8.52], extra:'Deel door het aantal leerlingen (25), niet door het aantal rijen (4). Elke leerling is één gegeven.'}, sol:'213 : 25 = <b>8,52 uur</b>. Deel door 25 (het aantal leerlingen), niet door 4!'}
       ], {letters:true}) },
     { title:'Het ontbrekende gegeven', lvl:3, instr:'Werk met de som: gemiddelde · aantal = som van alle gegevens.',
       build:list([
@@ -2928,20 +3166,20 @@ SECTIONS.push({ id:'med', ic:'med', nav:'De mediaan', title:'De mediaan: het mid
       build:(b,st,save,key)=>medianStrike(b,st,save,key,{vals:[14,3,22,8,11,5,17,9]}) },
     { title:'Zelf de mediaan bepalen', lvl:2, instr:'Orden eerst (op kladpapier).',
       build:list([
-        {html:'15, 9, 21, 12, 18. Me = [[0]]', check:exact(15), sol:'Geordend: 9, 12, <b>15</b>, 18, 21.'},
-        {html:'4, 10, 7, 1, 8, 3. Me = [[0]]', check:exact(5.5), sol:'Geordend: 1, 3, <b>4, 7</b>, 8, 10. (4 + 7) : 2 = <b>5,5</b>.'},
-        {html:'−2, 5, 0, −4, 3, 1, −1. Me = [[0]]', check:exact(0), sol:'Geordend: −4, −2, −1, <b>0</b>, 1, 3, 5.'},
-        {html:'1,2 · 0,8 · 1,5 · 0,9 · 1,1 · 2,0. Me = [[0]]', check:exact(1.15), sol:'Geordend: 0,8 · 0,9 · <b>1,1 · 1,2</b> · 1,5 · 2,0. (1,1 + 1,2) : 2 = <b>1,15</b>.'}
+        {html:'15, 9, 21, 12, 18. Me = [[0]]', check:exact(15), hint:medHint([15,9,21,12,18]), sol:'Geordend: 9, 12, <b>15</b>, 18, 21.'},
+        {html:'4, 10, 7, 1, 8, 3. Me = [[0]]', check:exact(5.5), hint:medHint([4,10,7,1,8,3]), sol:'Geordend: 1, 3, <b>4, 7</b>, 8, 10. (4 + 7) : 2 = <b>5,5</b>.'},
+        {html:'−2, 5, 0, −4, 3, 1, −1. Me = [[0]]', check:exact(0), hint:medHint([-2,5,0,-4,3,1,-1]), sol:'Geordend: −4, −2, −1, <b>0</b>, 1, 3, 5.'},
+        {html:'1,2 · 0,8 · 1,5 · 0,9 · 1,1 · 2,0. Me = [[0]]', check:exact(1.15), hint:medHint([1.2,0.8,1.5,0.9,1.1,2.0]), sol:'Geordend: 0,8 · 0,9 · <b>1,1 · 1,2</b> · 1,5 · 2,0. (1,1 + 1,2) : 2 = <b>1,15</b>.'}
       ], {letters:true}) },
     { title:'De mediaan in een dotplot', lvl:2, instr:'25 leerlingen: hoeveel keer per week sport je? Bij 25 gegevens is het 13de gegeven het middelste: 12 links, 12 rechts.',
       build:combo(b=>{ const v=el('div','viz mid'); v.append(numPlot(expand([0,1,2,3,4,5],[3,5,4,6,5,2]),0,5,{xTitle:'Aantal keer sporten per week'}).svg); b.append(v); }, list([
         {html:'Het middelste gegeven is het hoeveelste? Het [[0]]de', mode:'numeric', check:exact(13), sol:'(25 + 1) : 2 = <b>13</b>.'},
-        {html:'Tel van links: de mediaan is Me = [[0]]', mode:'numeric', check:exact(3), sol:'0: gegevens 1 tot 3 · 1: 4 tot 8 · 2: 9 tot 12 · 3: 13 tot 18. Het 13de gegeven is <b>3</b>.'}
+        {html:'Tel van links: de mediaan is Me = [[0]]', mode:'numeric', check:exact(3), hint:medTabHint([0,1,2,3,4,5],[3,5,4,6,5,2]), sol:'0: gegevens 1 tot 3 · 1: 4 tot 8 · 2: 9 tot 12 · 3: 13 tot 18. Het 13de gegeven is <b>3</b>.'}
       ], {letters:true})) },
     { title:'Mediaan uit een frequentietabel', lvl:2, instr:'20 jongeren gaven hun schoenmaat.',
       build:combo(html(ftabHTML(['schoenmaat','36','37','38','39','40','41','42'], [['aantal','2','3','5','4','3','2','1']])), list([
         {html:'Bij 20 gegevens zijn het [[0]]de en het [[1]]de gegeven de middelste.', size:'sm', mode:'numeric', check:nums([10,11]), sol:'Even aantal: het 10de en het 11de gegeven.'},
-        {html:'De mediaan is Me = [[0]]', check:exact(38.5), sol:'36: 1–2 · 37: 3–5 · 38: 6–10 · 39: 11–14. Het 10de is 38, het 11de is 39: (38 + 39) : 2 = <b>38,5</b>.'}
+        {html:'De mediaan is Me = [[0]]', check:exact(38.5), hint:medTabHint([36,37,38,39,40,41,42],[2,3,5,4,3,2,1]), sol:'36: 1–2 · 37: 3–5 · 38: 6–10 · 39: 11–14. Het 10de is 38, het 11de is 39: (38 + 39) : 2 = <b>38,5</b>.'}
       ], {letters:true})) },
     { title:'Wat verandert er?', lvl:3, build:choiceList([
         ['Reeks 3, 5, 6, 8, 9. Je vervangt 9 door 90. De mediaan verandert.', 'n', 'Het middelste gegeven blijft 6: de grootste waarde schuift enkel verder op.'],
@@ -2973,9 +3211,9 @@ SECTIONS.push({ id:'interp', ic:'interp', nav:'Data interpreteren', title:'Alle 
     { title:'Alles bepalen', lvl:2, instr:'Op een kamp noteerde de leiding hoeveel uur 20 jongeren sliepen.',
       build:combo(b=>{ const v=el('div','viz mid'); v.append(numPlot(expand([6,7,8,9,10],[2,5,7,4,2]),5,11,{xTitle:'Uren slaap'}).svg); b.append(v); }, list([
         {html:'Modus = [[0]] uur', mode:'numeric', check:exact(8), sol:'8 uur komt het vaakst voor (7 keer).'},
-        {html:'Gemiddelde x̄ = [[0]] uur', check:exact(7.95), sol:'(2 · 6 + 5 · 7 + 7 · 8 + 4 · 9 + 2 · 10) : 20 = 159 : 20 = <b>7,95 uur</b>.'},
-        {html:'Mediaan Me = [[0]] uur', check:exact(8), sol:'Het 10de en 11de gegeven zijn allebei 8: Me = <b>8</b>.'},
-        {html:'Variatiebreedte = [[0]] uur', mode:'numeric', check:exact(4), sol:'10 − 6 = <b>4 uur</b>.'}
+        {html:'Gemiddelde x̄ = [[0]] uur', check:exact(7.95), hint:gemTabHint([6,7,8,9,10],[2,5,7,4,2]), sol:'(2 · 6 + 5 · 7 + 7 · 8 + 4 · 9 + 2 · 10) : 20 = 159 : 20 = <b>7,95 uur</b>.'},
+        {html:'Mediaan Me = [[0]] uur', check:exact(8), hint:medTabHint([6,7,8,9,10],[2,5,7,4,2]), sol:'Het 10de en 11de gegeven zijn allebei 8: Me = <b>8</b>.'},
+        {html:'Variatiebreedte = [[0]] uur', mode:'numeric', check:exact(4), hint:vbHint([6,10]), sol:'10 − 6 = <b>4 uur</b>.'}
       ], {letters:true}), choiceList([
         ['Wat betekent de mediaan hier?', 'b', 'De ene helft sliep 8 uur of minder, de andere helft 8 uur of meer.']
       ], [['a','De meeste jongeren sliepen 8 uur.'],['b','De helft van de jongeren sliep hoogstens 8 uur, de andere helft minstens 8 uur.'],['c','Samen sliepen ze 8 uur.']])) },
@@ -3237,7 +3475,7 @@ function MXmodusEx(b, st, save, key, d){
 function MXgemEx(b, st, save, key, d, round){
   const m = mean(d.v), S = sum(d.v), n = d.v.length;
   list([{ html:`${d.c.t}: ${MXlist(d.v)}.<br>Het gemiddelde is x̄ = [[0]]${d.c.u}${round?' (rond af op 0,1)':''}`,
-    check: round ? approx(Math.round(m*10)/10, 0.0001, 'Tel alles op, deel door het aantal gegevens en rond af op 0,1.') : exact(m, 'Tel alles op en deel door het aantal gegevens.'),
+    check: round ? approx(Math.round(m*10)/10, 0.0001, 'Tel alles op, deel door het aantal gegevens en rond af op 0,1.') : exact(m, 'Tel alles op en deel door het aantal gegevens.'), hint:gemHint(d.v),
     sol:`(${d.v.map(MXn).join(' + ')}) : ${n} = ${nf(S)} : ${n} = ${round ? `${nf(m,4)}… ≈ <b>${nf(m,1)}${d.c.u}</b>` : `<b>${nf(m)}${d.c.u}</b>`}.` }])(b, st, save, key);
   MXshowHow(b, 'gem', {vals:d.v});
 }
@@ -3249,13 +3487,13 @@ function MXgemTabEx(b, st, save, key, d){
       ${d.vals.map((x,i)=>`<tr><td>${x}</td><td>${d.freq[i]}</td><td>[[${i}]]</td></tr>`).join('')}
       <tr><td><b>totaal</b></td><td><b>${n}</b></td><td>[[${d.vals.length}]]</td></tr></tbody></table>`, block:true, size:'sm', mode:'numeric',
       check:nums([...P, S], 1e-9, 'Vermenigvuldig in elke rij het gegeven met de frequentie. Tel dan de producten op.'), sol:`${d.vals.map((x,i)=>`${x} · ${d.freq[i]} = ${P[i]}`).join(' · ')} · samen <b>${S}</b>.` },
-    { html:'Het gemiddelde is x̄ = [[0]] (rond af op 0,01)', check:approx(MXr2(m), 0.0001, `Deel de som door ${n}, het aantal leerlingen.`), sol:`${S} : ${n} = ${Math.abs(MXr2(m)-m)<1e-9 ? `<b>${nf(m)}</b>` : `${nf(m,4)}… ≈ <b>${nf(m,2)}</b>`}. Deel door ${n} (het aantal leerlingen), niet door ${d.vals.length} (het aantal rijen)!` }
+    { html:'Het gemiddelde is x̄ = [[0]] (rond af op 0,01)', check:approx(MXr2(m), 0.0001, `Deel de som door ${n}, het aantal leerlingen.`), hint:{stappen:['De som (het totaal van de laatste kolom): [[0]]','Het aantal leerlingen: [[1]]','x̄ = [[2]] : [[3]] ≈ [[4]]'], ans:[S, n, S, n, Hgetal(m)], extra:`Deel door het aantal leerlingen (${n}), niet door het aantal rijen (${d.vals.length}). Elke leerling is één gegeven.`}, sol:`${S} : ${n} = ${Math.abs(MXr2(m)-m)<1e-9 ? `<b>${nf(m)}</b>` : `${nf(m,4)}… ≈ <b>${nf(m,2)}</b>`}. Deel door ${n} (het aantal leerlingen), niet door ${d.vals.length} (het aantal rijen)!` }
   ], {letters:true})(b, st, save, key);
   MXshowHow(b, 'gemTabel', d);
 }
 function MXmedEx(b, st, save, key, d){
   const v = d.v, n = v.length, s = sorted(v), me = median(v);
-  list([{ html:`${d.c.t}: ${MXlist(v)}.<br>De mediaan is Me = [[0]]${d.c.u}`, check:exact(me, n%2 ? 'Orden eerst. Het middelste getal is de mediaan.' : 'Orden eerst. Neem het gemiddelde van de twee middelste getallen.'),
+  list([{ html:`${d.c.t}: ${MXlist(v)}.<br>De mediaan is Me = [[0]]${d.c.u}`, check:exact(me, n%2 ? 'Orden eerst. Het middelste getal is de mediaan.' : 'Orden eerst. Neem het gemiddelde van de twee middelste getallen.'), hint:medHint(v),
     sol:`Geordend: ${MXlist(s)}. ${n%2 ? `Het ${(n+1)/2}de getal is het middelste: <b>${nf(me)}</b>.` : `De middelste zijn ${nf(s[n/2-1])} en ${nf(s[n/2])}: (${nf(s[n/2-1])} + ${MXn(s[n/2])}) : 2 = <b>${nf(me)}</b>.`}` }])(b, st, save, key);
   MXshowHow(b, 'mediaan', {vals:v});
 }
@@ -3265,7 +3503,7 @@ function MXmedTabEx(b, st, save, key, d){
   b.append(el('div','', ftabHTML([d.head, ...d.vals.map(String)], [['frequentie', ...d.freq.map(String)]])));
   list([
     { html:'Hoeveel gegevens zijn er? n = [[0]]', mode:'numeric', check:exact(n, 'Tel alle frequenties op.'), sol:`${d.freq.join(' + ')} = <b>${n}</b>.` },
-    { html:'De mediaan is Me = [[0]]', check:exact(me, n%2 ? `Zoek het ${(n+1)/2}de gegeven.` : `Zoek het ${n/2}de en het ${n/2+1}de gegeven.`), sol:`${n%2 ? `Het ${(n+1)/2}de gegeven` : `Het gemiddelde van het ${n/2}de en het ${n/2+1}de gegeven`}: Me = <b>${nf(me)}</b>. Bekijk "Toon mij hoe".` }
+    { html:'De mediaan is Me = [[0]]', check:exact(me, n%2 ? `Zoek het ${(n+1)/2}de gegeven.` : `Zoek het ${n/2}de en het ${n/2+1}de gegeven.`), hint:medTabHint(d.vals, d.freq), sol:`${n%2 ? `Het ${(n+1)/2}de gegeven` : `Het gemiddelde van het ${n/2}de en het ${n/2+1}de gegeven`}: Me = <b>${nf(me)}</b>. Bekijk "Toon mij hoe".` }
   ], {letters:true})(b, st, save, key);
   MXshowHow(b, 'medTabel', d);
 }
@@ -5055,7 +5293,7 @@ SECTIONS.push({ id:'kritisch', ic:'mislei', nav:'Kritisch lezen', title:'Kritisc
       ]) },
     { title:'Zelf een kop schrijven', lvl:2, instr:'Op 200 ondervraagde 1ste jaars kozen er 84 voor een schoolreis naar zee, 70 voor een pretpark en 46 voor de Ardennen.',
       build:combo(list([
-        {html:'Welk percentage koos voor zee? [[0]] %', check:exact(42), sol:'84 : 200 · 100 = <b>42 %</b>.'}
+        {html:'Welk percentage koos voor zee? [[0]] %', check:exact(42), hint:{stappen:['Het totaal is 200. Dat is 100 %.','Van 200 naar 100: deel door [[0]]','84 : 2 = [[1]] %'], ans:[2,42], extra:'Een percentage zegt hoeveel het zou zijn op 100. 200 is het dubbele van 100. Deel je het totaal door 2, dan deel je ook het deel door 2.'}, sol:'84 : 200 · 100 = <b>42 %</b>.'}
       ], {}), choiceEach([
         {html:'Welke krantenkop is eerlijk?', opts:[['a','Bijna alle leerlingen willen naar zee!'],['b','Meer dan 4 op 10 eerstejaars kiezen voor zee'],['c','De Ardennen zijn saai volgens leerlingen']], ans:'b', why:'42 % is iets meer dan 4 op 10. "Bijna alle" overdrijft, en over saai werd niets gevraagd.'}
       ])) }
@@ -5358,7 +5596,7 @@ WBsec('diagram').push(
       choiceList([['Hoe noemen we deze voorstelling?', 'd', 'Per gegeven een bolletje, gestapeld boven de categorie.']], [['s','staafdiagram'],['d','dotplot'],['l','lijndiagram']]),
       choiceList([['Waarom staat er geen bolletje bij trein?', 'b', 'Een categorie zonder bolletjes heeft frequentie 0.']], [['a','Die gegevens zijn verloren gegaan.'],['b','Geen enkel lid komt met de trein.'],['c','De trein telt niet mee.']]),
       list([
-        {html:'Hoeveel procent van de leden komt <b>niet</b> met de auto? [[0]] %', mode:'numeric', check:exact(70), sol:'20 − 6 = 14 leden. 14 / 20 = 70 / 100 = <b>70 %</b>.'}
+        {html:'Hoeveel procent van de leden komt <b>niet</b> met de auto? [[0]] %', mode:'numeric', check:exact(70), hint:{stappen:['Met de auto: [[0]] leden','Niet met de auto: 20 − 6 = [[1]] leden','Het totaal is 20. Dat is 100 %. Van 20 naar 100: maal [[2]]','[[3]] · 5 = [[4]] %'], ans:[6,14,5,14,70], extra:'Een percentage zegt hoeveel het zou zijn op 100. Maak je van 20 het getal 100 (maal 5), dan doe je dat ook met het deel: 14 · 5.'}, sol:'20 − 6 = 14 leden. 14 / 20 = 70 / 100 = <b>70 %</b>.'}
       ])) },
   { title:'Uitdaging: de ontbrekende week', lvl:3, instr:'De staaf van week 4 is weg. Je weet: in week 4 liep Jana dubbel zoveel als in week 1.',
     build:combo(chartBox('kolom', {title:'Gelopen afstand per week', labels:['week 1','week 2','week 3','week 4','week 5'], series:[{values:[18,24,15,NaN,21]}], yTitle:'Afstand (in km)', step:10, yMax:40, values:true}), list([
@@ -5377,9 +5615,9 @@ WBsec('diagram').push(
 /* --- misleidende grafieken --- */
 WBsec('mislei').push(
   { title:'Zonnebloemen en potgrond', lvl:2, instr:'Een onderzoek naar de gemiddelde hoogte van zonnebloemen bij vier soorten potgrond.',
-    build:combo(chartBox('kolom', {title:'Effect van potgrond', labels:['grond A','grond B','grond C','grond D'], series:[{values:[152,151,154,156]}], yTitle:'Hoogte (in cm)', yMin:150, yMax:157, step:1, values:true, brk:false}),
+    build:combo(chartBox('kolom', {title:'Effect van potgrond', labels:['grond A','grond B','grond C','grond D'], series:[{values:[152,151,154,156]}], yTitle:'Hoogte (in cm)', yMin:150, yMax:157, step:1, brk:false}),
       list([
-        {html:'Hoeveel keer zo hoog lijkt staaf D in de grafiek als staaf B? [[0]] keer', mode:'numeric', check:exact(6), sol:'Staaf D is 6 hokjes hoog (156 − 150), staaf B 1 hokje (151 − 150): <b>6 keer</b>.'},
+        {html:'Hoeveel keer zo hoog lijkt staaf D in de grafiek als staaf B? [[0]] keer', mode:'numeric', check:exact(6), hint:{stappen:['De verticale as start bij [[0]] cm','Lees af: staaf D = [[1]] cm, staaf B = [[2]] cm','Boven de start: D is [[3]] hokjes, B is [[4]] hokje','D lijkt [[5]] keer zo hoog'], ans:[150,156,151,6,1,6], extra:'Je oog vergelijkt de staven zoals je ze ziet. Start de as bij 150 cm, dan zie je alleen het stuk boven 150 cm.'}, sol:'Staaf D is 6 hokjes hoog (156 − 150), staaf B 1 hokje (151 − 150): <b>6 keer</b>.'},
         {html:'Hoeveel cm zijn de zonnebloemen bij D echt hoger dan bij B? [[0]] cm', mode:'numeric', check:exact(5), sol:'156 cm − 151 cm = <b>5 cm</b>. Dat is weinig op 151 cm.'}
       ], {letters:true}),
       choiceList([['Waarom is deze grafiek misleidend?', 'b', 'De verticale as begint bij 150 cm. Kleine verschillen lijken daardoor heel groot. Een eerlijk staafdiagram start bij 0.']], [['a','Er staan te weinig staven op.'],['b','De verticale as start niet bij 0.'],['c','De staven hebben geen kleur.']])) }
@@ -5391,17 +5629,17 @@ WBsec('interp').push(
   { title:'De weg naar school', lvl:2, instr:'20 leerlingen noteerden hoeveel minuten ze onderweg zijn naar school.',
     build:combo(html(`<div class="data-row">${WB_RIT.map(v=>`<span class="dv">${v}</span>`).join('')}</div>`), list([
       {html:'De modus is [[0]] min.', mode:'numeric', check:exact(15), sol:'15 komt 5 keer voor, meer dan elk ander gegeven.'},
-      {html:'Het gemiddelde is [[0]] min.', check:exact(16.5), sol:'De som is 330. 330 : 20 = <b>16,5 min</b>.'},
-      {html:'De mediaan is [[0]] min.', check:exact(15), sol:'Geordend: 8, 8, 10, 10, 12, 12, 12, 13, 15, <b>15</b>, <b>15</b>, 15, 15, 18, 20, 20, 22, 25, 30, 35. Het 10de en 11de gegeven zijn 15: Me = <b>15</b>.'},
-      {html:'De variatiebreedte is [[0]] min.', mode:'numeric', check:exact(27), sol:'35 − 8 = <b>27 min</b>.'}
+      {html:'Het gemiddelde is [[0]] min.', check:exact(16.5), hint:gemHint(WB_RIT), sol:'De som is 330. 330 : 20 = <b>16,5 min</b>.'},
+      {html:'De mediaan is [[0]] min.', check:exact(15), hint:medLijstHint(WB_RIT), sol:'Geordend: 8, 8, 10, 10, 12, 12, 12, 13, 15, <b>15</b>, <b>15</b>, 15, 15, 18, 20, 20, 22, 25, 30, 35. Het 10de en 11de gegeven zijn 15: Me = <b>15</b>.'},
+      {html:'De variatiebreedte is [[0]] min.', mode:'numeric', check:exact(27), hint:vbHint(WB_RIT), sol:'35 − 8 = <b>27 min</b>.'}
     ], {letters:true}),
     choiceList([['Wat betekent de mediaan 15 min?', 'b', 'De mediaan verdeelt de geordende gegevens in twee gelijke groepen.']], [['a','De meeste leerlingen zijn 15 minuten onderweg.'],['b','De helft van de leerlingen is 15 minuten of minder onderweg, de andere helft 15 minuten of meer.'],['c','Als iedereen even lang onderweg was, zou dat 15 minuten zijn.']])) },
   { title:'Uren sport per week', lvl:2, instr:'20 jongeren vertelden hoeveel uur ze per week sporten.',
     build:combo(chartBox('dot', {labels:['0','1','2','3','4','5','6','7','8'], series:[{values:[1,2,4,5,3,2,1,0,2]}], xTitle:'Aantal uren sport per week'}), list([
       {html:'De modus is [[0]] uur.', mode:'numeric', check:exact(3), sol:'Boven 3 staan de meeste bolletjes (5).'},
-      {html:'Het gemiddelde is [[0]] uur.', check:exact(3.45), sol:'1·0 + 2·1 + 4·2 + 5·3 + 3·4 + 2·5 + 1·6 + 2·8 = 69. 69 : 20 = <b>3,45 uur</b>.'},
-      {html:'De mediaan is [[0]] uur.', check:exact(3), sol:'Tel de bolletjes van links: het 10de en het 11de bolletje staan allebei bij 3. Me = <b>3</b>.'},
-      {html:'De variatiebreedte is [[0]] uur.', mode:'numeric', check:exact(8), sol:'8 − 0 = <b>8 uur</b>.'}
+      {html:'Het gemiddelde is [[0]] uur.', check:exact(3.45), hint:gemTabHint([0,1,2,3,4,5,6,7,8],[1,2,4,5,3,2,1,0,2]), sol:'1·0 + 2·1 + 4·2 + 5·3 + 3·4 + 2·5 + 1·6 + 2·8 = 69. 69 : 20 = <b>3,45 uur</b>.'},
+      {html:'De mediaan is [[0]] uur.', check:exact(3), hint:medTabHint([0,1,2,3,4,5,6,7,8],[1,2,4,5,3,2,1,0,2]), sol:'Tel de bolletjes van links: het 10de en het 11de bolletje staan allebei bij 3. Me = <b>3</b>.'},
+      {html:'De variatiebreedte is [[0]] uur.', mode:'numeric', check:exact(8), hint:vbHint([0,8]), sol:'8 − 0 = <b>8 uur</b>.'}
     ], {letters:true})) }
 );
 
@@ -5433,17 +5671,17 @@ const SG_COORD = [
       (b,st,save,key)=>qChoice(b,st,save,key, {html:'Wat betekent het punt (3, 80)?', ans:'a', opts:[['a','In week 3 werden 80 ijsjes verkocht.'],['b','In week 80 werden 3 ijsjes verkocht.'],['c','Er werden 3 keer 80 ijsjes verkocht.']]})),
     show:'In week 3 werden 80 ijsjes verkocht.'},
   {sec:'gemiddelde', go:'gem', adv:'het gemiddelde berekenen', prompt:'In week 8 verkocht de kraam 30 ijsjes.',
-    build:list([{html:'Hoeveel ijsjes werden er gemiddeld per week verkocht in de 8 weken? [[0]]', check:exact(63.75)}]), show:'(40 + 80 + 80 + 60 + 100 + 70 + 50 + 30) : 8 = 510 : 8 = 63,75.'}
+    build:list([{html:'Hoeveel ijsjes werden er gemiddeld per week verkocht in de 8 weken? [[0]]', check:exact(63.75), hint:Object.assign(gemHint([40,80,80,60,100,70,50,30]), {titel:'Hint: lees eerst de 7 weken af uit het diagram, week 8 is 30'})}]), show:'(40 + 80 + 80 + 60 + 100 + 70 + 50 + 30) : 8 = 510 : 8 = 63,75.'}
 ];
 const SG_DATA = [
   {sec:'frequentietabel', go:'freq', adv:'totalen in een tabel', prompt:ftabHTML(['lievelingsfruit','meisjes','jongens'], [['appel','12','18'],['banaan','9','6'],['peer','4','11'],['kiwi','15','5']]),
-    build:list([{html:'Hoeveel leerlingen deden mee? [[0]]', mode:'numeric', check:exact(80)}]), show:'30 + 15 + 15 + 20 = 80.'},
+    build:list([{html:'Hoeveel leerlingen deden mee? [[0]]', mode:'numeric', check:exact(80), hint:{stappen:['Appel: 12 + 18 = [[0]]','Banaan: 9 + 6 = [[1]]','Peer: 4 + 11 = [[2]]','Kiwi: 15 + 5 = [[3]]','Alle leerlingen samen: [[4]]'], ans:[30,15,15,20,80], extra:'Elke leerling staat één keer in de tabel: bij de meisjes óf bij de jongens. Tel per fruit meisjes en jongens samen, en tel daarna alle rijen op. Controle: tel eerst alle meisjes (40), dan alle jongens (40), en tel die twee op.'}}]), show:'30 + 15 + 15 + 20 = 80.'},
   {sec:'percentages', go:'freq', adv:'een percentage berekenen uit een tabel',
-    build:list([{html:'Hoeveel procent van de leerlingen kiest kiwi? [[0]] %', mode:'numeric', check:exact(25)}]), show:'15 + 5 = 20 en 20 / 80 = 25 / 100 = 25 %.'},
+    build:list([{html:'Hoeveel procent van de leerlingen kiest kiwi? [[0]] %', mode:'numeric', check:exact(25), hint:{stappen:['Kiwi, meisjes en jongens samen: 15 + 5 = [[0]]','Alle leerlingen samen: [[1]]','Deel van het geheel: [[2]] / [[3]]','Vereenvoudig: = 1 / [[4]]','Maak de noemer 100: = [[5]] / 100 = [[6]] %'], ans:[20,80,20,80,4,25,25], extra:'Een percentage is een deel van 100. 20 van de 80 is hetzelfde deel als 1 van de 4 (deel teller en noemer door 20). En 1 van de 4 is hetzelfde als 25 van de 100 (maal 25).'}}]), show:'15 + 5 = 20 en 20 / 80 = 25 / 100 = 25 %.'},
   {sec:'diagram kiezen', go:'diagram', adv:'de juiste voorstelling kiezen',
     build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'Je wil meisjes en jongens vergelijken. Welke voorstelling past het best?', ans:'s', opts:[['l','lijndiagram'],['s','staafdiagram met twee kleuren'],['c','één cirkeldiagram']]}), show:'een staafdiagram met twee kleuren: zo staan de staven van meisjes en jongens naast elkaar.'},
   {sec:'misleidend', go:'mislei', adv:'misleidende grafieken herkennen', prompt:'Het gemiddelde jaarloon in drie bedrijven.',
-    build:combo(chartBox('kolom', {labels:['bedrijf A','bedrijf B','bedrijf C'], series:[{values:[41500,42500,41000]}], yTitle:'Jaarloon (in €)', yMin:40000, yMax:43000, step:500, values:true, brk:false, anim:false}),
+    build:combo(chartBox('kolom', {labels:['bedrijf A','bedrijf B','bedrijf C'], series:[{values:[41500,42500,41000]}], yTitle:'Jaarloon (in €)', yMin:40000, yMax:43000, step:500, brk:false, anim:false}),
       (b,st,save,key)=>qChoice(b,st,save,key, {html:'Waarom is deze grafiek misleidend?', ans:'b', opts:[['a','Er staan maar drie bedrijven op.'],['b','De verticale as start niet bij 0.'],['c','Er staan getallen boven de staven.']]})),
     show:'De as start bij 40 000 €: het verschil (hoogstens 1500 €) lijkt veel groter dan het is.'},
   {sec:'soorten data', go:'soort', adv:'numerieke en categorische data',
@@ -5453,9 +5691,9 @@ const SG_BAG = [16,15,18,18,21,17,19,18,22,20,19,18,23,16,17,20,18,19,21,25];
 const SG_BAGHTML = `Van 20 reizigers werd de bagage gewogen (in kg):<div class="data-row">${SG_BAG.map(v=>`<span class="dv">${v}</span>`).join('')}</div>`;
 const SG_MATEN = [
   {sec:'modus', go:'modus', adv:'de modus', prompt:SG_BAGHTML, build:list([{html:'De modus is [[0]] kg.', mode:'numeric', check:exact(18)}]), show:'18 kg (5 keer).'},
-  {sec:'gemiddelde', go:'gem', adv:'het gemiddelde', build:list([{html:'Het gemiddelde is [[0]] kg.', check:exact(19)}]), show:'380 : 20 = 19 kg.'},
-  {sec:'mediaan', go:'med', adv:'de mediaan bij een even aantal gegevens', build:list([{html:'De mediaan is [[0]] kg.', check:exact(18.5)}]), show:'Het 10de gegeven is 18 en het 11de is 19: (18 + 19) : 2 = 18,5 kg.'},
-  {sec:'variatiebreedte', go:'modus', adv:'de variatiebreedte', build:list([{html:'De variatiebreedte is [[0]] kg.', mode:'numeric', check:exact(10)}]), show:'25 − 15 = 10 kg.'},
+  {sec:'gemiddelde', go:'gem', adv:'het gemiddelde', build:list([{html:'Het gemiddelde is [[0]] kg.', check:exact(19), hint:gemHint(SG_BAG)}]), show:'380 : 20 = 19 kg.'},
+  {sec:'mediaan', go:'med', adv:'de mediaan bij een even aantal gegevens', build:list([{html:'De mediaan is [[0]] kg.', check:exact(18.5), hint:medLijstHint(SG_BAG)}]), show:'Het 10de gegeven is 18 en het 11de is 19: (18 + 19) : 2 = 18,5 kg.'},
+  {sec:'variatiebreedte', go:'modus', adv:'de variatiebreedte', build:list([{html:'De variatiebreedte is [[0]] kg.', mode:'numeric', check:exact(10), hint:vbHint(SG_BAG)}]), show:'25 − 15 = 10 kg.'},
   {sec:'betekenis', go:'interp', adv:'de betekenis van een centrummaat',
     build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'Wat betekent de variatiebreedte van 10 kg?', ans:'c', opts:[['a','De meeste reizigers hebben 10 kg bagage.'],['b','Gemiddeld heeft een reiziger 10 kg bagage.'],['c','De zwaarste bagage weegt 10 kg meer dan de lichtste.']]}), show:'De zwaarste bagage weegt 10 kg meer dan de lichtste.'}
 ];
@@ -6007,9 +6245,200 @@ function PXquiz(gens, cfg){ return (b, st, save, key) => {
   if(at<0) SECTIONS.push(sec); else SECTIONS.splice(at+1, 0, sec);
 })();
 /* ============================================================
+   VASTE SLEUTELS PER KAART (stand van oktober 2026)
+   De bewaarde antwoorden en de vraag-id's in het dashboard hangen aan de sleutel van een kaart.
+   Vroeger was dat "onderdeel_volgnummer" na het ordenen, zodat een kaart naar een ander niveau
+   verplaatsen de sleutels van de andere kaarten liet verschuiven. Daarom liggen ze nu vast:
+   onderdeel|titel|het hoeveelste kaartje met die titel  ->  sleutel. Nieuwe kaarten krijgen een eigen "key".
+   ============================================================ */
+const KAART_SLEUTELS = {
+  "coord|Kijk hoe je een coördinaat afleest|1":"coord_0",
+  "coord|Lees de coördinaten af|1":"coord_1",
+  "coord|Welk punt is het?|1":"coord_2",
+  "coord|Wat is de coördinaat?|1":"coord_3",
+  "coord|Punten plaatsen|1":"coord_4",
+  "coord|Klik de punten aan|1":"coord_5",
+  "coord|Ontdek de kwadranten|1":"coord_6",
+  "coord|Waar of niet waar?|1":"coord_7",
+  "coord|Kies de juiste punten|1":"coord_8",
+  "coord|Het vierde punt: rechthoek en vierkant|1":"coord_9",
+  "coord|Het vierde punt: parallellogram en ruit|1":"coord_10",
+  "coord|Verschuiven|1":"coord_11",
+  "coord|Coördinaten aflezen|1":"coord_13",
+  "coord|Punten plaatsen (2)|1":"coord_14",
+  "coord|Waar of niet waar? (2)|1":"coord_15",
+  "coord|Punten, kwadranten en tekens|1":"coord_16",
+  "coord|Punten in een gebied|1":"coord_17",
+  "coord|Het midden van een lijnstuk|1":"coord_18",
+  "coord|Puzzelen met figuren|1":"coord_19",
+  "coord|Een tekening met coördinaten|1":"coord_20",
+  "coord|Spiegelen tegenover een as|1":"coord_21",
+  "coord|Het vierde punt: schuine figuren|1":"coord_22",
+  "coord|Drie mogelijke parallellogrammen|1":"coord_23",
+  "coord|Spiegelen tegenover de oorsprong|1":"coord_24",
+  "coord|Een tekening met coördinaten (2)|1":"coord_25",
+  "coord|Uitdaging: speurtocht naar A, B en C|1":"coord_26",
+  "coord|Uitdaging: een vlieger|1":"coord_27",
+  "coord|Uitdaging: een gelijkbenige driehoek|1":"coord_28",
+  "zeeslag|Zeeslag tegen de computer|1":"zeeslag_0",
+  "zeeslag|Zeeslag tegen een klasgenoot|1":"zeeslag_1",
+  "lijn|Schuif langs de grafiek|1":"lijn_0",
+  "lijn|De brandende kaars: van tabel naar grafiek|1":"lijn_1",
+  "lijn|Coördinaten in een lijndiagram|1":"lijn_2",
+  "lijn|Een bergwandeling|1":"lijn_3",
+  "lijn|Vul de grafiek aan|1":"lijn_4",
+  "lijn|Lees af (nieuwe opgave)|1":"lijn_5",
+  "lijn|Tussen twee punten|1":"lijn_6",
+  "lijn|Een kop warme chocolademelk|1":"lijn_7",
+  "lijn|Een ballonvaart|1":"lijn_8",
+  "lijn|Een tweede ballon|1":"lijn_9",
+  "lijn|Een ijsjeskraam|1":"lijn_10",
+  "lijn|Twee lijnen vergelijken|1":"lijn_11",
+  "lijn|Welk verhaal past bij de grafiek?|1":"lijn_12",
+  "soort|Twee soorten data|1":"soort_0",
+  "soort|De sportfiche van Noor|1":"soort_1",
+  "soort|Welke vraag geeft getallen?|1":"soort_2",
+  "soort|Welke data levert de vraag op?|1":"soort_3",
+  "soort|Numeriek of categorisch?|1":"soort_4",
+  "soort|Getallen die geen getallen zijn|1":"soort_5",
+  "freq|Hoe kom je naar school?|1":"freq_0",
+  "freq|Van dotplot naar tabel (nieuwe opgave)|1":"freq_1",
+  "freq|Van staafdiagram naar tabel|1":"freq_2",
+  "freq|Turfjes tellen|1":"freq_3",
+  "freq|Van dotplot naar tabel|1":"freq_4",
+  "freq|Percentages in de tabel|1":"freq_5",
+  "freq|Een frequentie is weggevallen|1":"freq_6",
+  "freq|De kolom percentage|1":"freq_7",
+  "freq|Percentages berekenen (nieuwe opgave)|1":"freq_8",
+  "freq|Lievelingsfruit|1":"freq_9",
+  "freq|Schoolreis|1":"freq_10",
+  "freq|Twee frequenties zijn weggevallen|1":"freq_11",
+  "freq|Van percentage naar aantal|1":"freq_12",
+  "freq|Absolute en relatieve frequentie|1":"freq_13",
+  "diagram|Eén dataset, vijf voorstellingen|1":"diagram_0",
+  "diagram|Hoe heet deze voorstelling?|1":"diagram_1",
+  "diagram|Bouw de dotplot|1":"diagram_2",
+  "diagram|Aflezen in een staafdiagram|1":"diagram_3",
+  "diagram|Bouw het staafdiagram|1":"diagram_4",
+  "diagram|Het cirkeldiagram|1":"diagram_5",
+  "diagram|Welke voorstelling past?|1":"diagram_6",
+  "diagram|Verdeel het cirkeldiagram|1":"diagram_7",
+  "diagram|Bouw het strookdiagram|1":"diagram_8",
+  "diagram|Welke tabel hoort bij welk diagram?|1":"diagram_9",
+  "diagram|Het openluchtzwembad|1":"diagram_10",
+  "diagram|Naar de sportclub|1":"diagram_11",
+  "diagram|Meisjes en jongens vergelijken|1":"diagram_12",
+  "diagram|Twee groepen vergelijken|1":"diagram_13",
+  "diagram|Kan je het weten?|1":"diagram_14",
+  "diagram|Middelpuntshoeken en cirkeldiagram|1":"diagram_15",
+  "diagram|Uitdaging: de ontbrekende week|1":"diagram_16",
+  "diagram|Uitdaging: overnachtingen in percent|1":"diagram_17",
+  "mislei|Schuif met de as|1":"mislei_0",
+  "mislei|Het teken voor een onderbroken as|1":"mislei_1",
+  "mislei|Wat is er misleidend?|1":"mislei_2",
+  "mislei|Twee grafieken naast elkaar|1":"mislei_3",
+  "mislei|Zonnebloemen en potgrond|1":"mislei_4",
+  "mislei|Het jaarloon in drie bedrijven|1":"mislei_5",
+  "mislei|Klopt de krantenkop?|1":"mislei_6",
+  "mislei|Wanneer mag de as niet bij 0 starten?|1":"mislei_7",
+  "modus|Modus: zo werkt het|1":"modus_0",
+  "modus|Variatiebreedte: zo werkt het|1":"modus_1",
+  "modus|Klik op de modus|1":"modus_2",
+  "modus|Klik op het minimum en het maximum|1":"modus_3",
+  "modus|Klik op de modus (nieuwe opgave)|1":"modus_4",
+  "modus|Modus en variatiebreedte uit een lijst|1":"modus_5",
+  "modus|Modus bij categorische data|1":"modus_6",
+  "modus|Twee modi|1":"modus_7",
+  "modus|Modus en variatiebreedte (nieuwe opgave)|1":"modus_8",
+  "modus|Redeneren met de variatiebreedte|1":"modus_9",
+  "gem|Gemiddelde uit een frequentietabel: zo werkt het|1":"gem_0",
+  "gem|Gemiddelde uit een frequentietabel: oefen met de hulpkolom|1":"gem_1",
+  "gem|Eerlijk verdelen|1":"gem_2",
+  "gem|Eerlijk verdelen met rest|1":"gem_3",
+  "gem|Bereken het gemiddelde (nieuwe opgave)|1":"gem_4",
+  "gem|De wip in evenwicht|1":"gem_5",
+  "gem|Nog een wip|1":"gem_6",
+  "gem|Bereken het gemiddelde|1":"gem_7",
+  "gem|Gemiddelde uit een frequentietabel|1":"gem_8",
+  "gem|Gemiddelde met afronden (nieuwe opgave)|1":"gem_9",
+  "gem|Gemiddelde uit een frequentietabel (nieuwe opgave)|1":"gem_10",
+  "gem|Gemiddelde: waar zit de fout?|1":"gem_11",
+  "gem|Gemiddelde uit een lijndiagram|1":"gem_12",
+  "gem|Het ontbrekende gegeven|1":"gem_13",
+  "gem|Eén toets erbij|1":"gem_14",
+  "gem|Uitdaging: één meting erbij|1":"gem_15",
+  "gem|Uitdaging: punten omrekenen|1":"gem_16",
+  "med|Mediaan in een dotplot: zo werkt het|1":"med_0",
+  "med|Mediaan uit een frequentietabel: zo werkt het|1":"med_1",
+  "med|Mediaan uit een frequentietabel: oefen met rangnummers|1":"med_2",
+  "med|Een oneven aantal|1":"med_3",
+  "med|Een even aantal|1":"med_4",
+  "med|De mediaan (nieuwe opgave)|1":"med_5",
+  "med|Zelf de mediaan bepalen|1":"med_6",
+  "med|De mediaan in een dotplot|1":"med_7",
+  "med|Mediaan uit een frequentietabel|1":"med_8",
+  "med|Mediaan bij een even aantal (nieuwe opgave)|1":"med_9",
+  "med|Mediaan uit een frequentietabel (nieuwe opgave)|1":"med_10",
+  "med|Wat verandert er?|1":"med_11",
+  "interp|De uitschieter|1":"interp_0",
+  "interp|Welke maat past bij de zin?|1":"interp_1",
+  "interp|Alles bepalen|1":"interp_2",
+  "interp|Maak zelf een rij|1":"interp_3",
+  "interp|Wat als ...?|1":"interp_4",
+  "interp|Raad mijn getallen|1":"interp_5",
+  "interp|De weg naar school|1":"interp_6",
+  "interp|Uren sport per week|1":"interp_7",
+  "interp|Bagage wegen|1":"interp_8",
+  "interp|Fastfood|1":"interp_9",
+  "interp|Maak zelf een rij met een modus|1":"interp_10",
+  "toestel|Kijk hoe het werkt|1":"toestel_0",
+  "toestel|Doe het zelf op het toestel|1":"toestel_1",
+  "toestel|Spiekkaart: de toetsen voor statistiek|1":"toestel_2",
+  "toestel|Welke toets druk je in?|1":"toestel_3",
+  "toestel|Een lijst zonder frequenties|1":"toestel_4",
+  "toestel|Toetspunten met het toestel|1":"toestel_5",
+  "toestel|Nieuwe opgave op het toestel|1":"toestel_6",
+  "toestel|Wat geeft het toestel niet?|1":"toestel_7",
+  "toestel|Groot getal, snel klaar|1":"toestel_8",
+  "toestel|Foutenjacht op het toestel|1":"toestel_9",
+  "toestel|Terugrekenen vanaf het scherm|1":"toestel_10",
+  "rekenblad|Kennismaken: cellen en formules|1":"rekenblad_0",
+  "rekenblad|De functie SOM en doortrekken|1":"rekenblad_1",
+  "rekenblad|Een frequentietabel met AANTAL.ALS|1":"rekenblad_2",
+  "rekenblad|Centrummaten met functies|1":"rekenblad_3",
+  "rekenblad|Gemiddelde uit een frequentietabel|1":"rekenblad_4",
+  "rbgraf|Een staafdiagram (kolomdiagram)|1":"rbgraf_0",
+  "rbgraf|Percentages en een cirkeldiagram|1":"rbgraf_1",
+  "rbgraf|Een lijndiagram|1":"rbgraf_2",
+  "rbgraf|Twee groepen in één grafiek|1":"rbgraf_3",
+  "rbgraf|Maak de grafiek eerlijk|1":"rbgraf_4",
+  "rbgraf|Vrij rekenblad|1":"rbgraf_5",
+  "rbgraf|Schoolreis|1":"rbgraf_6",
+  "onderzoek|De onderzoekscyclus|1":"onderzoek_0",
+  "onderzoek|Wat is er mis met de vraag?|1":"onderzoek_1",
+  "onderzoek|Wie vraag je het?|1":"onderzoek_2",
+  "onderzoek|Verbeter de vraag|1":"onderzoek_3",
+  "onderzoek|Ondervraag de klas|1":"onderzoek_4",
+  "experiment|Het geheugenexperiment|1":"experiment_0",
+  "experiment|Het reactietijdexperiment|1":"experiment_1",
+  "kritisch|Krantenkoppen|1":"kritisch_0",
+  "kritisch|Zelf een kop schrijven|1":"kritisch_1",
+  "datalab|Mijn eigen onderzoek|1":"datalab_0",
+  "fout|Foute oplossingen|1":"fout_0",
+  "quiz|Quiz coördinaten|1":"quiz_0",
+  "quiz|Quiz data voorstellen|1":"quiz_1",
+  "quiz|Quiz centrummaten|1":"quiz_2",
+  "toets1|Proeftoets 1|1":"toets1_0",
+  "toets2|Proeftoets 2|1":"toets2_0",
+  "toets3|Proeftoets 3|1":"toets3_0",
+  "toets4|Proeftoets rekenblad|1":"toets4_0"
+};
+/* ============================================================
    KAARTEN ORDENEN: basis, dan oefenen, dan verdieping (stabiel)
    ============================================================ */
 SECTIONS.forEach(s=>{ if(!s.cards || /^toets/.test(s.id)) return; s.cards = s.cards.map((c,i)=>[c,i]).sort((a,b)=>(a[0].lvl||1)-(b[0].lvl||1) || a[1]-b[1]).map(x=>x[0]); });
+/* vaste sleutels toekennen (zie 88_sleutels.js) */
+SECTIONS.forEach(s=>{ const seen = {}; (s.cards||[]).forEach(c=>{ if(c.skip || c.key) return; const t = c.title||''; const n = seen[t] = (seen[t]||0)+1; const k = KAART_SLEUTELS[s.id+'|'+t+'|'+n]; if(k) c.key = k; }); });
 /* onderdelen die de leerkracht uitzette, verbergen */
 if(window.CL_VERBORGEN){ for(let i = SECTIONS.length - 1; i >= 0; i--) if(window.CL_VERBORGEN.has(SECTIONS[i].id)) SECTIONS.splice(i, 1); }
 const app = document.getElementById('app');
@@ -6053,7 +6482,7 @@ SECTIONS.forEach((sec, si)=>{
   }
   sec.cards.forEach((card,ci)=>{
     if(card.skip) return; /* lege plaats: houdt de nummering (en dus de bewaarde antwoorden) van de volgende kaarten */
-    const key = sec.id + '_' + ci;
+    const key = card.key || (sec.id + '_n' + ci); /* vaste sleutel (88_sleutels.js); een kaart zonder sleutel botst zo nooit met een bestaande */
     const c = el('div','card');
     const ch = el('div','card-head', `<h3>${card.title}${card.lvl?LVL[card.lvl]:''}</h3>`);
     const rb = el('button','refresh-btn','↺ Opnieuw beginnen'); rb.type='button';

@@ -336,13 +336,13 @@ export const SITES = [
     "id": "diagram",
     "naam": "Diagrammen",
     "toets": false,
-    "vragen": 46
+    "vragen": 48
    },
    {
     "id": "mislei",
     "naam": "Misleidende grafieken",
     "toets": false,
-    "vragen": 21
+    "vragen": 24
    },
    {
     "id": "modus",
