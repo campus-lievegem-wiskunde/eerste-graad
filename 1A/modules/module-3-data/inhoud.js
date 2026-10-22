@@ -5007,9 +5007,9 @@ SECTIONS.push({ id:'onderzoek', ic:'onderzoek', nav:'Een onderzoek opzetten', ti
 SECTIONS.push({ id:'experiment', ic:'experiment', nav:'Experimenten', title:'Zelf data verzamelen met een experiment', cheat:CHEAT_OZ,
   tip:'Bij een experiment verzamel je zelf de data door te meten. Daarna verwerk je ze zoals altijd: tabel, diagram, centrummaten.',
   cards:[
-    { title:'Het geheugenexperiment', lvl:1, instr:'Hoeveel afbeeldingen onthoud je in één minuut? Doe het experiment en vergelijk jezelf met de 24 leerlingen van 1B.',
+    { title:'Het geheugenexperiment', lvl:1, instr:'Hoeveel afbeeldingen onthoud je in één minuut? Doe het experiment en vergelijk jezelf met de 24 leerlingen van 1Z.',
       build:combo((b,st,save,key)=>memoryExp(b,st,save,key),
-        '<h4 style="margin:1rem 0 .3rem">De scores van 1B</h4>'+ftabHTML(['score','6','7','8','9','10','11','12','13','14','15'], [['aantal leerlingen','1','1','2','5','4','4','3','2','1','1']]),
+        '<h4 style="margin:1rem 0 .3rem">De scores van 1Z</h4>'+ftabHTML(['score','6','7','8','9','10','11','12','13','14','15'], [['aantal leerlingen','1','1','2','5','4','4','3','2','1','1']]),
         list([
           {html:'Hoeveel leerlingen deden mee? [[0]]', mode:'numeric', check:exact(24), sol:'1 + 1 + 2 + 5 + 4 + 4 + 3 + 2 + 1 + 1 = 24.'},
           {html:'Modus = [[0]]', mode:'numeric', check:exact(9), sol:'Score 9 komt het vaakst voor (5 keer).'},
