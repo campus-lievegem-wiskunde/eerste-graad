@@ -307,6 +307,17 @@ function proeftoets(b, st, save, key, items){
   @media (max-width: 900px){ .cg2{ grid-template-columns:minmax(0,1fr); } }
   .nx-r > :first-child{ margin-top:0; }
   @media (max-width: 900px){ .nx{ grid-template-columns:minmax(0,1fr); } .nx-l{ position:static; } }
+  /* één oefening op één scherm (87_schikking.js): vragen in twee kolommen naast of onder de gegevens */
+  @media (min-width: 760px){
+    .q2k.q2g, .q2k .q2g{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 1.4rem; align-content:start; align-items:start; }
+    .q2k.q2g > *, .q2k .q2g > *{ grid-column:1/-1; }
+    .q2k.q2g > .q:not(.q-breed), .q2k .q2g > .q:not(.q-breed){ grid-column:auto; }
+    .q2k .q.q-rij1{ border-top:none; background:none; padding-top:.2rem; }
+  }
+  /* een lange frequentietabel liggend: twee rijen (waarde en frequentie) */
+  .ftab-h-wrap{ overflow-x:auto; max-width:100%; margin:0 0 .4rem; }
+  .ftab.ftab-h{ width:auto; margin:0; }
+  .ftab.ftab-h th, .ftab.ftab-h td{ padding:.4rem .7rem; text-align:center; white-space:nowrap; }
   .ch{ width:100%; height:auto; display:block; overflow:visible; touch-action:none; user-select:none; -webkit-user-select:none; }
   .ch text{ fill:var(--ink); font-family:var(--f-body); font-size:13px; }
   .ch .t-soft{ fill:var(--ink-soft); }
@@ -2342,6 +2353,12 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
   .dx-tile .pair{ position:absolute; top:.25rem; right:.4rem; font-weight:700; color:var(--ok); }
   .dx-raw{ display:flex; flex-wrap:wrap; gap:.3rem; margin:.4rem 0; }
   .dx-raw .dv{ cursor:pointer; }
+  .dx-naast{ display:grid; grid-template-columns:minmax(220px,340px) minmax(0,1fr); gap:.6rem 1.6rem; align-items:start; }
+  .dx-naast .dx-l{ min-width:0; } .dx-naast .dx-r{ min-width:0; }
+  .dx-naast .dx-l .ftab{ margin-top:0; }
+  .dx-naast .dx-r > .viz{ margin-top:0; }
+  .viz.dx-cirkel{ max-width:440px; }
+  @media (max-width:760px){ .dx-naast{ grid-template-columns:1fr; } }
   .ch .dx-boog{ fill:none; stroke:var(--ink-soft); stroke-width:1.6; }
   .ch .dx-aantal{ font-size:19px; font-weight:700; fill:var(--ink); }
   .ch .dx-gegeven{ font-size:14px; fill:var(--ink-soft); }
@@ -2540,11 +2557,11 @@ function DXdivide(b, st, save, key, cfg){
   /* grenzen: cum[0..n-2] in eenheden, oplopend */
   if(!st.cum || st.cum.length!==n-1 || st.cum.some(x=>x>U)){ st.cum = labels.slice(1).map((l,i)=>Math.round((i+1)*U/n)); save(); }
   const cum = st.cum;
-  const v = el('div','viz mid'); b.append(v);
+  const v = el('div', kind==='cirkel' ? 'viz dx-cirkel' : 'viz mid'); b.append(v);
   const leg = el('div','dx-legend'); b.append(leg);
   const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
   const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
-  const W = kind==='cirkel' ? 540 : 520, H = kind==='cirkel' ? 440 : 210;
+  const W = kind==='cirkel' ? 480 : 520, H = kind==='cirkel' ? 410 : 210;
   const svg = newSvg(W, H); v.append(svg);
   const cx = W/2, cy = H/2, R = 140;
   const breuk = el('div','dx-breuk'); b.insertBefore(breuk, leg.nextSibling);
@@ -2620,11 +2637,14 @@ const DX_TOT_BASIS = [10, 20, 20, 25, 50], DX_TOT_VERD = [12, 15, 16, 24, 30, 40
 const DXgenParts = tots => r => { const c = rPick(r, DX_CAT.filter(x=>x.vals.length<=5)); const n = rPick(r, [3, 4, 4]); const tot = rPick(r, tots);
   const vals = c.vals.slice(0, n); return {c, vals, fr:DXsplit(r, n, tot, Math.max(1, Math.round(tot/10)), Math.round(tot*0.5)), tot}; };
 const DXgenPie = DXgenParts(DX_TOT_BASIS);
+/* tabel links, diagram rechts: de hele oefening past op een Chromebook-scherm */
+function DXnaast(b){ const w = el('div','dx-naast'), L = el('div','dx-l'), R = el('div','dx-r'); w.append(L, R); b.append(w); return [L, R]; }
 function DXpieBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
-  b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Aan de buitenkant zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
-  DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
+  const [L, R] = DXnaast(b);
+  L.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
+  L.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Aan de buitenkant zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
+  DXdivide(R, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Of: bereken eerst het percentage (frequentie : ${tot} · 100).`,
     why:'Elk deel is even groot als zijn deel van het totaal: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
 }
@@ -2633,9 +2653,10 @@ const DXgenStrip = DXgenParts(DX_TOT_BASIS);
 function DXstripBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
   if(st.cum && st.cum.some(x=>x>tot)) delete st.cum; /* oude opgave (in procent) */
-  b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Onder de strook zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
-  DXdivide(b, st, save, key, {kind:'strook', labels:vals, target:fr, U:tot,
+  const [L, R] = DXnaast(b);
+  L.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
+  L.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Onder de strook zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
+  DXdivide(R, st, save, key, {kind:'strook', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Gebruik de getallen onder de strook.`,
     why:'Een strookdiagram toont welk deel van het geheel elke categorie is: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
 }
@@ -2645,12 +2666,13 @@ const DXgenDeg = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [24, 30
 function DXdegBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d, deg = fr.map(x=>x/tot*360);
   const q = st.q || (st.q = {});
-  qBlock(b, q, save, 'g', {block:true, size:'xs', mode:'numeric',
+  const [L, R] = DXnaast(b);
+  qBlock(L, q, save, 'g', {block:true, size:'xs', mode:'numeric',
     html:`<table class="ftab"><thead><tr><th>${c.head}</th><th>frequentie</th><th>middelpuntshoek</th></tr></thead><tbody>${vals.map((l,i)=>`<tr><td class="l">${l}</td><td>${fr[i]}</td><td>[[${i}]] °</td></tr>`).join('')}<tr><td class="l"><b>totaal</b></td><td><b>${tot}</b></td><td>[[${vals.length}]] °</td></tr></tbody></table>`,
     check: v => { const r = nums(deg.concat([360]), 0.01)(v); if(!r.ok) r.msg = `Middelpuntshoek = frequentie : ${tot} · 360°. Eén ${c.wie==='leerlingen'?'leerling':'antwoord'} is 360° : ${tot} = ${nf(360/tot,2)}°.`; return r; },
     sol: vals.map((l,i)=>`${l}: ${fr[i]} : ${tot} · 360° = ${nf(deg[i],2)}°`).join(' · ') + ' · samen <b>360°</b>'});
-  b.append(el('div','sub', `Verdeel nu de cirkel. Eén stukje op de rand is ${nf(360/tot,2)}°.`));
-  DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot, hint:'Gebruik de middelpuntshoeken uit je tabel.', why:'De middelpuntshoeken samen zijn 360°.'});
+  L.append(el('div','sub', `Verdeel nu de cirkel. Eén stukje op de rand is ${nf(360/tot,2)}°.`));
+  DXdivide(R, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot, hint:'Gebruik de middelpuntshoeken uit je tabel.', why:'De middelpuntshoeken samen zijn 360°.'});
 }
 
 /* ---------- dotplot opbouwen ---------- */
@@ -2771,17 +2793,17 @@ SECTIONS.find(s=>s.id==='freq').cards.push(
 SECTIONS.find(s=>s.id==='diagram').cards.push(
   { title:'Bouw de dotplot', lvl:3, instr:'Maak zelf de as en zet voor elk gegeven één bolletje in de juiste kolom.',
     build:DXfresh(DXgenDotZelf, DXdotBuild) },
-  { title:'Verdeel het cirkeldiagram', lvl:2, instr:'Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Verdeel het cirkeldiagram', lvl:2, naast:false, instr:'Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenPie, DXpieBuild) },
-  { title:'Bouw het strookdiagram', lvl:2, instr:'Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Bouw het strookdiagram', lvl:2, naast:false, instr:'Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenStrip, DXstripBuild) },
   { title:'Welke tabel hoort bij welk diagram?', lvl:2, instr:'Vier tabellen, vier diagrammen. Koppel ze.',
     build:DXfresh(DXgenMatch, DXmatch) },
-  { title:'Middelpuntshoeken en cirkeldiagram', lvl:3, instr:'Bereken eerst de middelpuntshoeken, verdeel dan de cirkel.',
+  { title:'Middelpuntshoeken en cirkeldiagram', lvl:3, naast:false, instr:'Bereken eerst de middelpuntshoeken, verdeel dan de cirkel.',
     build:DXfresh(DXgenDeg, DXdegBuild) },
-  { title:'Verdeel het cirkeldiagram (moeilijker)', key:'diagram_cirkel2', lvl:3, instr:'Nu is het totaal geen deler van 100. Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Verdeel het cirkeldiagram (moeilijker)', key:'diagram_cirkel2', lvl:3, naast:false, instr:'Nu is het totaal geen deler van 100. Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenParts(DX_TOT_VERD), DXpieBuild) },
-  { title:'Bouw het strookdiagram (moeilijker)', key:'diagram_strook2', lvl:3, instr:'Nu is het totaal geen deler van 100. Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Bouw het strookdiagram (moeilijker)', key:'diagram_strook2', lvl:3, naast:false, instr:'Nu is het totaal geen deler van 100. Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenParts(DX_TOT_VERD), DXstripBuild) }
 );
 /* ============================================================
@@ -6245,6 +6267,32 @@ function PXquiz(gens, cfg){ return (b, st, save, key) => {
   if(at<0) SECTIONS.push(sec); else SECTIONS.splice(at+1, 0, sec);
 })();
 /* ============================================================
+   EÉN OEFENING OP ÉÉN SCHERM (afspraak 22 oktober 2026)
+   Een leerling moet nooit naar boven scrollen om de gegevens te vinden die bij een vraag horen.
+   Per kaart (onderdeel|titel): q2 = vragen in twee kolommen, htab = lange frequentietabel liggend,
+   onderRechts = vragen onder de figuur naar de rechterkolom, naarRechts:n = alleen de eerste n vragen links bij de tabel.
+   ============================================================ */
+const SCHIKKING = {
+  'coord|Lees de coördinaten af': {q2:1},
+  'coord|Coördinaten aflezen': {q2:1, onderRechts:1},
+  'soort|Twee soorten data': {q2:1},
+  'freq|Turfjes tellen': {q2:1},
+  'diagram|Het cirkeldiagram': {q2:1},
+  'diagram|Kan je het weten?': {q2:1},
+  'gem|Gemiddelde uit een frequentietabel (nieuwe opgave)': {q2:'t'},
+  'med|Mediaan uit een frequentietabel: oefen met rangnummers': {naarRechts:1},
+  'interp|Alles bepalen': {q2:1},
+  'interp|Wat als ...?': {q2:1},
+  'interp|De weg naar school': {q2:1},
+  'interp|Uren sport per week': {q2:1},
+  'onderzoek|Ondervraag de klas': {q2:1},
+  'experiment|Het geheugenexperiment': {q2:1},
+  'experiment|Het reactietijdexperiment': {q2:1},
+  'toestel|Doe het zelf op het toestel': {htab:1, q2:1},
+  'toestel|Toetspunten met het toestel': {htab:1, q2:1}
+};
+SECTIONS.forEach(s=>(s.cards||[]).forEach(c=>{ const f = SCHIKKING[s.id+'|'+c.title]; if(f) c.schik = f; }));
+/* ============================================================
    VASTE SLEUTELS PER KAART (stand van oktober 2026)
    De bewaarde antwoorden en de vraag-id's in het dashboard hangen aan de sleutel van een kaart.
    Vroeger was dat "onderdeel_volgnummer" na het ordenen, zodat een kaart naar een ander niveau
@@ -6491,7 +6539,7 @@ SECTIONS.forEach((sec, si)=>{
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
     if(card.naast === false) body.classList.add('no-naast');
     renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
-      try{ card.build(body, st, save, key); naast(body); naastTabel(body); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij deze oefening. Klik op “Opnieuw beginnen”.')); } };
+      try{ card.build(body, st, save, key); if(card.schik) schikVoor(body, card.schik); naast(body); naastTabel(body); if(card.schik) schikNa(body, card.schik); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij deze oefening. Klik op “Opnieuw beginnen”.')); } };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
   });
@@ -6512,7 +6560,7 @@ function naast(root){
     if(!na.length || na.some(x=>x.matches('.viz') || x.querySelector('.viz'))) return;
     if(!na.some(x=>x.matches('input, table, select, textarea') || x.querySelector('input, table, select, textarea, .chip, .opt'))) return;
     /* een brede tabel (veel kolommen) past niet naast de figuur */
-    if(na.some(x=>[...x.querySelectorAll('tr')].some(tr=>tr.children.length > 4))) return;
+    if(na.some(x=>[...x.querySelectorAll('tr')].some(tr=>tr.children.length > 4 && !tr.closest('.hintbox')))) return; /* (een rangnummertabel in een verborgen hint telt niet mee) */
     const w = el('div','nx'), l = el('div','nx-l'), r = el('div','nx-r'); w.dataset.auto='fig';
     P.insertBefore(w, v); l.append(v); na.forEach(x=>r.append(x)); w.append(l, r);
   });
@@ -6530,8 +6578,36 @@ function naastTabel(root){
     P.insertBefore(w, E); l.append(E); na.forEach(x=>r.append(x)); w.append(l, r);
   });
 }
+/* één oefening op één scherm: instellingen per kaart uit 87_schikking.js */
+function schikVoor(body, f){ if(f.htab) body.querySelectorAll('table.ftab').forEach(kantelTabel); }
+function schikNa(body, f){
+  /* vragen die onder figuur en vragen staan, naar de rechterkolom (bv. uitspraken over het assenstelsel) */
+  if(f.onderRechts){ const w = body.querySelector('.nx, .two'); if(w){ const r = w.lastElementChild; let n = w.nextElementSibling; while(n){ const v = n.nextElementSibling; r.append(n); n = v; } } }
+  /* alleen de eerste vraag(en) links bij de tabel, de rest rechts */
+  if(f.naarRechts){ const l = body.querySelector('.nx-l'), r = body.querySelector('.nx-r'); if(l && r) [...l.children].filter(x=>x.classList.contains('q')).slice(f.naarRechts).forEach(q=>r.append(q)); }
+  if(f.q2){ body.classList.add('q2k'); if(f.q2 === 't') body.classList.add('q2t'); q2Breed(body); } }
+/* een lange tabel met twee of drie kolommen (zonder invulvakjes) liggend zetten */
+function kantelTabel(t){
+  if(t.closest('.ftab-h-wrap') || t.querySelector('input') || t.rows.length < 6) return;
+  const R = [...t.rows].map(r=>[...r.cells]); if(R.some(r=>r.length !== R[0].length) || R[0].length > 3) return;
+  const n = el('table', t.className + ' ftab-h');
+  for(let k = 0; k < R[0].length; k++){ const tr = n.insertRow(); R.forEach((r,ri)=>{ const c = document.createElement(ri === 0 ? 'th' : 'td'); c.innerHTML = r[k].innerHTML; tr.append(c); }); }
+  const w = el('div','ftab-h-wrap'); t.replaceWith(w); w.append(n);
+}
+/* in twee kolommen: elke groep van minstens twee vragen naast elkaar; een vraag met een tabel, figuur of lange keuzes neemt de volle breedte
+   (bij q2:'t' mag een vraag met een tabel ook een halve breedte nemen, bv. invultabel links en vraag b rechts) */
+function q2Breed(body){
+  const zicht = (q, sel)=>[...q.querySelectorAll(sel)].some(x=>!x.closest('.hintbox'));
+  const groepen = new Set(); body.querySelectorAll('.q').forEach(q=>{ const g = q.parentElement; if(g && !g.closest('.q, .hintbox') && [...g.children].filter(x=>x.classList.contains('q')).length > 1) groepen.add(g); });
+  groepen.forEach(g=>{ g.classList.add('q2g');
+    const qs = [...g.children].filter(x=>x.classList.contains('q'));
+    qs.forEach(q=>{ q.classList.toggle('q-breed', zicht(q, body.classList.contains('q2t') ? '.viz, .nx' : 'table, .viz, ol, .nx') || [...q.querySelectorAll('.opt')].some(o=>o.textContent.length > 90)); q.classList.remove('q-rij1'); });
+    const a = g.children[0], b = g.children[1];
+    if(a && b && qs.includes(a) && qs.includes(b) && !a.classList.contains('q-breed') && !b.classList.contains('q-breed')) b.classList.add('q-rij1');
+  });
+}
 /* ook als een oefening zichzelf opnieuw tekent (Nieuwe opgave, Volgende ...) */
-new MutationObserver(ms=>{ const s = new Set(); ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1 && !n.classList.contains('nx') && (n.matches('.viz, table.ftab') || n.querySelector('.viz, table.ftab'))) s.add(n.closest('.card') || n.parentElement); })); s.forEach(c=>{ if(c){ naast(c); naastTabel(c); } }); }).observe(app, { childList:true, subtree:true });
+new MutationObserver(ms=>{ const s = new Set(); ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1 && !n.classList.contains('nx') && (n.matches('.viz, table.ftab') || n.querySelector('.viz, table.ftab'))) s.add(n.closest('.card') || n.parentElement); })); s.forEach(c=>{ if(c){ naast(c); naastTabel(c); } }); ms.forEach(m=>{ const k = m.target.closest && m.target.closest('.q2k'); if(k) q2Breed(k); }); }).observe(app, { childList:true, subtree:true });
 
 function show(id, scroll){
   const idx = SECTIONS.findIndex(s=>s.id===id); if(idx<0) return;
