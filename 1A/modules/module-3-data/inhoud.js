@@ -2342,6 +2342,12 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
   .dx-tile .pair{ position:absolute; top:.25rem; right:.4rem; font-weight:700; color:var(--ok); }
   .dx-raw{ display:flex; flex-wrap:wrap; gap:.3rem; margin:.4rem 0; }
   .dx-raw .dv{ cursor:pointer; }
+  .dx-naast{ display:grid; grid-template-columns:minmax(220px,340px) minmax(0,1fr); gap:.6rem 1.6rem; align-items:start; }
+  .dx-naast .dx-l{ min-width:0; } .dx-naast .dx-r{ min-width:0; }
+  .dx-naast .dx-l .ftab{ margin-top:0; }
+  .dx-naast .dx-r > .viz{ margin-top:0; }
+  .viz.dx-cirkel{ max-width:440px; }
+  @media (max-width:760px){ .dx-naast{ grid-template-columns:1fr; } }
   .ch .dx-boog{ fill:none; stroke:var(--ink-soft); stroke-width:1.6; }
   .ch .dx-aantal{ font-size:19px; font-weight:700; fill:var(--ink); }
   .ch .dx-gegeven{ font-size:14px; fill:var(--ink-soft); }
@@ -2540,11 +2546,11 @@ function DXdivide(b, st, save, key, cfg){
   /* grenzen: cum[0..n-2] in eenheden, oplopend */
   if(!st.cum || st.cum.length!==n-1 || st.cum.some(x=>x>U)){ st.cum = labels.slice(1).map((l,i)=>Math.round((i+1)*U/n)); save(); }
   const cum = st.cum;
-  const v = el('div','viz mid'); b.append(v);
+  const v = el('div', kind==='cirkel' ? 'viz dx-cirkel' : 'viz mid'); b.append(v);
   const leg = el('div','dx-legend'); b.append(leg);
   const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
   const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
-  const W = kind==='cirkel' ? 540 : 520, H = kind==='cirkel' ? 440 : 210;
+  const W = kind==='cirkel' ? 480 : 520, H = kind==='cirkel' ? 410 : 210;
   const svg = newSvg(W, H); v.append(svg);
   const cx = W/2, cy = H/2, R = 140;
   const breuk = el('div','dx-breuk'); b.insertBefore(breuk, leg.nextSibling);
@@ -2620,11 +2626,14 @@ const DX_TOT_BASIS = [10, 20, 20, 25, 50], DX_TOT_VERD = [12, 15, 16, 24, 30, 40
 const DXgenParts = tots => r => { const c = rPick(r, DX_CAT.filter(x=>x.vals.length<=5)); const n = rPick(r, [3, 4, 4]); const tot = rPick(r, tots);
   const vals = c.vals.slice(0, n); return {c, vals, fr:DXsplit(r, n, tot, Math.max(1, Math.round(tot/10)), Math.round(tot*0.5)), tot}; };
 const DXgenPie = DXgenParts(DX_TOT_BASIS);
+/* tabel links, diagram rechts: de hele oefening past op een Chromebook-scherm */
+function DXnaast(b){ const w = el('div','dx-naast'), L = el('div','dx-l'), R = el('div','dx-r'); w.append(L, R); b.append(w); return [L, R]; }
 function DXpieBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
-  b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Aan de buitenkant zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
-  DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
+  const [L, R] = DXnaast(b);
+  L.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
+  L.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Aan de buitenkant zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
+  DXdivide(R, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Of: bereken eerst het percentage (frequentie : ${tot} · 100).`,
     why:'Elk deel is even groot als zijn deel van het totaal: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
 }
@@ -2633,9 +2642,10 @@ const DXgenStrip = DXgenParts(DX_TOT_BASIS);
 function DXstripBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
   if(st.cum && st.cum.some(x=>x>tot)) delete st.cum; /* oude opgave (in procent) */
-  b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Onder de strook zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
-  DXdivide(b, st, save, key, {kind:'strook', labels:vals, target:fr, U:tot,
+  const [L, R] = DXnaast(b);
+  L.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
+  L.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Onder de strook zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
+  DXdivide(R, st, save, key, {kind:'strook', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Gebruik de getallen onder de strook.`,
     why:'Een strookdiagram toont welk deel van het geheel elke categorie is: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
 }
@@ -2645,12 +2655,13 @@ const DXgenDeg = r => { const c = rPick(r, DX_CAT); const tot = rPick(r, [24, 30
 function DXdegBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d, deg = fr.map(x=>x/tot*360);
   const q = st.q || (st.q = {});
-  qBlock(b, q, save, 'g', {block:true, size:'xs', mode:'numeric',
+  const [L, R] = DXnaast(b);
+  qBlock(L, q, save, 'g', {block:true, size:'xs', mode:'numeric',
     html:`<table class="ftab"><thead><tr><th>${c.head}</th><th>frequentie</th><th>middelpuntshoek</th></tr></thead><tbody>${vals.map((l,i)=>`<tr><td class="l">${l}</td><td>${fr[i]}</td><td>[[${i}]] °</td></tr>`).join('')}<tr><td class="l"><b>totaal</b></td><td><b>${tot}</b></td><td>[[${vals.length}]] °</td></tr></tbody></table>`,
     check: v => { const r = nums(deg.concat([360]), 0.01)(v); if(!r.ok) r.msg = `Middelpuntshoek = frequentie : ${tot} · 360°. Eén ${c.wie==='leerlingen'?'leerling':'antwoord'} is 360° : ${tot} = ${nf(360/tot,2)}°.`; return r; },
     sol: vals.map((l,i)=>`${l}: ${fr[i]} : ${tot} · 360° = ${nf(deg[i],2)}°`).join(' · ') + ' · samen <b>360°</b>'});
-  b.append(el('div','sub', `Verdeel nu de cirkel. Eén stukje op de rand is ${nf(360/tot,2)}°.`));
-  DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot, hint:'Gebruik de middelpuntshoeken uit je tabel.', why:'De middelpuntshoeken samen zijn 360°.'});
+  L.append(el('div','sub', `Verdeel nu de cirkel. Eén stukje op de rand is ${nf(360/tot,2)}°.`));
+  DXdivide(R, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot, hint:'Gebruik de middelpuntshoeken uit je tabel.', why:'De middelpuntshoeken samen zijn 360°.'});
 }
 
 /* ---------- dotplot opbouwen ---------- */
@@ -2771,17 +2782,17 @@ SECTIONS.find(s=>s.id==='freq').cards.push(
 SECTIONS.find(s=>s.id==='diagram').cards.push(
   { title:'Bouw de dotplot', lvl:3, instr:'Maak zelf de as en zet voor elk gegeven één bolletje in de juiste kolom.',
     build:DXfresh(DXgenDotZelf, DXdotBuild) },
-  { title:'Verdeel het cirkeldiagram', lvl:2, instr:'Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Verdeel het cirkeldiagram', lvl:2, naast:false, instr:'Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenPie, DXpieBuild) },
-  { title:'Bouw het strookdiagram', lvl:2, instr:'Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Bouw het strookdiagram', lvl:2, naast:false, instr:'Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenStrip, DXstripBuild) },
   { title:'Welke tabel hoort bij welk diagram?', lvl:2, instr:'Vier tabellen, vier diagrammen. Koppel ze.',
     build:DXfresh(DXgenMatch, DXmatch) },
-  { title:'Middelpuntshoeken en cirkeldiagram', lvl:3, instr:'Bereken eerst de middelpuntshoeken, verdeel dan de cirkel.',
+  { title:'Middelpuntshoeken en cirkeldiagram', lvl:3, naast:false, instr:'Bereken eerst de middelpuntshoeken, verdeel dan de cirkel.',
     build:DXfresh(DXgenDeg, DXdegBuild) },
-  { title:'Verdeel het cirkeldiagram (moeilijker)', key:'diagram_cirkel2', lvl:3, instr:'Nu is het totaal geen deler van 100. Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Verdeel het cirkeldiagram (moeilijker)', key:'diagram_cirkel2', lvl:3, naast:false, instr:'Nu is het totaal geen deler van 100. Maak het cirkeldiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenParts(DX_TOT_VERD), DXpieBuild) },
-  { title:'Bouw het strookdiagram (moeilijker)', key:'diagram_strook2', lvl:3, instr:'Nu is het totaal geen deler van 100. Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
+  { title:'Bouw het strookdiagram (moeilijker)', key:'diagram_strook2', lvl:3, naast:false, instr:'Nu is het totaal geen deler van 100. Maak het strookdiagram bij de tabel door de grenzen te verslepen.',
     build:DXfresh(DXgenParts(DX_TOT_VERD), DXstripBuild) }
 );
 /* ============================================================
