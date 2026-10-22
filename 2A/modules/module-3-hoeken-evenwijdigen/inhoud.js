@@ -2596,16 +2596,17 @@ CT.ladder = { title:'De fietsoversteek', lvl:1,
   }};
 /* één vraag: wordt de straat naar rechts breder, smaller of blijft ze even breed? out = 'b' | 's' | 'e' */
 function straatQ(b, st, save, id, R, out, nr){
-  const g = R.int(58, 72); const i = R.pick([1,4]); const du = out==='e' ? 0 : (out==='b' ? 1 : -1) * R.pick([3,4,5]);
+  const g = R.int(58, 72); const i = R.pick([1,4]); const du = out==='e' ? 0 : (out==='b' ? 1 : -1) * R.pick([1,2]);
   const meet = i===1 ? g - du : 180 - g + du;
-  b.append(el('div','', straatSvg(g, du, {ask:[[i, meet+'°', 'tq']]})));
+  /* de figuur is altijd evenwijdig getekend: enkel de getallen verraden het verschil */
+  b.append(el('div','', straatSvg(g, 0, {ask:[[i, meet+'°', 'tq']]})));
   const soort = i===1 ? 'overeenkomstige hoeken' : 'binnenhoeken aan dezelfde kant van het fietspad';
   const eis = i===1 ? `${g}° ${g===meet?'=':'≠'} ${meet}°` : `${g}° + ${meet}° = ${g+meet}°`;
   const why = out==='e' ? `Het zijn ${soort}: ${eis}${i===1?'':''}. Ze voldoen aan de omgekeerde eigenschap, dus zijn de stoepranden evenwijdig: de straat blijft <b>even breed</b>.`
     : `Het zijn ${soort}: ${eis}${i===1?'':' ≠ 180°'}. De stoepranden zijn dus niet evenwijdig (∦). ` +
       (i===1 ? `De hoek boven is ${meet<g?'kleiner':'groter'}: de bovenste stoeprand loopt naar rechts ${out==='b'?'omhoog':'omlaag'}, dus wordt de straat <b>${out==='b'?'breder':'smaller'}</b>.`
              : `De som is ${g+meet>180?'groter':'kleiner'} dan 180°: de bovenste stoeprand loopt naar rechts ${out==='b'?'omhoog':'omlaag'}, dus wordt de straat <b>${out==='b'?'breder':'smaller'}</b>.`);
-  qChoice(b, st, save, id, {nr, html:`Aan de onderste stoeprand meet je ${g}°, aan de bovenste ${meet}°. Wordt de straat naar rechts toe breder, smaller of blijft ze even breed?`,
+  qChoice(b, st, save, id, {nr, html:`Aan de onderste stoeprand meet je ${g}°, aan de bovenste ${meet}°. Wordt de straat naar rechts toe breder, smaller of blijft ze even breed? <i>De figuur is niet op schaal: reken!</i>`,
     opts:[['b','breder'],['s','smaller'],['e','even breed']], ans:out, why,
     whyBad:'Welke soort hoeken zijn het? Moeten ze even groot of supplementair zijn om evenwijdige stoepranden te hebben? Teken eventueel een evenwijdige rechte door het bovenste snijpunt.'});
 }
@@ -2772,13 +2773,13 @@ function rekSvg(g, dp, i, meet){
   return hfWrap(W, H, s, {maxw:430, alt:'boekenplank aan een muur met een schuine steun naar de vloer'});
 }
 CT.rek = { title:'Hangt de boekenplank recht?', lvl:2,
-  instr:'Een schuine steun loopt van de vloer naar de boekenplank. Uit de gemeten hoeken besluit je of de plank evenwijdig is met de vloer. Gebruik een omgekeerde eigenschap.',
+  instr:'Een schuine steun loopt van de vloer naar de boekenplank. Uit de gemeten hoeken besluit je of de plank evenwijdig is met de vloer. Gebruik een omgekeerde eigenschap. Let op: de figuur is niet op schaal, kijken volstaat niet. Reken!',
   build(b, st, save){ const R = makeR(st);
     for(let q=0;q<2;q++){
       if(q===0) st.r0 = R.f()<.5; const ok = q===0 ? st.r0 : !st.r0;
-      const g = R.int(55, 70); const i = R.pick([3,4]); const dp = ok ? 0 : R.pick([-4,-3,3,4]);
+      const g = R.int(55, 70); const i = R.pick([3,4]); const dp = ok ? 0 : R.pick([-2,-1,1,2]);
       const meet = i===3 ? 180 - g - dp : g + dp;
-      b.append(el('div','', rekSvg(g, dp, i, meet)));
+      b.append(el('div','', rekSvg(g, 0, i, meet)));
       const soort = i===3 ? 'binnenhoeken aan dezelfde kant van de steun' : 'verwisselende binnenhoeken';
       qChoice(b, st, save, 'c'+q, {nr:LET[q]+')', html:`Aan de vloer meet je ${g}°, onder de plank ${meet}°. Is de plank evenwijdig met de vloer?`,
         opts:[['j','ja'],['n','nee']], ans: ok ? 'j' : 'n',
