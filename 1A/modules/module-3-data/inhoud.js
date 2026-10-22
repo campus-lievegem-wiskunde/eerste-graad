@@ -2342,7 +2342,9 @@ SECTIONS.push({ id:'mislei', ic:'mislei', nav:'Misleidende grafieken', title:'La
   .dx-tile .pair{ position:absolute; top:.25rem; right:.4rem; font-weight:700; color:var(--ok); }
   .dx-raw{ display:flex; flex-wrap:wrap; gap:.3rem; margin:.4rem 0; }
   .dx-raw .dv{ cursor:pointer; }
-  .ch .dx-num{ font-size:12px; fill:var(--ink-soft); }
+  .ch .dx-boog{ fill:none; stroke:var(--ink-soft); stroke-width:1.6; }
+  .ch .dx-aantal{ font-size:19px; font-weight:700; fill:var(--ink); }
+  .ch .dx-gegeven{ font-size:14px; fill:var(--ink-soft); }
   .ch .dx-pct{ cursor:pointer; text-decoration:underline; text-decoration-style:dotted; }
   .dx-legend .dx-pctl{ cursor:pointer; border:0; background:none; font:inherit; color:inherit; padding:0; text-decoration:underline dotted; }
   .dx-breuk{ min-height:2.2rem; margin:.3rem 0; display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; font-size:1.05rem; }
@@ -2538,16 +2540,15 @@ function DXdivide(b, st, save, key, cfg){
   /* grenzen: cum[0..n-2] in eenheden, oplopend */
   if(!st.cum || st.cum.length!==n-1 || st.cum.some(x=>x>U)){ st.cum = labels.slice(1).map((l,i)=>Math.round((i+1)*U/n)); save(); }
   const cum = st.cum;
-  const v = el('div','viz '+(kind==='cirkel'?'narrow':'mid')); b.append(v);
+  const v = el('div','viz mid'); b.append(v);
   const leg = el('div','dx-legend'); b.append(leg);
   const act = el('div','q-act'); const btn = el('button','btn','Controleer'); btn.type='button'; act.append(btn);
   const fb = el('div','fb'); b.append(act, fb); if(quiz) act.hidden = true;
-  const W = kind==='cirkel' ? 380 : 460, H = kind==='cirkel' ? 360 : 190;
+  const W = kind==='cirkel' ? 540 : 520, H = kind==='cirkel' ? 440 : 210;
   const svg = newSvg(W, H); v.append(svg);
   const cx = W/2, cy = H/2, R = 140;
-  const elk = U <= 25 ? 1 : 5; /* bij veel stukjes enkel elke 5de een getal */
   const breuk = el('div','dx-breuk'); b.insertBefore(breuk, leg.nextSibling);
-  const sx0 = 22, sx1 = W-22, sy = 44, sh = 80;
+  const sx0 = 30, sx1 = W-30, sy = 44, sh = 80;
   const parts = () => { const c = [0, ...cum, U]; return labels.map((l,i)=>c[i+1]-c[i]); };
   const pct = k => k/U*100;
   const exactP = k => Math.abs(Math.round(k*10000/U) - k*10000/U) < 1e-6; /* hoogstens 2 cijfers na de komma */
@@ -2557,20 +2558,32 @@ function DXdivide(b, st, save, key, cfg){
   function draw(show){
     svg.innerHTML = ''; const c = [0, ...cum, U], pr = parts();
     if(kind==='cirkel'){
-      for(let u=0;u<U;u++){ const lang = u%elk===0 ? 9 : 5; const [x1,y1] = [cx+R*Math.cos(ang(u)), cy+R*Math.sin(ang(u))], [x2,y2] = [cx+(R+lang)*Math.cos(ang(u)), cy+(R+lang)*Math.sin(ang(u))]; svgEl('line',{x1,y1,x2,y2,class:'dx-tick'}, svg);
-        if(u%elk===0) svgText(svg, cx+(R+20)*Math.cos(ang(u)), cy+(R+20)*Math.sin(ang(u))+4, String(u), {'text-anchor':'middle', class:'dx-num'}); }
+      for(let u=0;u<U;u++){ const [x1,y1] = [cx+R*Math.cos(ang(u)), cy+R*Math.sin(ang(u))], [x2,y2] = [cx+(R+6)*Math.cos(ang(u)), cy+(R+6)*Math.sin(ang(u))]; svgEl('line',{x1,y1,x2,y2,class:'dx-tick'}, svg); }
+      /* aan de buitenkant: per stuk een boogje, het aantal vakjes en het gegeven */
+      labels.forEach((l,i)=>{ if(pr[i]<=0) return; const a0 = ang(c[i]), a1 = ang(c[i+1]), rb = R+14, sp = Math.min(0.03, (a1-a0)/4);
+        if(pr[i]>=U) svgEl('circle',{cx, cy, r:rb, class:'dx-boog'}, svg);
+        else svgEl('path',{d:`M${cx+rb*Math.cos(a0+sp)},${cy+rb*Math.sin(a0+sp)} A${rb},${rb} 0 ${(a1-a0)>Math.PI?1:0} 1 ${cx+rb*Math.cos(a1-sp)},${cy+rb*Math.sin(a1-sp)}`, class:'dx-boog'}, svg);
+        const am = pr[i]>=U ? -Math.PI/2 : (a0+a1)/2, co = Math.cos(am), si = Math.sin(am), anc = co>0.35 ? 'start' : co<-0.35 ? 'end' : 'middle';
+        const tx = cx+(R+30)*co, ty = cy+(R+30)*si + (si>0.35 ? 14 : si<-0.35 ? -6 : 5);
+        svgText(svg, tx, ty, String(pr[i]), {'text-anchor':anc, class:'dx-aantal'});
+        svgText(svg, tx, ty+17, l, {'text-anchor':anc, class:'dx-gegeven'}); });
       labels.forEach((l,i)=>{ const a0 = ang(c[i]), a1 = ang(c[i+1]); if(c[i+1]<=c[i]) return; const col = PAL[i%PAL.length];
         if(c[i+1]-c[i]>=U) svgEl('circle',{cx,cy,r:R,fill:col,class:'sec'}, svg);
         else svgEl('path',{d:`M${cx},${cy} L${cx+R*Math.cos(a0)},${cy+R*Math.sin(a0)} A${R},${R} 0 ${(a1-a0)>Math.PI?1:0} 1 ${cx+R*Math.cos(a1)},${cy+R*Math.sin(a1)} Z`, fill:col, class:'sec'}, svg);
         const am = (a0+a1)/2; if(pr[i]/U>0.04){ const t = svgText(svg, cx+R*0.62*Math.cos(am), cy+R*0.62*Math.sin(am)+5, pTxt(pr[i])+' %', {'text-anchor':'middle', class:'t-big dx-pct'}); t.dataset.i = i; t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
     } else {
-      for(let u=0;u<=U;u++){ const x = sx0+(sx1-sx0)*u/U; svgEl('line',{x1:x, y1:sy+sh, x2:x, y2:sy+sh+(u%elk===0?10:5), class:'dx-tick'}, svg); if(u%elk===0) svgText(svg, x, sy+sh+24, String(u), {'text-anchor':'middle', class:'dx-num'}); }
-      svgText(svg, sx0, sy+sh+44, '0 %', {'text-anchor':'start', class:'t-soft'}); svgText(svg, sx1, sy+sh+44, '100 %', {'text-anchor':'end', class:'t-soft'});
+      for(let u=0;u<=U;u++){ const x = sx0+(sx1-sx0)*u/U; svgEl('line',{x1:x, y1:sy+sh, x2:x, y2:sy+sh+6, class:'dx-tick'}, svg); }
+      /* onder de strook: per stuk een haakje, het aantal vakjes en het gegeven */
+      labels.forEach((l,i)=>{ if(pr[i]<=0) return; const x0 = sx0+(sx1-sx0)*c[i]/U + 3, x1 = sx0+(sx1-sx0)*c[i+1]/U - 3, yb = sy+sh+14;
+        svgEl('path',{d:`M${x0},${yb-5} L${x0},${yb} L${x1},${yb} L${x1},${yb-5}`, class:'dx-boog'}, svg);
+        svgText(svg, (x0+x1)/2, yb+20, String(pr[i]), {'text-anchor':'middle', class:'dx-aantal'});
+        svgText(svg, (x0+x1)/2, yb+38, l, {'text-anchor':'middle', class:'dx-gegeven'}); });
       labels.forEach((l,i)=>{ const x = sx0+(sx1-sx0)*c[i]/U, w = (sx1-sx0)*pr[i]/U; const col = PAL[i%PAL.length]; svgEl('rect',{x, y:sy, width:Math.max(0,w), height:sh, fill:col, class:'sec'}, svg);
         if(pr[i]/U>0.06){ const t = svgText(svg, x+w/2, sy+sh/2+6, pTxt(pr[i])+' %', {'text-anchor':'middle', class:'t-big dx-pct'}); t.dataset.i = i; t.style.fill = DARKPAL.has(col)?'#ffffff':'#173436'; } });
     }
     cum.forEach((u,k)=>{ const [x,y] = pos(u);
       if(kind!=='cirkel') svgEl('line',{x1:x, y1:sy-14, x2:x, y2:sy+sh+8, stroke:'var(--orange)', 'stroke-width':3}, svg);
+      else svgEl('line',{x1:cx, y1:cy, x2:x, y2:y, style:'stroke:var(--orange); stroke-width:3'}, svg);
       svgEl('circle',{cx:x, cy:kind==='cirkel'?y:sy-14, r:kind==='cirkel'?9:11, class:'dx-hd'}, svg);
       const h = svgEl('circle',{cx:x, cy:kind==='cirkel'?y:sy-14, r:kind==='cirkel'?22:26, class:'dx-hdhit'}, svg); h.dataset.k = k; });
     if(kind==='cirkel'){ const [x,y] = pos(0); svgEl('circle',{cx:x, cy:y, r:5, fill:'var(--ink)'}, svg); }
@@ -2610,7 +2623,7 @@ const DXgenPie = DXgenParts(DX_TOT_BASIS);
 function DXpieBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
   b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. De getallen aan de rand tellen de stukjes. Klik op een procent om de breuk te zien.`));
+  b.append(el('div','sub', `Sleep de oranje bolletjes over de rand. De cirkel is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Aan de buitenkant zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
   DXdivide(b, st, save, key, {kind:'cirkel', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Of: bereken eerst het percentage (frequentie : ${tot} · 100).`,
     why:'Elk deel is even groot als zijn deel van het totaal: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
@@ -2621,7 +2634,7 @@ function DXstripBuild(b, st, save, key, d){
   const {c, vals, fr, tot} = d;
   if(st.cum && st.cum.some(x=>x>tot)) delete st.cum; /* oude opgave (in procent) */
   b.append(el('div','', DXtab(c.head, 'frequentie', vals, fr, `<b>${tot}</b>`)));
-  b.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. De getallen onder de strook tellen de stukjes. Klik op een procent om de breuk te zien.`));
+  b.append(el('div','sub', `Sleep de oranje grenzen. De strook is verdeeld in ${tot} gelijke stukjes: één stukje is één ${c.wie==='leerlingen'?'leerling':'antwoord'}. Onder de strook zie je hoeveel stukjes elk deel telt. Klik op een procent om de breuk te zien.`));
   DXdivide(b, st, save, key, {kind:'strook', labels:vals, target:fr, U:tot,
     hint:`Elk deel krijgt zoveel stukjes als zijn frequentie. Gebruik de getallen onder de strook.`,
     why:'Een strookdiagram toont welk deel van het geheel elke categorie is: ' + vals.map((l,i)=>`${l} ${fr[i]} : ${tot} · 100 ${Number.isInteger(fr[i]*10000/tot)?`= ${nf(fr[i]/tot*100,2)}`:`≈ ${nf(fr[i]/tot*100,1)}`} %`).join(', ') + '.'});
