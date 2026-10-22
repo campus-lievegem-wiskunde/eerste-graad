@@ -307,6 +307,17 @@ function proeftoets(b, st, save, key, items){
   @media (max-width: 900px){ .cg2{ grid-template-columns:minmax(0,1fr); } }
   .nx-r > :first-child{ margin-top:0; }
   @media (max-width: 900px){ .nx{ grid-template-columns:minmax(0,1fr); } .nx-l{ position:static; } }
+  /* één oefening op één scherm (87_schikking.js): vragen in twee kolommen naast of onder de gegevens */
+  @media (min-width: 760px){
+    .q2k.q2g, .q2k .q2g{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 1.4rem; align-content:start; align-items:start; }
+    .q2k.q2g > *, .q2k .q2g > *{ grid-column:1/-1; }
+    .q2k.q2g > .q:not(.q-breed), .q2k .q2g > .q:not(.q-breed){ grid-column:auto; }
+    .q2k .q.q-rij1{ border-top:none; background:none; padding-top:.2rem; }
+  }
+  /* een lange frequentietabel liggend: twee rijen (waarde en frequentie) */
+  .ftab-h-wrap{ overflow-x:auto; max-width:100%; margin:0 0 .4rem; }
+  .ftab.ftab-h{ width:auto; margin:0; }
+  .ftab.ftab-h th, .ftab.ftab-h td{ padding:.4rem .7rem; text-align:center; white-space:nowrap; }
   .ch{ width:100%; height:auto; display:block; overflow:visible; touch-action:none; user-select:none; -webkit-user-select:none; }
   .ch text{ fill:var(--ink); font-family:var(--f-body); font-size:13px; }
   .ch .t-soft{ fill:var(--ink-soft); }
@@ -6256,6 +6267,32 @@ function PXquiz(gens, cfg){ return (b, st, save, key) => {
   if(at<0) SECTIONS.push(sec); else SECTIONS.splice(at+1, 0, sec);
 })();
 /* ============================================================
+   EÉN OEFENING OP ÉÉN SCHERM (afspraak 22 oktober 2026)
+   Een leerling moet nooit naar boven scrollen om de gegevens te vinden die bij een vraag horen.
+   Per kaart (onderdeel|titel): q2 = vragen in twee kolommen, htab = lange frequentietabel liggend,
+   onderRechts = vragen onder de figuur naar de rechterkolom, naarRechts:n = alleen de eerste n vragen links bij de tabel.
+   ============================================================ */
+const SCHIKKING = {
+  'coord|Lees de coördinaten af': {q2:1},
+  'coord|Coördinaten aflezen': {q2:1, onderRechts:1},
+  'soort|Twee soorten data': {q2:1},
+  'freq|Turfjes tellen': {q2:1},
+  'diagram|Het cirkeldiagram': {q2:1},
+  'diagram|Kan je het weten?': {q2:1},
+  'gem|Gemiddelde uit een frequentietabel (nieuwe opgave)': {q2:'t'},
+  'med|Mediaan uit een frequentietabel: oefen met rangnummers': {naarRechts:1},
+  'interp|Alles bepalen': {q2:1},
+  'interp|Wat als ...?': {q2:1},
+  'interp|De weg naar school': {q2:1},
+  'interp|Uren sport per week': {q2:1},
+  'onderzoek|Ondervraag de klas': {q2:1},
+  'experiment|Het geheugenexperiment': {q2:1},
+  'experiment|Het reactietijdexperiment': {q2:1},
+  'toestel|Doe het zelf op het toestel': {htab:1, q2:1},
+  'toestel|Toetspunten met het toestel': {htab:1, q2:1}
+};
+SECTIONS.forEach(s=>(s.cards||[]).forEach(c=>{ const f = SCHIKKING[s.id+'|'+c.title]; if(f) c.schik = f; }));
+/* ============================================================
    VASTE SLEUTELS PER KAART (stand van oktober 2026)
    De bewaarde antwoorden en de vraag-id's in het dashboard hangen aan de sleutel van een kaart.
    Vroeger was dat "onderdeel_volgnummer" na het ordenen, zodat een kaart naar een ander niveau
@@ -6502,7 +6539,7 @@ SECTIONS.forEach((sec, si)=>{
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
     if(card.naast === false) body.classList.add('no-naast');
     renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
-      try{ card.build(body, st, save, key); naast(body); naastTabel(body); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij deze oefening. Klik op “Opnieuw beginnen”.')); } };
+      try{ card.build(body, st, save, key); if(card.schik) schikVoor(body, card.schik); naast(body); naastTabel(body); if(card.schik) schikNa(body, card.schik); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij deze oefening. Klik op “Opnieuw beginnen”.')); } };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
   });
@@ -6523,7 +6560,7 @@ function naast(root){
     if(!na.length || na.some(x=>x.matches('.viz') || x.querySelector('.viz'))) return;
     if(!na.some(x=>x.matches('input, table, select, textarea') || x.querySelector('input, table, select, textarea, .chip, .opt'))) return;
     /* een brede tabel (veel kolommen) past niet naast de figuur */
-    if(na.some(x=>[...x.querySelectorAll('tr')].some(tr=>tr.children.length > 4))) return;
+    if(na.some(x=>[...x.querySelectorAll('tr')].some(tr=>tr.children.length > 4 && !tr.closest('.hintbox')))) return; /* (een rangnummertabel in een verborgen hint telt niet mee) */
     const w = el('div','nx'), l = el('div','nx-l'), r = el('div','nx-r'); w.dataset.auto='fig';
     P.insertBefore(w, v); l.append(v); na.forEach(x=>r.append(x)); w.append(l, r);
   });
@@ -6541,8 +6578,36 @@ function naastTabel(root){
     P.insertBefore(w, E); l.append(E); na.forEach(x=>r.append(x)); w.append(l, r);
   });
 }
+/* één oefening op één scherm: instellingen per kaart uit 87_schikking.js */
+function schikVoor(body, f){ if(f.htab) body.querySelectorAll('table.ftab').forEach(kantelTabel); }
+function schikNa(body, f){
+  /* vragen die onder figuur en vragen staan, naar de rechterkolom (bv. uitspraken over het assenstelsel) */
+  if(f.onderRechts){ const w = body.querySelector('.nx, .two'); if(w){ const r = w.lastElementChild; let n = w.nextElementSibling; while(n){ const v = n.nextElementSibling; r.append(n); n = v; } } }
+  /* alleen de eerste vraag(en) links bij de tabel, de rest rechts */
+  if(f.naarRechts){ const l = body.querySelector('.nx-l'), r = body.querySelector('.nx-r'); if(l && r) [...l.children].filter(x=>x.classList.contains('q')).slice(f.naarRechts).forEach(q=>r.append(q)); }
+  if(f.q2){ body.classList.add('q2k'); if(f.q2 === 't') body.classList.add('q2t'); q2Breed(body); } }
+/* een lange tabel met twee of drie kolommen (zonder invulvakjes) liggend zetten */
+function kantelTabel(t){
+  if(t.closest('.ftab-h-wrap') || t.querySelector('input') || t.rows.length < 6) return;
+  const R = [...t.rows].map(r=>[...r.cells]); if(R.some(r=>r.length !== R[0].length) || R[0].length > 3) return;
+  const n = el('table', t.className + ' ftab-h');
+  for(let k = 0; k < R[0].length; k++){ const tr = n.insertRow(); R.forEach((r,ri)=>{ const c = document.createElement(ri === 0 ? 'th' : 'td'); c.innerHTML = r[k].innerHTML; tr.append(c); }); }
+  const w = el('div','ftab-h-wrap'); t.replaceWith(w); w.append(n);
+}
+/* in twee kolommen: elke groep van minstens twee vragen naast elkaar; een vraag met een tabel, figuur of lange keuzes neemt de volle breedte
+   (bij q2:'t' mag een vraag met een tabel ook een halve breedte nemen, bv. invultabel links en vraag b rechts) */
+function q2Breed(body){
+  const zicht = (q, sel)=>[...q.querySelectorAll(sel)].some(x=>!x.closest('.hintbox'));
+  const groepen = new Set(); body.querySelectorAll('.q').forEach(q=>{ const g = q.parentElement; if(g && !g.closest('.q, .hintbox') && [...g.children].filter(x=>x.classList.contains('q')).length > 1) groepen.add(g); });
+  groepen.forEach(g=>{ g.classList.add('q2g');
+    const qs = [...g.children].filter(x=>x.classList.contains('q'));
+    qs.forEach(q=>{ q.classList.toggle('q-breed', zicht(q, body.classList.contains('q2t') ? '.viz, .nx' : 'table, .viz, ol, .nx') || [...q.querySelectorAll('.opt')].some(o=>o.textContent.length > 90)); q.classList.remove('q-rij1'); });
+    const a = g.children[0], b = g.children[1];
+    if(a && b && qs.includes(a) && qs.includes(b) && !a.classList.contains('q-breed') && !b.classList.contains('q-breed')) b.classList.add('q-rij1');
+  });
+}
 /* ook als een oefening zichzelf opnieuw tekent (Nieuwe opgave, Volgende ...) */
-new MutationObserver(ms=>{ const s = new Set(); ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1 && !n.classList.contains('nx') && (n.matches('.viz, table.ftab') || n.querySelector('.viz, table.ftab'))) s.add(n.closest('.card') || n.parentElement); })); s.forEach(c=>{ if(c){ naast(c); naastTabel(c); } }); }).observe(app, { childList:true, subtree:true });
+new MutationObserver(ms=>{ const s = new Set(); ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1 && !n.classList.contains('nx') && (n.matches('.viz, table.ftab') || n.querySelector('.viz, table.ftab'))) s.add(n.closest('.card') || n.parentElement); })); s.forEach(c=>{ if(c){ naast(c); naastTabel(c); } }); ms.forEach(m=>{ const k = m.target.closest && m.target.closest('.q2k'); if(k) q2Breed(k); }); }).observe(app, { childList:true, subtree:true });
 
 function show(id, scroll){
   const idx = SECTIONS.findIndex(s=>s.id===id); if(idx<0) return;
