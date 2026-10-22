@@ -5549,7 +5549,7 @@ const PX_FREQ = [
 ];
 const PX_BARS = [
   {title:'Lievelingskleur', labels:['rood','blauw','groen','geel']},
-  {title:'Huisdieren in 1B', labels:['hond','kat','vis','konijn']},
+  {title:'Huisdieren in 1Z', labels:['hond','kat','vis','konijn']},
   {title:'Afwezigen per dag', labels:['ma','di','wo','do','vr']},
   {title:'Favoriete sport', labels:['voetbal','dans','tennis','zwemmen']},
   {title:'Vervoer naar school', labels:['fiets','te voet','bus','auto']},
@@ -5624,7 +5624,7 @@ const POOL = [
   /* 6 diagram tekenen of kiezen */
   { fixed:[
     PQ.bars({labels:['rood','blauw','groen','geel'], values:[6,8,3,5], yMax:10, step:1, title:'Lievelingskleur', ask:'Rood 6, blauw 8, groen 3, geel 5.'}),
-    PQ.bars({labels:['hond','kat','vis','konijn'], values:[9,7,2,4], yMax:10, step:1, title:'Huisdieren in 1B', ask:'Hond 9, kat 7, vis 2, konijn 4.'}),
+    PQ.bars({labels:['hond','kat','vis','konijn'], values:[9,7,2,4], yMax:10, step:1, title:'Huisdieren in 1Z', ask:'Hond 9, kat 7, vis 2, konijn 4.'}),
     PQ.bars({labels:['ma','di','wo','do','vr'], values:[5,8,2,7,4], yMax:10, step:1, title:'Afwezigen per dag', ask:'Maandag 5, dinsdag 8, woensdag 2, donderdag 7, vrijdag 4.'}),
     PQ.ch('Diagram kiezen', 'Welk diagram past het best?', [['De temperatuur elk uur van een dag.','l'],['Welk deel van de klas met de fiets, te voet of met de bus komt.','c'],['Het aantal leerlingen per lievelingssport vergelijken.','k']], [['k','staafdiagram'],['c','cirkeldiagram'],['l','lijndiagram']], '1. lijndiagram (verloop in de tijd) · 2. cirkeldiagram (delen van een geheel) · 3. staafdiagram (aantallen vergelijken)'),
     PQ.ch('Diagram kiezen', 'Welk diagram past het best?', [['Hoe je zakgeld besteed wordt: welk deel aan snoep, kleren en sparen.','c'],['Het aantal bezoekers van het zwembad elke maand van het jaar, om de evolutie te zien.','l'],['Het aantal punten van vijf leerlingen op een toets vergelijken.','k']], [['k','staafdiagram'],['c','cirkeldiagram'],['l','lijndiagram']], '1. cirkeldiagram · 2. lijndiagram · 3. staafdiagram')],
@@ -5682,7 +5682,7 @@ const POOL = [
   /* 11 interpreteren */
   { fixed:[
     PQ.ch('Interpreteren', 'Kies de beste maat.', [['De lonen in een klein bedrijf: 9 werknemers verdienen ongeveer 2500 euro, de baas verdient 15 000 euro. Welke maat geeft het beste beeld van een gewoon loon?','m']], [['g','gemiddelde'],['m','mediaan'],['v','variatiebreedte']], 'de mediaan, want de baas is een uitschieter'),
-    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['"De meeste leerlingen van 1B hebben schoenmaat 38." Welke maat wordt hier gebruikt?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: het gegeven dat het vaakst voorkomt'),
+    PQ.ch('Interpreteren', 'Kies de juiste maat.', [['"De meeste leerlingen van 1Z hebben schoenmaat 38." Welke maat wordt hier gebruikt?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: het gegeven dat het vaakst voorkomt'),
     PQ.ch('Interpreteren', 'Waar of niet waar?', [['Als je één gegeven heel groot maakt, verandert de mediaan veel.','n'],['Het gemiddelde hoeft geen gegeven uit de reeks te zijn.','w']], WN, '1. niet waar · 2. waar'),
     PQ.ch('Interpreteren', 'Kies de juiste maat.', [['In een klas haalt iedereen 7 op 10, behalve één leerling die 1 op 10 haalt. Welke maat verandert door die ene leerling?','g']], [['g','gemiddelde'],['m','mediaan'],['mo','modus']], 'het gemiddelde: de mediaan en de modus blijven 7'),
     PQ.ch('Interpreteren', 'Kies de juiste maat.', [['Je wil weten welke frisdrank het populairst is in de klas. Welke maat kan je gebruiken?','mo']], [['mo','modus'],['g','gemiddelde'],['m','mediaan']], 'de modus: bij categorische data kan je geen gemiddelde of mediaan berekenen'),
