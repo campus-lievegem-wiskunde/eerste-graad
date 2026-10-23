@@ -14,6 +14,7 @@ node test/alsleerling.js      # Bekijk als leerling in een module
 node test/groepsoverzicht.js  # Beheer: namen per groep, leerlingen zonder groep, kolom Groep bij opzoeken
 node test/wiskundigeproblemen.js  # 2A Wiskundige problemen: oefenen, niveau, proeftoets, Bord en niveau in het dashboard
 node test/koppelteken.js      # e-mailadres met koppelteken: melding met het echte adres, nieuwe leerling met eigen adres
+node test/allesopen.js        # Beheer: site openzetten voor alle groepen van een jaar
 ```
 
 | Bestand | Rol |

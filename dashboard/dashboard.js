@@ -453,6 +453,7 @@ function viewBeheer(body){
   leerkrachtenKaart(body);
   if(!ST.toeschouwer) toeschouwersKaart(body);
   groepenKaart(body);
+  allesOpenKaart(body);
   zonderGroepKaart(body);
   leerlingenKaart(body);
   wisKaart(body);
@@ -671,6 +672,42 @@ async function zonderGroepKaart(body){
 }
 
 /* ---------- leerling opzoeken en wijzigen ---------- */
+/* één site in één keer aan of uit zetten voor alle groepen van een jaar; de keuze per onderdeel en de rekentoestelknop blijven per groep bewaard */
+function allesOpenKaart(body){
+  const card = el('div', 'dash-card', `<h3>Site openzetten voor alle groepen van een jaar</h3><p class="mini">Zet een site in één keer aan of uit voor elke groep van het gekozen jaar. Welke onderdelen per groep verborgen zijn en of de rekentoestelknop zichtbaar is, blijft zoals het per groep ingesteld is. Leerkrachten kunnen het daarna per groep nog aanpassen bij Openzetten.</p>`);
+  const jaren = [...new Set(SITES.map(s=>s.jaar))].sort();
+  if(!jaren.length){ card.append(el('p', 'mini', 'Er zijn nog geen sites.')); body.append(card); return; }
+  if(!jaren.includes(ST.aoJaar)) ST.aoJaar = jaren[0];
+  const r = el('div', 'rij');
+  const js = el('select'); js.setAttribute('aria-label', 'Jaar'); jaren.forEach(j=>{ const o = el('option', '', esc(j)); o.value = j; o.selected = j === ST.aoJaar; js.append(o); });
+  const ss = el('select'); ss.setAttribute('aria-label', 'Site');
+  const aan = el('button', 'btn klein', 'Aan voor alle groepen'), uit = el('button', 'btn ghost klein', 'Uit voor alle groepen'); aan.type = uit.type = 'button';
+  r.append(js, ss, aan, uit); card.append(r);
+  const info = el('p', 'mini'); card.append(info);
+  const groepen = () => ST.groepen.filter(g=>jaarcode(g) === js.value);
+  const site = () => SITES.find(s=>s.id === ss.value);
+  const toon = ()=>{ const gs = groepen(), s = site(); if(!s){ info.textContent = ''; return; }
+    const open = gs.filter(g=>staatOpen(g, s));
+    info.innerHTML = gs.length ? `<b>${esc(s.titel)}</b> staat nu open in ${open.length} van de ${gs.length} groepen van ${esc(js.value)}${open.length && open.length < gs.length ? ` (${open.map(g=>esc(g.naam)).join(', ')})` : ''}.` : `Er zijn nog geen groepen voor ${esc(js.value)}.`;
+    aan.disabled = !gs.length || open.length === gs.length; uit.disabled = !open.length; };
+  const vulSites = ()=>{ ss.innerHTML = ''; ST.aoJaar = js.value;
+    perRubriek(SITES.filter(s=>s.jaar === js.value)).forEach(rb=>{ const og = el('optgroup'); og.label = rb.naam;
+      rb.sites.forEach(s=>{ const o = el('option', '', esc(s.titel)); o.value = s.id; o.selected = s.id === ST.aoSite; og.append(o); }); ss.append(og); });
+    toon(); };
+  js.onchange = vulSites; ss.onchange = ()=>{ ST.aoSite = ss.value; toon(); };
+  const zet = async on=>{
+    const s = site(), gs = groepen().filter(g=>staatOpen(g, s) !== on); if(!s || !gs.length) return;
+    if(!confirm(`${s.titel} ${on ? 'openzetten' : 'dichtzetten'} voor ${gs.length} groep${gs.length === 1 ? '' : 'en'} van ${js.value}?`)) return;
+    aan.disabled = uit.disabled = true; info.className = 'mini'; info.textContent = 'Bewaren…';
+    let fout = 0;
+    for(const g of gs){ const a = Object.assign({ uit:[] }, (g.aan && g.aan[s.id]) || {}, { on });
+      try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`aan.${s.id}`]: a }); g.aan = g.aan || {}; g.aan[s.id] = a; }catch(e){ console.error(e); fout++; } }
+    toon(); if(fout){ info.className = 'errmsg'; info.textContent = `Bewaren lukte niet voor ${fout} groep${fout === 1 ? '' : 'en'}.`; }
+    else info.insertAdjacentHTML('beforeend', ' <span class="okmsg">Bewaard.</span>');
+  };
+  aan.onclick = ()=>zet(true); uit.onclick = ()=>zet(false);
+  vulSites(); body.append(card);
+}
 function leerlingenKaart(body){
   const card = el('div', 'dash-card', '<h3>Leerling opzoeken en wijzigen</h3><p class="mini">Zoek op naam, klas of e-mailadres. Wijzig je het e-mailadres, dan verhuist de leerling mee in zijn groepen.</p>');
   const r = el('div', 'rij'); const z = el('input'); z.type = 'search'; z.placeholder = 'Zoek een leerling'; r.append(z); card.append(r);
