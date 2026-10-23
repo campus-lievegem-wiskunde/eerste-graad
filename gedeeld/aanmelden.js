@@ -185,12 +185,14 @@ function koppelResultaten(){
   };
 }
 /* startpagina's: tegels van sites die niet openstaan verbergen (voor leerlingen) */
+/* geen groep: toon het adres waarmee de leerling aanmeldde, zodat de leerkracht het kan vergelijken met de leerlingenlijst (bv. een koppelteken) */
+const geenGroep = () => `<b>Je bent nog niet ingedeeld in een groep.</b> Je bent aangemeld als <b>${user.email.toLowerCase()}</b>. Toon dit adres aan je leerkracht: het moet zo in de leerlingenlijst staan.`;
 function tegelsFilteren(groepen){
   const tegels = [...document.querySelectorAll('a.tegel[data-site]')];
   if(!tegels.length) return;
   let zicht = 0;
   tegels.forEach(t=>{ const z = zichtbaarheid(groepen, t.dataset.site); t.hidden = !z.open; if(z.open) zicht++; });
-  if(!zicht){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.')); }
+  if(!zicht){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', groepen.length ? 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.' : geenGroep())); }
 }
 /* ---------- bekijk als leerling (leerkrachten, beheerders en toeschouwers) ----------
    De keuze staat in sessionStorage cl_als_<site> (enkel dit tabblad). De module toont dan wat een leerling van die groep ziet:
@@ -249,7 +251,7 @@ async function start(u){
 
   /* zichtbaarheid van deze site */
   if(rol === 'leerling'){
-    if(!groepen.length){ melding('<b>Je bent nog niet ingedeeld in een groep.</b> Vraag het aan je leerkracht.'); return; }
+    if(!groepen.length){ melding(geenGroep()); return; }
     const z = zichtbaarheid(groepen, site);
     if(!z.open){ melding('<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.'); return; }
     window.CL_VERBORGEN = z.uit;
