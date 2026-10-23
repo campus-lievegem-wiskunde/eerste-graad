@@ -6,9 +6,17 @@ const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const root = $('#dash'); root.classList.add('dash');
-const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open', open:new Set(), zgJaar:'' };
+const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open', open:new Set(), zgJaar:'', ookDicht:false, uitgeklapt:new Set(), rubDicht:new Set(), rubOpen:new Set() };
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
+/* rubrieken in vaste volgorde; een site zonder (gekende) rubriek komt achteraan bij Andere */
+const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen']];
+function perRubriek(sites){
+  const groepen = RUBRIEKEN.map(([id, naam])=>({ id, naam, sites:sites.filter(s=>s.rubriek === id) }));
+  const rest = sites.filter(s=>!RUBRIEKEN.some(([id])=>id === s.rubriek)); if(rest.length) groepen.push({ id:'andere', naam:'Andere', sites:rest });
+  return groepen.filter(r=>r.sites.length);
+}
+const staatOpen = (g, s) => !!(g.aan && g.aan[s.id] && g.aan[s.id].on);
 const naamVan = e => { const l = ST.leerlingen && ST.leerlingen.get(e); return l ? `${l.familienaam} ${l.voornaam}` : e; };
 const lkNaam = e => { const l = ST.leerkrachten.find(x=>x.id === e); return l ? l.naam : e; };
 const groepId = naam => naam.trim().replace(/[\/\s]+/g, '-');
@@ -133,15 +141,22 @@ function bekijkKnop(s){ const a = el('a', 'btn ghost klein bekijk', OOG + 'Bekij
 async function paneVoortgang(pane, g){
   const sites = sitesVoor(g);
   if(!sites.length){ pane.append(el('p', 'mini', `Er zijn nog geen sites voor ${jaarcode(g)}.`)); return; }
-  if(!ST.site || !sites.includes(ST.site)) ST.site = sites[0];
+  /* in de keuzelijst: eerst het overzicht, dan de sites per rubriek; gesloten sites enkel met het vinkje */
+  const zicht = sites.filter(s=>ST.ookDicht || staatOpen(g, s) || s === ST.site);
+  if(ST.site && !sites.includes(ST.site)) ST.site = null;
   const r = el('div', 'rij', '<label for="siteSel">Site</label>');
   const sel = el('select'); sel.id = 'siteSel';
-  sites.forEach(s=>{ const o = el('option', '', esc(s.titel)); o.value = s.id; o.selected = s === ST.site; sel.append(o); });
-  sel.onchange = ()=>{ ST.site = sites.find(s=>s.id === sel.value); render(); };
+  { const o = el('option', '', 'Overzicht van alle open sites'); o.value = ''; o.selected = !ST.site; sel.append(o); }
+  perRubriek(zicht).forEach(rb=>{ const og = el('optgroup'); og.label = rb.naam;
+    rb.sites.forEach(s=>{ const o = el('option', '', esc(s.titel) + (staatOpen(g, s) ? '' : ' (dicht)')); o.value = s.id; o.selected = s === ST.site; og.append(o); }); sel.append(og); });
+  sel.onchange = ()=>{ ST.site = sites.find(s=>s.id === sel.value) || null; render(); };
+  const dicht = el('label', 'mini ook-dicht', `<input type="checkbox" ${ST.ookDicht ? 'checked' : ''}> ook gesloten sites`);
+  dicht.querySelector('input').onchange = e=>{ ST.ookDicht = e.target.checked; render(); };
   const vern = el('button', 'btn ghost klein', '↻ Vernieuwen'); vern.type = 'button'; vern.onclick = render;
-  r.append(sel, bekijkKnop(ST.site), vern); pane.append(r);
+  r.append(sel); if(ST.site) r.append(bekijkKnop(ST.site)); r.append(vern, dicht); pane.append(r);
   if(!g.leerlingen.length){ pane.append(el('p', 'mini', 'Deze groep heeft nog geen leerlingen. Voeg ze toe bij het tabblad Leerlingen.')); return; }
   if(!ST.leerlingen) await laadLeerlingen().catch(()=>{});
+  if(!ST.site) return overzicht(pane, g, zicht.filter(s=>ST.ookDicht || staatOpen(g, s)));
   const wacht = el('p', 'mini', 'Voortgang ophalen…'); pane.append(wacht);
   const site = ST.site; let data;
   try{ data = await haalVoortgang(site, g.leerlingen); }catch(e){ console.error(e); wacht.className = 'errmsg'; wacht.textContent = 'Ophalen lukte niet.'; return; }
@@ -169,6 +184,40 @@ async function paneVoortgang(pane, g){
   });
   t.append(tb); wrap.append(t); pane.append(wrap);
   pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score'));
+}
+/* overzicht: leerlingen × sites, per site het deel van de vragen juist en de werktijd; klik op een site voor de tabel per onderdeel */
+function samenvatting(site, v){
+  let juist = 0, vragen = 0, ts = 0, tn = 0;
+  site.onderdelen.forEach(o=>{ if(o.toets){ const t = v.toets[o.id]; if(t){ ts += t.score; tn += t.n; } } else { juist += v.per[o.id].juist; vragen += o.vragen || 0; } });
+  return { juist, vragen, r:vragen ? juist / vragen : 0, toets:tn ? ts / tn : null };
+}
+async function overzicht(pane, g, sites){
+  if(!sites.length){ pane.append(el('p', 'mini', 'Voor deze groep staat nog geen enkele site open. Zet er een open bij het tabblad Openzetten.')); return; }
+  const wacht = el('p', 'mini', 'Voortgang ophalen…'); pane.append(wacht);
+  let data;
+  try{ data = await Promise.all(sites.map(s=>haalVoortgang(s, g.leerlingen))); }catch(e){ console.error(e); wacht.className = 'errmsg'; wacht.textContent = 'Ophalen lukte niet.'; return; }
+  wacht.remove();
+  const rbs = perRubriek(sites);
+  const wrap = el('div', 'tbl-wrap'); const t = el('table', 'dt overzicht');
+  t.innerHTML = `<thead><tr><th rowspan="2">Leerling</th><th rowspan="2">Werktijd</th>${rbs.map(rb=>`<th class="rub" colspan="${rb.sites.length}">${esc(rb.naam)}</th>`).join('')}</tr>`
+    + `<tr>${rbs.map(rb=>rb.sites.map(s=>`<th class="rot"><button type="button" class="th-link" data-site="${esc(s.id)}" title="${esc(s.titel)}: tabel per onderdeel">${esc(s.kort || s.titel)}</button></th>`).join('')).join('')}</tr></thead>`;
+  t.querySelectorAll('button[data-site]').forEach(b=>b.onclick = ()=>{ ST.site = SITES.find(s=>s.id === b.dataset.site); render(); });
+  const volg = rbs.flatMap(rb=>rb.sites);
+  const tb = el('tbody');
+  [...g.leerlingen].sort((a,b)=>naamVan(a).localeCompare(naamVan(b), 'nl')).forEach(e=>{
+    const tr = el('tr'); let totaal = 0; const cellen = [];
+    volg.forEach(s=>{
+      const v = verwerk(s, data[sites.indexOf(s)].get(e)); totaal += v.totaal; const z = samenvatting(s, v);
+      let txt = '·', cls = 's0';
+      if(z.juist || z.toets != null){ txt = z.vragen ? `${Math.round(z.r * 100)} %` : `${Math.round(z.toets * 100)} %`; const r_ = z.vragen ? z.r : z.toets; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
+      const td = el('td', 'sc ' + cls, txt + (v.totaal ? `<small>${minuten(v.totaal)}</small>` : ''));
+      td.title = `${s.titel}: ${z.juist}${z.vragen ? ' van ' + z.vragen : ''} vragen juist${z.toets != null ? `, proeftoetsen gemiddeld ${Math.round(z.toets * 100)} %` : ''}, ${minuten(v.totaal)}`;
+      cellen.push(td);
+    });
+    tr.append(el('td', '', esc(naamVan(e))), el('td', '', minuten(totaal)), ...cellen); tb.append(tr);
+  });
+  t.append(tb); wrap.append(t); pane.append(wrap);
+  pane.append(el('div', 'legend-s', '<b>Cel:</b> deel van alle vragen van de site juist, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · klik op een site voor de tabel per onderdeel'));
 }
 /* diagnose (tijdelijk): wat de module van deze leerling meestuurde bij het bewaren */
 function diagRegel(v){
@@ -257,26 +306,46 @@ function paneAanUit(pane, g){
   const card = el('div', 'dash-card', `<h3>Wat staat open voor ${esc(g.naam)}?</h3><p class="mini">Een module die uit staat, zien de leerlingen niet. Staat een module open, dan kan je per onderdeel kiezen of het zichtbaar is, en of de leerlingen de knop met het rekentoestel krijgen. Wijzigingen worden meteen bewaard.</p>`);
   const sites = sitesVoor(g);
   if(!sites.length) card.append(el('p', 'mini', `Er zijn nog geen sites voor ${jaarcode(g)}.`));
+  /* per rubriek een inklapbaar blok; per site staan de onderdelen ingeklapt achter een samenvatting */
+  const rubBlok = {};
+  const rubTel = rb => { const n = rb.sites.filter(s=>staatOpen(g, s)).length; return `${n} van ${rb.sites.length} open`; };
+  const rubs = perRubriek(sites);
+  rubs.forEach(rb=>{
+    const d = el('details', 'rub-blok'); const k_ = g.id + '|' + rb.id;
+    /* standaard open als er in de rubriek iets openstaat (of als er maar één rubriek is); daarna onthouden zolang het dashboard openstaat */
+    d.open = ST.rubDicht.has(k_) ? false : ST.rubOpen.has(k_) || rubs.length === 1 || rb.sites.some(s=>staatOpen(g, s));
+    d.ontoggle = ()=>{ if(d.open){ ST.rubDicht.delete(k_); ST.rubOpen.add(k_); } else { ST.rubOpen.delete(k_); ST.rubDicht.add(k_); } };
+    const sm = el('summary', '', `<b>${esc(rb.naam)}</b> <span class="mini rub-tel">${rubTel(rb)}</span>`); d.append(sm);
+    rb.sites.forEach(s=>rubBlok[s.id] = { d, rb, sm }); card.append(d);
+  });
   sites.forEach(s=>{
     const a = (g.aan && g.aan[s.id]) || { on:false, uit:[] };
     const blok = el('div', 'site-blok');
     const sw = el('label', 'switch', `<input type="checkbox" ${a.on ? 'checked' : ''}> ${esc(s.titel)}`);
     const st = el('span', 'mini'); sw.append(st);
-    const kop = el('div', 'site-kop'); kop.append(sw, bekijkKnop(s)); blok.append(kop);
+    const sam = el('button', 'btn ghost klein ond-sam'); sam.type = 'button';
+    const klap = ()=>{ const lijst_ = blok.querySelector('.onderdelen'); const uit_ = ST.uitgeklapt.has(g.id + '|' + s.id) && sw.querySelector('input').checked;
+      if(lijst_){ lijst_.hidden = rt_.hidden = kn_.hidden = !uit_; }
+      const n = s.onderdelen.length, aan = lijst_ ? [...lijst_.querySelectorAll('input')].filter(i=>i.checked).length : n;
+      sam.hidden = !sw.querySelector('input').checked; sam.innerHTML = `${aan} van ${n} onderdelen ${uit_ ? '▾' : '▸'}`; };
+    sam.onclick = ()=>{ const k = g.id + '|' + s.id; if(ST.uitgeklapt.has(k)) ST.uitgeklapt.delete(k); else ST.uitgeklapt.add(k); klap(); };
+    let rt_, kn_;
+    const kop = el('div', 'site-kop'); kop.append(sw, sam, bekijkKnop(s)); blok.append(kop);
     const rt = el('label', 'rt-keuze', `<input type="checkbox" ${a.rt ? 'checked' : ''}> Knop met het rekentoestel tonen <span class="mini">(rechtsonder op elke pagina van deze module)</span>`); rt.hidden = !a.on; blok.append(rt);
     const lijst = el('div', 'onderdelen'); lijst.hidden = !a.on;
     s.onderdelen.forEach(o=>{ const l = el('label', '', `<input type="checkbox" value="${esc(o.id)}" ${(a.uit || []).includes(o.id) ? '' : 'checked'}> ${esc(o.naam)} <a class="ond-link" href="${moduleUrl(s, o.id)}" target="_blank" rel="noopener" title="${esc(o.naam)} bekijken" aria-label="${esc(o.naam)} bekijken">${OOG}</a>`); lijst.append(l); });
     const knoppen = el('div', 'rij'); knoppen.style.marginLeft = '3.1rem'; knoppen.hidden = !a.on;
     const allesAan = el('button', 'btn ghost klein', 'Alle onderdelen aan'), allesUit = el('button', 'btn ghost klein', 'Alle onderdelen uit');
     allesAan.type = allesUit.type = 'button'; knoppen.append(allesAan, allesUit);
-    blok.append(lijst, knoppen); card.append(blok);
+    blok.append(lijst, knoppen); rubBlok[s.id].d.append(blok); rt_ = rt; kn_ = knoppen; klap();
     const bewaar = async ()=>{
       const on = sw.querySelector('input').checked;
       const uit = [...lijst.querySelectorAll('input')].filter(i=>!i.checked).map(i=>i.value);
       const r = rt.querySelector('input').checked;
-      lijst.hidden = knoppen.hidden = rt.hidden = !on;
+      if(on && !g.aan?.[s.id]?.on) ST.uitgeklapt.add(g.id + '|' + s.id);
+      klap();
       st.className = 'mini'; st.textContent = ' · bewaren…';
-      try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`aan.${s.id}`]: { on, uit, rt:r } }); g.aan = g.aan || {}; g.aan[s.id] = { on, uit, rt:r }; st.className = 'okmsg'; st.textContent = ' · bewaard'; }
+      try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`aan.${s.id}`]: { on, uit, rt:r } }); g.aan = g.aan || {}; g.aan[s.id] = { on, uit, rt:r }; st.className = 'okmsg'; st.textContent = ' · bewaard'; const rb = rubBlok[s.id]; rb.sm.querySelector('.rub-tel').textContent = rubTel(rb.rb); klap(); }
       catch(e){ console.error(e); st.className = 'errmsg'; st.textContent = ' · bewaren lukte niet'; }
     };
     sw.querySelector('input').onchange = bewaar;
