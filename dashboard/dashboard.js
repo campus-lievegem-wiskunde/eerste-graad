@@ -6,7 +6,7 @@ const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const root = $('#dash'); root.classList.add('dash');
-const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'voortgang', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open', open:new Set(), zgJaar:'', ookDicht:false, uitgeklapt:new Set(), rubDicht:new Set(), rubOpen:new Set() };
+const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], leerlingen:null, sel:null, sub:'aanuit', site:null, alle:false, bsub:'beheren', fouten:null, filter:'open', open:new Set(), zgJaar:'', ookDicht:false, uitgeklapt:new Set(), rubDicht:new Set(), rubOpen:new Set() };
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
 /* rubrieken in vaste volgorde; een site zonder (gekende) rubriek komt achteraan bij Andere */
@@ -62,7 +62,7 @@ function viewGroepen(body){
   if(!ST.sel || !toon.includes(ST.sel)) ST.sel = toon[0];
   const g = ST.sel;
   const sub = el('div', 'tabs');
-  [['voortgang', 'Voortgang'], ['leerlingen', 'Leerlingen'], ['aanuit', 'Openzetten']].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; render(); }; sub.append(b); });
+  [['aanuit', 'Openzetten'], ['voortgang', 'Voortgang'], ['leerlingen', 'Leerlingen']].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; render(); }; sub.append(b); });
   body.append(sub);
   const pane = el('div'); body.append(pane);
   ({ voortgang:paneVoortgang, leerlingen:paneLeerlingen, aanuit:paneAanUit })[ST.sub](pane, g);
