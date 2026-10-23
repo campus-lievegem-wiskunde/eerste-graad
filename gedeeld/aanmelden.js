@@ -138,6 +138,13 @@ function rekentoestelKnop(){
 
 /* ---------- voortgang ---------- */
 let user = null, ref = null, dirty = new Set(), tijd = {}, tijdDirty = false, started = false;
+/* resultaten: R (vraag-id → 1/0) en T (proeftoetsen) staan in localStorage (<prefix>_res, <prefix>_toets) én per vraag in de
+   velden res en toets van het voortgangsdocument. Die velden worden samengevoegd (merge), zodat een bewaring nooit oudere
+   resultaten wist (bv. na een mislukt ophalen, een tweede tabblad of een ander toestel). */
+let R = {}, T = {}, resNieuw = {}, toetsNieuw = {};
+/* geladen = de voortgang uit Firestore is opgehaald; zolang dat niet lukte, wordt er niets bewaard (anders overschrijft een lege
+   lokale toestand wat al in Firestore staat) */
+let geladen = false;
 /* diagnose (tijdelijk): tellers en laatste fouten, mee bewaard in het veld diag van het voortgangsdocument en zichtbaar in het dashboard */
 let diag = null, diagDirty = false;
 function toestel(){
@@ -158,17 +165,43 @@ function diagStart(oud){
 }
 function ownKey(k){ return PREFIX && typeof k === 'string' && k.startsWith(PREFIX); }
 function wipeLocal(){ if(!PREFIX) return; ls.keys().forEach(k=>{ if(ownKey(k)) rawRemove.call(localStorage, k); }); }
+const leesJSON = v => { try{ const o = typeof v === 'string' ? JSON.parse(v) : v; return o && typeof o === 'object' ? o : {}; }catch(e){ return {}; } };
+/* voortgang uit Firestore in localStorage zetten; dirty = sleutels die hier al gewijzigd zijn (die blijven zoals ze zijn) */
+function zetVoortgang(d, dirtyNu){
+  Object.entries(d.data || {}).forEach(([k, v])=>{ if(typeof v === 'string' && !dirtyNu.has(PREFIX + k) && k !== '_res' && k !== '_toets') rawSet.call(localStorage, PREFIX + k, v); });
+  /* resultaten: samenvoegen, wat op dit toestel nieuwer is wint */
+  R = Object.assign({}, leesJSON(d.data && d.data._res), d.res || {}, leesJSON(ls.get(PREFIX + '_res')), R);
+  T = Object.assign({}, leesJSON(d.data && d.data._toets), d.toets || {}, leesJSON(ls.get(PREFIX + '_toets')), T);
+  try{ rawSet.call(localStorage, PREFIX + '_res', JSON.stringify(R)); rawSet.call(localStorage, PREFIX + '_toets', JSON.stringify(T)); }catch(e){ diagFout('resultaat', e); }
+  const lokaal = tijd; tijd = Object.assign({}, d.tijd || {});
+  Object.entries(lokaal).forEach(([k, s])=>{ tijd[k] = (tijd[k] || 0) + s; });
+}
+async function ophalen(){
+  const snap = await F.getDoc(ref);
+  const d = snap.exists() ? snap.data() : {};
+  zetVoortgang(d, dirty);
+  geladen = true;
+  return d;
+}
 async function flush(){
-  if(!ref || (!dirty.size && !tijdDirty && !diagDirty)) return;
+  if(!ref || (!dirty.size && !tijdDirty && !diagDirty && !Object.keys(resNieuw).length && !Object.keys(toetsNieuw).length)) return;
+  if(!geladen){
+    try{ await ophalen(); if(diag) diag.laatGeladen = (diag.laatGeladen || 0) + 1; ls.keys().forEach(k=>{ if(ownKey(k)) dirty.add(k); }); tijdDirty = true; }
+    catch(e){ diagFout('ophalen', e); return; }
+  }
   const data = {};
   dirty.forEach(k=>{ const v = ls.get(k); data[k.slice(PREFIX.length)] = v == null ? F.deleteField() : v; });
   const keys = [...dirty]; dirty.clear();
   const tijdNu = tijdDirty ? Object.assign({}, tijd) : null; tijdDirty = false;
   const payload = { email:user.email.toLowerCase(), naam:user.displayName || '', site, schooljaar:C.SCHOOLJAAR, bijgewerkt:F.serverTimestamp(), data };
   if(tijdNu) payload.tijd = tijdNu;
+  const resNu = resNieuw, toetsNu = toetsNieuw; resNieuw = {}; toetsNieuw = {};
+  if(Object.keys(resNu).length) payload.res = resNu;
+  if(Object.keys(toetsNu).length) payload.toets = toetsNu;
   if(diag){ diag.resNu = Object.keys(resultaten()).length; diag.resMee = keys.includes(PREFIX + '_res'); diag.bewaren++; diag.op = new Date().toISOString(); payload.diag = Object.assign({}, diag); diagDirty = false; }
   try{ await F.setDoc(ref, payload, { merge:true }); }
-  catch(e){ console.warn('Opslaan in Firebase mislukt, later opnieuw', e); keys.forEach(k=>dirty.add(k)); if(tijdNu) tijdDirty = true; if(diag){ diag.bewaardFout++; diagFout('bewaren', e); } }
+  catch(e){ console.warn('Opslaan in Firebase mislukt, later opnieuw', e); keys.forEach(k=>dirty.add(k)); if(tijdNu) tijdDirty = true;
+    resNieuw = Object.assign(resNu, resNieuw); toetsNieuw = Object.assign(toetsNu, toetsNieuw); if(diag){ diag.bewaardFout++; diagFout('bewaren', e); } }
 }
 async function afmelden(){
   await flush().catch(()=>{});
@@ -194,19 +227,18 @@ function watchTime(){
   }, 5000);
 }
 /* resultaten per vraag (1 = juist bij de laatste controle, 0 = fout) en proeftoetsscores */
-function resultaten(){ try{ return JSON.parse(ls.get(PREFIX + '_res') || '{}') || {}; }catch(e){ return {}; } }
+function resultaten(){ return leesJSON(ls.get(PREFIX + '_res')); }
 function koppelResultaten(){
-  const read = k => { try{ return JSON.parse(ls.get(PREFIX + k) || '{}') || {}; }catch(e){ return {}; } };
-  const R = read('_res'), T = read('_toets');
+  R = Object.assign(leesJSON(ls.get(PREFIX + '_res')), R); T = Object.assign(leesJSON(ls.get(PREFIX + '_toets')), T);
   window.CL = {
     vraag(){},
     res(id, ok, info){
       if(diag){ diag.controles++; diagDirty = true; }
       if(info){ if(diag) diag.genegeerd++; return; }
-      R[id] = ok ? 1 : 0;
+      R[id] = ok ? 1 : 0; resNieuw[id] = R[id];
       try{ localStorage.setItem(PREFIX + '_res', JSON.stringify(R)); }catch(e){ if(diag){ diag.mislukt++; diagFout('resultaat', e); } throw e; }
     },
-    toets(key, score, n){ T[key] = { score, n, datum: Date.now() }; localStorage.setItem(PREFIX + '_toets', JSON.stringify(T)); }
+    toets(key, score, n){ T[key] = { score, n, datum: Date.now() }; toetsNieuw[key] = T[key]; localStorage.setItem(PREFIX + '_toets', JSON.stringify(T)); }
   };
 }
 /* startpagina's: tegels van sites die niet openstaan verbergen (voor leerlingen) */
@@ -296,17 +328,15 @@ async function start(u){
   ref = F.doc(db, 'voortgang', `${u.uid}_${site}`);
   /* gedeelde Chromebook: wis wat een vorige gebruiker hier achterliet */
   if(ls.get('cl_uid') !== u.uid){ wipeLocal(); try{ rawSet.call(localStorage, 'cl_uid', u.uid); }catch(e){} }
-  let oudDiag = null, ophaalFout = null;
-  try{
-    const snap = await F.getDoc(ref);
-    if(snap.exists()){
-      const d = snap.data();
-      Object.entries(d.data || {}).forEach(([k, v])=>{ if(typeof v === 'string') rawSet.call(localStorage, PREFIX + k, v); });
-      tijd = Object.assign({}, d.tijd || {});
-      oudDiag = d.diag;
-    }
-  }catch(e){ console.warn('Voortgang ophalen mislukt; ik werk verder met wat op dit toestel staat', e); ophaalFout = e; }
-  diagStart(oudDiag); if(ophaalFout) diagFout('ophalen', ophaalFout);
+  /* voortgang ophalen, tot drie keer; lukt het niet, dan werkt de pagina verder en probeert flush het opnieuw vóór het bewaren */
+  let oudDiag = null, ophaalFout = null, pogingen = 0;
+  for(const wacht of [0, 1500, 4000]){
+    if(wacht) await new Promise(r=>setTimeout(r, wacht));
+    pogingen++;
+    try{ const d = await ophalen(); oudDiag = d.diag; ophaalFout = null; break; }
+    catch(e){ console.warn('Voortgang ophalen mislukt', e); ophaalFout = e; }
+  }
+  diagStart(oudDiag); diag.ophaalPogingen = pogingen; if(ophaalFout) diagFout('ophalen', ophaalFout);
   ls.keys().forEach(k=>{ if(ownKey(k)) dirty.add(k); });
   koppelResultaten(); watchStorage(); watchTime();
   const s = el('script'); s.src = INHOUD;

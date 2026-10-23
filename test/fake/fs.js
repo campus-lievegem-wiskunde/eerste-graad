@@ -20,7 +20,8 @@ export function query(c,...w){ return {col:c.col,w}; }
 export function deleteField(){ return DEL; }
 export const arrayUnion=AU, arrayRemove=AR;
 export function serverTimestamp(){ return 'TS'; }
-export async function getDoc(r){ const d=store()[r.path]; return {exists:()=>!!d, data:()=>d, id:r.id}; }
+/* window.__getDocFout = n: de volgende n keer mislukt getDoc van een voortgangsdocument (zoals bij trage wifi) */
+export async function getDoc(r){ if(window.__getDocFout>0 && r.path.startsWith('voortgang/')){ window.__getDocFout--; throw Object.assign(new Error('Failed to get document because the client is offline.'),{code:'unavailable'}); } const d=store()[r.path]; return {exists:()=>!!d, data:()=>d, id:r.id}; }
 function docsVan(q){ const all=store(); const col=q.col; const out=[];
   for(const [p,d] of Object.entries(all)){ const i=p.lastIndexOf('/'); const c=p.slice(0,i), id=p.slice(i+1); if(c!==col) continue;
     if((q.w||[]).every(w=> w.op==='=='? d[w.f]===w.v : w.op==='in'? w.v.includes(d[w.f]) : w.op==='array-contains'? (d[w.f]||[]).includes(w.v) : true)) out.push({id,data:()=>d,ref:{path:p,id}}); }
