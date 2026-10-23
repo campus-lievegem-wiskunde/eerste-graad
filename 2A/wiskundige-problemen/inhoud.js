@@ -4575,7 +4575,7 @@ function voorafLijst() {
     '<li>Moet je een <span class="acc">breuk</span> of een <span class="acc">macht</span> typen? Klik onder het invulvak op Breuk, Gemengd getal of Macht. Een kommagetal typ je met een komma.</li>' +
     '<li>Antwoord je juist, dan wordt de volgende vraag <span class="acc">moeilijker</span>. Antwoord je fout, dan wordt ze makkelijker.</li>' +
     '<li>Weet je het antwoord niet? Klik op <span class="acc">Ik weet het niet</span>. Gok niet: dan krijg je vragen die bij jou passen.</li>' +
-    '<li>Bovenaan de opgave vind je de <span class="acc">Markeerstift</span>, de <span class="acc">Rekenmachine</span> en het <span class="acc">Woordenboek</span>. Staat de Rekenmachine er niet, dan reken je zonder.</li>' +
+    '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, de <span class="acc">Rekenmachine</span> en het <span class="acc">Woordenboek</span>. Staat de Rekenmachine er niet, dan reken je zonder.</li>' +
     '<li>Wil je een stuk tekst laten <span class="acc">voorlezen</span>? Zet links Voorlezen aan en selecteer de tekst.</li>' +
     '<li>Je niveau gaat van <span class="acc">E</span> (laagste) tot <span class="acc">A</span> (hoogste). Na elke reeks gaan je resultaten naar <span class="acc">je leerkracht</span>.</li></ul>';
 }
