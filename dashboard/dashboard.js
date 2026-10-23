@@ -626,10 +626,11 @@ function leerlingenKaart(body){
   let tm = 0; z.oninput = ()=>{ clearTimeout(tm); tm = setTimeout(teken, 250); }; teken();
   /* nieuwe leerling */
   card.append(el('h4', '', 'Nieuwe leerling toevoegen'));
-  const r2 = el('div', 'rij'); const f = ['Familienaam', 'Voornaam', 'Klas'].map(ph=>{ const i = el('input'); i.type = 'text'; i.placeholder = ph; i.size = ph === 'Klas' ? 5 : 14; return i; });
+  const r2 = el('div', 'rij'); const f = ['Familienaam', 'Voornaam', 'Klas', 'E-mail (leeg: familienaam.voornaam)'].map(ph=>{ const i = el('input'); i.type = ph[0] === 'E' ? 'email' : 'text'; i.placeholder = ph; i.size = ph === 'Klas' ? 5 : ph[0] === 'E' ? 28 : 14; return i; });
   const ok = el('button', 'btn', 'Toevoegen'); ok.type = 'button'; const m = el('span', 'mini'); r2.append(...f, ok, m); card.append(r2);
-  ok.onclick = async ()=>{ const [fam, voor, klas] = f.map(i=>i.value.trim()); if(!fam || !voor || !/^[12][A-Z]$/i.test(klas)){ m.className = 'errmsg'; m.textContent = 'Vul familienaam, voornaam en een klas (bv. 1E) in.'; return; }
-    const K = klas.toUpperCase(), mail = maakMail(fam, voor);
+  ok.onclick = async ()=>{ const [fam, voor, klas, adres] = f.map(i=>i.value.trim()); if(!fam || !voor || !/^[12][A-Z]$/i.test(klas)){ m.className = 'errmsg'; m.textContent = 'Vul familienaam, voornaam en een klas (bv. 1E) in.'; return; }
+    if(adres && !adres.toLowerCase().endsWith('@' + C.DOMEIN)){ m.className = 'errmsg'; m.textContent = `Het e-mailadres moet eindigen op @${C.DOMEIN}.`; return; }
+    const K = klas.toUpperCase(), mail = adres ? adres.toLowerCase() : maakMail(fam, voor);
     await F.setDoc(F.doc(db, 'leerlingen', mail), { familienaam:fam, voornaam:voor, klas:K, jaar:K[0], stroom:K[1] === 'B' ? 'B' : 'A', schooljaar:C.SCHOOLJAAR });
     if(ST.leerlingen) ST.leerlingen.set(mail, { familienaam:fam, voornaam:voor, klas:K, jaar:K[0], stroom:K[1] === 'B' ? 'B' : 'A' });
     m.className = 'okmsg'; m.textContent = `Toegevoegd als ${mail}. Een leerkracht kan hem nu in een groep zetten.`; f.forEach(i=>i.value = ''); };

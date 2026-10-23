@@ -12,6 +12,7 @@ node test/fouten.js           # Fout melden (leerkracht) en Fouten (beheer)
 node test/toeschouwer.js      # toeschouwer (directeur): echte gegevens lezen, wijzigingen enkel lokaal
 node test/alsleerling.js      # Bekijk als leerling in een module
 node test/groepsoverzicht.js  # Beheer: namen per groep, leerlingen zonder groep, kolom Groep bij opzoeken
+node test/koppelteken.js      # e-mailadres met koppelteken: melding met het echte adres, nieuwe leerling met eigen adres
 ```
 
 | Bestand | Rol |
