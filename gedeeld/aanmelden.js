@@ -217,7 +217,8 @@ function tegelsFilteren(groepen){
   if(!tegels.length) return;
   let zicht = 0;
   tegels.forEach(t=>{ const z = zichtbaarheid(groepen, t.dataset.site); t.hidden = !z.open; if(z.open) zicht++; });
-  if(!zicht){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', groepen.length ? 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.' : geenGroep())); }
+  /* tegels zonder data-site (bv. Modules) blijven altijd zichtbaar: dan geen melding "niets open"; een leerling zonder groep krijgt wel altijd zijn melding */
+  if(!zicht && (!groepen.length || !document.querySelector('a.tegel:not([data-site])'))){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', groepen.length ? 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.' : geenGroep())); }
 }
 /* ---------- bekijk als leerling (leerkrachten, beheerders en toeschouwers) ----------
    De keuze staat in sessionStorage cl_als_<site> (enkel dit tabblad). De module toont dan wat een leerling van die groep ziet:

@@ -123,14 +123,16 @@ async function haalVoortgang(site, emails){
 }
 function verwerk(site, d){
   const per = {}; site.onderdelen.forEach(o=>per[o.id] = { juist:0, fout:0, tijd:0 });
-  if(!d) return { per, totaal:0, toets:{} };
+  if(!d) return { per, totaal:0, toets:{}, niv:{} };
   let res = {}, toets = {};
   try{ res = JSON.parse((d.data || {})._res || '{}'); }catch(e){}
   try{ toets = JSON.parse((d.data || {})._toets || '{}'); }catch(e){}
+  /* niveau A-E per onderdeel na de laatste reeks (sites die dat bijhouden, zoals wiskundige problemen): data.niv */
+  let niv = {}; try{ niv = JSON.parse((d.data || {}).niv || '{}') || {}; }catch(e){}
   Object.entries(res).forEach(([id, ok])=>{ const o = sectieVan(site, id); if(o) per[o.id][ok ? 'juist' : 'fout']++; });
   let totaal = 0; Object.entries(d.tijd || {}).forEach(([k, s])=>{ totaal += s; if(per[k]) per[k].tijd = s; });
   const tScore = {}; Object.entries(toets).forEach(([key, t])=>{ const o = site.onderdelen.find(x=>key.startsWith(x.id + '_')); if(o) tScore[o.id] = t; });
-  return { per, totaal, toets:tScore, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
+  return { per, totaal, toets:tScore, niv, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
 }
 /* knop "Bekijk": opent de module in een nieuw tabblad (leerkrachten zien er altijd alle onderdelen) */
 const IC_FOUT = '<svg class="ic-fout" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 2.6 19.6a1 1 0 0 0 .9 1.5h17a1 1 0 0 0 .9-1.5L12 3.2z"/><path d="M12 9.5v5"/><circle cx="12" cy="17.6" r=".4"/></svg>';
@@ -176,14 +178,16 @@ async function paneVoortgang(pane, g){
       let txt = '', cls = 's0';
       if(o.toets){ if(tt){ const r_ = tt.score / tt.n; txt = `${tt.score}/${tt.n}`; cls = r_ >= .8 ? 's4' : r_ >= .6 ? 's3' : r_ >= .4 ? 's2' : 's1'; } }
       else if(p.juist + p.fout){ const r_ = o.vragen ? p.juist / o.vragen : 0; txt = `${p.juist}${o.vragen ? '/' + o.vragen : ''}`; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
-      const td = el('td', 'sc ' + cls, (txt || '·') + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
-      td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}, ${minuten(p.tijd)}`;
+      const nv = v.niv[o.id];
+      const td = el('td', 'sc ' + cls, (nv ? `<b class="niv-l" title="niveau na de laatste reeks">${esc(nv.n)}</b>` : '') + (txt || (nv ? '' : '·')) + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
+      td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}${nv ? `, niveau ${nv.n} na de laatste reeks (${nv.j}/${nv.t})` : ''}, ${minuten(p.tijd)}`;
       tr.append(td);
     });
     tb.append(tr);
   });
   t.append(tb); wrap.append(t); pane.append(wrap);
   pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score'));
+  if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau na de laatste reeks van minstens 5 vragen (A hoogste, E laagste).'));
 }
 /* overzicht: leerlingen × sites, per site het deel van de vragen juist en de werktijd; klik op een site voor de tabel per onderdeel */
 function samenvatting(site, v){
@@ -236,8 +240,9 @@ function detail(pane, site, e, v){
   const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Onderdeel</th><th>Juist</th><th>Fout</th><th>Niet gemaakt</th><th>Werktijd</th></tr></thead>';
   const tb = el('tbody');
   site.onderdelen.forEach(o=>{ const p = v.per[o.id], tt = v.toets[o.id];
-    tb.append(el('tr', '', o.toets ? `<td>${esc(o.naam)}</td><td colspan="3">${tt ? `score ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}` : 'nog niet gemaakt'}</td><td>${minuten(p.tijd)}</td>`
-      : `<td>${esc(o.naam)}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
+    const nv = v.niv && v.niv[o.id], nm = esc(o.naam) + (nv ? ` <b class="niv-l" title="niveau na de laatste reeks">${esc(nv.n)}</b>` : '');
+    tb.append(el('tr', '', o.toets ? `<td>${nm}</td><td colspan="3">${tt ? `score ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}` : 'nog niet gemaakt'}</td><td>${minuten(p.tijd)}</td>`
+      : `<td>${nm}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); d.append(w);
   d.append(diagRegel(v));
   const sl = el('button', 'btn ghost klein', 'Sluiten'); sl.type = 'button'; sl.onclick = ()=>d.remove(); { const _r = el('div', 'rij'); _r.append(sl); d.append(_r); }

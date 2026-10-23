@@ -98,6 +98,8 @@ table.dt tr.groep-namen td{ white-space:normal; background:var(--tq-soft); }
 table.dt tr.groep-namen:hover td{ background:var(--tq-soft); }
 ol.namen{ margin:.2rem 0; padding-left:1.6rem; columns:16rem auto; column-gap:2rem; }
 ol.namen li{ break-inside:avoid; padding:.05rem 0; }
+/* niveau A-E na de laatste reeks (wiskundige problemen) */
+.niv-l{ display:inline-grid; place-items:center; min-width:1.35rem; height:1.35rem; padding:0 .2rem; margin-right:.25rem; border:2px solid var(--tq); border-radius:50%; background:var(--card); color:var(--accent-dark); font-size:.78rem; font-weight:800; line-height:1; vertical-align:middle; }
 /* veel sites: rubrieken inklapbaar, onderdelen achter een samenvatting, overzicht leerlingen × sites */
 details.rub-blok{ border:1.5px solid var(--border); border-radius:.6rem; padding:.2rem .9rem; margin:.6rem 0; }
 details.rub-blok > summary{ cursor:pointer; padding:.5rem 0; font-size:1.05rem; }
