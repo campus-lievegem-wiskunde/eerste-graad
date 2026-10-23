@@ -100,3 +100,14 @@ ol.namen{ margin:.2rem 0; padding-left:1.6rem; columns:16rem auto; column-gap:2r
 ol.namen li{ break-inside:avoid; padding:.05rem 0; }
 /* niveau A-E na de laatste reeks (wiskundige problemen) */
 .niv-l{ display:inline-grid; place-items:center; min-width:1.35rem; height:1.35rem; padding:0 .2rem; margin-right:.25rem; border:2px solid var(--tq); border-radius:50%; background:var(--card); color:var(--accent-dark); font-size:.78rem; font-weight:800; line-height:1; vertical-align:middle; }
+/* veel sites: rubrieken inklapbaar, onderdelen achter een samenvatting, overzicht leerlingen × sites */
+details.rub-blok{ border:1.5px solid var(--border); border-radius:.6rem; padding:.2rem .9rem; margin:.6rem 0; }
+details.rub-blok > summary{ cursor:pointer; padding:.5rem 0; font-size:1.05rem; }
+details.rub-blok > summary .mini{ margin-left:.4rem; }
+details.rub-blok .site-blok:first-of-type{ border-top:1.5px solid var(--border); }
+.ond-sam{ font-weight:600; }
+.ook-dicht{ display:inline-flex; align-items:center; gap:.35rem; cursor:pointer; }
+.ook-dicht input{ accent-color:var(--accent-dark); }
+table.dt.overzicht th.rub{ text-align:center; border-left:1px solid var(--border); border-bottom:1px solid var(--border); }
+table.dt.overzicht th.rot button.th-link{ all:unset; cursor:pointer; color:var(--accent-dark); text-decoration:underline; }
+table.dt.overzicht th.rot{ height:7rem; }
