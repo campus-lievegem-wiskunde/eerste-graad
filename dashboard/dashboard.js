@@ -112,6 +112,10 @@ function kiesGroepen(body){
 
 /* ---------- voortgang ---------- */
 function sectieVan(site, vraagId){ let best = null; site.onderdelen.forEach(o=>{ if(vraagId.startsWith(o.id + '_') && (!best || o.id.length > best.id.length)) best = o; }); return best; }
+/* letter A-E als bolletje; E betekent: D nog niet beheerst */
+const NIV_UITLEG = { A:'niveau A (hoogste)', B:'niveau B', C:'niveau C', D:'niveau D', E:'E: D nog niet beheerst' };
+function nivBol(nv, extra){ if(!nv || !nv.n) return ''; return `<b class="niv-l${nv.n === 'E' ? ' niv-e' : ''}" title="${esc(NIV_UITLEG[nv.n] || 'niveau ' + nv.n)}${nv.t ? ` · ${nv.j}/${nv.t} juist` : ''}${extra ? ' · ' + esc(extra) : ''}">${esc(nv.n)}</b>`; }
+function deelLetters(site, nv){ if(!nv || !nv.delen) return ''; return Object.entries(nv.delen).map(([k, x])=>{ const o = site.onderdelen.find(y=>y.id === k); return x && x.n ? `${esc(o ? o.naam.split(' ')[0] : k)} ${nivBol(x)}` : ''; }).filter(Boolean).join(' '); }
 function minuten(s){ if(!s) return '–'; const m = Math.round(s / 60); return m < 1 ? '<1 min' : `${m} min`; }
 async function haalVoortgang(site, emails){
   const out = new Map();
@@ -123,18 +127,20 @@ async function haalVoortgang(site, emails){
 }
 function verwerk(site, d){
   const per = {}; site.onderdelen.forEach(o=>per[o.id] = { juist:0, fout:0, tijd:0 });
-  if(!d) return { per, totaal:0, toets:{}, niv:{} };
+  if(!d) return { per, totaal:0, toets:{}, niv:{}, dg:{} };
   let res = {}, toets = {};
   try{ res = JSON.parse((d.data || {})._res || '{}'); }catch(e){}
   try{ toets = JSON.parse((d.data || {})._toets || '{}'); }catch(e){}
   /* niveau A-E per onderdeel na de laatste reeks (sites die dat bijhouden, zoals wiskundige problemen): data.niv */
   let niv = {}; try{ niv = JSON.parse((d.data || {}).niv || '{}') || {}; }catch(e){}
+  /* doelen uit de leeswijzer (wiskundige problemen): code → laatste drie pogingen, bv. {"A-OOI-C3":"101"} */
+  let dg = {}; try{ dg = JSON.parse((d.data || {}).doelen || '{}') || {}; }catch(e){}
   /* sinds 23 oktober 2026 ook per vraag in res en per proeftoets in toets (samengevoegd bij elke bewaring) */
   res = Object.assign({}, res, d.res || {}); toets = Object.assign({}, toets, d.toets || {});
   Object.entries(res).forEach(([id, ok])=>{ const o = sectieVan(site, id); if(o) per[o.id][ok ? 'juist' : 'fout']++; });
   let totaal = 0; Object.entries(d.tijd || {}).forEach(([k, s])=>{ totaal += s; if(per[k]) per[k].tijd = s; });
   const tScore = {}; Object.entries(toets).forEach(([key, t])=>{ const o = site.onderdelen.find(x=>key.startsWith(x.id + '_')); if(o) tScore[o.id] = t; });
-  return { per, totaal, toets:tScore, niv, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
+  return { per, totaal, toets:tScore, niv, dg, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
 }
 /* knop "Bekijk": opent de module in een nieuw tabblad (leerkrachten zien er altijd alle onderdelen) */
 const IC_FOUT = '<svg class="ic-fout" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 2.6 19.6a1 1 0 0 0 .9 1.5h17a1 1 0 0 0 .9-1.5L12 3.2z"/><path d="M12 9.5v5"/><circle cx="12" cy="17.6" r=".4"/></svg>';
@@ -181,15 +187,15 @@ async function paneVoortgang(pane, g){
       if(o.toets){ if(tt){ const r_ = tt.score / tt.n; txt = `${tt.score}/${tt.n}`; cls = r_ >= .8 ? 's4' : r_ >= .6 ? 's3' : r_ >= .4 ? 's2' : 's1'; } }
       else if(p.juist + p.fout){ const r_ = o.vragen ? p.juist / o.vragen : 0; txt = `${p.juist}${o.vragen ? '/' + o.vragen : ''}`; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
       const nv = v.niv[o.id];
-      const td = el('td', 'sc ' + cls, (nv ? `<b class="niv-l" title="niveau na de laatste reeks">${esc(nv.n)}</b>` : '') + (txt || (nv ? '' : '·')) + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
-      td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}${nv ? `, niveau ${nv.n} na de laatste reeks (${nv.j}/${nv.t})` : ''}, ${minuten(p.tijd)}`;
+      const td = el('td', 'sc ' + cls, (o.toets ? '' : nivBol(nv)) + (txt || (nv ? '' : '·')) + (o.toets && nv && nv.delen ? `<small class="delen">${deelLetters(site, nv)}</small>` : '') + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
+      td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}${nv && nv.n ? `, niveau ${nv.n}${nv.n === 'E' ? ' (D nog niet beheerst)' : ''} (${nv.j}/${nv.t} juist)` : ''}, ${minuten(p.tijd)}`;
       tr.append(td);
     });
     tb.append(tr);
   });
   t.append(tb); wrap.append(t); pane.append(wrap);
   pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score'));
-  if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau na de laatste reeks van minstens 5 vragen (A hoogste, E laagste).'));
+  if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau per onderdeel volgens de leeswijzer bij de vaardigheidsniveaus: A hoogste, D laagste, <b class="niv-l niv-e">E</b> = D nog niet beheerst. Bij een proeftoets: het niveau per deel. Klik op een naam voor de doelen per letter.'));
 }
 /* overzicht: leerlingen × sites, per site het deel van de vragen juist en de werktijd; klik op een site voor de tabel per onderdeel */
 function samenvatting(site, v){
@@ -242,13 +248,39 @@ function detail(pane, site, e, v){
   const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Onderdeel</th><th>Juist</th><th>Fout</th><th>Niet gemaakt</th><th>Werktijd</th></tr></thead>';
   const tb = el('tbody');
   site.onderdelen.forEach(o=>{ const p = v.per[o.id], tt = v.toets[o.id];
-    const nv = v.niv && v.niv[o.id], nm = esc(o.naam) + (nv ? ` <b class="niv-l" title="niveau na de laatste reeks">${esc(nv.n)}</b>` : '');
+    const nv = v.niv && v.niv[o.id], nm = esc(o.naam) + (nv ? ' ' + (o.toets ? deelLetters(site, nv) : nivBol(nv)) : '');
     tb.append(el('tr', '', o.toets ? `<td>${nm}</td><td colspan="3">${tt ? `score ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}` : 'nog niet gemaakt'}</td><td>${minuten(p.tijd)}</td>`
       : `<td>${nm}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); d.append(w);
+  if(v.dg && Object.keys(v.dg).length) d.append(doelenBlok(site, v));
   if(ST.rol === 'beheerder' && !ST.toeschouwer) d.append(diagRegel(v)); /* diagnose enkel voor beheerders, niet voor collega's of een toeschouwer */
   const sl = el('button', 'btn ghost klein', 'Sluiten'); sl.type = 'button'; sl.onclick = ()=>d.remove(); { const _r = el('div', 'rij'); _r.append(sl); d.append(_r); }
   pane.prepend(d); d.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* doelen per letter (leeswijzer): behaald = minstens 2 van de laatste 3 pogingen juist */
+const DOELCACHE = {};
+function laadDoelen(site){ if(!DOELCACHE[site.id]) DOELCACHE[site.id] = fetch(`../${site.pad}doelen.json`).then(r=>r.ok ? r.json() : null).catch(()=>null); return DOELCACHE[site.id]; }
+function doelenBlok(site, v){
+  const blok = el('div', 'doelen-lk', '<h4>Doelen per letter</h4><p class="mini">Doelen ophalen…</p>');
+  laadDoelen(site).then(D=>{
+    if(!D || !D.doelen){ blok.querySelector('p').textContent = 'De doelen van deze site konden niet geladen worden.'; return; }
+    const stroom = Object.keys(v.dg)[0][0], st = c=>{ const x = v.dg[c] || '', j = (x.match(/1/g) || []).length; return !x ? 'leeg' : j >= 2 ? 'ok' : x.length - j >= 2 ? 'nog' : 'bezig'; };
+    const teken = { ok:'✓', nog:'✗', bezig:'…', leeg:'–' }, uitleg = { ok:'behaald', nog:'nog niet behaald', bezig:'bezig, nog te weinig pogingen', leeg:'nog niet geoefend' };
+    blok.innerHTML = '<h4>Doelen per letter</h4><p class="mini">✓ behaald (minstens 2 van de laatste 3 pogingen juist) · ✗ nog niet behaald (minstens 2 fout) · … bezig · – nog niet geoefend. Leerlingen zien geen letters, enkel wat ze al kunnen en waaraan ze nog werken.</p>';
+    site.onderdelen.filter(o=>!o.toets).forEach(o=>{
+      const codes = Object.keys(D.doelen).filter(c=>c[0] === stroom && D.thema[c.split('-')[1]] === o.id);
+      if(!codes.length || !codes.some(c=>v.dg[c])) return;
+      const ok = codes.filter(c=>st(c) === 'ok').length, nog = codes.filter(c=>st(c) === 'nog').length;
+      const det = el('details', 'doel-thema', `<summary>${esc(o.naam)} ${nivBol(v.niv[o.id])} <span class="mini">${ok} van ${codes.length} doelen behaald${nog ? `, ${nog} nog niet` : ''}${codes.filter(c=>st(c) === 'bezig').length ? `, ${codes.filter(c=>st(c) === 'bezig').length} bezig` : ''}</span></summary>`);
+      ['A', 'B', 'C', 'D'].forEach(L=>{
+        const cs = codes.filter(c=>c.split('-')[2][0] === L); if(!cs.length) return;
+        det.append(el('div', 'doel-letter', `<b class="niv-l">${L}</b><ul>${cs.map(c=>`<li class="d-${st(c)}" title="${uitleg[st(c)]}"><span class="d-t">${teken[st(c)]}</span> ${esc(D.doelen[c])} <span class="code">${esc(c)}</span></li>`).join('')}</ul>`));
+      });
+      blok.append(det);
+    });
+  });
+  return blok;
 }
 
 /* ---------- leerlingen van een groep ---------- */

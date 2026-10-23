@@ -310,3 +310,74 @@ td.vlek svg{width:52px;height:26px;display:block}
 body.vraagmodus main{padding-top:.6rem}
 body.vraagmodus #app .card.wpkaart{gap:6px}
 body.vraagmodus .wpin{gap:8px}
+
+/* ===== probleemoplossend denken: doelen, nieuwe vraagtypes en leerkrachtinfo ===== */
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.voortg{display:flex;flex-direction:column;gap:4px;min-width:180px;flex:1}
+.doelbalk{height:10px;border-radius:99px;background:var(--zone-bg);border:1px solid var(--border);overflow:hidden;max-width:260px}
+.doelbalk span{display:block;height:100%;background:linear-gradient(90deg,var(--tq),var(--orange));border-radius:99px}
+.doellijst{margin:6px 0 4px;padding-left:20px;display:grid;gap:4px;font-size:16px}
+.doellijst li::marker{color:var(--orange)}
+.doellijst.ok li::marker{color:var(--ok)}
+.keuzerij{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.kolom{display:flex;flex-direction:column;gap:10px}
+@media (max-width:760px){ .keuzerij{grid-template-columns:1fr} }
+.doelnu{display:flex;gap:8px;align-items:center;margin:0 0 8px;padding:6px 10px;border-radius:10px;background:var(--or-soft);font-size:15px}
+.doelnu svg{width:18px;height:18px;flex:none}
+.opties2{grid-template-columns:1fr 1fr}
+.niv-l{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:99px;background:var(--tq);color:var(--on-accent);font-size:13px;font-weight:700}
+.niv.klein{width:40px;height:40px}
+.niv.klein b{font-size:18px}
+/* leerkrachtinfo: zichtbaar alleen voor leerkrachten (de schermen tonen ze enkel dan) */
+.lkinfo{margin:8px 0;padding:8px 12px;border-left:4px solid var(--orange);background:var(--or-soft);border-radius:8px;font-size:14px;color:var(--ink)}
+.lkcode{margin:10px 0 0;padding-top:8px;border-top:1px dashed var(--border);font-size:14px;color:var(--ink-soft)}
+.code{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--ink-soft)}
+.lkdoelen summary{cursor:pointer;font-weight:700;display:flex;align-items:center;gap:10px}
+.lkl{display:grid;grid-template-columns:34px 1fr;gap:8px;margin-top:10px}
+.lkl ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:14px}
+.lkl li{display:flex;gap:6px;align-items:baseline}
+.stt{flex:none;width:18px;text-align:center;font-weight:700}
+.st-ok .stt{color:var(--ok)} .st-nog .stt{color:var(--bad)} .st-bezig .stt{color:var(--orange)} .st-leeg .stt{color:var(--ink-soft)}
+.deeltab td,.deeltab th{padding:6px 10px}
+/* figuren naast elkaar */
+.wfig2{display:flex;gap:10px;align-items:flex-start}
+.wfig2 > .wfig{flex:1 1 0;min-width:0}
+/* juist/fout-tabel */
+.jftab{border-collapse:collapse;width:100%;font-size:17px}
+.jftab th,.jftab td{border-bottom:1px solid var(--border);padding:8px 6px;text-align:left}
+.jftab thead th{font-size:14px;color:var(--ink-soft);text-align:center;font-weight:700}
+.jftab td{text-align:center;width:72px}
+.jfb{width:30px;height:30px;border-radius:50%;border:2px solid var(--tq);background:var(--card);cursor:pointer}
+.jfb.aan{background:var(--tq);box-shadow:inset 0 0 0 4px var(--card)}
+.jfb.juistk{outline:3px solid var(--ok);outline-offset:2px}
+.jfb[disabled]{cursor:default}
+.jftab tr.goed th{color:var(--ok)} .jftab tr.fout th{color:var(--bad)}
+/* symbolen invullen */
+.symvak{display:grid;gap:10px}
+.symbalk{display:flex;flex-wrap:wrap;gap:8px;padding:8px;border-radius:12px;background:var(--zone-bg)}
+.symk{min-width:44px;height:40px;padding:0 10px;border-radius:10px;border:2px solid var(--tq);background:var(--card);font-size:19px;cursor:pointer;color:var(--ink)}
+.symk:hover{background:var(--or-soft);border-color:var(--orange)}
+.symrij{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:19px}
+.symb{min-width:56px;height:40px;padding:0 8px;border-radius:10px;border:2px dashed var(--tq);background:var(--card);font-size:19px;cursor:pointer;color:var(--ink)}
+.symb.gekozen{border-style:solid;border-color:var(--orange);box-shadow:0 0 0 3px var(--or-soft)}
+.symb.goed{border:2px solid var(--ok);background:var(--ok-bg)} .symb.fout{border:2px solid var(--bad)}
+/* venndiagram aanklikken */
+.vennk{width:100%;height:auto}
+.vennk.klikbaar{cursor:pointer}
+.vg-sel{fill:var(--tq);fill-opacity:.45} .vg-ok{fill:var(--ok);fill-opacity:.45} .vg-fout{fill:var(--bad);fill-opacity:.4} .vg-mis{fill:var(--ok);fill-opacity:.2}
+/* rooster met letters en cijfers */
+.celrooster{width:100%;height:auto}
+.celr{fill:var(--card);stroke:var(--border);stroke-width:1.5}
+.celrooster.klikbaar .celr{cursor:pointer}
+.celrooster.klikbaar .celr:hover{fill:var(--or-soft)}
+.celr.cel-aan{fill:var(--tq);fill-opacity:.55} .celr.cel-ok{fill:var(--ok);fill-opacity:.5} .celr.cel-fout{fill:var(--bad);fill-opacity:.45} .celr.cel-mis{fill:var(--ok);fill-opacity:.2}
+.celtxt{pointer-events:none;font-size:20px}
+/* formularium */
+.formpaneel{margin-top:10px}
+.formlijst{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:16px;align-items:baseline}
+.formlijst dt{font-weight:700}
+.formlijst dd{margin:0}
+/* korte keuzes in twee kolommen: het label "Juist antwoord" schuift onder de tekst */
+.opties2 .optie{flex-wrap:wrap}
+.opties2 .optie .txt{min-width:4.5em}
+.opties2 .optie .merk{flex-basis:100%;padding-left:44px;margin-top:-4px}
