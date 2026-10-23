@@ -63,6 +63,7 @@ const H = require('./helpers');
   await q.keyboard.press('Escape'); await q.waitForTimeout(200);
   check(await q.locator('.px-board').count() === 0 && await q.locator('#app .wpkaart').count() === 1, 'bord sluiten: de vraag staat terug in de pagina');
   await q.goto(H.B + 'dashboard/'); await q.waitForTimeout(1500);
+  await q.click('.tab:has-text("Voortgang")'); await q.waitForTimeout(500);
   const site = q.locator('#siteSel');
   if(await site.count()){ await site.selectOption('2a-wp'); await q.waitForTimeout(800); }
   const cel = await q.locator('table.dt td.sc .niv-l').allTextContents();
