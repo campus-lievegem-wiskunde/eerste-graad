@@ -780,5 +780,76 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "2a-wp",
+  "titel": "Wiskundige problemen · 2de jaar",
+  "kort": "Wiskundige problemen",
+  "jaar": "2A",
+  "rubriek": "wiskundige-problemen",
+  "pad": "2A/wiskundige-problemen/",
+  "prefix": "2a_wp_v1_",
+  "onderdelen": [
+   {
+    "id": "pro",
+    "naam": "Problemen oplossen",
+    "toets": false,
+    "vragen": 102
+   },
+   {
+    "id": "get",
+    "naam": "Getallenleer",
+    "toets": false,
+    "vragen": 78
+   },
+   {
+    "id": "alg",
+    "naam": "Algebra",
+    "toets": false,
+    "vragen": 57
+   },
+   {
+    "id": "mee",
+    "naam": "Meetkunde",
+    "toets": false,
+    "vragen": 74
+   },
+   {
+    "id": "sta",
+    "naam": "Statistiek",
+    "toets": false,
+    "vragen": 64
+   },
+   {
+    "id": "ver",
+    "naam": "Verzamelingenleer",
+    "toets": false,
+    "vragen": 57
+   },
+   {
+    "id": "mix",
+    "naam": "Gemengde toets",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
  }
 ];
