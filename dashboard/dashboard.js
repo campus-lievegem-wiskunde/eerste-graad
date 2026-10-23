@@ -129,6 +129,8 @@ function verwerk(site, d){
   try{ toets = JSON.parse((d.data || {})._toets || '{}'); }catch(e){}
   /* niveau A-E per onderdeel na de laatste reeks (sites die dat bijhouden, zoals wiskundige problemen): data.niv */
   let niv = {}; try{ niv = JSON.parse((d.data || {}).niv || '{}') || {}; }catch(e){}
+  /* sinds 23 oktober 2026 ook per vraag in res en per proeftoets in toets (samengevoegd bij elke bewaring) */
+  res = Object.assign({}, res, d.res || {}); toets = Object.assign({}, toets, d.toets || {});
   Object.entries(res).forEach(([id, ok])=>{ const o = sectieVan(site, id); if(o) per[o.id][ok ? 'juist' : 'fout']++; });
   let totaal = 0; Object.entries(d.tijd || {}).forEach(([k, s])=>{ totaal += s; if(per[k]) per[k].tijd = s; });
   const tScore = {}; Object.entries(toets).forEach(([key, t])=>{ const o = site.onderdelen.find(x=>key.startsWith(x.id + '_')); if(o) tScore[o.id] = t; });

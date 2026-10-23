@@ -15,6 +15,7 @@ node test/groepsoverzicht.js  # Beheer: namen per groep, leerlingen zonder groep
 node test/wiskundigeproblemen.js  # 2A Wiskundige problemen: oefenen, niveau, proeftoets, Bord en niveau in het dashboard
 node test/koppelteken.js      # e-mailadres met koppelteken: melding met het echte adres, nieuwe leerling met eigen adres
 node test/allesopen.js        # Beheer: site openzetten voor alle groepen van een jaar
+node test/resultaten.js       # resultaten nooit kwijt: mislukt ophalen bij het openen, tweede tabblad (nep-getDoc mislukt met window.__getDocFout = n)
 ```
 
 | Bestand | Rol |
