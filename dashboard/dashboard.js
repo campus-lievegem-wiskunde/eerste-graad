@@ -246,7 +246,7 @@ function detail(pane, site, e, v){
     tb.append(el('tr', '', o.toets ? `<td>${nm}</td><td colspan="3">${tt ? `score ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}` : 'nog niet gemaakt'}</td><td>${minuten(p.tijd)}</td>`
       : `<td>${nm}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); d.append(w);
-  d.append(diagRegel(v));
+  if(ST.rol === 'beheerder' && !ST.toeschouwer) d.append(diagRegel(v)); /* diagnose enkel voor beheerders, niet voor collega's of een toeschouwer */
   const sl = el('button', 'btn ghost klein', 'Sluiten'); sl.type = 'button'; sl.onclick = ()=>d.remove(); { const _r = el('div', 'rij'); _r.append(sl); d.append(_r); }
   pane.prepend(d); d.scrollIntoView({ behavior:'smooth', block:'start' });
 }
