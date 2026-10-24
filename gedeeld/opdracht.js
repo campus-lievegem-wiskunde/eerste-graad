@@ -3,7 +3,9 @@
    Leerling: de antwoorden komen in inzendingen/<id>__<e-mail> en worden automatisch bewaard; Indienen zet ingediend
    (bij één poging ook slot: daarna weigert Firestore elke wijziging). De verbetersleutel staat niet in de pagina:
    het dashboard verbetert en schrijft resultaten/<id>__<e-mail>; de leerling ziet dat pas als de leerkracht het vrijgeeft.
-   Leerkracht, beheerder of toeschouwer: invullen kan, maar er wordt niets bewaard. */
+   Leerkracht, beheerder of toeschouwer: invullen kan, maar er wordt niets bewaard.
+   Een interactieve opdracht (rekenvaardigheden) zet zelf OPGAVE.invullen(opts) → element en OPGAVE.volledig(q, antwoord)
+   (zie gedeeld/rv-kader.js); dan tekent die het invulscherm in plaats van gedeeld/opgave-weergave.js, altijd in de vaste volgorde. */
 import { klaar, db, F, C } from './aanmelden.js';
 import { OPDRACHTEN, groepVoor, docId, schud, soortVan, opdrZichtbaar } from './opdrachten.js';
 import { tekenOpgave, maxPunten } from './opgave-weergave.js';
@@ -14,6 +16,7 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) 
 const wanneer = ms => new Date(ms).toLocaleString('nl-BE', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
 const woord = () => soortVan(o) === 'toets' ? 'toets' : 'taak';
 const kaart = (titel, html) => el('div', 'opdr-kaart', `<h2>${titel}</h2>${html || ''}`);
+const invulScherm = opts => OPG.invullen ? OPG.invullen(opts) : tekenOpgave(OPG, Object.assign({ modus:'invullen' }, opts));
 
 const s = await klaar;
 if(!opdrZichtbaar(s.rol, s.toeschouwer)){ app.append(kaart('Deze pagina is nog niet beschikbaar')); }
@@ -26,12 +29,12 @@ async function voorbeeld(){
   const tip = el('div', 'tip lk-tip', `<div>Je bekijkt deze ${woord()} als <b>${s.toeschouwer ? 'toeschouwer' : s.rol}</b>. Invullen kan, maar er wordt niets bewaard. Openzetten, resultaten en afdrukken: <a href="${new URL('../dashboard/', import.meta.url).href}">Dashboard</a> › Toetsen en taken. Totaal: ${maxPunten(OPG)} punten.</div>`);
   app.append(tip);
   const blok = el('div'); app.append(blok);
-  blok.append(tekenOpgave(OPG, { modus:'invullen' }));
+  blok.append(invulScherm({}));
   try{
     const k = await F.getDoc(F.doc(db, 'sleutels', o.id));
     if(k.exists()){ const b = el('button', 'btn ghost', 'Toon de verbetersleutel'); b.type = 'button';
       b.onclick = ()=>{ const aan = b.dataset.aan !== '1'; b.dataset.aan = aan ? '1' : ''; b.textContent = aan ? 'Verberg de verbetersleutel' : 'Toon de verbetersleutel';
-        blok.innerHTML = ''; blok.append(tekenOpgave(OPG, aan ? { modus:'sleutel', sleutel:k.data() } : { modus:'invullen' })); };
+        blok.innerHTML = ''; blok.append(aan ? tekenOpgave(OPG, { modus:'sleutel', sleutel:k.data() }) : invulScherm({})); };
       tip.querySelector('div').append(' ', b); }
   }catch(e){}
 }
@@ -63,7 +66,7 @@ async function leerling(){
 
   function invullen(){
     const antw = Object.assign({}, inz && inz.antw);
-    const volgorde = cfg.volgorde ? (inz && inz.volgorde) || schud(OPG, o.id + email) : null;
+    const volgorde = cfg.volgorde && !OPG.invullen ? (inz && inz.volgorde) || schud(OPG, o.id + email) : null;
     app.append(el('div', 'info-box', `<div>Je antwoorden worden vanzelf bewaard, ook als je de pagina sluit. Klik op <b>Indienen</b> als je klaar bent.${venster.tot ? ` Deze ${woord()} sluit op <b>${wanneer(venster.tot)}</b>.` : ''}${cfg.pogingen === 1 ? ' Je hebt één poging: na het indienen kan je niets meer wijzigen.' : ''}</div>`));
     const status = el('span', 'opdr-status', inz && inz.bewaard ? 'Bewaard.' : '');
     let timer = null, wacht = false;
@@ -74,11 +77,11 @@ async function leerling(){
       try{ await F.setDoc(ref, basis(), { merge:true }); status.textContent = 'Bewaard om ' + new Date().toLocaleTimeString('nl-BE', { hour:'2-digit', minute:'2-digit' }) + '.'; }
       catch(e){ console.warn(e); wacht = true; status.textContent = 'Bewaren lukte niet, we proberen het zo opnieuw.'; timer = setTimeout(bewaar, 8000); }
     }
-    app.append(tekenOpgave(OPG, { modus:'invullen', antw, volgorde, onInput:(id, w)=>{ antw[id] = w; wacht = true; status.textContent = 'Nog niet bewaard…'; clearTimeout(timer); timer = setTimeout(bewaar, 1200); } }));
+    app.append(invulScherm({ antw, volgorde, onInput:(id, w)=>{ antw[id] = w; wacht = true; status.textContent = 'Nog niet bewaard…'; clearTimeout(timer); timer = setTimeout(bewaar, 1200); } }));
     addEventListener('pagehide', bewaar); document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') bewaar(); });
     const balk = el('div', 'opdr-balk'); const knop = el('button', 'btn', 'Indienen'); knop.type = 'button';
     knop.onclick = async ()=>{
-      const leeg = OPG.delen.flatMap(d=>d.vragen).filter(q=>{ const a = antw[q.id]; return a == null || a === '' || (Array.isArray(a) && !a.length); }).length;
+      const leeg = OPG.delen.flatMap(d=>d.vragen).filter(q=>{ const a = antw[q.id]; return OPG.volledig ? !OPG.volledig(q, a) : a == null || a === '' || (Array.isArray(a) && !a.length); }).length;
       if(!confirm((leeg ? `Je liet ${leeg} vraag${leeg > 1 ? 'en' : ''} open. ` : '') + (cfg.pogingen === 1 ? `Wil je je ${woord()} indienen? Daarna kan je niets meer wijzigen.` : `Wil je je ${woord()} indienen?`))) return;
       if(groepVoor(s.groepen, o, email)?.s !== 'open'){ alert(`Deze ${woord()} is intussen gesloten.`); location.reload(); return; }
       knop.disabled = true; clearTimeout(timer);
@@ -94,7 +97,7 @@ async function leerling(){
   async function resultaat(inz){
     let r = null; try{ const d = await F.getDoc(F.doc(db, 'resultaten', docId(o, email))); r = d.exists() ? d.data() : null; }catch(e){}
     if(!r || !r.vrij){ app.append(el('p', 'mini', 'Je resultaat verschijnt hier zodra je leerkracht het vrijgeeft.')); return; }
-    const k = kaart('Je resultaat', `<p class="opdr-score">${String(r.totaal).replace('.', ',')} / ${r.max}</p>`); app.append(k);
+    const k = kaart('Je resultaat', `<p class="opdr-score">${String(r.totaal).replace('.', ',')} / ${String(r.max).replace('.', ',')}${r.op && r.opPunten != null ? ` <span class="opdr-op">(${String(r.opPunten).replace('.', ',')} / ${r.op})</span>` : ''}</p>`); app.append(k);
     if(r.ziet === 'verbetering' && r.verbetering) app.append(tekenOpgave(OPG, { modus:'lezen', antw:(inz && inz.antw) || {}, volgorde:inz && inz.volgorde, verbetering:r.verbetering }));
   }
 }

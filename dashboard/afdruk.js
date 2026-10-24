@@ -2,7 +2,7 @@
    ?opdr=<id>&soort=blanco = de lege toets op papier; ?opdr=<id>&soort=sleutel = de verbetersleutel. Enkel voor leerkrachten.
    Een pdf maken: Afdrukken, dan Opslaan als PDF. */
 import { klaar, db, F } from '../gedeeld/aanmelden.js';
-import { OPDRACHTEN, bereken, opdrZichtbaar } from '../gedeeld/opdrachten.js';
+import { OPDRACHTEN, bereken, opdrZichtbaar, opSchaal } from '../gedeeld/opdrachten.js';
 import { tekenOpgave, laadOpgave, maxPunten } from '../gedeeld/opgave-weergave.js';
 const q = new URLSearchParams(location.search), app = document.getElementById('app');
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
@@ -16,11 +16,11 @@ if(s.rol === 'leerling' || !opdrZichtbaar(s.rol, s.toeschouwer)) app.append(el('
 else if(!o) app.append(el('p', 'errmsg', 'Onbekende toets of taak.'));
 else bouw().catch(e=>{ console.error(e); app.append(el('p', 'errmsg', 'Ophalen lukte niet.')); });
 
-function hoofding({ naam = '', klas = '', datum = '', lk = '', res = '', max }){
+function hoofding({ naam = '', klas = '', datum = '', lk = '', res = '', max, op = '' }){
   return el('table', 'hoofding', `<tr><td class="hf-school" rowspan="1"><img src="../gedeeld/img/logo.png" alt="Campus Lievegem"><b>Middenschool SV</b>Lt. Dobbelaerestraat 16 - 9930 LIEVEGEM</td>
     <td><div class="hf-veld"><span>Naam: <b>${esc(naam)}</b></span></div><div class="hf-veld"><span>Klas: <b>${esc(klas)}</b></span><span>Nr. ……</span></div>
     <div class="hf-veld"><span>${esc(o.rubriek === 'toetsen' ? 'Toets' : 'Taak')}: ${esc(o.kort || '')}</span><span>Datum: ${esc(datum)}</span></div></td></tr>
-    <tr><td>Vak: <b>Wiskunde</b><br>Vakleerkracht: ${esc(lk)}</td><td>Resultaat:<div class="hf-res"><b>${esc(res)}</b> / ${max}</div></td></tr>
+    <tr><td>Vak: <b>Wiskunde</b><br>Vakleerkracht: ${esc(lk)}</td><td>Resultaat:<div class="hf-res"><b>${esc(res)}</b> / ${komma(max)}${o.op ? `<span class="hf-op"> · <b>${esc(op)}</b> / ${o.op}</span>` : ''}</div></td></tr>
     <tr><td colspan="2" class="hf-titel">${esc(o.titel)}</td></tr>`);
 }
 async function bouw(){
@@ -44,7 +44,7 @@ async function bouw(){
   wie.forEach(e=>{
     const d = inz.get(e), b = bereken(opg, d.antw, sleutel, res.get(e)), l = lln.get(e) || {};
     const blad = el('section', 'blad');
-    blad.append(hoofding({ naam:naam(e), klas:l.klas || '', datum:d.ingediend ? new Date(d.ingediend).toLocaleDateString('nl-BE') : '', lk, res:b.volledig ? komma(b.totaal) : `${komma(b.totaal)} (onvolledig)`, max:b.max }),
+    blad.append(hoofding({ naam:naam(e), klas:l.klas || '', datum:d.ingediend ? new Date(d.ingediend).toLocaleDateString('nl-BE') : '', lk, res:b.volledig ? komma(b.totaal) : `${komma(b.totaal)} (onvolledig)`, max:b.max, op:komma(opSchaal(o, b.totaal, b.max)) }),
       tekenOpgave(opg, { modus:'lezen', antw:d.antw || {}, volgorde:d.volgorde, verbetering:b.per }));
     app.append(blad);
   });

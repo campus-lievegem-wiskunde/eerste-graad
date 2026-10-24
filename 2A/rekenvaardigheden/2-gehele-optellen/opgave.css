@@ -1,0 +1,88 @@
+/* 2A Rekenvaardigheden 2 · figuren en legertjes (ook geladen in het dashboard en de pdf). Plus en min zijn zwart; enkel de legertjes zijn rood en blauw. */
+/* getallenas */
+.nl-svg{ display:block; width:100%; height:auto; user-select:none; }
+.rv .nl-svg{ touch-action:none; cursor:crosshair; }
+.nl-as{ stroke:#173436; stroke-width:2.5; } .nl-askop{ fill:#173436; }
+.nl-streep{ stroke:#8aa0a4; stroke-width:1.2; } .nl-streep.vijf{ stroke:#173436; stroke-width:1.8; }
+.nl-lab{ font-size:15px; fill:#4f6668; text-anchor:middle; font-weight:600; } .nl-lab.nul{ font-weight:900; fill:#173436; font-size:18px; }
+.nl-boog{ fill:none; stroke:#173436; stroke-width:4; stroke-linecap:round; }
+.nl-pijlkop{ fill:#173436; }
+.nl-booglab{ font-size:20px; font-weight:800; text-anchor:middle; fill:#173436; }
+.nl-start{ fill:#173436; } .nl-einde{ fill:#fff; stroke:#173436; stroke-width:4; }
+.nl-tag{ fill:#173436; } .nl-tagtxt{ fill:#fff; font-size:17px; font-weight:900; text-anchor:middle; }
+.nl-starttxt{ font-size:14px; font-weight:800; text-anchor:middle; fill:#173436; }
+.nl-voorlopig .nl-boog{ stroke-dasharray:7 6; stroke:#127a7f; } .nl-voorlopig .nl-booglab{ fill:#127a7f; }
+.nl-voorlopigeinde{ fill:#fff; stroke:#127a7f; stroke-width:3; stroke-dasharray:3 3; }
+.nl-spook line{ stroke:#3bc1c5; stroke-width:2; stroke-dasharray:4 4; } .nl-spook rect{ fill:#173436; } .nl-spook text{ fill:#fff; font-size:14px; font-weight:800; text-anchor:middle; }
+.rv .nl-paneel{ display:grid; grid-template-columns:1.2fr 1fr; gap:1.6rem; align-items:start; }
+.rv .nl-modi{ display:flex; flex-direction:column; gap:.35rem; }
+.rv .nl-modus{ text-align:left; background:var(--card); border:2px solid var(--border); border-radius:.6rem; color:var(--ink); font:inherit; font-weight:700; padding:.35rem .7rem; display:flex; justify-content:space-between; gap:.6rem; align-items:center; cursor:pointer; }
+.rv .nl-modus:disabled{ opacity:.45; cursor:not-allowed; }
+.rv .nl-modus.aan{ border-color:var(--tq); background:var(--tq-soft); }
+.rv .nl-modus .val{ font-variant-numeric:tabular-nums; background:var(--zone-bg); border-radius:.4rem; padding:.05rem .6rem; min-width:2.6rem; text-align:center; }
+@media (max-width:900px){ .rv .nl-paneel{ grid-template-columns:1fr; gap:.6rem; } }
+
+/* legertjes: rood plus-leger, blauw min-leger */
+.rv .slag{ display:grid; grid-template-columns:1fr 2.4rem 1fr; gap:.5rem; align-items:stretch; }
+.rv .slag.enkel{ grid-template-columns:1fr; }
+.rv .kamp{ border-radius:.8rem; padding:.5rem; min-height:200px; border:2px solid; display:flex; flex-direction:column; }
+.rv .kamp.min{ background:var(--min-zacht); border-color:var(--min-lijn); } .rv .kamp.plus{ background:var(--plus-zacht); border-color:var(--plus-lijn); }
+.rv .kampkop{ font-weight:800; font-size:.9rem; display:flex; justify-content:space-between; align-items:center; margin-bottom:.35rem; }
+.rv .kamp.min .kampkop{ color:var(--min); } .rv .kamp.plus .kampkop{ color:var(--plus); }
+.rv .kampkop .cnt{ background:#fff; border-radius:999px; padding:0 .6rem; }
+.rv .troepen{ display:flex; flex-wrap:wrap; gap:3px; align-content:flex-start; flex:1; min-height:100px; }
+.rv .kamp.klikbaar{ cursor:copy; } .rv .kamp.klikbaar .soldaat{ cursor:pointer; } .rv .kamp.klikbaar .soldaat:hover{ transform:translateY(-3px); }
+.rv .kamptip{ font-size:.72rem; color:var(--ink-soft); margin-top:.3rem; text-align:center; }
+.rv .soldaat{ width:27px; height:34px; display:inline-block; transition:opacity .3s, transform .15s; }
+.rv .soldaat.klein{ width:22px; height:28px; }
+.rv .soldaat svg{ width:100%; height:100%; display:block; }
+.rv .soldaat.dood{ opacity:.16; filter:grayscale(1); }
+.rv .soldaat.raak{ animation:rv-poef .5s ease-in forwards; }
+.rv .soldaat.erbij{ animation:rv-erbij .35s ease-out; }
+.rv .soldaat.vlieg{ transition:transform .7s cubic-bezier(.3,.7,.3,1); }
+@keyframes rv-poef{ 0%{ transform:scale(1); } 35%{ transform:scale(1.35) rotate(-12deg); } 100%{ transform:scale(.7) rotate(8deg); opacity:.16; filter:grayscale(1); } }
+@keyframes rv-erbij{ from{ transform:translateY(-8px); opacity:0; } to{ transform:none; opacity:1; } }
+.rv .vs{ display:flex; align-items:center; justify-content:center; font-size:1.6rem; }
+.rv .vs.vecht{ animation:rv-botsing .3s ease-in-out infinite alternate; }
+@keyframes rv-botsing{ from{ transform:scale(1); } to{ transform:scale(1.35); } }
+.rv .leeg-kamp{ color:var(--ink-soft); font-size:.82rem; font-style:italic; margin:auto; text-align:center; }
+.rv .legerrij{ display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; padding:.35rem .6rem; border-radius:.6rem; margin-bottom:.35rem; }
+.rv .legerrij.min{ background:var(--min-zacht); } .rv .legerrij.plus{ background:var(--plus-zacht); }
+.rv .legerrij .lbl{ font-weight:800; min-width:6.4rem; } .rv .legerrij.min .lbl{ color:var(--min); } .rv .legerrij.plus .lbl{ color:var(--plus); }
+.rv .legerrij .aantal{ font-weight:900; font-size:1.1rem; min-width:1.8rem; text-align:center; font-variant-numeric:tabular-nums; color:#173436; }
+.rv .legerrij button{ padding:.2rem .55rem; font:inherit; font-size:.82rem; font-weight:700; background:#fff; color:#173436; border:1.5px solid var(--border); border-radius:.45rem; cursor:pointer; }
+.rv .legerrij button:hover:not(:disabled){ border-color:var(--orange); }
+.rv .legerrij button:disabled{ opacity:.45; cursor:not-allowed; }
+
+/* vraagstukken */
+.vis-svg{ display:block; width:100%; height:auto; }
+.rv .vis-svg{ max-height:330px; }
+.vt-titel{ font-size:15px; font-weight:800; fill:#173436; text-anchor:middle; }
+.th-buis{ fill:#fff; stroke:#9fb3b6; stroke-width:2; } .th-bol, .th-kwik{ fill:#5b6b73; } .th-bol{ stroke:#46545b; stroke-width:2; }
+.th-streep{ stroke:#6d8286; stroke-width:1.4; } .th-lab{ font-size:12px; fill:#4f6668; font-weight:600; } .th-lab.nul{ font-weight:900; fill:#173436; }
+.th-tag{ fill:#173436; } .th-tagtxt{ fill:#fff; font-size:14px; font-weight:800; text-anchor:middle; }
+.th-startlijn{ stroke:#173436; stroke-width:2; stroke-dasharray:4 3; } .th-starttxt{ font-size:11px; font-weight:700; fill:#4f6668; text-anchor:end; }
+.th-pijl{ stroke:#173436; stroke-width:4; stroke-linecap:round; } .th-pijl.voorlopig{ stroke-dasharray:7 5; } .th-pijlkop{ fill:#173436; }
+.th-sprong{ font-size:17px; font-weight:900; fill:#173436; text-anchor:end; }
+.th-raak{ fill:transparent; cursor:ns-resize; }
+.rv .th-svg{ touch-action:none; user-select:none; }
+.rv .th-paneel{ display:flex; gap:.6rem; align-items:center; font-weight:700; margin:.2rem 0; }
+.rv .th-paneel .val{ background:var(--zone-bg); border-radius:.4rem; padding:.1rem .6rem; font-variant-numeric:tabular-nums; }
+.bank{ max-width:340px; margin:.3rem auto; border-radius:1.2rem; background:#127a7f; color:#fff; padding:1rem 1.1rem; }
+.bank-top{ font-size:.85rem; opacity:.85; font-weight:700; }
+.bank-saldo{ font-size:.85rem; margin:.7rem 0 .8rem; } .bank-saldo b{ display:block; font-size:2rem; margin-top:.15rem; }
+.bank-lijst{ background:rgba(255,255,255,.12); border-radius:.8rem; padding:.2rem .8rem; }
+.bank-lijst div{ display:flex; justify-content:space-between; gap:.6rem; padding:.5rem 0; font-size:.9rem; border-bottom:1px solid rgba(255,255,255,.15); }
+.bank-lijst div:last-child{ border-bottom:0; } .bank-lijst span{ font-weight:800; }
+.bank-nieuw{ margin-top:.7rem; font-size:.9rem; } .bank-nieuw b{ font-size:1.2rem; }
+.rv .eenheid{ font-weight:800; color:var(--ink-soft); }
+
+/* foutenjager */
+.schriftje{ position:relative; background:#fffef7; border:1px solid #ece6c8; border-radius:.8rem; padding:1.1rem 1.2rem 1.6rem 3.6rem; min-height:170px; color:#3a3a3a;
+  background-image:linear-gradient(to right, transparent 2.6rem, #f3b4b4 2.6rem calc(2.6rem + 2px), transparent calc(2.6rem + 2px)), repeating-linear-gradient(to bottom, transparent 0 38px, #e8e2c4 38px 39px); }
+.sj-naam{ font-size:.85rem; color:#4f6668; font-weight:700; margin-bottom:.8rem; }
+.sj-lijn{ font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:2rem; }
+.sj-stempel{ position:absolute; right:1.2rem; bottom:1rem; width:3.6rem; height:3.6rem; border-radius:50%; border:4px solid var(--orange); color:var(--orange); font-size:2rem; font-weight:900; display:grid; place-items:center; transform:rotate(-12deg); }
+/* één scherm: de getallenas mag smaller, de twee knoppen naast elkaar */
+.rv .nl-svg{ max-height:175px; } .rv[data-soort="numberline"] .rv-vis{ padding:.3rem .6rem; }
+.rv .nl-modi{ flex-direction:row; flex-wrap:wrap; } .rv .nl-modus{ flex:1; }
