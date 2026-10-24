@@ -86,3 +86,8 @@
 /* één scherm: de getallenas mag smaller, de twee knoppen naast elkaar */
 .rv .nl-svg{ max-height:175px; } .rv[data-soort="numberline"] .rv-vis{ padding:.3rem .6rem; }
 .rv .nl-modi{ flex-direction:row; flex-wrap:wrap; } .rv .nl-modus{ flex:1; }
+/* vraagstukken: drie stappen in de rechterkolom, compacter zodat alles op één scherm past */
+.rv[data-soort="context"] .rv-ant h3 ~ h3{ margin-top:.4rem; }
+.rv[data-soort="context"] .rv-ant .rv-tip{ margin:.1rem 0 .25rem; }
+.rv[data-soort="context"] .th-paneel{ margin:0; }
+.rv[data-soort="context"] .rv-rij{ margin:.2rem 0; }
