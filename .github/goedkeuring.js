@@ -7,7 +7,8 @@ const EIGENAARS = [
   { wie:'vandaelet', naam:'Tom Van Daele', paden:[
     /^[12][AB]\/(basisgeletterdheid|heuristieken|wiskundige-problemen)\//,
     /^2B\/modules\//,
-    /^test\/wiskundigeproblemen\.js$/,
+    /^2B\/index\.html$/,
+    /^test\/wiskundigeproblemen(2b)?\.js$/,
   ] },
 ];
 const STANDAARD = { wie:'dejaegerjeroen', naam:'Jeroen De Jaeger' };
