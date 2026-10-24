@@ -873,6 +873,18 @@ export const SITES = [
     "naam": "Proeftoets 3",
     "toets": true,
     "vragen": 0
+   },
+   {
+    "id": "toets4",
+    "naam": "Proeftoets 4",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets5",
+    "naam": "Proeftoets 5",
+    "toets": true,
+    "vragen": 0
    }
   ]
  }

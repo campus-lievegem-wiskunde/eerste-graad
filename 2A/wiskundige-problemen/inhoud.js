@@ -7599,7 +7599,9 @@ const themaVan = k => THEMAS.find(t => t.k === k);
 /* proeftoetsen zoals de toets: Wiskundige problemen oplossen en twee dieptethema's (per proeftoets andere) */
 const TOETSEN_ALLE = {
   A: [{k:'toets1', naam:'Proeftoets 1', delen:['wpo', 'get', 'ooi']}, {k:'toets2', naam:'Proeftoets 2', delen:['wpo', 'alg', 'sta']},
-      {k:'toets3', naam:'Proeftoets 3', delen:['wpo', 'vvg', 'mei']}],
+      {k:'toets3', naam:'Proeftoets 3', delen:['wpo', 'vvg', 'mei']},
+      /* extra proeftoetsen (keuze van Tom, 24 oktober 2026): ook de andere dieptethema's komen aan bod */
+      {k:'toets4', naam:'Proeftoets 4', delen:['wpo', 'mor', 'tra']}, {k:'toets5', naam:'Proeftoets 5', delen:['wpo', 'tad', 'vzm']}],
   B: [{k:'toets1', naam:'Proeftoets 1', delen:['wpo', 'get', 'ooi']}, {k:'toets2', naam:'Proeftoets 2', delen:['wpo', 'ver', 'sta']},
       {k:'toets3', naam:'Proeftoets 3', delen:['wpo', 'mor', 'tad']}]
 };
