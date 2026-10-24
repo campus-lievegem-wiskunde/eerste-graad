@@ -4,7 +4,7 @@
    Andere modules (zoals het dashboard) gebruiken: import { klaar } from '…/aanmelden.js'; const s = await klaar;
    Een toeschouwer (collectie toeschouwers, bv. de directeur) werkt in een oefenomgeving: F en db wijzen dan naar
    zandbak.js: hij leest de echte gegevens, maar wat hij wijzigt blijft in deze browser. F en db zijn daarom 'let' (live bindings). */
-import { OPDRACHTEN, groepVoor, toetsSluit } from './opdrachten.js';
+import { OPDRACHTEN, groepVoor, toetsSluit, opdrZichtbaar } from './opdrachten.js';
 const V = '10.12.2';
 export let [{ initializeApp }, A, F, C] = await Promise.all([
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
@@ -314,6 +314,11 @@ async function start(u){
   B.dataset.rol = rol;
   if(rol === 'leerling'){
     try{ groepen = await groepenVan(email); }catch(e){ console.warn('Groepen ophalen mislukt', e); }
+  }
+  /* toetsen en taken: voorlopig enkel voor beheerders (OPDR_ZICHTBAAR in opdrachten.js) */
+  if(!opdrZichtbaar(rol, !!db.zandbak)){
+    document.querySelectorAll('a.tegel[data-rubriek], a.tegel[data-opdr]').forEach(t=>t.remove());
+    if(B.dataset.rubriek) document.querySelectorAll('.tegels').forEach(t=>t.replaceChildren(el('p', 'leeg', 'Hier staat nog niets.')));
   }
   resolveKlaar({ user:u, email, rol, groepen, toeschouwer:!!db.zandbak });
   if(rol === 'leerling') tegelsFilteren(groepen);

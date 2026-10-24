@@ -2,7 +2,7 @@
    ?opdr=<id>&soort=blanco = de lege toets op papier; ?opdr=<id>&soort=sleutel = de verbetersleutel. Enkel voor leerkrachten.
    Een pdf maken: Afdrukken, dan Opslaan als PDF. */
 import { klaar, db, F } from '../gedeeld/aanmelden.js';
-import { OPDRACHTEN, docId, bereken } from '../gedeeld/opdrachten.js';
+import { OPDRACHTEN, bereken, opdrZichtbaar } from '../gedeeld/opdrachten.js';
 import { tekenOpgave, laadOpgave, maxPunten } from '../gedeeld/opgave-weergave.js';
 const q = new URLSearchParams(location.search), app = document.getElementById('app');
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
@@ -12,7 +12,7 @@ document.getElementById('druk').onclick = ()=>print();
 
 const s = await klaar;
 const o = OPDRACHTEN.find(x=>x.id === q.get('opdr')), soort = q.get('soort') || 'ingevuld';
-if(s.rol === 'leerling') app.append(el('p', 'errmsg', 'Deze pagina is enkel voor leerkrachten.'));
+if(s.rol === 'leerling' || !opdrZichtbaar(s.rol, s.toeschouwer)) app.append(el('p', 'errmsg', 'Deze pagina is (nog) niet beschikbaar.'));
 else if(!o) app.append(el('p', 'errmsg', 'Onbekende toets of taak.'));
 else bouw().catch(e=>{ console.error(e); app.append(el('p', 'errmsg', 'Ophalen lukte niet.')); });
 

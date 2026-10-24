@@ -6,6 +6,11 @@
 export const OPDRACHTEN = [
   /* { id:'1a-t-m1-getallen', titel:'Toets · Inzicht in getallen', kort:'Toets getallen', jaar:'1A', rubriek:'toetsen', pad:'1A/toetsen/m1-getallen/' } */
 ];
+/* Wie ziet de rubrieken toetsen, huistaken en rekenvaardigheden en het tabblad in het dashboard?
+   'beheerder' = voorlopig enkel beheerders (keuze van Jeroen, 24 oktober 2026; geen toeschouwer, geen collega's, geen leerlingen);
+   'iedereen' = alle leerkrachten, en leerlingen zodra iets voor hun groep openstaat. */
+export const OPDR_ZICHTBAAR = 'beheerder';
+export const opdrZichtbaar = (rol, toeschouwer) => OPDR_ZICHTBAAR === 'iedereen' || (rol === 'beheerder' && !toeschouwer);
 export const RUBRIEKEN_OPDR = [['toetsen', 'Toetsen'], ['huistaken', 'Huistaken'], ['rekenvaardigheden', 'Rekenvaardigheden']];
 export const rubriekNaam = id => (RUBRIEKEN_OPDR.find(r=>r[0] === id) || [id, id])[1];
 export const soortVan = o => o.rubriek === 'toetsen' ? 'toets' : 'taak';
