@@ -125,3 +125,13 @@ table.dt.overzicht th.rot{ height:7rem; }
 .doel-letter .code{ font-family:ui-monospace,Consolas,monospace; font-size:.75rem; color:var(--ink-soft); }
 .d-t{ display:inline-block; width:1.1rem; text-align:center; font-weight:800; }
 .d-ok .d-t{ color:var(--ok); } .d-bezig .d-t{ color:var(--orange); } .d-nog .d-t{ color:var(--bad); } .d-leeg{ color:var(--ink-soft); }
+/* Toetsen en taken (dashboard/opdrachten.js) */
+.opdr-staat[data-staat="open"]{ color:var(--ok); font-weight:700; }
+.opdr-staat[data-staat="gepland"]{ color:var(--accent-dark); font-weight:700; }
+.opdr-inst{ margin:.5rem 0 .2rem 1rem; padding:.5rem .9rem; border-left:3px solid var(--tq); display:flex; flex-direction:column; gap:.3rem; }
+.opdr-inst input[type=datetime-local], .opdr-extra input[type=datetime-local], .ov-punten input{ font:inherit; padding:.3rem .45rem; border:2px solid var(--tq); border-radius:.5rem; background:var(--card); color:var(--ink); }
+.opdr-inst .rij label{ font-weight:600; }
+.opdr-extra, .opdr-dicht{ margin-top:.4rem; }
+.ov-punten{ margin:.5rem 0 0 2.4rem; }
+.ov-punten input{ width:5rem; }
+table.opdr-tabel td.hand{ text-decoration:underline; text-underline-offset:3px; }

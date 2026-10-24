@@ -1,6 +1,7 @@
 /* Dashboard voor leerkrachten en beheerders. */
 import { klaar, db, F, C } from '../gedeeld/aanmelden.js';
 import { SITES } from '../gedeeld/sites.js';
+import { paneOpdrachten } from './opdrachten.js';
 
 const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
@@ -57,15 +58,15 @@ function viewGroepen(body){
   if(ST.collega) body.append(el('div', 'vervang', `Vervanging: je bekijkt de groepen van ${esc(lkNaam(ST.collega))}. Kies een groep.`));
   if(!toon.length){ if(ST.collega){ body.append(el('p', 'mini', 'Deze collega heeft nog geen groepen.')); return; } body.append(el('div', 'tip', '<div>Je hebt nog geen groepen. Klik op <b>Mijn groepen kiezen</b> en duid je niveaugroepen aan.</div>')); return; }
   const chips = el('div', 'chips');
-  toon.forEach(g=>{ const b = el('button', 'chip-btn', `${esc(g.naam)}<span class="cnt">${g.leerlingen.length}</span>`); b.type = 'button'; b.setAttribute('aria-pressed', String(ST.sel === g)); b.onclick = ()=>{ ST.sel = g; ST.site = null; render(); }; chips.append(b); });
+  toon.forEach(g=>{ const b = el('button', 'chip-btn', `${esc(g.naam)}<span class="cnt">${g.leerlingen.length}</span>`); b.type = 'button'; b.setAttribute('aria-pressed', String(ST.sel === g)); b.onclick = ()=>{ ST.sel = g; ST.site = null; ST.opdrRes = null; render(); }; chips.append(b); });
   body.append(chips);
   if(!ST.sel || !toon.includes(ST.sel)) ST.sel = toon[0];
   const g = ST.sel;
   const sub = el('div', 'tabs');
-  [['aanuit', 'Openzetten'], ['voortgang', 'Voortgang'], ['leerlingen', 'Leerlingen']].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; render(); }; sub.append(b); });
+  [['aanuit', 'Openzetten'], ['voortgang', 'Voortgang'], ['opdr', 'Toetsen en taken'], ['leerlingen', 'Leerlingen']].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; ST.opdrRes = null; render(); }; sub.append(b); });
   body.append(sub);
   const pane = el('div'); body.append(pane);
-  ({ voortgang:paneVoortgang, leerlingen:paneLeerlingen, aanuit:paneAanUit })[ST.sub](pane, g);
+  ({ voortgang:paneVoortgang, leerlingen:paneLeerlingen, aanuit:paneAanUit, opdr:(p, g)=>paneOpdrachten(p, g, { ST, render, naamVan, laadLeerlingen, jaarcode }) })[ST.sub](pane, g);
 }
 
 function kiesCollega(body){

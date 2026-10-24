@@ -4,6 +4,7 @@
    Andere modules (zoals het dashboard) gebruiken: import { klaar } from '…/aanmelden.js'; const s = await klaar;
    Een toeschouwer (collectie toeschouwers, bv. de directeur) werkt in een oefenomgeving: F en db wijzen dan naar
    zandbak.js: hij leest de echte gegevens, maar wat hij wijzigt blijft in deze browser. F en db zijn daarom 'let' (live bindings). */
+import { OPDRACHTEN, groepVoor, toetsSluit } from './opdrachten.js';
 const V = '10.12.2';
 export let [{ initializeApp }, A, F, C] = await Promise.all([
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
@@ -117,7 +118,8 @@ async function groepenVan(email){
   const s = await F.getDocs(q);
   return s.docs.map(d=>Object.assign({ id:d.id }, d.data()));
 }
-/* is een site open, en welke onderdelen zijn uitgezet? (open als minstens één groep hem openzette) */
+/* is een site open, en welke onderdelen zijn uitgezet? (open als minstens één groep hem openzette)
+   toets = de module is even dicht omdat een toets van de groep openstaat (instelling dicht van die toets) */
 export function zichtbaarheid(groepen, siteId){
   let open = false; let uit = null; let rt = false;
   groepen.forEach(g=>{
@@ -127,8 +129,10 @@ export function zichtbaarheid(groepen, siteId){
     const u = new Set(a.uit || []);
     uit = uit === null ? u : new Set([...uit].filter(x=>u.has(x)));
   });
-  return { open, uit: uit || new Set(), rt };
+  const toets = open && toetsSluit(groepen, siteId);
+  return { open: open && !toets, uit: uit || new Set(), rt, toets };
 }
+const DICHT = z => z.toets ? '<b>Deze module is even dicht.</b> Er staat een toets open; na de toets kan je hier weer oefenen.' : '<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.';
 /* knop met het rekentoestel rechtsonder (gedeeld/ti30xb.js), als de leerkracht hem aanzette voor deze module */
 function rekentoestelKnop(){
   const knop = () => window.TI30XB && window.TI30XB.fab && window.TI30XB.fab();
@@ -244,13 +248,21 @@ function koppelResultaten(){
 /* startpagina's: tegels van sites die niet openstaan verbergen (voor leerlingen) */
 /* geen groep: toon het adres waarmee de leerling aanmeldde, zodat de leerkracht het kan vergelijken met de leerlingenlijst (bv. een koppelteken) */
 const geenGroep = () => `<b>Je bent nog niet ingedeeld in een groep.</b> Je bent aangemeld als <b>${user.email.toLowerCase()}</b>. Toon dit adres aan je leerkracht: het moet zo in de leerlingenlijst staan.`;
+/* toetsen en taken: een tegel data-opdr is zichtbaar zodra de opdracht voor de leerling gepland, open of gesloten is;
+   een rubriektegel data-rubriek (jaarpagina) zodra er in die rubriek iets zichtbaar is */
 function tegelsFilteren(groepen){
-  const tegels = [...document.querySelectorAll('a.tegel[data-site]')];
+  const tegels = [...document.querySelectorAll('a.tegel[data-site], a.tegel[data-opdr], a.tegel[data-rubriek]')];
   if(!tegels.length) return;
   let zicht = 0;
-  tegels.forEach(t=>{ const z = zichtbaarheid(groepen, t.dataset.site); t.hidden = !z.open; if(z.open) zicht++; });
+  const email = user.email.toLowerCase(), opdrZicht = o => !!groepVoor(groepen, o, email);
+  tegels.forEach(t=>{
+    let open;
+    if(t.dataset.site) open = zichtbaarheid(groepen, t.dataset.site).open;
+    else if(t.dataset.opdr){ const o = OPDRACHTEN.find(x=>x.id === t.dataset.opdr); open = !!o && opdrZicht(o); }
+    else open = OPDRACHTEN.some(o=>o.rubriek === t.dataset.rubriek && o.jaar === t.dataset.jaar && opdrZicht(o));
+    t.hidden = !open; if(open) zicht++; });
   /* tegels zonder data-site (bv. Modules) blijven altijd zichtbaar: dan geen melding "niets open"; een leerling zonder groep krijgt wel altijd zijn melding */
-  if(!zicht && (!groepen.length || !document.querySelector('a.tegel:not([data-site])'))){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', groepen.length ? 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.' : geenGroep())); }
+  if(!zicht && (!groepen.length || !document.querySelector('a.tegel:not([data-site]):not([data-opdr]):not([data-rubriek])'))){ const box = document.querySelector('.tegels'); if(box) box.append(el('p', 'leeg', groepen.length ? 'Er staat hier nog niets open. Je leerkracht zet de oefeningen open wanneer je eraan mag beginnen.' : geenGroep())); }
 }
 /* ---------- bekijk als leerling (leerkrachten, beheerders en toeschouwers) ----------
    De keuze staat in sessionStorage cl_als_<site> (enkel dit tabblad). De module toont dan wat een leerling van die groep ziet:
@@ -283,7 +295,7 @@ async function alsLeerling(email){
   balk.append(terug); B.prepend(balk);
   if(!g){ melding('<b>Deze groep bestaat niet meer.</b>'); return; }
   const z = zichtbaarheid([g], site);
-  if(!z.open){ melding('<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.'); return; }
+  if(!z.open){ melding(DICHT(z)); return; }
   window.CL_VERBORGEN = z.uit;
   if(z.rt) rekentoestelKnop();
   wipeLocal(); koppelResultaten();
@@ -311,7 +323,7 @@ async function start(u){
   if(rol === 'leerling'){
     if(!groepen.length){ melding(geenGroep()); return; }
     const z = zichtbaarheid(groepen, site);
-    if(!z.open){ melding('<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.'); return; }
+    if(!z.open){ melding(DICHT(z)); return; }
     window.CL_VERBORGEN = z.uit;
     if(z.rt) rekentoestelKnop();
   } else if(alsGroep()){
