@@ -117,7 +117,7 @@ function kiesGroepen(body){
 function sectieVan(site, vraagId){ let best = null; site.onderdelen.forEach(o=>{ if(vraagId.startsWith(o.id + '_') && (!best || o.id.length > best.id.length)) best = o; }); return best; }
 /* letter A-E als bolletje; E betekent: D nog niet beheerst */
 const NIV_UITLEG = { A:'niveau A (hoogste)', B:'niveau B', C:'niveau C', D:'niveau D', E:'E: D nog niet beheerst' };
-function nivBol(nv, extra){ if(!nv || !nv.n) return ''; return `<b class="niv-l${nv.n === 'E' ? ' niv-e' : ''}" title="${esc(NIV_UITLEG[nv.n] || 'niveau ' + nv.n)}${nv.t ? ` · ${nv.j}/${nv.t} juist` : ''}${extra ? ' · ' + esc(extra) : ''}">${esc(nv.n)}</b>`; }
+function nivBol(nv, extra){ if(!nv) return ''; if(!nv.n) return nv.t ? `<b class="niv-l niv-leeg" title="nog te weinig gegevens (${nv.j}/${nv.t} juist): minstens 3 antwoorden per niveau nodig">?</b>` : ''; return `<b class="niv-l${nv.n === 'E' ? ' niv-e' : ''}" title="${esc(NIV_UITLEG[nv.n] || 'niveau ' + nv.n)}${nv.t ? ` · ${nv.j}/${nv.t} juist` : ''}${extra ? ' · ' + esc(extra) : ''}">${esc(nv.n)}</b>`; }
 function deelLetters(site, nv){ if(!nv || !nv.delen) return ''; return Object.entries(nv.delen).map(([k, x])=>{ const o = site.onderdelen.find(y=>y.id === k); return x && x.n ? `${esc(o ? o.naam.split(' ')[0] : k)} ${nivBol(x)}` : ''; }).filter(Boolean).join(' '); }
 function minuten(s){ if(!s) return '–'; const m = Math.round(s / 60); return m < 1 ? '<1 min' : `${m} min`; }
 async function haalVoortgang(site, emails){
@@ -191,14 +191,14 @@ async function paneVoortgang(pane, g){
       else if(p.juist + p.fout){ const r_ = o.vragen ? p.juist / o.vragen : 0; txt = `${p.juist}${o.vragen ? '/' + o.vragen : ''}`; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
       const nv = v.niv[o.id];
       const td = el('td', 'sc ' + cls, (o.toets ? '' : nivBol(nv)) + (txt || (nv ? '' : '·')) + (o.toets && nv && nv.delen ? `<small class="delen">${deelLetters(site, nv)}</small>` : '') + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
-      td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}${nv && nv.n ? `, niveau ${nv.n}${nv.n === 'E' ? ' (D nog niet beheerst)' : ''} (${nv.j}/${nv.t} juist)` : ''}, ${minuten(p.tijd)}`;
+      td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}${nv && nv.n ? `, niveau ${nv.n}${nv.n === 'E' ? ' (D nog niet beheerst)' : ''} (${nv.j}/${nv.t} juist)` : nv && nv.t ? `, nog te weinig gegevens voor een niveau (${nv.j}/${nv.t} juist)` : ''}, ${minuten(p.tijd)}`;
       tr.append(td);
     });
     tb.append(tr);
   });
   t.append(tb); wrap.append(t); pane.append(wrap);
   pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score'));
-  if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau per onderdeel volgens de leeswijzer bij de vaardigheidsniveaus: A hoogste, D laagste, <b class="niv-l niv-e">E</b> = D nog niet beheerst. Bij een proeftoets: het niveau per deel. Klik op een naam voor de doelen per letter.'));
+  if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau per onderdeel volgens de leeswijzer bij de vaardigheidsniveaus: A hoogste, D laagste, <b class="niv-l niv-e">E</b> = D nog niet beheerst, <b class="niv-l niv-leeg">?</b> = nog te weinig gegevens. Bij een proeftoets: het niveau per deel. Klik op een naam voor de doelen per letter.'));
 }
 /* overzicht: leerlingen × sites, per site het deel van de vragen juist en de werktijd; klik op een site voor de tabel per onderdeel */
 function samenvatting(site, v){

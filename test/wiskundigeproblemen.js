@@ -17,8 +17,25 @@ const H = require('./helpers');
   check(nav.includes('Problemen oplossen') && nav.includes('Getallenleer') && !nav.includes('Verzamelingen') && nav.includes('Proeftoets 3'), 'zijbalk zonder het verborgen onderdeel: ' + nav.join(', '));
   check(!/Vlaamse/i.test(await p.locator('body').innerText()), 'nergens "Vlaamse toetsen"');
 
-  /* een reeks van 10 vragen getallenleer: 9 juist, 1 fout */
-  await p.click('button[data-a=kies][data-d=get]'); await p.waitForTimeout(150);
+  /* letterregel: E enkel als D met genoeg antwoorden meestal fout is; anders nog te weinig gegevens */
+  const regel = await p.evaluate(()=>{ const S = __oefensite.S(), oud = S.h.alg, uit = {};
+    const geval = (naam, h)=>{ S.h.alg = h; uit[naam] = __oefensite.letterVan('alg').n; };
+    geval('vijf juist verspreid', { D:'1', C:'11', B:'11' }); geval('D drie fout', { D:'000' }); geval('D drie juist', { D:'111' });
+    geval('D juist, C weinig', { D:'111', C:'0' }); geval('D fout, C juist', { D:'001', C:'111' }); geval('B juist, D weinig', { D:'1', B:'111' });
+    S.h.alg = oud; return uit; });
+  check(regel['vijf juist verspreid'] === '' && regel['D drie fout'] === 'E' && regel['D drie juist'] === 'D' && regel['D juist, C weinig'] === 'D' && regel['D fout, C juist'] === 'E' && regel['B juist, D weinig'] === 'B',
+    'letterregel (E alleen bij genoeg antwoorden op D): ' + JSON.stringify(regel));
+
+  /* een reeks die na 5 juiste antwoorden stopt: nog geen letter, geen E */
+  await p.click('button[data-a=kies][data-d=alg]'); await p.waitForTimeout(150);
+  await p.click('form[data-f=keuze] button[type=submit]'); await p.waitForTimeout(300);
+  for(let i = 0; i < 5; i++){ await p.evaluate(()=>__oefensite.vulJuist()); await p.click('[data-a=bevestig]'); await p.waitForTimeout(60); await p.click('[data-a=verder]'); await p.waitForTimeout(60); }
+  await p.click('[data-a=stop]'); await p.click('[data-a=stopja]'); await p.waitForTimeout(200);
+  const kort = await p.evaluate(()=>JSON.parse(localStorage.getItem('2a_wp_v1_niv') || '{}').alg);
+  check(kort && kort.n !== 'E' && kort.t === 5 && kort.j === 5, 'reeks gestopt na 5 juist: geen E (' + JSON.stringify(kort) + ')');
+  await p.click('nav.side button[data-d=get]'); await p.waitForTimeout(150);
+
+
   check(await p.locator('.niv-l, .lkdoelen, .lkinfo').count() === 0, 'leerling ziet geen letters en geen leerkrachtinfo');
   await p.click('form[data-f=keuze] button[type=submit]'); await p.waitForTimeout(300);
   check(await p.locator('.lkcode, .niv-l').count() === 0, 'leerling ziet bij een vraag geen letter of doelcode');
@@ -29,10 +46,10 @@ const H = require('./helpers');
   check(/9 van de 10/.test(await p.locator('.uitslag').innerText()), 'resultaat 9 van de 10');
   check(/Hier werk je nog aan|Dit kan je al/.test(await p.locator('#app').innerText()) && await p.locator('#app .niv-l').count() === 0, 'resultaat toont doelen in woorden, zonder letters');
   const ls = await p.evaluate(()=>({ res:JSON.parse(localStorage.getItem('2a_wp_v1__res') || '{}'), niv:JSON.parse(localStorage.getItem('2a_wp_v1_niv') || '{}'), dg:JSON.parse(localStorage.getItem('2a_wp_v1_doelen') || '{}') }));
-  const ids = Object.keys(ls.res);
-  check(ids.length === 10 && ids.every(id=>id.startsWith('get_')) && Object.values(ls.res).filter(x=>x === 1).length === 9, 'juist/fout per vraag onder get_…');
+  const ids = Object.keys(ls.res).filter(id=>id.startsWith('get_'));
+  check(ids.length === 10 && ids.filter(id=>ls.res[id] === 1).length === 9 && Object.keys(ls.res).every(id=>/^(get|alg)_/.test(id)), 'juist/fout per vraag onder get_… (en alg_… van de korte reeks)');
   check(ls.niv.get && /^[A-E]$/.test(ls.niv.get.n) && ls.niv.get.j === 9, 'letter per thema bewaard voor het dashboard: ' + JSON.stringify(ls.niv.get));
-  check(Object.keys(ls.dg).length >= 5 && Object.keys(ls.dg).every(c=>/^A-GET-[ABCD]\d+$/.test(c)), 'doelen per code bewaard: ' + Object.keys(ls.dg).join(' '));
+  check(Object.keys(ls.dg).filter(c=>/^A-GET-/.test(c)).length >= 5 && Object.keys(ls.dg).every(c=>/^A-(GET|ALG)-[ABCD]\d+$/.test(c)), 'doelen per code bewaard: ' + Object.keys(ls.dg).join(' '));
   check(await p.locator('nav.side .lbl', { hasText:'Mijn fouten' }).count() === 1, 'Mijn fouten verschijnt na een fout');
 
   /* proeftoets 1: drie delen van 15 vragen (problemen oplossen, getallenleer, omtrek en oppervlakte) */
