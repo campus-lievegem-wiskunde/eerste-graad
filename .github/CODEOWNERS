@@ -1,0 +1,8 @@
+# Wie automatisch gevraagd wordt om een pull request na te kijken. Hoort bij .github/goedkeuring.js:
+# de controle "goedkeuring" daar beslist wie echt moet goedkeuren (ook per site in gedeeld/sites.js). Houd beide gelijk.
+*                               @dejaegerjeroen
+/*/basisgeletterdheid/          @vandaelet
+/*/heuristieken/                @vandaelet
+/*/wiskundige-problemen/        @vandaelet
+/2B/modules/                    @vandaelet
+/test/wiskundigeproblemen.js    @vandaelet
