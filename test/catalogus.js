@@ -12,7 +12,7 @@ const fs = require('fs'); const path = require('path'); const { chromium } = req
     <body data-site="${u.searchParams.get('site')}" data-prefix="${u.searchParams.get('prefix')}"><header class="top"><h1>t</h1></header><div class="shell"><nav class="side"><ol id="nav"></ol></nav><main id="main"><div id="app"></div><div class="pager" id="pager"></div></main></div>
     <script>window.__ids=[]; window.CL={ vraag:id=>__ids.push(id), res(){}, toets(){} };</script>
     <script src="../../../gedeeld/ti30xb.js"></script><script src="../../../gedeeld/kop.js"></script><script src="inhoud.js"></script></body></html>` }); });
-  const uit = [];
+  const uit = []; let fouten = 0;
   for(const s of SITES){
     const p = await ctx.newPage(); const fout = []; p.on('pageerror', e=>fout.push(e.message));
     await p.goto(`http://localhost:8765/${s.pad}_catalogus.html?site=${s.id}&prefix=${s.prefix}`); await p.waitForTimeout(800);
@@ -23,7 +23,8 @@ const fs = require('fs'); const path = require('path'); const { chromium } = req
     const lang = [...secs].sort((a, c)=>c.id.length - a.id.length); secs.forEach(x=>x.vragen = 0);
     ids.forEach(id=>{ const sec = lang.find(x=>id.startsWith(x.id + '_')); if(sec) sec.vragen++; });
     uit.push(Object.assign({}, s, { onderdelen:secs })); console.log(s.id, secs.length + ' onderdelen', ids.length + ' vragen', fout.slice(0, 2).join(' | ')); await p.close();
+    if(fout.length || !secs.length){ fouten++; console.log('NIET OK', s.id, fout.length ? 'JavaScript-fouten' : 'geen onderdelen'); }
   }
   fs.writeFileSync(bestand, '/* Overzicht van alle sites en hun onderdelen (automatisch gemaakt met test/catalogus.js).\n   Een nieuwe site: hier toevoegen met onderdelen:[] en het script opnieuw draaien. vragen = aantal controleerbare vragen per onderdeel. */\nexport const SITES = ' + JSON.stringify(uit, null, 1) + ';\n');
-  await b.close();
+  await b.close(); process.exit(fouten ? 1 : 0);
 })();

@@ -1,0 +1,26 @@
+# Controleert wie een pull request moet goedkeuren (.github/goedkeuring.js).
+# pull_request_target: de controle draait altijd met de versie van main, zodat een pull request ze niet zelf kan aanpassen.
+# De code van de pull request wordt hier nooit uitgevoerd; enkel de lijst van gewijzigde bestanden en de goedkeuringen worden gelezen.
+name: Goedkeuring
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  goedkeuring:
+    name: goedkeuring
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          sparse-checkout: .github
+      - name: Goedkeuring controleren
+        run: node .github/goedkeuring.js
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}

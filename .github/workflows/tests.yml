@@ -1,0 +1,26 @@
+# Draait alle tests met de nep-Firebase (test/alles.sh) bij elke pull request en elke wijziging op main.
+# De controle "tests" is verplicht voor een pull request op main samengevoegd kan worden.
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Playwright en xlsx installeren
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0 xlsx@0.18.5
+          npx playwright install --with-deps chromium
+      - name: Alle tests
+        run: test/alles.sh

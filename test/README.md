@@ -5,6 +5,7 @@ Alles hier draait lokaal met een **nep-Firebase**: aanmelden en de database word
 Benodigd: Node, Python 3, Playwright met Chromium, en (voor de Excel-import) het npm-pakket `xlsx`.
 
 ```bash
+test/alles.sh                 # alles hieronder in één keer (zo draait het ook op GitHub Actions bij elke pull request)
 test/serve.sh                 # lokale server op http://localhost:8765 (repository als hoofdmap)
 node test/rooktest.js         # import, groepen, openzetten, leerling, voortgang: alles OK?
 node test/catalogus.js        # gedeeld/sites.js opnieuw maken (na een nieuwe of gewijzigde module)
@@ -25,3 +26,5 @@ node test/resultaten.js       # resultaten nooit kwijt: mislukt ophalen bij het 
 | `voorbeeld.xlsx` | Fictieve leerlingenlijst (72 leerlingen, 20 groepen, 8 leerkrachten) |
 
 Aanmelden in een test: `window.__nextUser = { uid, email, displayName }` en dan op `#loginBtn` klikken (`helpers.aanmelden`).
+
+Op GitHub draait `.github/workflows/tests.yml` bij elke pull request en elke wijziging op main `test/alles.sh`; die faalt ook als `gedeeld/sites.js` niet bijgewerkt is. Een nieuwe test `test/<naam>.js` die eindigt met `process.exit(ok ? 0 : 1)` komt er vanzelf bij. Wie wat moet goedkeuren staat in `.github/goedkeuring.js` (controle "goedkeuring").

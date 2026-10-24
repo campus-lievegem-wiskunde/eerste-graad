@@ -1,0 +1,22 @@
+# Na een goedkeuring (of een ingetrokken goedkeuring) de controle "goedkeuring" opnieuw draaien.
+# Het opnieuw draaien gebruikt de versie van main (pull_request_target), niet die van de pull request.
+name: Goedkeuring opnieuw
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  actions: write
+jobs:
+  opnieuw:
+    name: goedkeuring opnieuw controleren
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Laatste controle opnieuw draaien
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/actions/workflows/goedkeuring.yml/runs?event=pull_request_target&head_sha=$SHA" --jq '.workflow_runs[0].id')
+          if [ -z "$id" ] || [ "$id" = null ]; then echo "Geen controle gevonden voor $SHA"; exit 0; fi
+          gh run rerun "$id" --repo "${{ github.repository }}" || gh run rerun "$id" --failed --repo "${{ github.repository }}"
