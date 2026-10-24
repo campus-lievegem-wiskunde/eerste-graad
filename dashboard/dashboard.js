@@ -2,6 +2,7 @@
 import { klaar, db, F, C } from '../gedeeld/aanmelden.js';
 import { SITES } from '../gedeeld/sites.js';
 import { paneOpdrachten } from './opdrachten.js';
+import { opdrZichtbaar } from '../gedeeld/opdrachten.js';
 
 const $ = (s, r=document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
@@ -63,7 +64,8 @@ function viewGroepen(body){
   if(!ST.sel || !toon.includes(ST.sel)) ST.sel = toon[0];
   const g = ST.sel;
   const sub = el('div', 'tabs');
-  [['aanuit', 'Openzetten'], ['voortgang', 'Voortgang'], ['opdr', 'Toetsen en taken'], ['leerlingen', 'Leerlingen']].forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; ST.opdrRes = null; render(); }; sub.append(b); });
+  if(ST.sub === 'opdr' && !opdrZichtbaar(ST.rol, ST.toeschouwer)) ST.sub = 'aanuit';
+  [['aanuit', 'Openzetten'], ['voortgang', 'Voortgang'], ['opdr', 'Toetsen en taken'], ['leerlingen', 'Leerlingen']].filter(([k])=>k !== 'opdr' || opdrZichtbaar(ST.rol, ST.toeschouwer)).forEach(([k, lab])=>{ const b = el('button', 'tab', lab); b.type = 'button'; b.setAttribute('aria-selected', String(ST.sub === k)); b.onclick = ()=>{ ST.sub = k; ST.opdrRes = null; render(); }; sub.append(b); });
   body.append(sub);
   const pane = el('div'); body.append(pane);
   ({ voortgang:paneVoortgang, leerlingen:paneLeerlingen, aanuit:paneAanUit, opdr:(p, g)=>paneOpdrachten(p, g, { ST, render, naamVan, laadLeerlingen, jaarcode }) })[ST.sub](pane, g);

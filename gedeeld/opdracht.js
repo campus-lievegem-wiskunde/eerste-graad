@@ -5,7 +5,7 @@
    het dashboard verbetert en schrijft resultaten/<id>__<e-mail>; de leerling ziet dat pas als de leerkracht het vrijgeeft.
    Leerkracht, beheerder of toeschouwer: invullen kan, maar er wordt niets bewaard. */
 import { klaar, db, F, C } from './aanmelden.js';
-import { OPDRACHTEN, groepVoor, docId, schud, soortVan } from './opdrachten.js';
+import { OPDRACHTEN, groepVoor, docId, schud, soortVan, opdrZichtbaar } from './opdrachten.js';
 import { tekenOpgave, maxPunten } from './opgave-weergave.js';
 
 const B = document.body, app = document.getElementById('app'), OPG = window.OPGAVE;
@@ -16,7 +16,8 @@ const woord = () => soortVan(o) === 'toets' ? 'toets' : 'taak';
 const kaart = (titel, html) => el('div', 'opdr-kaart', `<h2>${titel}</h2>${html || ''}`);
 
 const s = await klaar;
-if(!o || !OPG || OPG.id !== o.id){ app.append(kaart('Deze pagina is niet in orde', '<p>De opgave of de catalogus ontbreekt. Meld het aan je leerkracht.</p>')); }
+if(!opdrZichtbaar(s.rol, s.toeschouwer)){ app.append(kaart('Deze pagina is nog niet beschikbaar')); }
+else if(!o || !OPG || OPG.id !== o.id){ app.append(kaart('Deze pagina is niet in orde', '<p>De opgave of de catalogus ontbreekt. Meld het aan je leerkracht.</p>')); }
 else if(s.rol !== 'leerling') voorbeeld();
 else leerling();
 

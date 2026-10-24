@@ -8,13 +8,16 @@ const UIT = process.env.SCHERMEN || null; /* map voor schermafbeeldingen (option
   const bron = fs.readFileSync(path.join(__dirname, '..', 'gedeeld', 'opdrachten.js'), 'utf8').replace('export const OPDRACHTEN = [',
     `export const OPDRACHTEN = [ { id:'test-toets', titel:'Proeftoets voorbeeld', kort:'Proeftoets', jaar:'1A', rubriek:'toetsen', pad:'test/opdracht/toets/' },
     { id:'test-taak', titel:'Proeftaak voorbeeld', kort:'Proeftaak', jaar:'1A', rubriek:'huistaken', pad:'test/opdracht/taak/' },`);
-  await ctx.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron }));
+  /* hier voor iedereen zichtbaar (zoals later); stap 10 test de instelling 'beheerder' in een aparte browsercontext */
+  check(/OPDR_ZICHTBAAR = '(beheerder|iedereen)'/.test(bron), 'instelling OPDR_ZICHTBAAR gevonden');
+  await ctx.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron.replace(/OPDR_ZICHTBAAR = '\w+'/, "OPDR_ZICHTBAAR = 'iedereen'") }));
   const LK = { uid:'lk', email:'jeroen@svsl.be', displayName:'Jeroen De Jaeger' };
   const L1 = { uid:'l1', email:'an.claes@svsl.be', displayName:'An Claes' }, L2 = { uid:'l2', email:'bo.dewit@svsl.be', displayName:'Bo De Wit' };
-  const start = { 'beheerders/jeroen@svsl.be':{ naam:'Jeroen' }, 'leerkrachten/jeroen@svsl.be':{ naam:'Jeroen De Jaeger' },
+  const LK2 = { uid:'lk2', email:'els.collega@svsl.be', displayName:'Els Collega' };
+  const start = { 'beheerders/jeroen@svsl.be':{ naam:'Jeroen' }, 'leerkrachten/jeroen@svsl.be':{ naam:'Jeroen De Jaeger' }, 'leerkrachten/els.collega@svsl.be':{ naam:'Els Collega' },
     'leerlingen/an.claes@svsl.be':{ familienaam:'Claes', voornaam:'An', klas:'1A3', jaar:'1', stroom:'A' },
     'leerlingen/bo.dewit@svsl.be':{ familienaam:'De Wit', voornaam:'Bo', klas:'1A4', jaar:'1', stroom:'A' },
-    'groepen/1ANg1':{ naam:'1ANg1', jaar:'1', stroom:'A', soort:'niveau', leerkrachten:[LK.email], leerlingen:[L1.email, L2.email], aan:{ m1:{ on:true, uit:[], rt:false } } } };
+    'groepen/1ANg1':{ naam:'1ANg1', jaar:'1', stroom:'A', soort:'niveau', leerkrachten:[LK.email, LK2.email], leerlingen:[L1.email, L2.email], aan:{ m1:{ on:true, uit:[], rt:false } } } };
   const shot = async (p, n)=>{ if(UIT) await p.screenshot({ path:path.join(UIT, n + '.png'), fullPage:true }); };
   const alsGebruiker = async (p, url, u)=>{ await p.evaluate(()=>sessionStorage.removeItem('fake_user')); await H.aanmelden(p, url, u); await p.waitForTimeout(600); };
   const p = await H.pagina(ctx, start);
@@ -119,6 +122,28 @@ const UIT = process.env.SCHERMEN || null; /* map voor schermafbeeldingen (option
   await p.goto(H.B + '1A/modules/module-1-getallen/'); await p.waitForTimeout(1200);
   check(!/even dicht/.test(await p.locator('#app').textContent()), 'module 1 weer open na het sluiten van de toets');
 
+  /* 10. instelling 'beheerder' (voorlopig): een gewone leerkracht en een leerling zien niets, de beheerder wel */
   check(!p.fouten.length, 'geen JavaScript-fouten ' + p.fouten.join(' | '));
+  const c2 = await b.newContext({ viewport:{ width:1280, height:1000 } });
+  await c2.route(/gstatic\.com\/firebasejs\/.*\/firebase-(app|auth|firestore)\.js/, r=>{ const m = r.request().url().match(/firebase-(app|auth|firestore)/)[1]; r.fulfill({ contentType:'text/javascript', body:fs.readFileSync(path.join(__dirname, 'fake', { app:'app', auth:'auth', firestore:'fs' }[m] + '.js'), 'utf8') }); });
+  await c2.route(/fonts\.googleapis/, r=>r.fulfill({ contentType:'text/css', body:'' }));
+  await c2.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron.replace(/OPDR_ZICHTBAAR = '\w+'/, "OPDR_ZICHTBAAR = 'beheerder'") }));
+  const dbNu = await db(); const q = await c2.newPage(); q.fouten = []; q.on('pageerror', e=>q.fouten.push(e.message)); q.on('dialog', d=>d.accept());
+  await q.goto(H.B); await q.evaluate(d=>{ localStorage.clear(); localStorage.setItem('__fakedb', JSON.stringify(d)); }, dbNu);
+  await alsGebruiker(q, '1A/', L1);
+  check(!(await q.locator('a.tegel[data-rubriek]').count()), 'leerling: geen rubriektegels');
+  await q.goto(H.B + 'test/opdracht/taak/'); await q.waitForTimeout(900);
+  check(/niet beschikbaar/.test(await q.locator('#app').textContent()), 'leerling: opdrachtpagina niet beschikbaar');
+  await alsGebruiker(q, '1A/', LK);
+  check(await q.locator('a.tegel[data-rubriek]').count() === 3, 'beheerder: drie rubriektegels');
+  await alsGebruiker(q, '1A/', LK2);
+  check(!(await q.locator('a.tegel[data-rubriek]').count()), 'collega: geen rubriektegels toetsen en taken');
+  await q.goto(H.B + 'dashboard/'); await q.waitForTimeout(900);
+  check(await q.locator('button.tab:has-text("Openzetten")').count() === 1 && !(await q.locator('button.tab:has-text("Toetsen en taken")').count()), 'collega: geen tabblad Toetsen en taken');
+  await q.goto(H.B + 'test/opdracht/toets/'); await q.waitForTimeout(900);
+  check(/niet beschikbaar/.test(await q.locator('#app').textContent()), 'collega: opdrachtpagina niet beschikbaar');
+  await q.goto(H.B + '1A/toetsen/'); await q.waitForTimeout(900);
+  check(!(await q.locator('a.tegel[data-opdr]').count()), 'collega: rubriekpagina leeg');
+  check(!q.fouten.length, 'geen JavaScript-fouten (tweede context) ' + q.fouten.join(' | '));
   await b.close(); process.exit(ok ? 0 : 1);
 })();
