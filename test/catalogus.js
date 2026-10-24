@@ -7,6 +7,8 @@ const fs = require('fs'); const path = require('path'); const { chromium } = req
   const { SITES } = await import(bestand + '?' + Date.now());
   const b = await chromium.launch(); const ctx = await b.newContext();
   await ctx.route(/fonts\.googleapis/, r=>r.fulfill({ contentType:'text/css', body:'' }));
+  /* vaste toevalsgetallen: sommige onderdelen maken een wisselend aantal vragen (bv. roosters), zodat de telling anders elke keer kan verschillen */
+  await ctx.addInitScript(()=>{ let h = 20261024; Math.random = ()=>{ h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
   /* hulppagina: laadt kop.js en inhoud.js zonder aanmelden en telt elke CLvraag */
   await ctx.route(/\/_catalogus\.html/, r=>{ const u = new URL(r.request().url()); r.fulfill({ contentType:'text/html', body:`<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../../gedeeld/stijl.css"></head>
     <body data-site="${u.searchParams.get('site')}" data-prefix="${u.searchParams.get('prefix')}"><header class="top"><h1>t</h1></header><div class="shell"><nav class="side"><ol id="nav"></ol></nav><main id="main"><div id="app"></div><div class="pager" id="pager"></div></main></div>
