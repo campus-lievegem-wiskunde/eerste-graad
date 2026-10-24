@@ -113,6 +113,7 @@ table.dt.overzicht th.rot button.th-link{ all:unset; cursor:pointer; color:var(-
 table.dt.overzicht th.rot{ height:7rem; }
 
 /* letters en doelen (wiskundige problemen, leeswijzer) */
+.niv-l.niv-leeg{ border-style:dashed; border-color:var(--ink-soft); color:var(--ink-soft); }
 .niv-l.niv-e{ border-color:var(--orange); color:var(--ink); background:var(--or-soft); }
 .sc small.delen{ display:block; white-space:normal; min-width:7rem; }
 .sc small.delen .niv-l{ min-width:1.1rem; height:1.1rem; font-size:.68rem; }

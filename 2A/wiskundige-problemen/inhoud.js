@@ -7644,14 +7644,15 @@ function bewaar() {
   S.t = Date.now(); lok(PREFIX + 'staat', S);
   lok(PREFIX + 'doelen', S.dg);
   const niv = {};
-  THEMAS.forEach(t => { const l = letterVan(t.k); if (l.n) niv[t.k] = l; });
+  THEMAS.forEach(t => { const l = letterVan(t.k); if (l.t) niv[t.k] = l; }); /* n leeg = nog te weinig gegevens */
   TOETSEN.forEach(t => { const p = S.proef[t.k]; if (p) niv[t.k] = {n:p.delen && p.delen.wpo ? p.delen.wpo.n : '', j:p.j, t:p.t, d:p.d, delen:p.delen}; });
   lok(PREFIX + 'niv', niv);
 }
 
 /* ---------- letters en doelen ----------
    Een letter is het hoogste niveau waarvan de leerling de vragen meestal juist heeft (minstens 2 op 3, minstens 3 antwoorden),
-   zonder dat een lager niveau duidelijk nog niet lukt. Wie D (nog) niet meestal juist heeft, krijgt E. */
+   zonder dat een lager niveau duidelijk nog niet lukt. Wie D met minstens 3 antwoorden meestal fout heeft, krijgt E.
+   Is er nog voor geen enkele letter genoeg (minder dan 3 antwoorden per letter), dan blijft de letter leeg: nog te weinig gegevens. */
 const telJ = s => (s.match(/1/g) || []).length;
 function letterStand(k, L) {
   const h = ((S.h[k] || {})[L]) || '';
@@ -7661,10 +7662,12 @@ function letterStand(k, L) {
 function letterVan(k) {
   const st = LETTERS.map(L => letterStand(k, L));
   if (st.every(x => x === 'leeg')) return {n:''};
-  let n = 'E';
+  let n = '';
   for (let i = 0; i < 4; i++) {
     if (st[i] === 'ok' && st.slice(0, i).every(x => x !== 'niet')) n = LETTERS[i];
   }
+  /* E enkel als D met genoeg antwoorden (minstens 3) meestal fout is; anders: nog te weinig gegevens (n leeg) */
+  if (!n && st[0] === 'niet') n = 'E';
   const h = S.h[k] || {}; let j = 0, tt = 0;
   LETTERS.forEach(L => { const s = h[L] || ''; j += telJ(s); tt += s.length; });
   return {n, j, t:tt, d:new Date().toISOString().slice(0, 10)};
