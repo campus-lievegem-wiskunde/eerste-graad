@@ -70,6 +70,24 @@ service cloud.firestore {
         allow delete: if leerkracht();
       }
     }
+    // toetsen, huistaken en rekenvaardigheden: antwoorden van een leerling (document <opdracht>__<e-mail>);
+    // de leerling schrijft enkel zijn eigen document, en na het indienen bij één poging (slot) niets meer
+    match /inzendingen/{id} {
+      allow read: if leerkracht() || toeschouwer() || (aangemeld() && id.split('__')[1] == mail());
+      allow create: if aangemeld() && id.split('__')[1] == mail() && request.resource.data.email == mail();
+      allow update: if aangemeld() && id.split('__')[1] == mail() && request.resource.data.email == mail() && resource.data.get('slot', false) != true;
+      allow update, delete: if leerkracht();
+    }
+    // verbetersleutels: enkel leerkrachten (de leerling ziet ze nooit)
+    match /sleutels/{id} {
+      allow read: if leerkracht() || toeschouwer();
+      allow write: if leerkracht();
+    }
+    // punten per leerling: de leerkracht schrijft; de leerling leest zijn eigen resultaat pas als het vrijgegeven is
+    match /resultaten/{id} {
+      allow read: if leerkracht() || toeschouwer() || (aangemeld() && id.split('__')[1] == mail() && resource.data.vrij == true);
+      allow write: if leerkracht();
+    }
     // klassessie (Module 3): de leerkracht start een sessie met een code; de leerlingen doen tegelijk een experiment en het bord toont live de resultaten
     match /klassessie/{code} {
       allow read: if aangemeld();
