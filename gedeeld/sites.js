@@ -791,46 +791,70 @@ export const SITES = [
   "prefix": "2a_wp_v1_",
   "onderdelen": [
    {
-    "id": "pro",
+    "id": "wpo",
     "naam": "Problemen oplossen",
     "toets": false,
-    "vragen": 102
+    "vragen": 121
    },
    {
     "id": "get",
     "naam": "Getallenleer",
     "toets": false,
-    "vragen": 78
+    "vragen": 107
    },
    {
     "id": "alg",
     "naam": "Algebra",
     "toets": false,
-    "vragen": 57
+    "vragen": 67
    },
    {
-    "id": "mee",
-    "naam": "Meetkunde",
+    "id": "vvg",
+    "naam": "Verhoudingen",
     "toets": false,
-    "vragen": 74
+    "vragen": 73
+   },
+   {
+    "id": "mor",
+    "naam": "Objecten en relaties",
+    "toets": false,
+    "vragen": 33
+   },
+   {
+    "id": "mei",
+    "naam": "Eigenschappen",
+    "toets": false,
+    "vragen": 54
+   },
+   {
+    "id": "ooi",
+    "naam": "Omtrek en oppervlakte",
+    "toets": false,
+    "vragen": 59
+   },
+   {
+    "id": "tra",
+    "naam": "Transformaties",
+    "toets": false,
+    "vragen": 33
    },
    {
     "id": "sta",
     "naam": "Statistiek",
     "toets": false,
-    "vragen": 64
+    "vragen": 91
    },
    {
-    "id": "ver",
-    "naam": "Verzamelingenleer",
+    "id": "tad",
+    "naam": "Tabellen en diagrammen",
     "toets": false,
-    "vragen": 57
+    "vragen": 24
    },
    {
-    "id": "mix",
-    "naam": "Gemengde toets",
+    "id": "vzm",
+    "naam": "Verzamelingen",
     "toets": false,
-    "vragen": 0
+    "vragen": 89
    },
    {
     "id": "toets1",
@@ -847,6 +871,18 @@ export const SITES = [
    {
     "id": "toets3",
     "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets4",
+    "naam": "Proeftoets 4",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets5",
+    "naam": "Proeftoets 5",
     "toets": true,
     "vragen": 0
    }
