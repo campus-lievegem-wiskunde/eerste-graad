@@ -140,6 +140,9 @@ function maakVraag(sj) {
   q.t = o.velden ? 'num' : o.mk ? 'mk' : o.jf ? 'jf' : o.sym ? 'sym' : o.venn ? 'venn' : o.cel ? 'cel' : o.rooster ? 'klik' : o.kaartjes ? (o.vakken ? 'vak' : 'volg') : 'mc';
   if (q.velden) q.velden = q.velden.map(vd => Object.assign({}, vd, {w:typeof vd.w === 'number' ? wv(vd.w) : vd.w}));
   if (!q.o) q.o = [];
+  if (STROOM === 'B' && CALC_B[sj.id] !== undefined) q.calc = CALC_B[sj.id];
+  if (STROOM === 'B' && FK_B[sj.id] && !q.fk) q.fk = FK_B[sj.id];
+  if (STROOM === 'B' && q.calc === 'w') q.calc = 'e';
   return q;
 }
 
@@ -4520,9 +4523,8 @@ function T(code, id, maak, x) {
   x = x || {};
   const codes = typeof code === 'string' ? {[code[0]]:code} : code;
   /* rekenmachine volgens de leeswijzer: 'zonder ICT' in het doel = geen rekenmachine, anders de wetenschappelijke */
-  let calc = x.calc;
-  if (calc === undefined) { const c0 = codes.A || codes.B; calc = /WPO/.test(c0) ? 'e' : /zonder ICT/.test(DOELEN[c0] || '') ? false : 'w'; }
-  VRAGEN.push({id, d:null, lv:[0, 0], gen:maak, t:'gen', tip:x.tip, calc, form:x.form, codes});
+  /* (2B: 'meestal met ICT' = de eenvoudige rekenmachine; de keuze gebeurt in koppelAf, als de stroom gekend is) */
+  VRAGEN.push({id, d:null, lv:[0, 0], gen:maak, t:'gen', tip:x.tip, calc:x.calc, calcAuto:x.calc === undefined, form:x.form, codes});
 }
 function LAD(id, d, naam, maak, s) { LADDERS.push({id, d, naam, maak, s:s || 'A'}); }
 
@@ -4641,6 +4643,12 @@ function patroonFig(soort, k) {
    Vragen zonder code voor de stroom van deze site vallen uit de pool. Na het koppelen:
    q.d = thema (onderdeel-id), q.lv = [letter A-stroom, letter B-stroom] (2 = D … 5 = A). */
 const KOPPEL = {A:{}, B:{}};
+/* rekenmachine voor een gedeeld sjabloon op de 2B-site (bv. 'e' waar 2A geen rekenmachine geeft maar 2B 'met ICT' werkt) */
+const CALC_B = {};
+/* formulekader voor een gedeeld sjabloon op de 2B-site ('met gegeven formularium') */
+const FK_B = {};
+function fkB(id, lijst) { FK_B[id] = lijst; }
+function calcB(ids, c) { ids.trim().split(/\s+/).forEach(id => { CALC_B[id] = c; }); }
 function koppel(stroom, lijst) {
   lijst.trim().split(/\s+/).forEach(x => { const [id, code] = x.split('='); KOPPEL[stroom][id] = code; });
 }
@@ -4655,7 +4663,8 @@ function koppelAf() {
     q.d = CODE_THEMA[deel[1]];
     q.lv = [0, 0];
     ['A', 'B'].forEach((st, j) => { if (q.codes[st]) q.lv[j] = LIDX[q.codes[st].split('-')[2][0]]; });
-    if (!q.gen) q.calc = q.calc;
+    if (q.calcAuto) q.calc = /WPO/.test(c) ? 'e' : /zonder ICT/.test(DOELEN[c] || '') ? false : STROOM === 'B' ? 'e' : 'w';
+    if (STROOM === 'B' && q.calc === 'w') q.calc = 'e';
   }
 }
 /* ---------- Wiskundige problemen oplossen (breedtethema, A-stroom) ----------
@@ -5775,7 +5784,7 @@ T('A-VVG-B10', 'vvg_b10_omschrijving', R => {
 
 /* ===== A ===== */
 T('A-VVG-A1', 'vvg_a1_pomp', R => {
-  const hl = R.kies([3.6, 4.8, 7.2, 9]), l = R.kies([12, 15, 20, 24]), mi = hl * 100 / l; if (!Number.isInteger(mi)) return null;
+  const hl = R.kies([7.2, 9, 12, 14.4, 18]), l = R.kies([12, 15, 20, 24]), mi = hl * 100 / l; if (!Number.isInteger(mi) || mi < 60 || mi % 60 === 0) return null;
   return {q:`Een regenput bevat ${f(hl)} hl water. Een pomp haalt er ${l} liter per minuut uit.\nHoelang duurt het om de put leeg te pompen?`, velden:[veld(Math.floor(mi / 60), 'uur'), veld(mi % 60, 'min')],
     u:`${f(hl)} hl = ${f(hl * 100)} liter.\n${f(hl * 100)} : ${l} = ${mi} minuten = ${duurT(mi)}.`};
 });
@@ -6954,7 +6963,7 @@ T('A-STA-B2', 'sta_b2_zonderas', R => {
   const st = R.kies([5, 10, 25]), d = statData(R, 4, 1, 8, true); if (!d) return null; const vals = d.vals.map(v => v * st), i = R.int(0, 3);
   const lab = vals.map((v, j) => j === i ? null : v);
   return {q:`Op de verticale as staan geen getallen, maar wel bij de andere staven.\nHoeveel stemmen kreeg ${d.cats[i]}?`, fig:{t:'staaf', titel:d.titel + ' (stemmen)', x:d.cats, y:vals, min:0, max:Math.ceil(Math.max.apply(null, vals) / st + 1) * st, stap:st, ylab:'stemmen', zonderAs:1, waarden:lab}, velden:[veld(vals[i])], calc:false,
-    u:`Eén hokje van het rooster is ${st} waard (vergelijk de staven met een getal). De staaf ${d.cats[i]} is ${vals[i] / st} hokjes hoog: ${vals[i] / st} · ${st} = ${vals[i]}.`};
+    u:`Eén hokje van het rooster is ${st} waard (vergelijk de staven met een getal). De staaf ${d.cats[i]} is ${mv(vals[i] / st, 'hokje', 'hokjes')} hoog: ${vals[i] / st} · ${st} = ${vals[i]}.`};
 });
 T('A-STA-B3', 'sta_b3_hoogte', R => {
   const N = R.kies([20, 25, 40, 50]), d = taartData(R); if (!d) return null; const i = R.int(0, d.cats.length - 1), n = N * d.pct[i] / 100; if (!Number.isInteger(n)) return null;
@@ -6967,7 +6976,7 @@ T('A-STA-B4', 'sta_b4_totaal', R => {
 T('A-STA-B5', 'sta_b5_interpreteren', R => {
   const vals = [R.int(2, 6), R.int(5, 10), R.int(3, 8), R.int(1, 5), R.int(0, 3)], k = R.int(1, 3);
   return {q:`Hoeveel leerlingen hebben meer dan ${k} broer${k === 1 ? '' : 's'} of zus${k === 1 ? '' : 'sen'}?`, fig:{t:'tab', titel:'Broers en zussen', kop:['aantal broers en zussen', 'aantal leerlingen'], rijen:vals.map((v, i) => [i, v])},
-    velden:[veld(somV(vals.slice(k + 1)), 'leerlingen')], calc:false, u:`Meer dan ${k}: ${vals.map((v, i) => i > k ? i : null).filter(x => x != null).join(', ')}. ${vals.slice(k + 1).join(' + ')} = ${somV(vals.slice(k + 1))}.`};
+    velden:[veld(somV(vals.slice(k + 1)), 'leerlingen')], calc:false, u:`Meer dan ${k} broers of zussen: dat zijn de rijen ${vals.map((v, i) => i > k ? i : null).filter(x => x != null).join(' en ')}.\nTel de aantallen leerlingen van die rijen op: ${vals.slice(k + 1).length > 1 ? vals.slice(k + 1).join(' + ') + ' = ' : ''}${somV(vals.slice(k + 1))}.`};
 });
 T('A-STA-B6', 'sta_b6_taart', R => {
   const N = R.kies([200, 300, 400, 600, 800]), d = taartData(R); if (!d) return null; const i = R.int(0, d.cats.length - 1);
@@ -7060,7 +7069,8 @@ koppel('A', `
 s09=A-TAD-B5 t_sm_stijging=A-TAD-B5 s32=A-TAD-B3 s37=A-TAD-A1
 `);
 const BUSTAB = R => { const st = R.int(6, 7) * 60 + R.kies([5, 12, 20]), duur = R.kies([22, 28, 35]), om = R.kies([20, 30]); return {st, duur, om, rijen:[0, 1, 2, 3, 4].map(k => [tijdT(Math.floor((st + k * om) / 60), (st + k * om) % 60), tijdT(Math.floor((st + k * om + duur) / 60), (st + k * om + duur) % 60)])}; };
-const GEMEENTEN = ['Lievegem', 'Eeklo', 'Deinze', 'Zelzate', 'Evergem', 'Nevele'];
+/* verzonnen gemeenten: echte namen met verzonnen aantallen zouden leerlingen iets verkeerds leren */
+const GEMEENTEN = ['Groendijk', 'Molenbeke', 'Zandhove', 'Lindegem', 'Beekstede', 'Hoeveland'];
 const MAANDEN = ['jan', 'feb', 'maa', 'apr', 'mei', 'jun'];
 
 /* ===== D ===== */
@@ -7099,7 +7109,8 @@ T('A-TAD-C1', 'tad_c1_vergelijk', R => {
     o:keuzes(d.cats[k], d.cats.filter((c, j) => j !== k)), u:`Het cirkeldiagram geeft ${d.pct[k]} % voor ${d.cats[k]}, het lijndiagram ${p2[k]} %.`};
 });
 T('A-TAD-C2', 'tad_c2_procent', R => {
-  const d = statData(R, 5, 2, 9); const y = d.vals.map(v => v * 5), i = R.int(0, 4);
+  /* percenten die samen 100 % zijn */
+  const d = statData(R, 5, 2, 9); const y = d.vals.slice(0, 4).map(v => v * 5), i = R.int(0, 4); y.push(100 - somV(y)); if (y[4] < 5 || y[4] > 45) return null;
   return {q:`Welk percentage van de leerlingen koos ${d.cats[i]}?`, fig:{t:'staaf', titel:d.titel + ' (in %)', x:d.cats, y, min:0, max:50, stap:5, ylab:'%'}, velden:[veld(y[i], '%')], calc:false, u:`Lees de staaf af op de as met procenten: ${y[i]} %.`};
 });
 T('A-TAD-C2', 'tad_c2_taart', R => {
@@ -7549,6 +7560,910 @@ LAD('lad_vzm_sport', 'vzm', 'Sport in de klas', R => {
     {code:'A-VZM-A11', q:`In de klas zitten ${n} leerlingen. ${v} voetballen, ${z} zwemmen en ${b} doen allebei.\nHoeveel leerlingen doen geen van beide?`, velden:[veld(geen, 'leerlingen')], calc:false, u:`Minstens één: ${v} + ${z} − ${b} = ${v + z - b}. Geen van beide: ${n} − ${v + z - b} = ${geen}.`}
   ];
 });
+/* ---------- Wiskundige problemen oplossen (breedtethema, B-stroom, 2B) ----------
+   Korte zinnen, één gegeven per zin, de vraag op de laatste regel. Contexten uit het dagelijks leven.
+   D: één berekening, gegevens staan er meteen · C: berekeningen combineren, overbodige informatie negeren
+   B: informatie eerst afleiden, overbodige informatie in meerdere stappen · A: verband gebruiken, mogelijkheden uitwerken, eigen schets of tabel */
+
+/* ===== D ===== */
+T('B-WPO-D1', 'bwpo_d1_verpakken', R => {
+  const p = R.kies([['Een bakker', 'koekjes', 'zakje', 'zakjes'], ['Een kweker', 'plantjes', 'bak', 'bakken'], ['Een juf', 'stiften', 'pot', 'potten'],
+    ['Een winkel', 'eieren', 'doos', 'dozen'], ['Een boer', 'appels', 'kist', 'kisten']]);
+  const per = R.int(6, 15), tot = R.int(8, 20) * per + R.int(1, per - 1), n = Math.ceil(tot / per);
+  return {q:`${p[0]} heeft ${tot} ${p[1]}.\nIn één ${p[2]} passen ${per} ${p[1]}.\nHoeveel ${p[3]} zijn er minstens nodig voor alle ${p[1]}?`,
+    velden:[veld(n, p[3])], tip:'Deel en kijk dan goed: blijft er iets over?',
+    u:`${tot} : ${per} = ${f(tot / per, 2)}.\nMet ${n - 1} ${p[3]} heb je plaats voor ${(n - 1) * per} ${p[1]}. Dat is te weinig.\nJe hebt dus ${n} ${p[3]} nodig.`};
+});
+T('B-WPO-D1', 'bwpo_d1_klok', R => {
+  const voor = R.kies([true, false]), d = R.int(4, 12);
+  let u = R.int(7, 21), m = R.int(0, 59);
+  const echt = u * 60 + m + (voor ? -d : d);
+  if (Math.floor(echt / 60) === u) { if (R.int(0, 1)) return null; }
+  const eu = Math.floor(echt / 60), em = echt % 60;
+  const fout = [voor ? u * 60 + m + d : u * 60 + m - d, echt + 60, echt - 60 * 12 > 0 ? echt - 60 * 12 : echt + 120];
+  const T2 = x => digiT(Math.floor(x / 60) % 24, x % 60);
+  return {q:`De klok loopt ${d} minuten ${voor ? 'voor' : 'achter'}.\nHoe laat is het echt?`, fig:{t:'digi', tijd:digiT(u, m)},
+    o:keuzes(T2(echt), fout.map(T2).concat([digiT((u + 1) % 24, m)])),
+    u:`De klok loopt ${voor ? 'voor' : 'achter'}: de echte tijd is ${voor ? 'vroeger' : 'later'}.\n${digiT(u, m)} ${voor ? '−' : '+'} ${d} minuten = ${digiT(eu, em)}.`};
+});
+T('B-WPO-D1', 'bwpo_d1_tickets', R => {
+  const p = R.kies([['Een ticket voor de film', 'tickets'], ['Een zwembeurt', 'zwembeurten'], ['Een busticket', 'bustickets'], ['Een ijsje', 'ijsjes']]);
+  const pr = R.stap(2.5, 12, 0.5), n = R.int(3, 7);
+  return {q:`${p[0]} kost ${eur(pr)}.\nJe koopt ${n} ${p[1]}.\nHoeveel betaal je?`, velden:[geld(pr * n)], u:`${n} × ${eur(pr)} = ${eur(pr * n)}.`};
+});
+
+/* ===== C ===== */
+T('B-WPO-C1', 'bwpo_c1_teruggeld', R => {
+  const p = R.kies([['pizza', "pizza's"], ['boek', 'boeken'], ['T-shirt', 'T-shirts'], ['bloempot', 'bloempotten']]);
+  const pr = R.stap(4, 18, 0.5), n = R.int(2, 4), betaal = Math.ceil(pr * n / 10) * 10 + R.kies([0, 10]);
+  if (betaal - pr * n < 1) return null;
+  return {q:`Je koopt ${n} ${p[1]}.\nEén ${p[0]} kost ${eur(pr)}.\nJe betaalt met ${eur(betaal)}.\nHoeveel geld krijg je terug?`, velden:[geld(betaal - pr * n)],
+    u:`Eerst de prijs: ${n} × ${eur(pr)} = ${eur(pr * n)}.\nDan het wisselgeld: ${eur(betaal)} − ${eur(pr * n)} = ${eur(betaal - pr * n)}.`};
+});
+T('B-WPO-C1', 'bwpo_c1_huur', R => {
+  const p = R.kies([['een fiets', 'per uur', 'uur'], ['een kano', 'per uur', 'uur'], ['een step', 'per uur', 'uur']]);
+  const pu = R.stap(3, 9, 0.5), vast = R.kies([5, 10, 15]), u = R.int(2, 6);
+  return {q:`Je huurt ${p[0]}.\nJe betaalt ${eur(vast)} vaste prijs en ${eur(pu)} ${p[1]}.\nJe huurt ${p[0]} ${u} uur.\nHoeveel betaal je in totaal?`, velden:[geld(vast + pu * u)],
+    u:`${u} × ${eur(pu)} = ${eur(pu * u)}.\n${eur(vast)} + ${eur(pu * u)} = ${eur(vast + pu * u)}.`};
+});
+T('B-WPO-C2', 'bwpo_c2_job', R => {
+  const wie = R.naam(), lft = R.int(15, 17), uur = R.int(3, 5), loon = R.stap(7, 11, 0.5), weken = R.int(3, 6), open = R.int(6, 8);
+  return {q:`${wie} is ${lft} jaar.\n${wie} werkt elke zaterdag ${uur} uur in een bakkerij.\nDe bakkerij gaat open om ${open} uur.\n${wie} verdient ${eur(loon)} per uur.\nHoeveel verdient ${wie} in ${weken} zaterdagen?`,
+    velden:[geld(uur * loon * weken)], tip:'Niet alle getallen heb je nodig. Welke wel?',
+    u:`De leeftijd en het uur van openen heb je niet nodig.\nPer zaterdag: ${uur} × ${eur(loon)} = ${eur(uur * loon)}.\nIn ${weken} zaterdagen: ${weken} × ${eur(uur * loon)} = ${eur(uur * loon * weken)}.`};
+});
+T('B-WPO-C2', 'bwpo_c2_reis', R => {
+  const km = R.int(120, 380), vertrek = R.int(7, 10), pers = R.int(3, 5), l = R.stap(5, 7.5, 0.5), prijs = R.stap(1.6, 1.9, 0.05);
+  const liter = km / 100 * l;
+  if (Math.abs(liter * 10 - Math.round(liter * 10)) > 1e-9) return null;
+  return {q:`Een familie van ${pers} personen rijdt ${km} km naar zee.\nZe vertrekken om ${vertrek} uur.\nDe auto verbruikt ${f(l)} liter per 100 km.\nHoeveel liter brandstof verbruikt de auto voor die rit?`,
+    velden:[veld(liter, 'liter')], tip:'Hoeveel keer 100 km rijden ze?',
+    u:`Het aantal personen en het uur van vertrek heb je niet nodig.\n${km} km is ${f(km / 100)} keer 100 km.\n${f(km / 100)} × ${f(l)} = ${f(liter)} liter.`};
+});
+T('B-WPO-C2', 'bwpo_c2_tuin', R => {
+  const l = R.int(6, 14), b = R.int(3, l - 1), plant = R.int(12, 30), pr = R.stap(1.5, 4, 0.5);
+  return {q:`Een tuin is ${l} m lang en ${b} m breed.\nIn de tuin staan ${plant} plantjes.\nRond de tuin komt een hek.\nEen meter hek kost ${eur(pr)}.\nHoeveel kost het hek rond de hele tuin?`,
+    velden:[geld(2 * (l + b) * pr)], tip:'Het hek gaat rond de tuin: dat is de omtrek.',
+    u:`Het aantal plantjes heb je niet nodig.\nOmtrek: ${l} + ${b} + ${l} + ${b} = ${2 * (l + b)} m.\n${2 * (l + b)} × ${eur(pr)} = ${eur(2 * (l + b) * pr)}.`};
+});
+
+/* ===== B ===== */
+T('B-WPO-B1', 'bwpo_b1_beurtenkaart', R => {
+  const p = R.kies([['zwembad', 'zwembeurt', 'beurt'], ['fitness', 'beurt', 'beurt'], ['schaatsbaan', 'beurt', 'beurt']]);
+  const los = R.stap(3.5, 6, 0.5), n = R.kies([10, 10, 12, 20]), kaart = Math.round(n * los * R.kies([0.8, 0.75, 0.85, 0.9]) * 2) / 2;
+  const bes = los - kaart / n;
+  if (Math.abs(bes * 100 - Math.round(bes * 100)) > 1e-6 || bes <= 0) return null;
+  return {q:`Eén ${p[1]} in het ${p[0]} kost ${eur(los)}.\nEen kaart voor ${n} beurten kost ${eur(kaart)}.\nHoeveel bespaar je per beurt met de kaart?`, velden:[geld(bes)],
+    tip:'Wat kost één beurt met de kaart?',
+    u:`Met de kaart kost één beurt ${eur(kaart)} : ${n} = ${eur(kaart / n)}.\nJe bespaart ${eur(los)} − ${eur(kaart / n)} = ${eur(bes)} per beurt.`};
+});
+T('B-WPO-B1', 'bwpo_b1_bus', R => {
+  const om = R.kies([10, 12, 15, 20]), eu = R.int(6, 8), em = R.int(0, om - 1), aank = R.int(8, 10) * 60 + R.int(0, 59);
+  const eerste = eu * 60 + em;
+  if (aank <= eerste) return null;
+  const n = Math.ceil((aank - eerste) / om), vol = eerste + n * om;
+  if (vol === aank) return null;
+  return {q:`De eerste bus vertrekt om ${digiT(eu, em)}.\nDaarna rijdt er elke ${om} minuten een bus.\nJe komt aan de bushalte om ${digiT(Math.floor(aank / 60), aank % 60)}.\nHoe laat vertrekt de volgende bus?`,
+    velden:[veld(Math.floor(vol / 60), 'uur'), veld(vol % 60, 'min')], calc:false, tip:'Tel telkens ' + om + ' minuten bij. Of reken eerst hele uren.',
+    u:`De bussen vertrekken om ${[0, 1, 2].map(i => digiT(Math.floor((eerste + i * om) / 60), (eerste + i * om) % 60)).join(', ')}, …\nVan ${digiT(eu, em)} tot ${digiT(Math.floor(aank / 60), aank % 60)} is ${aank - eerste} minuten.\n${aank - eerste} : ${om} = ${f((aank - eerste) / om, 2)}. De volgende bus is dus de ${n}de na de eerste.\n${digiT(eu, em)} + ${n} × ${om} minuten = ${digiT(Math.floor(vol / 60), vol % 60)}.`};
+});
+T('B-WPO-B2', 'bwpo_b2_feest', R => {
+  const gasten = R.int(18, 40), per = R.kies([2, 3]), pak = R.kies([6, 8, 10]), pr = R.stap(2, 5, 0.5), zaal = R.int(18, 23);
+  const nodig = gasten * per, pakken = Math.ceil(nodig / pak);
+  return {q:`Op een feest komen ${gasten} gasten.\nHet feest begint om ${zaal} uur.\nElke gast krijgt ${per} drankjes.\nDe drankjes zitten per ${pak} in een pak.\nEen pak kost ${eur(pr)}.\nHoeveel kosten de drankjes in totaal?`,
+    velden:[geld(pakken * pr)], tip:'Hoeveel drankjes heb je nodig? Hoeveel pakken zijn dat?',
+    u:`Het uur heb je niet nodig.\nDrankjes: ${gasten} × ${per} = ${nodig}.\nPakken: ${nodig} : ${pak} = ${f(nodig / pak, 2)}, dus ${pakken} pakken.\nPrijs: ${pakken} × ${eur(pr)} = ${eur(pakken * pr)}.`};
+});
+
+/* ===== A ===== */
+T('B-WPO-A1', 'bwpo_a1_abonnement', R => {
+  const a = R.stap(8, 15, 1), pa = R.stap(0.1, 0.3, 0.05), b = R.stap(18, 30, 1);
+  const grens = (b - a) / pa;
+  if (Math.abs(grens - Math.round(grens)) > 1e-6 || grens < 20 || grens > 150) return null;
+  return {q:`Gsm-abonnement A kost ${eur(a)} per maand en ${eur(pa)} per minuut bellen.\nAbonnement B kost ${eur(b)} per maand. Bellen is gratis.\nVanaf hoeveel minuten bellen per maand zijn beide abonnementen even duur?`,
+    velden:[veld(Math.round(grens), 'minuten')], tip:'Hoeveel duurder is B? Hoeveel minuten bellen met A kost dat?',
+    u:`B kost ${eur(b)} − ${eur(a)} = ${eur(b - a)} meer per maand.\nMet A betaal je ${eur(pa)} per minuut.\n${eur(b - a)} : ${eur(pa)} = ${Math.round(grens)} minuten.\nBij ${Math.round(grens)} minuten zijn beide even duur.`};
+});
+T('B-WPO-A2', 'bwpo_a2_munten', R => {
+  const tot = R.kies([3, 4, 5, 6]);
+  /* manieren met munten van € 2, € 1 en € 0,50 */
+  let n = 0; const lijst = [];
+  for (let t = 0; t * 2 <= tot; t++) for (let e = 0; t * 2 + e <= tot; e++) { const h = (tot - t * 2 - e) * 2; n++; lijst.push((t ? t + ' × € 2' : '') + (t && (e || h) ? ' + ' : '') + (e ? e + ' × € 1' : '') + (e && h ? ' + ' : '') + (h ? h + ' × € 0,50' : '')); }
+  return {q:`In een automaat betaal je ${eur(tot)}.\nJe hebt genoeg munten van € 2, € 1 en € 0,50.\nOp hoeveel verschillende manieren kan je juist ${eur(tot)} betalen?`,
+    velden:[veld(n, 'manieren')], tip:'Werk ordelijk: begin met zoveel mogelijk munten van € 2, dan één minder, …',
+    u:`Schrijf alle manieren ordelijk op:\n${lijst.join('\n')}\nDat zijn ${n} manieren.`};
+});
+T('B-WPO-A2', 'bwpo_a2_tafels', R => {
+  const g = R.kies([[4, 6], [6, 8]]), pers = R.int(5, 9) * 2 + R.kies([0, 2, 4]);
+  /* tafels voor 4 of 6 personen; zo weinig mogelijk tafels, alle plaatsen bezet */
+  let best = null; const opl = [];
+  for (let a = 0; a * g[0] <= pers; a++) { const r = pers - a * g[0]; if (r % g[1] === 0) opl.push([a, r / g[1]]); }
+  if (opl.length < 2) return null;
+  opl.forEach(o => { if (!best || o[0] + o[1] < best[0] + best[1]) best = o; });
+  return {q:`Een restaurant heeft tafels voor ${g[0]} personen en tafels voor ${g[1]} personen.\nEr komt een groep van ${pers} personen.\nAlle plaatsen aan de gebruikte tafels moeten bezet zijn.\nHoeveel tafels gebruik je minstens?`,
+    velden:[veld(best[0] + best[1], 'tafels')], tip:'Probeer verschillende mogelijkheden in een tabel.',
+    u:`Mogelijkheden:\n${opl.map(o => mv(o[0], 'tafel', 'tafels') + ' van ' + g[0] + ' en ' + mv(o[1], 'tafel', 'tafels') + ' van ' + g[1] + ': samen ' + (o[0] + o[1]) + ' tafels').join('\n')}\nHet minst: ${best[0] + best[1]} tafels.`};
+});
+T('B-WPO-A3', 'bwpo_a3_tafelrij', R => {
+  const n = R.int(6, 15), pers = 2 * n + 2;
+  return {q:`Aan één vierkante tafel zitten 4 personen: aan elke kant één.\nJe zet tafels tegen elkaar in een lange rij.\nAan de kanten die tegen elkaar staan, kan niemand zitten.\nEr komen ${pers} personen.\nHoeveel tafels zet je in de rij?`,
+    velden:[veld(n, 'tafels')], tip:'Maak een schets met 1, 2 en 3 tafels. Tel telkens de plaatsen.',
+    u:`Maak een tabel:\n1 tafel: 4 plaatsen. 2 tafels: 6 plaatsen. 3 tafels: 8 plaatsen.\nElke tafel erbij geeft 2 plaatsen meer: plaatsen = 2 × tafels + 2.\n${pers} − 2 = ${pers - 2} en ${pers - 2} : 2 = ${n} tafels.`};
+});
+T('B-WPO-A4', 'bwpo_a4_verhuis', R => {
+  const doos = R.int(28, 60), kg = R.int(8, 15), max = R.kies([400, 450, 500, 600]), chauf = R.naam(), km = R.int(12, 45);
+  const rit = Math.ceil(doos * kg / max);
+  if (rit < 2) return null;
+  return {q:`${chauf} verhuist ${km} km verder.\nEr zijn ${doos} dozen. Elke doos weegt ongeveer ${kg} kg.\nDe bestelwagen mag ${max} kg per rit vervoeren.\nEen rit heen en terug duurt 1 uur en 20 minuten.\nHoeveel ritten zijn er minstens nodig voor alle dozen?`,
+    velden:[veld(rit, 'ritten')], tip:'Welke gegevens heb je echt nodig?',
+    u:`De afstand en de duur van een rit heb je niet nodig.\nAlle dozen samen: ${doos} × ${kg} = ${doos * kg} kg.\n${doos * kg} : ${max} = ${f(doos * kg / max, 2)}, dus ${rit} ritten.`};
+});
+/* ---------- Getallenleer (dieptethema, B-stroom, 2B) ----------
+   Leeswijzer: "Een leerling kan meestal met ICT en in een functionele context: …".
+   Sjablonen van 2A die precies bij een B-doel passen en al eenvoudig geschreven zijn, krijgen hier ook een B-code (koppel).
+   Daarnaast eigen 2B-vragen: tijd (analoog, digitaal, in woorden), winkel en keuken, korte zinnen. */
+koppel('B', `
+get_d2_eenheid=B-GET-D1 get_d1_grootheid=B-GET-D2 get_d3_grootteorde=B-GET-D3 get_d4_afronden=B-GET-D4 get_d7_breukvan=B-GET-D8
+get_d9_maal5=B-GET-D9 get_d11_soorten=B-GET-D10 get_c7_strategie=B-GET-C6 get_c9_ordenen=B-GET-C7 get_c11_schatten=B-GET-C8 get_c12_tijd=B-GET-C9
+get_b1_eenheid=B-GET-B1 get_b2_grootteorde=B-GET-B2 get_b3_massa=B-GET-B3 get_b5_afronden=B-GET-B5 get_b6_zinvol=B-GET-B6 get_d5_tijd=B-GET-B7
+get_b11_procent=B-GET-B9 get_b16_breuken=B-GET-B11 get_b17_schatten=B-GET-B12 get_b18_herleiden=B-GET-B13
+get_a1_eenheden=B-GET-A1 get_a2_afronden=B-GET-A2 get_a3_5cent=B-GET-A3 get_a5_deel=B-GET-A6 get_a12_btw=B-GET-A7 get_a19_schatten=B-GET-A9 get_a20_herleiden=B-GET-A11
+`);
+/* 2B werkt 'meestal met ICT': bij herleiden mag de eenvoudige rekenmachine */
+calcB('get_b18_herleiden get_a20_herleiden', 'e');
+
+const UURWOORD = ['twaalf', 'een', 'twee', 'drie', 'vier', 'vijf', 'zes', 'zeven', 'acht', 'negen', 'tien', 'elf'];
+/* tijd in woorden zoals je ze zegt: kwart over drie, half vijf, tien voor half acht, … */
+function tijdWoord(u, m) {
+  const h = u % 12, v = (u + 1) % 12;
+  const W = {0:UURWOORD[h] + ' uur', 15:'kwart over ' + UURWOORD[h], 30:'half ' + UURWOORD[v], 45:'kwart voor ' + UURWOORD[v],
+    5:'vijf over ' + UURWOORD[h], 10:'tien over ' + UURWOORD[h], 20:'tien voor half ' + UURWOORD[v], 25:'vijf voor half ' + UURWOORD[v],
+    35:'vijf over half ' + UURWOORD[v], 40:'tien over half ' + UURWOORD[v], 50:'tien voor ' + UURWOORD[v], 55:'vijf voor ' + UURWOORD[v]};
+  return W[m];
+}
+const dagdeel = u => u < 12 ? "'s morgens" : u < 18 ? "'s middags" : "'s avonds";
+const minTijd = x => digiT(Math.floor(x / 60) % 24, ((x % 60) + 60) % 60);
+
+/* ===== D ===== */
+T('B-GET-D1', 'bget_d1_verpakking', R => {
+  const p = R.kies([['Op een fles water staat: 1,5', 'l', ['kg', 'm', 'ml']], ['Op een pak bloem staat: 1', 'kg', ['l', 'm', 'g']], ['Op een blikje cola staat: 33', 'cl', ['kg', 'cm', 'l']],
+    ['Op een tube tandpasta staat: 75', 'ml', ['l', 'kg', 'mm']], ['Op een zak chips staat: 200', 'g', ['kg', 'l', 'cm']], ['Op een rol keukenpapier staat: 12', 'm', ['kg', 'l', 'mm']],
+    ['Op een pot choco staat: 400', 'g', ['l', 'kg', 'cm']], ['Op een fles olie staat: 75', 'cl', ['kg', 'l', 'dm']]]);
+  return {q:`${p[0]} …\nWelke eenheid past op de puntjes?`, o:keuzes(p[1], p[2]), u:`${p[0]} ${p[1]}.`};
+});
+T('B-GET-D2', 'bget_d2_meten', R => {
+  const p = R.kies([['de massa van een zak aardappelen', 'kg', ['l', 'm', 'min']], ['de inhoud van een emmer', 'l', ['kg', 'm', 'm²']], ['de lengte van een tafel', 'm', ['l', 'kg', 'm²']],
+    ['de oppervlakte van een kamer', 'm²', ['m', 'l', 'kg']], ['de duur van een voetbalmatch', 'min', ['m', 'kg', 'l']], ['de massa van een brief', 'g', ['cm', 'ml', 's']],
+    ['de inhoud van een glas', 'cl', ['cm', 'g', 'cm²']], ['de afstand tussen twee steden', 'km', ['kg', 'l', 'km²']]]);
+  return {q:`Welke eenheid gebruik je voor ${p[0]}?`, o:keuzes(p[1], p[2]), u:`Voor ${p[0]} gebruik je ${p[1]}.`};
+});
+T('B-GET-D3', 'bget_d3_hoeveel', R => {
+  const p = R.kies([['Hoe lang is een bus ongeveer?', '12 m', ['1,2 m', '120 m', '12 cm']], ['Hoe hoog is een tafel ongeveer?', '75 cm', ['75 mm', '7,5 m', '75 m']],
+    ['Hoeveel past er ongeveer in een gieter?', '10 l', ['10 ml', '1 000 l', '10 cl']], ['Hoeveel past er ongeveer in een soeplepel?', '2 cl', ['2 l', '20 l', '2 hl']],
+    ['Hoe lang is een potlood ongeveer?', '17 cm', ['17 mm', '17 m', '1,7 m']], ['Hoeveel past er ongeveer in een bad?', '150 l', ['15 l', '1,5 l', '150 ml']],
+    ['Hoe breed is een deur ongeveer?', '90 cm', ['9 cm', '9 m', '90 m']]]);
+  return {q:p[0], o:keuzes(p[1], p[2]), u:`${p[1]} is het enige antwoord dat past. De andere zijn veel te groot of veel te klein.`};
+});
+T('B-GET-D4', 'bget_d4_klok', R => {
+  const soort = R.kies(['kwartier', 'halfuur', 'uur']), st = {kwartier:15, halfuur:30, uur:60}[soort];
+  const u = R.int(8, 20); let m; do m = R.int(1, 59); while (m % st === 0 || Math.abs(m % st - st / 2) < 2);
+  const t = u * 60 + m, r = Math.round(t / st) * st;
+  return {q:`Het is ${digiT(u, m)}.\nRond af op ${soort === 'uur' ? 'het uur' : 'het ' + soort}.`,
+    o:keuzes(minTijd(r), [minTijd(r + st), minTijd(r - st), minTijd(r + 5), minTijd(r - 5)]),
+    u:`${digiT(u, m)} ligt tussen ${minTijd(Math.floor(t / st) * st)} en ${minTijd(Math.ceil(t / st) * st)}.\nHet dichtst bij ${minTijd(r)}.`};
+});
+T('B-GET-D5', 'bget_d5_analoog', R => {
+  const u = R.int(13, 21), m = R.kies([5, 10, 15, 20, 25, 35, 40, 45, 50, 55]);
+  return {q:`Het is ${dagdeel(u)}.\nHoe laat is het op de klok?`, fig:{t:'klok', u, m},
+    o:keuzes(digiT(u, m), [digiT(u - 12, m), digiT(u + 1, m), digiT(u, (60 - m) % 60 || 30), digiT(u - 1, m)]),
+    u:`De kleine wijzer staat bij ${u - 12}${m >= 30 ? ' (bijna ' + (u - 11) + ')' : ''}. De grote wijzer staat bij ${m / 5}: dat is ${m} minuten.\n${dagdeel(u)} is dat ${digiT(u, m)}.`};
+});
+T('B-GET-D5', 'bget_d5_woorden', R => {
+  const u = R.int(7, 21), m = R.kies([15, 30, 45, 20, 40, 10, 50]);
+  const fout = [digiT(u, (m + 30) % 60), digiT((u + 1) % 24, m), digiT(u - 1, m), digiT(u >= 12 ? u - 12 : u + 12, m)];
+  return {q:`Je spreekt af om ${tijdWoord(u, m)} ${dagdeel(u)}.\nWelke digitale tijd is dat?`, o:keuzes(digiT(u, m), fout),
+    u:`${tijdWoord(u, m)[0].toUpperCase() + tijdWoord(u, m).slice(1)} is ${m} minuten na ${u % 12 || 12} uur.\n${dagdeel(u)} is dat ${digiT(u, m)}.`};
+});
+T('B-GET-D5', 'bget_d5_digi', R => {
+  const u = R.int(8, 22), m = R.kies([15, 30, 45, 10, 50, 20, 40]);
+  const goed = tijdWoord(u, m), fout = [tijdWoord(u, (m + 30) % 60), tijdWoord((u + 1) % 24, m), tijdWoord(u - 1, m)];
+  return {q:`De digitale klok wijst ${digiT(u, m)}.\nHoe zeg je die tijd?`, fig:{t:'digi', tijd:digiT(u, m)}, o:keuzes(goed, fout),
+    u:`${digiT(u, m)} is ${m} minuten na ${u % 12 || 12} uur: ${goed}.`};
+});
+T('B-GET-D6', 'bget_d6_som', R => {
+  const u = R.int(7, 20), m = R.int(0, 30), d = R.int(10, 59 - m);
+  const p = R.kies([['De film begint om', 'De reclame duurt', 'Hoe laat begint de film echt?'], ['De bus vertrekt om', 'De rit duurt', 'Hoe laat komt de bus aan?'],
+    ['De taart gaat in de oven om', 'Ze moet bakken', 'Hoe laat is de taart klaar?'], ['De training start om', 'De opwarming duurt', 'Hoe laat is de opwarming gedaan?']]);
+  return {q:`${p[0]} ${digiT(u, m)}.\n${p[1]} ${d} minuten.\n${p[2]}`, velden:[veld(u, 'uur'), veld(m + d, 'min')], calc:false,
+    u:`${digiT(u, m)} + ${d} minuten = ${digiT(u, m + d)}.`};
+});
+T('B-GET-D6', 'bget_d6_verschil', R => {
+  const u = R.int(7, 20), m1 = R.int(0, 40), m2 = R.int(m1 + 5, 59);
+  const p = R.kies([['De les begint om', 'en eindigt om', 'Hoeveel minuten duurt de les?'], ['Je vertrekt thuis om', 'en komt op school aan om', 'Hoeveel minuten ben je onderweg?'],
+    ['De wasmachine start om', 'en stopt om', 'Hoeveel minuten duurt het wassen?']]);
+  return {q:`${p[0]} ${digiT(u, m1)} ${p[1]} ${digiT(u, m2)}.\n${p[2]}`, velden:[veld(m2 - m1, 'minuten')], calc:false,
+    u:`Van ${digiT(u, m1)} tot ${digiT(u, m2)}: ${m2} − ${m1} = ${m2 - m1} minuten.`};
+});
+T('B-GET-D7', 'bget_d7_procent', R => {
+  const p = R.kies([[1, 2], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5], [4, 5], [1, 10], [3, 10], [7, 10], [9, 10], [1, 20], [3, 20], [1, 25], [1, 50]]);
+  const pc = p[0] / p[1] * 100;
+  return {q:`Schrijf als een procent.`, velden:[veld(pc, '%', `{{${p[0]}|${p[1]}}} =`)],
+    u:`Maak de noemer 100: {{${p[0]}|${p[1]}}} = {{${f(pc)}|100}} = ${f(pc)} %.`};
+});
+T('B-GET-D7', 'bget_d7_klas', R => {
+  const p = R.kies([[1, 2], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5], [1, 10], [3, 10]]);
+  const pc = p[0] / p[1] * 100, wat = R.kies(['van de leerlingen komt met de bus', 'van de klas eet warm op school', 'van de spelers is linksvoetig', 'van de bezoekers komt met de fiets']);
+  return {q:`{{${p[0]}|${p[1]}}} ${wat}.\nHoeveel procent is dat?`, o:keuzes(f(pc) + ' %', [f(p[0] * 10) + ' %', f(p[1] * 10) + ' %', f(p[0] / p[1] * 10, 1) + ' %', f(100 - pc) + ' %', p[0] + p[1] + ' %']),
+    u:`{{${p[0]}|${p[1]}}} = {{${f(pc)}|100}} = ${f(pc)} %.`};
+});
+T('B-GET-D8', 'bget_d8_geld', R => {
+  const n = R.kies([2, 3, 4, 5]), t = n === 2 ? 1 : R.int(1, n - 1); if (ggd(t, n) > 1) return null;
+  const tot = n * R.int(4, 15), uit = tot / n * t, wie = R.naam(), wat = R.kies(['een spel', 'kleren', 'een cadeau', 'een concertticket']);
+  return {q:`${wie} heeft ${eur(tot)} gespaard.\n${wie} geeft {{${t}|${n}}} daarvan uit aan ${wat}.\nHoeveel geld heeft ${wie} nog?`, velden:[geld(tot - uit)],
+    u:`{{${t}|${n}}} van ${eur(tot)} = ${eur(tot)} : ${n} × ${t} = ${eur(uit)}.\n${eur(tot)} − ${eur(uit)} = ${eur(tot - uit)}.`};
+});
+T('B-GET-D9', 'bget_d9_plus5', R => {
+  const a = R.int(3, 9) * 10 + R.int(6, 9);
+  const goed = `${a} + ${10 - a % 10} + ${5 - (10 - a % 10)}`;
+  return {q:`Je rekent ${a} + 5 uit het hoofd.\nWelke werkwijze is juist?`,
+    o:keuzes(goed, [`${a} + 10 − 4`, `${a} + 2 + 2`, `${a} − 5 + 10 + 1`]),
+    u:`Maak eerst een tiental: ${a} + ${10 - a % 10} = ${a + 10 - a % 10}.\nDan de rest erbij: ${a + 10 - a % 10} + ${5 - (10 - a % 10)} = ${a + 5}.`};
+});
+T('B-GET-D10', 'bget_d10_weer', R => {
+  const vals = R.schud([[`−${R.int(1, 9)} °C`, 'een negatief getal'], [`${R.int(2, 9)}0 %`, 'een procent'], [`{{${R.int(1, 3)}|${R.int(4, 9)}}}`, 'een breuk'], [String(R.int(12, 99)), 'een natuurlijk getal']]);
+  const vr = R.kies(vals);
+  const vk = vasteKeuze(vr[0], vals.map(v => v[0]));
+  return {q:`Welk getal is ${vr[1]}?`, o:vk.o, volgorde:vk.volgorde,
+    u:`${vr[0]} is ${vr[1]}.`};
+});
+T('B-GET-D11', 'bget_d11_steden', R => {
+  const st = ['januari', 'februari', 'maart', 'april'], b = R.int(8, 60) * 100;
+  const g = R.schud([b + R.int(10, 99), b * 10 + R.int(0, 99), b + R.int(100, 900), b - R.int(10, 99) * 10]);
+  if (new Set(g).size < 4) return null;
+  const s = st.map((n, i) => [n, g[i]]).sort((a, b) => a[1] - b[1]);
+  return {q:`Het aantal bezoekers van het zwembad per maand.\nZet de maanden van weinig naar veel bezoekers.`, fig:{t:'tab', kop:['Maand', 'Bezoekers'], rijen:st.map((n, i) => [n, f(g[i])])},
+    kaartjes:s.map(x => x[0]), u:`${s.map(x => x[0] + ' (' + f(x[1]) + ')').join(' &lt; ')}.\nVergelijk eerst het aantal cijfers, dan cijfer per cijfer van links.`};
+});
+T('B-GET-D11', 'bget_d11_grootste', R => {
+  const b = R.int(1, 8) * 1000;
+  const g = R.schud([b + R.int(100, 999), b * 10 + R.int(0, 99), b + R.int(10, 99) * 10, b * 10 - R.int(1, 99)]);
+  if (new Set(g).size < 4) return null;
+  const max = Math.max(...g);
+  return {q:'Welk getal is het grootste?', o:keuzes(f(max), g.filter(x => x !== max).map(x => f(x))),
+    u:`Het getal met de meeste cijfers is het grootst. Hebben ze evenveel cijfers, vergelijk dan van links naar rechts.\n${f(max)} is het grootste.`};
+});
+
+/* ===== C ===== */
+T('B-GET-C1', 'bget_c1_procent', R => {
+  const pc = R.kies([5, 8, 12, 25, 40, 65, 75, 3, 90, 15, 150, 120]);
+  return {q:'Schrijf als een decimaal getal.', velden:[veld(pc / 100, '', `${pc} % =`)],
+    u:`${pc} % = {{${pc}|100}} = ${pc} : 100 = ${f(pc / 100, 2)}.`};
+});
+T('B-GET-C1', 'bget_c1_breuk', R => {
+  const p = R.kies([[1, 2], [1, 4], [3, 4], [1, 5], [2, 5], [4, 5], [3, 10], [7, 10], [1, 20], [3, 25], [7, 50], [3, 2], [5, 4]]);
+  return {q:`Een recept vraagt {{${p[0]}|${p[1]}}} liter melk.\nDe maatbeker toont een decimaal getal.\nHoeveel liter is dat als decimaal getal?`, velden:[veld(p[0] / p[1], 'liter')],
+    u:`{{${p[0]}|${p[1]}}} = ${p[0]} : ${p[1]} = ${f(p[0] / p[1], 3)}.`};
+});
+T('B-GET-C2', 'bget_c2_afronden', R => {
+  let x; do x = R.int(10, 999) / 10 + R.int(0, 9) / 100; while (Math.abs(x % 1 - 0.5) < 0.02);
+  return {q:`Rond ${f(x)} af op de eenheid.`, velden:[veld(Math.round(x))],
+    u:`Kijk naar het eerste cijfer na de komma. Is het 5 of meer, dan rond je naar boven af.\n${f(x)} ≈ ${Math.round(x)}.`};
+});
+T('B-GET-C2', 'bget_c2_rekening', R => {
+  let x; do x = R.int(800, 9900) / 100; while (Math.abs(x % 1 - 0.5) < 0.03);
+  const wat = R.kies(['De rekening in het restaurant is', 'De boodschappen kosten', 'Je tankt voor', 'De nieuwe jas kost']);
+  return {q:`${wat} ${eur(x)}.\nRond af op de euro.`, velden:[geld(Math.round(x))], calc:false,
+    u:`Kijk naar de cent: ${eur(x)} ligt dichter bij ${eur(Math.round(x))}.`};
+});
+T('B-GET-C3', 'bget_c3_wachten', R => {
+  const u = R.int(8, 16), m = R.int(0, 11) * 5, d = R.int(8, 55), t = u * 60 + m + d;
+  const p = R.kies([['De bus vertrekt om', 'Hoeveel minuten moet je nog wachten?'], ['De les eindigt om', 'Hoeveel minuten duurt de les nog?'], ['De winkel sluit om', 'Hoeveel minuten is de winkel nog open?']]);
+  return {q:`De klok toont hoe laat het nu is. Het is overdag.\n${p[0]} ${minTijd(t)}.\n${p[1]}`, fig:{t:'klok', u, m}, velden:[veld(d, 'minuten')], calc:false,
+    u:`Op de klok is het ${digiT(u, m)}.\nVan ${digiT(u, m)} tot ${minTijd(t)} is ${d} minuten.`};
+});
+T('B-GET-C3', 'bget_c3_bezig', R => {
+  const u = R.int(9, 17), ms = R.int(0, 40), d = R.int(10, 50), t = u * 60 + ms + d, eu = Math.floor(t / 60), em = t % 60;
+  if (em % 5) return null;
+  const p = R.kies(['De match begon om', 'De film begon om', 'Het examen begon om']);
+  return {q:`${p} ${digiT(u, ms)}.\nNu toont de klok deze tijd. Het is overdag.\nHoeveel minuten is het al bezig?`, fig:{t:'klok', u:eu, m:em}, velden:[veld(d, 'minuten')], calc:false,
+    u:`Op de klok is het ${digiT(eu, em)}.\nVan ${digiT(u, ms)} tot ${digiT(eu, em)} is ${d} minuten.`};
+});
+T('B-GET-C4', 'bget_c4_winkel', R => {
+  const p = R.kies([['brood', 'broden'], ['fles melk', 'flessen melk'], ['pak koekjes', 'pakken koekjes'], ['schrift', 'schriften']]);
+  const pr = R.int(85, 395) / 100, n = R.int(3, 8);
+  return {q:`Eén ${p[0]} kost ${eur(pr)}.\nJe koopt ${n} ${p[1]}.\nHoeveel betaal je?`, velden:[geld(pr * n)], u:`${n} × ${eur(pr)} = ${eur(pr * n)}.`};
+});
+T('B-GET-C4', 'bget_c4_lengte', R => {
+  const a = R.int(55, 180) / 100, b = R.int(30, 120) / 100;
+  const L = R.int(4, 9);
+  if (a + b >= L) return null;
+  return {q:`Een plank is ${L} m lang.\nJe zaagt er een stuk van ${f(a)} m af en een stuk van ${f(b)} m.\nHoe lang is de plank die overblijft?`, velden:[veld(L - a - b, 'm')],
+    u:`${f(a)} + ${f(b)} = ${f(a + b)} m.\n${L} − ${f(a + b)} = ${f(L - a - b)} m.`};
+});
+T('B-GET-C5', 'bget_c5_welke', R => {
+  const p = R.kies([[1, 2], [2, 3], [3, 4], [2, 5], [3, 5], [1, 3], [4, 5], [5, 6]]), k = R.int(2, 5);
+  const goed = `{{${p[0] * k}|${p[1] * k}}}`;
+  return {q:`Welke breuk is gelijk aan {{${p[0]}|${p[1]}}}?`, o:keuzes(goed, [`{{${p[0] * k}|${p[1] + k}}}`, `{{${p[0] + k}|${p[1] + k}}}`, `{{${p[1] * k}|${p[0] * k}}}`, `{{${p[0] * k}|${p[1] * k + 1}}}`]),
+    u:`Vermenigvuldig teller en noemer met hetzelfde getal: {{${p[0]}|${p[1]}}} = {{${p[0]} × ${k}|${p[1]} × ${k}}} = ${goed}.`};
+});
+T('B-GET-C5', 'bget_c5_aanvullen', R => {
+  const p = R.kies([[1, 2], [2, 3], [3, 4], [2, 5], [3, 5], [1, 4], [5, 6], [3, 8]]), k = R.int(2, 6);
+  return {q:`Vul aan zodat de breuken gelijk zijn.\n{{${p[0]}|${p[1]}}} = {{…|${p[1] * k}}}`, velden:[veld(p[0] * k, '', 'teller =')],
+    u:`De noemer ${p[1]} wordt ${p[1] * k}: dat is × ${k}.\nDe teller ook × ${k}: ${p[0]} × ${k} = ${p[0] * k}.`};
+});
+T('B-GET-C6', 'bget_c6_kwart', R => {
+  const p = R.kies([[50, ': 2', ['× 2', ': 50', ': 5']], [25, ': 4', ['× 4', ': 25', ': 2']], [10, ': 10', ['× 10', ': 100', ': 1']], [20, ': 5', ['× 5', ': 20', ': 2']]]);
+  const g = p[0] === 25 ? R.int(3, 25) * 4 : p[0] === 20 ? R.int(3, 30) * 5 : R.int(4, 40) * 10;
+  return {q:`Je rekent ${p[0]} % van ${eur(g)} uit het hoofd.\nWat doe je?`, o:keuzes(`${f(g)} ${p[1]}`, p[2].map(x => `${f(g)} ${x}`)),
+    u:`${p[0]} % = {{${p[0]}|100}} = {{1|${100 / p[0]}}}. Dus ${f(g)} ${p[1]} = ${f(g * p[0] / 100)}.`};
+});
+T('B-GET-C7', 'bget_c7_temperatuur', R => {
+  const st = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag'];
+  const t = st.map(() => R.int(-60, 90) / 10);
+  if (new Set(t).size < 5 || t.filter(x => x < 0).length < 2) return null;
+  const s = st.map((n, i) => [n, t[i]]).sort((a, b) => a[1] - b[1]);
+  return {q:`De temperatuur om 8 uur 's morgens, in een week in maart.\nZet de dagen van koud naar warm.`, fig:{t:'tab', kop:['Dag', 'Temperatuur'], rijen:st.map((n, i) => [n, minT(t[i]) + ' °C'])},
+    kaartjes:s.map(x => x[0]), u:`Hoe verder onder 0, hoe kouder.\n${s.map(x => x[0] + ' (' + minT(x[1]) + ' °C)').join(' &lt; ')}.`};
+});
+T('B-GET-C8', 'bget_c8_kassa', R => {
+  const p = [R.int(2, 9) + 0.95, R.int(10, 29) + 0.99, R.int(1, 6) + R.kies([0.05, 0.10, 0.15])].map(x => +x.toFixed(2));
+  const sch = p.map(x => Math.round(x)), tot = sch.reduce((a, b) => a + b, 0);
+  return {q:`In je winkelmand zit: ${p.map(eur).join(', ')}.\nOngeveer hoeveel moet je betalen?`, calc:false,
+    o:keuzes(eur(tot), [eur(tot + 10), eur(tot - 10), eur(tot * 2), eur(Math.round(tot / 10))]),
+    u:`Rond elk bedrag af op de euro: ${sch.map(eur).join(' + ')} = ${eur(tot)}.`};
+});
+T('B-GET-C9', 'bget_c9_minuten', R => {
+  const u = R.int(1, 4), m = R.kies([10, 15, 20, 30, 40, 45, 50]), naar = R.kies([true, false]);
+  if (naar) return {q:`Hoeveel minuten zijn ${u} uur en ${m} minuten?`, velden:[veld(u * 60 + m, 'minuten')], calc:false, u:`${u} × 60 = ${u * 60}. ${u * 60} + ${m} = ${u * 60 + m} minuten.`};
+  return {q:`Een film duurt ${u * 60 + m} minuten.\nHoeveel uur en minuten is dat?`, velden:[veld(u, 'uur'), veld(m, 'min')], calc:false,
+    u:`${u * 60 + m} = ${u} × 60 + ${m}. Dat is ${u} uur en ${m} minuten.`};
+});
+
+/* ===== B ===== */
+T('B-GET-B4', 'bget_b4_verhouding', R => {
+  const tot = R.kies([20, 25, 50, 200, 40]), deel = R.int(1, tot - 1), pc = deel / tot * 100;
+  if (Math.abs(pc - Math.round(pc)) > 1e-9) return null;
+  const wat = R.kies([['vragen van de toets', 'had je juist'], ['leerlingen', 'sporten in een club'], ['zitjes in de bus', 'zijn bezet']]);
+  return {q:`${deel} op ${tot} ${wat[0]} ${wat[1]}.\nHoeveel procent is dat?`, velden:[veld(pc, '%')],
+    u:`${deel} op ${tot} = {{${deel}|${tot}}} = ${deel} : ${tot} = ${f(deel / tot, 2)} = ${f(pc)} %.`};
+});
+T('B-GET-B8', 'bget_b8_boodschappen', R => {
+  const a = R.int(2, 4), pa = R.int(110, 390) / 100, b = R.int(2, 6), pb = R.int(45, 180) / 100, korting = R.kies([0, 1, 2, 5]);
+  const tot = a * pa + b * pb - korting;
+  return {q:`Je koopt ${a} pakken sap van ${eur(pa)} en ${b} bananen van ${eur(pb)}.\n${korting ? `Je hebt een bon van ${eur(korting)} korting.\n` : ''}Hoeveel betaal je?`, velden:[geld(tot)],
+    u:`${a} × ${eur(pa)} = ${eur(a * pa)}.\n${b} × ${eur(pb)} = ${eur(b * pb)}.\n${eur(a * pa)} + ${eur(b * pb)}${korting ? ' − ' + eur(korting) : ''} = ${eur(tot)}.`};
+});
+T('B-GET-B8', 'bget_b8_temperatuur', R => {
+  const t0 = R.int(-8, 4), op = R.int(3, 12), af = R.int(2, 9), t1 = t0 + op - af;
+  return {q:`Om 6 uur is het ${minT(t0)} °C.\nTot de middag stijgt de temperatuur ${op} °C.\nTegen de avond daalt ze ${af} °C.\nHoeveel graden is het 's avonds?`, velden:[veld(t1, '°C')],
+    u:`${minT(t0)} + ${op} = ${minT(t0 + op)}.\n${minT(t0 + op)} − ${af} = ${minT(t1)} °C.`};
+});
+T('B-GET-B10', 'bget_b10_maal100', R => {
+  const m = R.kies([10, 100, 1000]), x = R.int(11, 999) / R.kies([10, 100]);
+  const n = String(m).length - 1, goed = `De komma ${n} ${n === 1 ? 'plaats' : 'plaatsen'} naar rechts`;
+  return {q:`Je rekent ${f(x)} × ${f(m)} uit het hoofd.\nWat doe je?`,
+    o:keuzes(goed, [`De komma ${n} ${n === 1 ? 'plaats' : 'plaatsen'} naar links`, `${n} keer een 0 achteraan schrijven: ${f(x)}${'0'.repeat(n)}`, `De komma ${n + 1} plaatsen naar rechts`]),
+    u:`Bij × ${f(m)} wordt het getal ${f(m)} keer groter: de komma gaat ${n} ${n === 1 ? 'plaats' : 'plaatsen'} naar rechts.\n${f(x)} × ${f(m)} = ${f(x * m)}.`};
+});
+
+/* ===== A ===== */
+T('B-GET-A4', 'bget_a4_tweeklokken', R => {
+  const u1 = R.int(1, 9), m1 = R.int(0, 11) * 5, d = R.int(25, 170), t = u1 * 60 + m1 + d, u2 = Math.floor(t / 60), m2 = t % 60;
+  if (u2 > 11) return null;
+  const wat = R.kies(['Een wandeling', 'Een fietstocht', 'Een bezoek aan het museum']);
+  return {q:`${wat} begint en eindigt op de tijden van de klokken.\nHoe lang duurt het?`, fig:{t:'klok', klokken:[{u:u1, m:m1, l:'begin'}, {u:u2, m:m2, l:'einde'}]},
+    velden:[veld(Math.floor(d / 60), 'uur'), veld(d % 60, 'min')], calc:false,
+    u:`Begin: ${u1}.${pad2(m1)} uur. Einde: ${u2}.${pad2(m2)} uur.\nVan ${u1}.${pad2(m1)} tot ${u2}.${pad2(m2)} is ${duurT(d)}.`};
+});
+T('B-GET-A5', 'bget_a5_avond', R => {
+  const u = R.int(13, 23), m = R.int(1, 11) * 5 - R.kies([0, 0, 2, 3]);
+  const wat = u < 18 ? "Het is 's middags." : "Het is 's avonds.";
+  return {q:`${wat}\nSchrijf de tijd van de klok digitaal.`, fig:{t:'klok', u, m}, velden:[veld(u, 'uur'), veld(m, 'min')], calc:false,
+    u:`De kleine wijzer staat ${m >= 30 ? 'tussen ' + (u - 12) + ' en ' + (u - 11) : 'net na ' + (u - 12)}: ${u - 12} uur. De grote wijzer staat op ${m} minuten.\n${wat.replace('Het is ', '').replace('.', '')} komt er 12 uur bij: ${digiT(u, m)}.`};
+});
+T('B-GET-A8', 'bget_a8_maal9', R => {
+  const k = R.kies([[9, 10, 1], [99, 100, 1], [999, 1000, 1]]), x = R.int(12, 86);
+  if (R.int(0, 1)) {
+    return {q:`Je rekent ${x} × ${k[0]} uit het hoofd.\nWelke werkwijze is juist?`,
+      o:keuzes(`${x} × ${f(k[1])} − ${x}`, [`${x} × ${f(k[1])} − ${k[0]}`, `${x} × ${f(k[1])} − 1`, `${x} × ${f(k[1])} + ${x}`]),
+      u:`${k[0]} = ${f(k[1])} − 1. Dus ${x} × ${k[0]} = ${x} × ${f(k[1])} − ${x} × 1 = ${f(x * k[1])} − ${x} = ${f(x * k[0])}.`};
+  }
+  const d = R.kies([[0.1, 10], [0.01, 100], [0.001, 1000]]);
+  return {q:`Je rekent ${x} : ${f(d[0], 3)} uit het hoofd.\nWelke werkwijze is juist?`,
+    o:keuzes(`${x} × ${f(d[1])}`, [`${x} : ${f(d[1])}`, `${x} × ${f(d[0], 3)}`, `${x} × ${f(d[1] * 10)}`]),
+    u:`Delen door ${f(d[0], 3)} is hetzelfde als vermenigvuldigen met ${f(d[1])}.\n${x} × ${f(d[1])} = ${f(x * d[1])}.`};
+});
+T('B-GET-A10', 'bget_a10_verband', R => {
+  const p = R.kies([['m', 'cm', 100, 'groter'], ['kg', 'g', 1000, 'groter'], ['l', 'cl', 100, 'groter'], ['cm', 'm', 100, 'kleiner'], ['g', 'kg', 1000, 'kleiner'], ['ml', 'l', 1000, 'kleiner'], ['km', 'm', 1000, 'groter']]);
+  const x = R.int(12, 95) / 10, y = p[3] === 'groter' ? x * p[2] : x / p[2];
+  return {q:`Je zet ${f(x)} ${p[0]} om naar ${p[1]}.\nWat gebeurt er met het getal?`,
+    o:keuzes(`Het getal wordt ${f(p[2])} keer ${p[3]}.`, [`Het getal wordt ${f(p[2])} keer ${p[3] === 'groter' ? 'kleiner' : 'groter'}.`, `Het getal blijft hetzelfde.`, `Het getal wordt ${f(p[2] / 10)} keer ${p[3]}.`]),
+    u:`${p[1]} is een ${p[3] === 'groter' ? 'kleinere' : 'grotere'} eenheid dan ${p[0]}. Je hebt er dus ${p[3] === 'groter' ? 'meer' : 'minder'} van nodig.\n${f(x)} ${p[0]} = ${f(y, 4)} ${p[1]}: het getal wordt ${f(p[2])} keer ${p[3]}.`};
+});
+
+WOORDEN.push(['maatbeker', 'Een beker met streepjes om af te meten hoeveel je erin doet.'],
+  ['winkelmand', 'Een mand waarin je de dingen legt die je in de winkel koopt.'], ['opwarming', 'Rustige oefeningen voor de training, om je spieren klaar te maken.'],
+  ['linksvoetig', 'Iemand die het liefst met de linkervoet tegen de bal trapt.'], ['bespaar', 'Je geeft minder geld uit.'],
+  ['beurt', 'Eén keer dat je mag gaan, bijvoorbeeld één keer zwemmen.'], ['vaste prijs', 'Een bedrag dat je altijd betaalt, hoe lang je ook huurt.'],
+  ['ritten', 'Keren dat je met de auto of wagen ergens naartoe rijdt.']);
+/* ---------- Meetkundige objecten en relaties (dieptethema, B-stroom, 2B) ----------
+   Leeswijzer: D "meestal in een context", C tot A "zowel met als zonder een context".
+   Gedeeld met 2A (koppel): vakken op een rooster, figuren benoemen, hoeken meten met de gradenboog, ligging van ribben in een balk. */
+koppel('B', `
+mor_d3_vak=B-MOR-D3 mor_d3_plan=B-MOR-D3 mor_c1_soort=B-MOR-C1 mor_c3_net=B-MOR-C2 mor_b1_ruimte=B-MOR-B1 mor_b3_scherp=B-MOR-B3
+mor_d2_meten=B-MOR-B4 mor_b4_vlak=B-MOR-B5 mor_b6_vervolledig=B-MOR-B6 mor_b7_vakken=B-MOR-B7
+mor_a1_stomp=B-MOR-A1 mor_a7_hoek=B-MOR-A2 mor_a3_ligging=B-MOR-A3 mor_c2_evenwijdig=B-MOR-A3 t_klikcoord=B-MOR-A4
+`);
+
+/* hoek met hoekpunt v en grootte a (graden), eerste been naar rechts; rechte hoek met een losse L */
+function hoekSvg(a, draai) {
+  const v = [150, 150], r = 120, d = (draai || 0) * Math.PI / 180;
+  const p1 = [v[0] + r * Math.cos(-d), v[1] + r * Math.sin(-d)], p2 = [v[0] + r * Math.cos(-d - a * Math.PI / 180), v[1] + r * Math.sin(-d - a * Math.PI / 180)];
+  let s = lijnS(v, p1) + lijnS(v, p2) + '<circle cx="' + v[0] + '" cy="' + v[1] + '" r="3.5" fill="var(--inkt)"/>';
+  s += a === 90 ? rhoek(v, p1, p2, 4, 14) : boogje(v, p1, p2, 30);
+  return fig('0 0 300 200', s, 'Een hoek.');
+}
+
+/* ===== D ===== */
+T('B-MOR-D1', 'bmor_d1_bol', R => {
+  const k = kiesVorm(R, 'bol', ['cirkel', 'cilinder', 'kegel', 'kubus', 'piramide']);
+  return {q:'Welke figuur is een bol?', fig:k.fig, o:k.o, volgorde:k.volgorde, u:`Figuur ${k.letter} is een bol: rond in alle richtingen, zoals een bal. Een cirkel is plat.`};
+});
+T('B-MOR-D1', 'bmor_d1_voorwerp', R => {
+  const p = R.kies([['een voetbal', ['een blikje frisdrank', 'een dobbelsteen', 'een ijshoorntje']], ['een knikker', ['een pak melk', 'een rol koekjes', 'een feesthoedje']],
+    ['een sinaasappel', ['een schoenendoos', 'een kaars', 'een tent']], ['een tennisbal', ['een suikerklontje', 'een buis', 'een verkeerskegel']]]);
+  return {q:'Welk voorwerp heeft de vorm van een bol?', o:keuzes(p[0], p[1]), u:`${p[0][0].toUpperCase() + p[0].slice(1)} is rond in alle richtingen: een bol.`};
+});
+T('B-MOR-D2', 'bmor_d2_lat', R => {
+  const b = R.int(21, 95) / 10;
+  return {q:'Het lijnstuk [AB] ligt langs een lat. A staat bij 0.\nHoe lang is [AB]?', fig:liniaal(0, b), velden:[veld(b, 'cm')], calc:false,
+    u:`A staat bij 0. B staat bij ${f(b)} cm.\n[AB] is ${f(b)} cm lang.`};
+});
+T('B-MOR-D2', 'bmor_d2_mm', R => {
+  const b = R.int(15, 92) / 10;
+  return {q:'Hoe lang is het lijnstuk [AB] in mm?', fig:liniaal(0, b), velden:[veld(Math.round(b * 10), 'mm')], calc:false,
+    u:`B staat bij ${f(b)} cm. 1 cm = 10 mm.\n${f(b)} cm = ${Math.round(b * 10)} mm.`};
+});
+
+/* ===== C ===== */
+T('B-MOR-C1', 'bmor_c1_hoek', R => {
+  const p = R.kies([['scherpe hoek', R.int(25, 75)], ['rechte hoek', 90], ['stompe hoek', R.int(105, 165)], ['gestrekte hoek', 180]]);
+  return {q:'Wat voor hoek is dit?', fig:hoekSvg(p[1], p[1] === 180 ? 0 : R.int(0, 3) * 10), o:vasteKeuze(p[0], ['scherpe hoek', 'rechte hoek', 'stompe hoek', 'gestrekte hoek']).o,
+    volgorde:vasteKeuze(p[0], ['scherpe hoek', 'rechte hoek', 'stompe hoek', 'gestrekte hoek']).volgorde,
+    u:'Scherp: kleiner dan 90°. Recht: 90° (met het teken L). Stomp: tussen 90° en 180°. Gestrekt: 180°, de benen liggen op één rechte.\nDit is een ' + p[0] + '.'};
+});
+T('B-MOR-C1', 'bmor_c1_vierhoek', R => {
+  const juist = R.kies(['trapezium', 'parallellogram', 'ruit', 'rechthoek', 'vierkant']);
+  const k = kiesVorm(R, juist, ['trapezium', 'parallellogram', 'ruit', 'rechthoek', 'vierkant', 'vlieger']);
+  return {q:`Welke figuur is een ${juist}?`, fig:k.fig, o:k.o, volgorde:k.volgorde, u:`Figuur ${k.letter} is een ${juist}.`};
+});
+T('B-MOR-C2', 'bmor_c2_voorwerp', R => {
+  const p = R.kies([['Een blikje frisdrank', 'cilinder'], ['Een dobbelsteen', 'kubus'], ['Een schoenendoos', 'balk'], ['Een ijshoorntje', 'kegel'], ['Een tent met vier zijwanden', 'piramide'], ['Een basketbal', 'bol']]);
+  const k = kiesVorm(R, p[1], RUIMTE);
+  return {q:`${p[0]} heeft de vorm van een ruimtefiguur.\nWelke tekening past?`, fig:k.fig, o:k.o, volgorde:k.volgorde, u:`${p[0]} heeft de vorm van een ${p[1]}: figuur ${k.letter}.`};
+});
+T('B-MOR-C3', 'bmor_c3_vierhoek', R => {
+  const p = R.kies([['vierkant', 'Een vierhoek met vier rechte hoeken en vier even lange zijden.'], ['rechthoek', 'Een vierhoek met vier rechte hoeken. Twee zijden zijn langer dan de andere twee.'],
+    ['ruit', 'Een vierhoek met vier even lange zijden, maar zonder rechte hoeken.'], ['trapezium', 'Een vierhoek met maar één paar evenwijdige zijden.'],
+    ['parallellogram', 'Een vierhoek met twee paar evenwijdige zijden, zonder rechte hoeken. De zijden zijn niet allemaal even lang.']]);
+  const k = kiesVorm(R, p[0], ['vierkant', 'rechthoek', 'ruit', 'trapezium', 'parallellogram', 'vlieger']);
+  return {q:`${p[1]}\nWelke figuur past bij deze omschrijving?`, fig:k.fig, o:k.o, volgorde:k.volgorde, u:`${p[1]}\nDat is een ${p[0]}: figuur ${k.letter}.`};
+});
+T('B-MOR-C3', 'bmor_c3_driehoek', R => {
+  const p = R.kies([['rechthoekige driehoek', 'Een driehoek met een rechte hoek.'], ['gelijkzijdige driehoek', 'Een driehoek met drie even lange zijden.'],
+    ['gelijkbenige driehoek', 'Een driehoek met twee even lange zijden. De derde zijde is korter.'], ['stomphoekige driehoek', 'Een driehoek met een stompe hoek.']]);
+  const k = kiesVorm(R, p[0], ['rechthoekige driehoek', 'gelijkzijdige driehoek', 'gelijkbenige driehoek', 'stomphoekige driehoek', 'scherphoekige driehoek']);
+  return {q:`${p[1]}\nWelke figuur past bij deze omschrijving?`, fig:k.fig, o:k.o, volgorde:k.volgorde, u:`${p[1]}\nDat is een ${p[0]}: figuur ${k.letter}.`};
+});
+
+/* ===== B ===== */
+T('B-MOR-B2', 'bmor_b2_rechten', R => {
+  const soort = R.kies(['evenwijdig', 'loodrecht', 'snijdend, maar niet loodrecht']);
+  const h = R.int(-25, 25) * Math.PI / 180, c = [150, 100], L = 130;
+  const ra = [Math.cos(h), Math.sin(h)];
+  let s = '', a1, a2, b1, b2;
+  if (soort === 'evenwijdig') {
+    const n = [-ra[1] * 40, ra[0] * 40];
+    a1 = [c[0] - L * ra[0] - n[0], c[1] - L * ra[1] - n[1]]; a2 = [c[0] + L * ra[0] - n[0], c[1] + L * ra[1] - n[1]];
+    b1 = [c[0] - L * ra[0] + n[0], c[1] - L * ra[1] + n[1]]; b2 = [c[0] + L * ra[0] + n[0], c[1] + L * ra[1] + n[1]];
+    s = lijnS(a1, a2) + lijnS(b1, b2);
+  } else {
+    const g = soort === 'loodrecht' ? 90 : R.kies([50, 60, 120, 130]), hb = h + g * Math.PI / 180, rb = [Math.cos(hb), Math.sin(hb)];
+    a1 = [c[0] - L * ra[0], c[1] - L * ra[1]]; a2 = [c[0] + L * ra[0], c[1] + L * ra[1]];
+    b1 = [c[0] - 85 * rb[0], c[1] - 85 * rb[1]]; b2 = [c[0] + 85 * rb[0], c[1] + 85 * rb[1]];
+    s = lijnS(a1, a2) + lijnS(b1, b2) + (soort === 'loodrecht' ? rhoek(c, a2, b2, 4, 14) : '');
+  }
+  s += tekst([a2[0] - 4, a2[1] - 8], '<tspan font-style="italic" font-weight="700">a</tspan>') + tekst([b2[0] + 10, b2[1] + 4], '<tspan font-style="italic" font-weight="700">b</tspan>');
+  const lijst = ['evenwijdig', 'loodrecht', 'snijdend, maar niet loodrecht'], vk = vasteKeuze(soort, lijst);
+  return {q:'Hoe liggen de rechten a en b ten opzichte van elkaar?', fig:fig('-10 -10 320 220', s, 'Twee rechten a en b.'), o:vk.o, volgorde:vk.volgorde,
+    u:'Evenwijdig: ze snijden elkaar nooit. Loodrecht: ze snijden elkaar onder een rechte hoek (teken L). Anders zijn ze snijdend.\nHier: ' + soort + '.'};
+});
+
+/* ===== A ===== */
+T('B-MOR-A4', 'bmor_a4_aflezen', R => {
+  const x = R.int(1, 5), y = R.int(1, 5), l = R.kies(['P', 'Q', 'R', 'K']);
+  return {q:`Wat zijn de coördinaten van punt ${l}?`, fig:{t:'rooster', max:6, punten:[{x, y, l}]}, velden:[veld(x, '', 'x ='), veld(y, '', 'y =')], calc:false,
+    u:`Vanuit de oorsprong ga je ${x} naar rechts: x = ${x}. Dan ${y} naar boven: y = ${y}.\n${l}(${x}, ${y}). Eerst x, dan y.`};
+});
+/* ---------- Omtrek, oppervlakte en inhoud (dieptethema, B-stroom, 2B) ----------
+   Leeswijzer: "met gegeven formularium". Zoals op de toets staat naast de vraag een kader met enkel de formules die nodig zijn (fk).
+   Bij vragen over het herkennen van een formule (D1, C2) staat er geen kader: dat zou het antwoord verklappen. */
+const FK = {
+  omtrekR:'omtrek rechthoek = 2 × (lengte + breedte)', oppR:'oppervlakte rechthoek = lengte × breedte',
+  omtrekV:'omtrek vierkant = 4 × zijde', oppV:'oppervlakte vierkant = zijde × zijde',
+  omtrekVh:'omtrek vierhoek = som van de lengtes van de zijden', omtrekD:'omtrek driehoek = som van de lengtes van de zijden',
+  oppD:'oppervlakte driehoek = {{basis × hoogte|2}}', omtrekC:'omtrek cirkel = 2 × π × straal', oppC:'oppervlakte cirkel = π × straal × straal', pi:'π ≈ 3,14',
+  inhB:'inhoud balk = lengte × breedte × hoogte', inhK:'inhoud kubus = ribbe × ribbe × ribbe'
+};
+koppel('B', `
+ooi_d2_formule=B-OOI-D1 ooi_d2_kiezen=B-OOI-D1 ooi_c2_omtrek=B-OOI-C2 ooi_c3_driehoek=B-OOI-C3 ooi_c4_zijde=B-OOI-C4 ooi_c5_rechthoek=B-OOI-C5 ooi_c6_balk=B-OOI-C6
+ooi_b1_kiezen=B-OOI-B1 ooi_b2_vierkantjes=B-OOI-B2 ooi_b2_cirkel=B-OOI-B2 ooi_b3_context=B-OOI-B3 ooi_b4_figuur=B-OOI-B4 ooi_b5_zijde=B-OOI-B5 ooi_b6_balk=B-OOI-B6 ooi_b7_ribbe=B-OOI-B7
+ooi_a1_zonder=B-OOI-A1 ooi_a4_zijde=B-OOI-A4 ooi_a5_hoogte=B-OOI-A5 ooi_a7_inhoud=B-OOI-A7
+`);
+calcB('ooi_c3_driehoek ooi_c4_zijde ooi_c5_rechthoek ooi_b2_vierkantjes ooi_b4_figuur ooi_b5_zijde ooi_a4_zijde', 'e');
+fkB('ooi_c3_driehoek', [FK.omtrekD]); fkB('ooi_c4_zijde', [FK.omtrekD]); fkB('ooi_c5_rechthoek', [FK.oppR]); fkB('ooi_c6_balk', [FK.inhB]);
+fkB('ooi_b2_vierkantjes', [FK.omtrekVh]); fkB('ooi_b2_cirkel', [FK.omtrekC, FK.pi]); fkB('ooi_b3_context', [FK.oppR]);
+fkB('ooi_b4_figuur', [FK.oppD, FK.oppV, FK.oppC, FK.pi]); fkB('ooi_b5_zijde', [FK.omtrekR, FK.oppR, FK.omtrekV, FK.oppV]); fkB('ooi_b6_balk', [FK.inhB]); fkB('ooi_b7_ribbe', [FK.inhB]);
+fkB('ooi_a1_zonder', [FK.oppD, FK.oppV, FK.oppC, FK.pi]); fkB('ooi_a4_zijde', [FK.omtrekR]); fkB('ooi_a5_hoogte', [FK.oppD, FK.omtrekD]); fkB('ooi_a7_inhoud', [FK.inhB, FK.inhK]);
+
+/* ===== D ===== */
+T('B-OOI-D1', 'booi_d1_doos', R => {
+  const p = R.kies([['een schoenendoos', 'lengte', 'breedte', 'hoogte'], ['een aquarium', 'lengte', 'breedte', 'hoogte'], ['een zandbak', 'lengte', 'breedte', 'diepte']]);
+  return {q:`Je wilt weten hoeveel er in ${p[0]} past.\nWelke formule gebruik je?`,
+    o:keuzes(`${p[1]} × ${p[2]} × ${p[3]}`, [`${p[1]} + ${p[2]} + ${p[3]}`, `${p[1]} × ${p[2]}`, `2 × (${p[1]} + ${p[2]})`]),
+    u:`Hoeveel er in een balk past, is de inhoud.\ninhoud balk = ${p[1]} × ${p[2]} × ${p[3]}.`};
+});
+
+/* ===== C ===== */
+T('B-OOI-C1', 'booi_c1_formule', R => {
+  const r = R.schud([['rechthoek: 2 × (lengte + breedte)', 'omtrek'], ['rechthoek: lengte × breedte', 'oppervlakte'], ['vierkant: 4 × zijde', 'omtrek'], ['vierkant: zijde × zijde', 'oppervlakte'],
+    ['driehoek: {{basis × hoogte|2}}', 'oppervlakte'], ['driehoek: som van de zijden', 'omtrek'], ['cirkel: 2 × π × straal', 'omtrek'], ['cirkel: π × straal × straal', 'oppervlakte']]).slice(0, 4);
+  if (new Set(r.map(x => x[1])).size < 2) return null;
+  return {q:'Berekent de formule de omtrek of de oppervlakte?\nKies telkens.', sym:{palet:['omtrek', 'oppervlakte'], rijen:r.map(x => ({voor:x[0] + ' →', na:'', w:x[1]}))},
+    u:'Omtrek: je telt lengtes op (de rand). Oppervlakte: je vermenigvuldigt twee lengtes (cm × cm = cm²).'};
+});
+T('B-OOI-C1', 'booi_c1_wat', R => {
+  const p = R.kies([['een kader rond een foto', 'omtrek'], ['een lint rond een taart', 'omtrek'], ['een hek rond een weide', 'omtrek'], ['een tafelkleed voor een tafel', 'oppervlakte'],
+    ['tegels voor een terras', 'oppervlakte'], ['gras voor een rond grasperk', 'oppervlakte'], ['een rand rond een rond zwembad', 'omtrek'], ['behangpapier voor een muur', 'oppervlakte']]);
+  const vk = vasteKeuze(p[1], ['omtrek', 'oppervlakte']);
+  return {q:`Je koopt ${p[0]}.\nMoet je de omtrek of de oppervlakte kennen?`, o:vk.o, volgorde:vk.volgorde,
+    u:p[1] === 'omtrek' ? 'Het gaat om de rand: de omtrek.' : 'Het gaat om het hele vlak dat je bedekt: de oppervlakte.'};
+});
+T('B-OOI-C2', 'booi_c2_kader', R => {
+  const l = R.int(20, 60), b = R.int(10, l - 5);
+  return {q:`Een fotokader is ${l} cm lang en ${b} cm breed.\nMet welke berekening vind je de omtrek?`, fig:rechthoekFig(l, b),
+    o:keuzes(`2 × (${l} + ${b})`, [`${l} × ${b}`, `${l} + ${b}`, `4 × ${l}`, `2 × ${l} × ${b}`]),
+    u:`omtrek rechthoek = 2 × (lengte + breedte) = 2 × (${l} + ${b}) = ${2 * (l + b)} cm.`};
+});
+T('B-OOI-C3', 'booi_c3_tuin', R => {
+  const a = R.int(4, 12), b = R.int(4, 12), c = R.int(4, 12); if (a + b <= c || a + c <= b || b + c <= a) return null;
+  return {q:`Een tuin heeft de vorm van een driehoek.\nDe zijden zijn ${a} m, ${b} m en ${c} m.\nHoeveel meter hek heb je nodig rond de tuin?`, fk:[FK.omtrekD], velden:[veld(a + b + c, 'm')],
+    u:`omtrek driehoek = ${a} + ${b} + ${c} = ${a + b + c} m.`};
+});
+T('B-OOI-C4', 'booi_c4_lint', R => {
+  const a = R.int(15, 40), b = R.int(15, 40), c = R.int(10, 40); if (a + b <= c || a + c <= b || b + c <= a) return null;
+  return {q:`Een driehoekige vlag heeft een boord van ${a + b + c} cm lint.\nTwee zijden zijn ${a} cm en ${b} cm.\nHoe lang is de derde zijde?`, fk:[FK.omtrekD], velden:[veld(c, 'cm')],
+    u:`De boord is de omtrek: ${a + b + c} cm.\n${a + b + c} − ${a} − ${b} = ${c} cm.`};
+});
+T('B-OOI-C5', 'booi_c5_kamer', R => {
+  const l = R.int(30, 70) / 10, b = R.int(25, 50) / 10;
+  if (l <= b) return null;
+  return {q:`Een kamer is ${f(l)} m lang en ${f(b)} m breed.\nHoeveel m² vloer moet je leggen?`, fk:[FK.oppR], velden:[veld(l * b, 'm²')], fig:rechthoekFig(l, b, 'm'),
+    u:`oppervlakte rechthoek = lengte × breedte = ${f(l)} × ${f(b)} = ${f(l * b)} m².`};
+});
+T('B-OOI-C6', 'booi_c6_doos', R => {
+  const p = R.kies([['Een doos', 'cm'], ['Een koelbox', 'cm'], ['Een container', 'm']]), l = R.int(4, 30), b = R.int(3, 20), h = R.int(2, 15);
+  return {q:`${p[0]} heeft de vorm van een balk.\nDe ribben zijn ${l} ${p[1]}, ${b} ${p[1]} en ${h} ${p[1]}.\nHoe groot is de inhoud?`, fk:[FK.inhB], velden:[veld(l * b * h, p[1] + '³')],
+    u:`inhoud balk = ${l} × ${b} × ${h} = ${f(l * b * h)} ${p[1]}³.`};
+});
+
+/* ===== A ===== */
+T('B-OOI-A2', 'booi_a2_lvorm', R => {
+  const a = R.int(6, 12), b = R.int(5, 10), c = R.int(2, a - 2), d = R.int(2, b - 2);
+  /* L-vorm: rechthoek a op b met een rechthoek c op d weggesneden in de hoek rechtsboven */
+  const s0 = 18, W = a * s0, H = b * s0, x0 = 30, y0 = 20;
+  const P = [[x0, y0 + H], [x0 + W, y0 + H], [x0 + W, y0 + d * s0], [x0 + W - c * s0, y0 + d * s0], [x0 + W - c * s0, y0], [x0, y0]];
+  let s = veelhoek(P) + tekst([x0 + W / 2, y0 + H + 18], a + ' m') + tekst([x0 - 6, y0 + H / 2], b + ' m', 'end') + tekst([x0 + W - c * s0 / 2, y0 + d * s0 - 6], c + ' m') + tekst([x0 + W + 6, y0 + d * s0 / 2 + 4], d + ' m', 'start');
+  s += rhoek(P[0], P[1], P[5]) + rhoek(P[1], P[2], P[0]);
+  const opp = a * b - c * d, wat = R.kies(['opp', 'omtrek']);
+  return {q:`Een terras heeft deze vorm.\n${wat === 'opp' ? 'Hoeveel m² tegels heb je nodig?' : 'Hoeveel meter boordsteen leg je rond het terras?'}`,
+    fig:fig('0 0 ' + (W + x0 + 50) + ' ' + (H + y0 + 30), s, 'L-vormig terras.'), fk:wat === 'opp' ? [FK.oppR] : [FK.omtrekVh],
+    velden:[veld(wat === 'opp' ? opp : 2 * (a + b), wat === 'opp' ? 'm²' : 'm')],
+    u:wat === 'opp' ? `Grote rechthoek: ${a} × ${b} = ${a * b} m².\nHet stuk dat ontbreekt: ${c} × ${d} = ${c * d} m².\n${a * b} − ${c * d} = ${opp} m².`
+      : `Tel alle zijden. De ontbrekende zijden: ${b} − ${d} = ${b - d} m en ${a} − ${c} = ${a - c} m.\n${a} + ${d} + ${c} + ${b - d} + ${a - c} + ${b} = ${2 * (a + b)} m.`};
+});
+T('B-OOI-A3', 'booi_a3_teveel', R => {
+  const l = R.int(8, 20), b = R.int(4, l - 2), diag = Math.round(Math.hypot(l, b) * 10) / 10, prijs = R.stap(8, 25, 1), hoog = R.int(2, 3);
+  return {q:`Een speelplein is een rechthoek van ${l} m op ${b} m.\nDe diagonaal is ${f(diag)} m.\nDe omheining is ${hoog} m hoog en kost ${eur(prijs)} per meter.\nBereken de oppervlakte van het speelplein.`,
+    fk:[FK.oppR, FK.omtrekR], velden:[veld(l * b, 'm²')], tip:'Welke gegevens heb je nodig voor de oppervlakte?',
+    u:`oppervlakte = lengte × breedte = ${l} × ${b} = ${l * b} m².\nDe diagonaal, de hoogte en de prijs heb je niet nodig.`};
+});
+T('B-OOI-A6', 'booi_a6_straal', R => {
+  const r = R.int(2, 30), om = 2 * 3.14 * r;
+  const wat = R.kies(['Een rond zwembad', 'Een ronde tafel', 'Een rond bloemperk']);
+  return {q:`${wat} heeft een omtrek van ${f(om)} m.\nHoe groot is de straal?`, fk:[FK.omtrekC, FK.pi], velden:[veld(r, 'm')],
+    u:`omtrek = 2 × π × straal, dus straal = omtrek : (2 × π).\n${f(om)} : (2 × 3,14) = ${f(om)} : 6,28 = ${r} m.`};
+});
+T('B-OOI-A7', 'booi_a7_bloembak', R => {
+  const r = R.int(4, 9) * 10;
+  return {q:`Een bloembak heeft de vorm van een kubus.\nDe ribbe is ${r} cm.\nHoeveel liter aarde past er in de bloembak?`, fk:[FK.inhK, '1 liter = 1 dm³ = 1 000 cm³'], velden:[veld(r * r * r / 1000, 'liter')],
+    u:`inhoud = ${r} × ${r} × ${r} = ${f(r * r * r)} cm³.\n${f(r * r * r)} cm³ = ${f(r * r * r / 1000)} dm³ = ${f(r * r * r / 1000)} liter.`};
+});
+/* ---------- Statistiek (dieptethema, B-stroom, 2B) ----------
+   Leeswijzer: "meestal in een functionele context". De doelen van 2B zijn bijna dezelfde als in 2A, zonder modus en variatiebreedte.
+   Gedeeld met 2A (koppel); eigen 2B-vragen met contexten uit het dagelijks leven. */
+koppel('B', `
+sta_d2_aflezen=B-STA-D1 t_s1_staaflees=B-STA-D1 t_sm_lijnlees=B-STA-D1 sta_d3_totaal=B-STA-D2 t_sb2_totaal=B-STA-D2 sta_d4_aanvullen=B-STA-D3 t_sm_turven=B-STA-D3
+sta_d5_associeer=B-STA-D4 sta_c1_ordenen=B-STA-C1 t_sm_meeste=B-STA-C1 sta_c2_staaf=B-STA-C2 sta_c3_lijn=B-STA-C3 sta_c4_waarde=B-STA-C4 sta_c5_werkwijze=B-STA-C5
+sta_c6_mediaan=B-STA-C6 sta_c7_stappen=B-STA-C7 sta_b1_lijn=B-STA-B1 sta_b2_zonderas=B-STA-B2 sta_b3_hoogte=B-STA-B3 sta_b4_totaal=B-STA-B4 sta_b5_interpreteren=B-STA-B5
+sta_b6_taart=B-STA-B6 sta_b7_gemiddelde=B-STA-B7 t_gemiddelde=B-STA-B7 sta_b8_nodig=B-STA-B8 sta_a1_dubbel=B-STA-A1 sta_a3_procent=B-STA-A2 sta_a4_mediaan=B-STA-A3
+sta_a5_gemiddelde=B-STA-A4 sta_a10_vraagstuk=B-STA-A6
+`);
+calcB('sta_d2_aflezen sta_d3_totaal sta_d4_aanvullen sta_c2_staaf sta_b2_zonderas sta_b4_totaal sta_b5_interpreteren sta_a4_mediaan', 'e');
+
+/* ===== D ===== */
+T('B-STA-D4', 'bsta_d4_taart', R => {
+  const p = R.kies([['Ontbijt van 20 leerlingen', ['boterham', 'granen', 'niets'], 20], ['Vervoer van 40 leerlingen', ['fiets', 'bus', 'te voet'], 40], ['Huisdieren van 20 gezinnen', ['hond', 'kat', 'geen'], 20]]);
+  let a; do a = [R.int(2, 6), R.int(2, 6)].map(x => x * p[2] / 20); while (a[0] === a[1] || a[0] + a[1] >= p[2] - p[2] / 10);
+  const vals = [a[0], a[1], p[2] - a[0] - a[1]];
+  if (new Set(vals).size < 3) return null;
+  const pct = vals.map(v => v / p[2] * 100);
+  const varianten = [pct, [pct[1], pct[0], pct[2]], [pct[2], pct[1], pct[0]], [pct[0], pct[2], pct[1]]];
+  if (new Set(varianten.map(v => v.join())).size < 4) return null;
+  const opt = R.schud(varianten), L = 'ABCD', i = opt.indexOf(varianten[0]);
+  const fig2 = (v, x0, l) => {
+    const cx = x0 + 52, cy = 55, r = 44, kl = ['var(--k1)', 'var(--k2)', 'var(--k3)']; let a0 = 0, s = '';
+    v.forEach((x, k) => { const a1 = a0 + x / 100 * 2 * Math.PI, P = a => [cx + r * Math.sin(a), cy - r * Math.cos(a)], p0 = P(a0), p1 = P(a1);
+      s += '<path fill="' + kl[k] + '" stroke="var(--wit)" stroke-width="2" d="M' + cx + ',' + cy + ' L' + pt2(p0) + ' A' + r + ',' + r + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' + pt2(p1) + ' Z"/>'; a0 = a1; });
+    return s + tekst([cx, 122], '<tspan font-weight="700">' + l + '</tspan>');
+  };
+  const leg = p[1].map((c, k) => '<rect x="' + (10 + k * 120) + '" y="134" width="12" height="12" fill="' + ['var(--k1)', 'var(--k2)', 'var(--k3)'][k] + '"/>' + tekst([28 + k * 120, 145], c, 'start')).join('');
+  return {q:`${p[0]}:\n${p[1].map((c, k) => c + ' ' + vals[k]).join(', ')}.\nWelk cirkeldiagram past bij deze tabel?`, fig:fig('0 0 430 152', opt.map((v, j) => fig2(v, 4 + j * 106, L[j])).join('') + leg, 'Vier cirkeldiagrammen A, B, C en D.'),
+    ...letterKeuze(4, i, 'diagram '), u:`${p[1].map((c, k) => c + ': ' + vals[k] + ' van de ' + p[2] + ' = ' + f(pct[k]) + ' %').join('\n')}\nDe stukken moeten even groot zijn als die delen: diagram ${L[i]}.`};
+});
+
+/* ===== C ===== */
+T('B-STA-C2', 'bsta_c2_ruw', R => {
+  const p = R.kies([['Het aantal doelpunten per match', [0, 1, 2, 3, 4]], ['Het aantal kinderen per gezin', [1, 2, 3, 4]], ['Het aantal fouten in een dictee', [0, 1, 2, 3, 4, 5]]]);
+  const n = R.int(12, 18), data = []; for (let i = 0; i < n; i++) data.push(R.kies(p[1]));
+  const w = R.kies(p[1]), h = data.filter(x => x === w).length; if (h < 2) return null;
+  return {q:`${p[0]}: ${data.join(', ')}.\nJe tekent een staafdiagram.\nHoe hoog wordt de staaf bij ${w}?`, velden:[veld(h)], calc:false,
+    u:`Tel hoe vaak ${w} voorkomt. Zet een streepje bij elke ${w}.\n${w} komt ${h} keer voor: de staaf is ${h} hoog.`};
+});
+T('B-STA-C3', 'bsta_c3_temp', R => {
+  const vals = [0, 1, 2, 3, 4].map(() => R.int(4, 20)); if (new Set(vals).size < 4) return null;
+  const varianten = [vals, vals.slice().reverse(), vals.map((v, i) => i === 1 ? v + 5 : v), vals.map((v, i) => i === 3 ? Math.max(1, v - 5) : v)];
+  if (new Set(varianten.map(v => v.join())).size < 4) return null;
+  const opt = R.schud(varianten), L = 'ABCD', i = opt.indexOf(varianten[0]);
+  return {q:`De temperatuur om 14 uur, van maandag tot vrijdag (in °C).\nWelk lijndiagram hoort bij de tabel?`, fig:{t:'twee', a:{t:'tab', kop:['ma', 'di', 'wo', 'do', 'vr'], rijen:[vals]},
+    b:fig('0 0 420 130', opt.map((v, j) => miniDiagram(10 + j * 104, v, 26, 'lijn', L[j])).join(''), 'Vier kleine lijndiagrammen A, B, C en D.')},
+    ...letterKeuze(4, i, 'diagram '), u:`Volg de temperatuur van dag tot dag: ${vals.join(', ')}.\nHet punt van maandag tot vrijdag gaat ${vals.slice(1).map((v, k) => v > vals[k] ? 'omhoog' : v < vals[k] ? 'omlaag' : 'gelijk').join(', ')}: diagram ${L[i]}.`};
+});
+T('B-STA-C4', 'bsta_c4_zonderlabel', R => {
+  const d = statData(R, 4, 2, 12, true); if (!d) return null;
+  const i = R.int(0, 3);
+  return {q:`De tabel en het staafdiagram tonen dezelfde gegevens.\nBij één staaf staat geen naam.\nWelke naam hoort bij de staaf met het vraagteken?`,
+    fig:{t:'twee', a:tabF(d), b:staafF({titel:d.titel, cats:d.cats.map((c, j) => j === i ? '?' : c), vals:d.vals, ylab:d.ylab})},
+    o:keuzes(d.cats[i], d.cats.filter((c, j) => j !== i)), u:`De staaf met het vraagteken is ${d.vals[i]} hoog.\nIn de tabel hoort ${d.vals[i]} bij ${d.cats[i]}.`};
+});
+T('B-STA-C5', 'bsta_c5_wat', R => {
+  const g = [R.int(4, 9), R.int(10, 14), R.int(15, 20), R.int(21, 26), R.int(27, 33)];
+  const soort = R.kies(['mediaan', 'gemiddelde']);
+  const vk = vasteKeuze(soort === 'mediaan' ? 'het middelste getal nemen als ze van klein naar groot staan' : 'alle getallen optellen en delen door 5',
+    ['alle getallen optellen en delen door 5', 'het middelste getal nemen als ze van klein naar groot staan', 'het grootste min het kleinste getal', 'het getal dat het meest voorkomt']);
+  return {q:`De zakgeldbedragen van vijf vrienden: € ${g.join(', € ')}.\nHoe vind je ${soort === 'mediaan' ? 'de mediaan' : 'het gemiddelde'}?`, o:vk.o, volgorde:vk.volgorde,
+    u:soort === 'mediaan' ? `Mediaan: rangschik van klein naar groot en neem het middelste getal: € ${g[2]}.` : `Gemiddelde: som : aantal = ${somV(g)} : 5 = € ${f(somV(g) / 5)}.`};
+});
+T('B-STA-C6', 'bsta_c6_tijden', R => {
+  const n = R.kies([5, 7, 9]), a = []; let x = R.int(40, 55); for (let i = 0; i < n; i++) { x += R.int(0, 6); a.push(x); }
+  return {q:`${n} lopers liepen de 400 meter. Hun tijden in seconden, van snel naar traag:\n${a.join(', ')}.\nWat is de mediaan?`, velden:[veld(a[(n - 1) / 2], 's')], calc:false,
+    u:`Er zijn ${n} tijden. De middelste is de ${(n + 1) / 2}de: ${a[(n - 1) / 2]} s.`};
+});
+T('B-STA-C7', 'bsta_c7_welke', R => {
+  const p = R.kies([['Ze maakt een vragenlijst over sport en deelt die uit in de klas.', 'gegevens verzamelen'], ['Ze vraagt zich af: hoe komen de leerlingen naar school?', 'een onderzoeksvraag stellen'],
+    ['Ze telt de antwoorden en maakt een staafdiagram.', 'gegevens ordenen en voorstellen'], ['Ze besluit: de meeste leerlingen komen met de fiets.', 'een besluit formuleren']]);
+  const lijst = ['een onderzoeksvraag stellen', 'gegevens verzamelen', 'gegevens ordenen en voorstellen', 'een besluit formuleren'], vk = vasteKeuze(p[1], lijst);
+  return {q:`Lina doet een klein onderzoek.\n${p[0]}\nBij welke stap van het onderzoek hoort dit?`, o:vk.o, volgorde:vk.volgorde,
+    u:'De stappen: een onderzoeksvraag stellen, gegevens verzamelen, gegevens ordenen en voorstellen, een besluit formuleren.\nDit hoort bij: ' + p[1] + '.'};
+});
+
+/* ===== A ===== */
+T('B-STA-A5', 'bsta_a5_ontbrekend', R => {
+  const soort = R.kies(['gemiddelde', 'mediaan']), wie = R.naam();
+  if (soort === 'gemiddelde') {
+    const g = R.int(12, 16), a = [R.int(9, 17), R.int(9, 17), R.int(9, 17)], x = 4 * g - somV(a);
+    if (x < 5 || x > 20) return null;
+    return {q:`${wie} had vier toetsen op 20.\nDe eerste drie: ${a.join(', ')}.\nHet gemiddelde van de vier toetsen is ${g}.\nWat haalde ${wie} op de vierde toets?`, velden:[veld(x)],
+      u:`Vier toetsen met gemiddelde ${g}: samen 4 × ${g} = ${4 * g}.\nDe eerste drie samen: ${somV(a)}.\nVierde toets: ${4 * g} − ${somV(a)} = ${x}.`};
+  }
+  const a = [R.int(2, 5), R.int(6, 9), R.int(13, 16), R.int(17, 20)], med = R.int(10, 12);
+  return {q:`Vijf vrienden tellen hun stripboeken: ${a.join(', ')} en één getal ontbreekt.\nDe mediaan is ${med}.\nHoeveel stripboeken heeft de vijfde vriend?`, velden:[veld(med)], calc:false,
+    u:`Rangschik: ${a[0]}, ${a[1]}, …, ${a[2]}, ${a[3]}.\nDe mediaan is het middelste (3de) getal. Twee getallen zijn kleiner dan ${med} en twee groter.\nHet ontbrekende getal is dus ${med}.`};
+});
+/* ---------- Tabellen en diagrammen (dieptethema, B-stroom, 2B) ----------
+   Leeswijzer: "in een context". De doelen van 2B zijn bijna dezelfde als in 2A (gedeeld via koppel); eigen 2B-vragen met korte zinnen. */
+koppel('B', `
+tad_d1_bus=B-TAD-D1 tad_d1_prijs=B-TAD-D1 tad_d2_staaf=B-TAD-D2 tad_d3_taart=B-TAD-D3 tad_d4_vergelijk=B-TAD-D4 tad_c1_vergelijk=B-TAD-C1
+tad_c2_procent=B-TAD-C2 tad_c2_taart=B-TAD-C2 tad_c3_groot=B-TAD-C3 tad_c3_som=B-TAD-C3 tad_b1_teveel=B-TAD-B1 tad_b2_aanvullen=B-TAD-B2 tad_b3_bus=B-TAD-B3
+tad_b4_negatief=B-TAD-B4 tad_b5_lijn=B-TAD-B5 tad_b6_organigram=B-TAD-B6 tad_a2_berekenen=B-TAD-A2 tad_a3_lijn=B-TAD-A3 tad_a4_dubbel=B-TAD-A4
+`);
+calcB('tad_d1_prijs tad_d2_staaf tad_c2_procent tad_c2_taart tad_c3_som tad_b2_aanvullen tad_b4_negatief', 'e');
+
+/* ===== D ===== */
+T('B-TAD-D2', 'btad_d2_broodjes', R => {
+  const x = ['ma', 'di', 'wo', 'do', 'vr'], y = x.map(() => R.int(3, 14) * 5); if (new Set(y).size < 5) return null;
+  const i = R.int(0, 4), mx = Math.max(...y);
+  const vr = R.int(0, 1);
+  return {q:vr ? `Het staafdiagram toont hoeveel broodjes de schoolwinkel verkocht.\nOp welke dag verkocht de winkel de meeste broodjes?` : `Het staafdiagram toont hoeveel broodjes de schoolwinkel verkocht.\nHoeveel broodjes waren het op ${DAGNAAM[x[i]]}?`,
+    fig:{t:'staaf', titel:'Verkochte broodjes', x, y, min:0, max:Math.ceil(mx / 10) * 10 + 10, stap:10, ylab:'aantal broodjes'},
+    ...(vr ? {o:keuzes(DAGNAAM[x[y.indexOf(mx)]], x.filter((d, j) => y[j] !== mx).map(d => DAGNAAM[d]))} : {velden:[veld(y[i], 'broodjes')], calc:false}),
+    u:vr ? `De hoogste staaf is die van ${DAGNAAM[x[y.indexOf(mx)]]}: ${mx} broodjes.` : `De staaf van ${DAGNAAM[x[i]]} reikt tot ${y[i]}. Kijk goed: elke lijn is 10, halverwege is 5.`};
+});
+T('B-TAD-D3', 'btad_d3_feest', R => {
+  const cats = R.schud(['pizza', 'frietjes', 'pasta', 'wraps']), v = cats.map(() => R.int(3, 15)); if (new Set(v).size < 4) return null;
+  const tot = somV(v), i = R.int(0, 3), j = (i + R.int(1, 3)) % 4;
+  return {q:`Op het klasfeest kiest elke leerling één gerecht.\nHoeveel leerlingen kozen ${cats[i]} of ${cats[j]}?`,
+    fig:{t:'taart', titel:'Gekozen gerecht (aantal leerlingen)', delen:cats.map((c, k) => [c, v[k] / tot * 100, String(v[k])]), suffix:''},
+    velden:[veld(v[i] + v[j], 'leerlingen')], u:`${cats[i]}: ${v[i]}. ${cats[j]}: ${v[j]}.\n${v[i]} + ${v[j]} = ${v[i] + v[j]} leerlingen.`};
+});
+T('B-TAD-D4', 'btad_d4_zwembad', R => {
+  const sl = ['9-11 u', '11-13 u', '13-15 u', '15-17 u'], y = sl.map(() => R.int(2, 9) * 20); if (new Set(y).size < 4) return null;
+  const varianten = [y, y.slice().reverse(), [y[1], y[0], y[2], y[3]], y.map((v, k) => k === 2 ? v + 40 : v)];
+  if (new Set(varianten.map(v => v.join())).size < 4) return null;
+  const opt = R.schud(varianten), L = 'ABCD', i = opt.indexOf(varianten[0]);
+  return {q:`Het zwembad telt de bezoekers per tijdslot.\nWelk lijndiagram toont dezelfde gegevens?`,
+    fig:{t:'twee', a:{t:'staaf', titel:'Bezoekers zwembad', x:sl, y, min:0, max:220, stap:20, ylab:'aantal bezoekers'},
+      b:fig('0 0 420 130', opt.map((v, j) => miniDiagram(10 + j * 104, v, 230, 'lijn', L[j])).join(''), 'Vier kleine lijndiagrammen A, B, C en D.')},
+    ...letterKeuze(4, i, 'diagram '), u:`Volg de staven van links naar rechts: ${y.join(', ')}.\nHet lijndiagram moet op dezelfde manier stijgen en dalen: diagram ${L[i]}.`};
+});
+
+/* ===== C ===== */
+T('B-TAD-C1', 'btad_c1_cirkel', R => {
+  const d = taartData(R, 4); if (!d) return null;
+  const varianten = [d.pct, d.pct.slice().reverse(), [d.pct[1], d.pct[0], d.pct[2], d.pct[3]], [d.pct[0], d.pct[1], d.pct[3], d.pct[2]]];
+  if (new Set(varianten.map(v => v.join())).size < 4) return null;
+  const opt = R.schud(varianten), L = 'ABCD', i = opt.indexOf(varianten[0]);
+  return {q:`De punten van de lijndiagrammen staan in deze volgorde: ${d.cats.join(', ')}.\nWelk lijndiagram toont dezelfde gegevens als het cirkeldiagram?`,
+    fig:{t:'twee', a:taartF(d), b:fig('0 0 420 130', opt.map((v, j) => miniDiagram(10 + j * 104, v, 55, 'lijn', L[j])).join(''), 'Vier kleine lijndiagrammen A, B, C en D.')},
+    ...letterKeuze(4, i, 'diagram '), u:`In volgorde: ${d.cats.map((c, k) => c + ' ' + d.pct[k] + ' %').join(', ')}.\nDiagram ${L[i]} stijgt en daalt op dezelfde manier.`};
+});
+
+/* ===== A ===== */
+T('B-TAD-A1', 'btad_a1_jaren', R => {
+  const m = ['jan', 'feb', 'maa', 'apr', 'mei'], j1 = R.int(2023, 2024), jaren = [j1, j1 + 1, j1 + 2];
+  const rijen = jaren.map(() => m.map(() => R.int(4, 30) * 10));
+  if (rijen.some(r => new Set(r).size < 4)) return null;
+  const k = R.int(0, 2);
+  return {q:`De tabel toont het aantal bezoekers van een museum per maand.\nHet lijndiagram toont één van de jaren.\nWelk jaar?`,
+    fig:{t:'twee', a:{t:'tab', kop:['jaar'].concat(m), rijen:jaren.map((j, x) => [String(j)].concat(rijen[x]))}, b:{t:'lijn', titel:'Bezoekers', x:m, y:rijen[k], min:0, max:320, stap:40, ylab:'aantal bezoekers'}},
+    o:vasteKeuze(String(jaren[k]), jaren.map(String)).o, volgorde:vasteKeuze(String(jaren[k]), jaren.map(String)).volgorde,
+    u:`Lees de punten af: ${rijen[k].join(', ')}.\nDat zijn de getallen van ${jaren[k]}.`};
+});
+/* ---------- Verhoudingen (dieptethema, B-stroom, 2B) ----------
+   Leeswijzer: "meestal (ook) in een context", met verhoudingstabellen. Gedeeld met 2A Verhoudingen en vergelijkingen (koppel), zonder vergelijkingen. */
+koppel('B', `
+vvg_d1_recept=B-VER-D1 vvg_d1_verhouding=B-VER-D1 vvg_d3_honderd=B-VER-D2 vvg_c1_tabel=B-VER-C1 vvg_c1_benzine=B-VER-C1 vvg_c3_breuk=B-VER-C2
+vvg_b1_eenheid=B-VER-B1 vvg_b1_teveel=B-VER-B1 vvg_b5_gelijk=B-VER-B2 vvg_b6_procent=B-VER-B3 vvg_b7_teveel=B-VER-B4
+vvg_a1_pomp=B-VER-A1 vvg_a1_verbruik=B-VER-A1 vvg_a2_procent=B-VER-A2
+`);
+calcB('vvg_d1_recept vvg_d1_verhouding', 'e');
+
+/* ===== D ===== */
+T('B-VER-D2', 'bver_d2_breuk', R => {
+  const p = R.kies([['van het aardoppervlak is bedekt met water', 71], ['van de leerlingen sport in een club', 43], ['van de klas heeft een huisdier', 57], ['van de bezoekers kwam met de trein', 29], ['van de gsm-batterij is nog vol', 83], ['van de appels is rood', 61]]);
+  const pc = p[1] + R.kies([0, 0, -2, 2]);
+  if (pc % 2 === 0 || pc % 5 === 0) return null;
+  return {q:`${pc} % ${p[0]}.\nNoteer dit percentage als een breuk.`, velden:[veld(pc + '/100', '', '', 'breuk')], calc:false,
+    u:`Procent betekent "per honderd": ${pc} % = {{${pc}|100}}.`};
+});
+
+/* ===== C ===== */
+T('B-VER-C1', 'bver_c1_eenheid', R => {
+  const p = R.kies([['mijl', 'km', 1.61, 'Een fietsroute in Engeland is', 'mijl lang.'], ['inch', 'cm', 2.54, 'Een tablet heeft een scherm van', 'inch.'], ['voet', 'cm', 30.48, 'Een boot is', 'voet lang.']]);
+  const n = R.int(4, 15);
+  return {q:`${p[3]} ${n} ${p[4]}\n1 ${p[0]} is ongeveer ${f(p[2])} ${p[1]}.\nHoeveel ${p[1]} is dat? Geef je antwoord tot op 0,01 nauwkeurig.`, fig:{t:'tab', titel:'Verhoudingstabel', kop:[p[0], p[1]], rijen:[['1', f(p[2])], [String(n), '…']]},
+    velden:[veld(Math.round(n * p[2] * 100) / 100, p[1])], u:`${n} ${p[0]} is ${n} keer 1 ${p[0]}.\n${n} × ${f(p[2])} = ${f(n * p[2])} ${p[1]}.`};
+});
+T('B-VER-C2', 'bver_c2_ballen', R => {
+  const k = R.int(2, 4), a = R.int(1, 4) * k, b = R.int(2, 5) * k; if (a === b || a % b === 0) return null;
+  const p = R.kies([['rode', 'gele', 'ballen'], ['zwarte', 'witte', 'knikkers'], ['blauwe', 'groene', 'stiften']]);
+  const g = ggd(a, b), juist = breuk(a, b);
+  return {q:`In een doos zitten ${a} ${p[0]} en ${b} ${p[1]} ${p[2]}.\nWelke breuk geeft de verhouding van het aantal ${p[0]} tot het aantal ${p[1]} ${p[2]}?`,
+    o:keuzes(juist, [breuk(b, a), breuk(a, a + b), breuk(b, a + b)]),
+    u:`${p[0]} : ${p[1]} = ${a} : ${b} = {{${a}|${b}}}${g > 1 ? ' = ' + juist : ''}.\n{{${a}|${a + b}}} is het deel van alle ${p[2]}: dat is iets anders.`};
+});
+
+/* ===== B ===== */
+T('B-VER-B4', 'bver_b4_tabel', R => {
+  const pc = R.kies([20, 25, 40, 60, 75, 30]), tot = R.kies([20, 40, 60, 80, 120, 200]), n = pc * tot / 100;
+  if (!Number.isInteger(n)) return null;
+  const wat = R.kies(['van de leerlingen eet warm op school', 'van de leden van de club is jonger dan 15', 'van de tickets is al verkocht']);
+  const wie = wat.indexOf('tickets') >= 0 ? 'tickets' : wat.indexOf('club') >= 0 ? 'leden' : 'leerlingen';
+  return {q:`${pc} % ${wat}.\nEr zijn ${tot} ${wie}.\nHoeveel ${wie} zijn dat?`,
+    fig:{t:'tab', titel:'Verhoudingstabel', kop:['deel', 'geheel'], rijen:[[String(pc), '100'], ['…', String(tot)]]}, velden:[veld(n)],
+    u:`${pc} % betekent ${pc} op 100.\n100 → ${tot}: dat is × ${f(tot / 100)}.\n${pc} × ${f(tot / 100)} = ${n}.`};
+});
+/* ---------- Stap voor stap (2B): één situatie per thema, vier vragen van D naar A ----------
+   De leerling ziet geen letters; de leerkracht ziet bij elke stap het doel. Korte zinnen, contexten uit het dagelijks leven. */
+LAD('blad_wpo_frietkot', 'wpo', 'Aan het frietkot', R => {
+  const pf = R.stap(2.8, 3.6, 0.2), ps = R.stap(1, 1.4, 0.2), n = R.int(4, 7), betaal = 50, korting = R.kies([10, 20]);
+  const tot = n * (pf + ps), kort = tot * (1 - korting / 100);
+  return [
+    {code:'B-WPO-D1', q:`Een pakje friet kost ${eur(pf)}.\nJe koopt ${n} pakjes.\nHoeveel betaal je?`, velden:[geld(n * pf)], calc:'e', u:`${n} × ${eur(pf)} = ${eur(n * pf)}.`},
+    {code:'B-WPO-C1', q:`Een pakje friet kost ${eur(pf)}. Een potje saus kost ${eur(ps)}.\nIedereen neemt friet met saus. Jullie zijn met ${n}.\nJe betaalt met ${eur(betaal)}. Hoeveel krijg je terug?`, velden:[geld(betaal - tot)], calc:'e',
+      u:`Eén persoon: ${eur(pf)} + ${eur(ps)} = ${eur(pf + ps)}.\n${n} personen: ${n} × ${eur(pf + ps)} = ${eur(tot)}.\nTerug: ${eur(betaal)} − ${eur(tot)} = ${eur(betaal - tot)}.`},
+    {code:'B-WPO-B2', q:`Het frietkot is open van 17 tot 22 uur.\nVan ${n} personen nemen er ${n - 1} friet met saus.\nEén persoon neemt alleen friet.\nEen pakje friet kost ${eur(pf)}, een potje saus ${eur(ps)}.\nHoeveel betalen jullie samen?`, velden:[geld(n * pf + (n - 1) * ps)], calc:'e',
+      u:`De openingsuren heb je niet nodig.\nFriet: ${n} × ${eur(pf)} = ${eur(n * pf)}.\nSaus: ${n - 1} × ${eur(ps)} = ${eur((n - 1) * ps)}.\nSamen: ${eur(n * pf + (n - 1) * ps)}.`},
+    {code:'B-WPO-A1', q:`Met een klantenkaart krijg je ${korting} % korting.\nEen kaart kost € 5 en geldt voor één keer.\nJullie zijn met ${n} en iedereen neemt friet met saus.\nHoeveel bespaar je met de kaart? Typ 0 als je niets bespaart.`,
+      velden:[geld(Math.max(0, Math.round((tot - kort - 5) * 100) / 100))], calc:'e',
+      u:`Zonder kaart: ${eur(tot)}.\nMet kaart: ${eur(tot)} − ${korting} % = ${eur(kort)}, plus € 5 voor de kaart = ${eur(kort + 5)}.\n${tot - kort - 5 > 0 ? 'Je bespaart ' + eur(tot - kort - 5) + '.' : 'Je bespaart niets: met de kaart betaal je evenveel of meer.'}`}
+  ];
+}, 'B');
+LAD('blad_get_trein', 'get', 'Met de trein', R => {
+  const u = R.int(8, 10), m = R.kies([10, 20, 25, 40]), d = R.kies([35, 45, 50]), d2 = R.int(70, 110), pr = R.stap(8, 14, 0.1);
+  const aan = u * 60 + m + d;
+  return [
+    {code:'B-GET-D5', q:`De trein vertrekt om ${tijdWoord(u, m)} 's morgens.\nWelke digitale tijd is dat?`, o:keuzes(digiT(u, m), [digiT(u, (m + 30) % 60), digiT(u + 1, m), digiT(u - 1, m)]), u:`${tijdWoord(u, m)} 's morgens = ${digiT(u, m)}.`},
+    {code:'B-GET-C9', q:`De terugreis duurt ${d2} minuten.\nHoeveel uur en minuten is dat?`, velden:[veld(Math.floor(d2 / 60), 'uur'), veld(d2 % 60, 'min')], calc:false, u:`${d2} = 60 + ${d2 - 60}: ${duurT(d2)}.`},
+    {code:'B-GET-B7', q:`De trein vertrekt om ${digiT(u, m)}. De rit duurt ${d} minuten.\nHoe laat kom je aan?`, velden:[veld(Math.floor(aan / 60), 'uur'), veld(aan % 60, 'min')], calc:false,
+      u:`${digiT(u, m)} + ${d} minuten = ${digiT(Math.floor(aan / 60), aan % 60)}.`},
+    {code:'B-GET-A3', q:`Een ticket kost ${eur(pr)}. Je koopt er 3.\nJe betaalt cash. Het bedrag wordt afgerond op 5 eurocent.\nHoeveel betaal je?`, velden:[geld(Math.round(pr * 3 * 20) / 20)],
+      u:`3 × ${eur(pr)} = ${eur(pr * 3)}.\nAfgerond op 5 cent: ${eur(Math.round(pr * 3 * 20) / 20)}.`}
+  ];
+}, 'B');
+LAD('blad_mor_speelplein', 'mor', 'Een plan van het speelplein', R => {
+  const kol = 'ABCDEF', c = R.kies('BCDE'.split('')), r = R.int(2, 4), x = R.int(1, 5), y = R.int(1, 5);
+  return [
+    {code:'B-MOR-D3', q:`Op het plan staat de schommel in vak ${c}${r}.\nKlik op dat vak.`, cel:{kol, rij:5, w:[c + r]}, u:`Eerst de kolom ${c} (letter bovenaan), dan de rij ${r} (cijfer links).`},
+    {code:'B-MOR-C1', q:'De zandbak heeft vier rechte hoeken en vier even lange zijden.\nWelke vorm heeft de zandbak?', o:keuzes('vierkant', ['rechthoek', 'ruit', 'trapezium']), u:'Vier rechte hoeken en vier even lange zijden: een vierkant.'},
+    {code:'B-MOR-B2', q:'Twee paden snijden elkaar onder een rechte hoek.\nHoe noem je die paden?', o:keuzes('loodrecht', ['evenwijdig', 'kruisend', 'gestrekt']), u:'Rechten die elkaar onder een rechte hoek snijden, staan loodrecht op elkaar.'},
+    {code:'B-MOR-A4', q:`De glijbaan staat in punt G.\nWat zijn de coördinaten van G?`, fig:{t:'rooster', max:6, punten:[{x, y, l:'G'}]}, velden:[veld(x, '', 'x ='), veld(y, '', 'y =')], calc:false, u:`${x} naar rechts, ${y} naar boven: G(${x}, ${y}).`}
+  ];
+}, 'B');
+LAD('blad_ooi_tuin', 'ooi', 'Een nieuwe tuin', R => {
+  const l = R.int(8, 14), b = R.int(5, l - 2), pr = R.stap(2, 5, 0.5), h = R.kies([20, 30, 40]);
+  return [
+    {code:'B-OOI-C1', q:'Je wilt gras zaaien op de hele tuin.\nMoet je de omtrek of de oppervlakte kennen?', o:vasteKeuze('oppervlakte', ['omtrek', 'oppervlakte']).o, volgorde:vasteKeuze('oppervlakte', ['omtrek', 'oppervlakte']).volgorde, u:'Gras bedekt het hele vlak: de oppervlakte.'},
+    {code:'B-OOI-C5', q:`De tuin is een rechthoek van ${l} m op ${b} m.\nHoe groot is de oppervlakte?`, fk:[FK.oppR], velden:[veld(l * b, 'm²')], calc:'e', u:`${l} × ${b} = ${l * b} m².`},
+    {code:'B-OOI-B2', q:`Rond de tuin komt een haag.\nHoeveel meter haag plant je?`, fk:[FK.omtrekR], fig:rechthoekFig(l, b, 'm'), velden:[veld(2 * (l + b), 'm')], calc:'e', u:`2 × (${l} + ${b}) = ${2 * (l + b)} m.`},
+    {code:'B-OOI-A7', q:`In de tuin komt een zandbak van 2 m op 1,5 m.\nHet zand ligt ${h} cm hoog.\nHoeveel m³ zand heb je nodig?`, fk:[FK.inhB], velden:[veld(2 * 1.5 * h / 100, 'm³')], calc:'e',
+      u:`${h} cm = ${f(h / 100)} m.\n2 × 1,5 × ${f(h / 100)} = ${f(2 * 1.5 * h / 100)} m³.`}
+  ];
+}, 'B');
+LAD('blad_sta_sprint', 'sta', 'De sportdag', R => {
+  const t = [R.int(14, 16), R.int(15, 17), R.int(16, 18), R.int(17, 19), R.int(18, 21)].map((x, i) => x + i * 0).sort((a, b) => a - b);
+  const namen = R.namen(5), som = somV(t);
+  if (som % 5) return null;
+  return [
+    {code:'B-STA-D1', q:`De tijden op de 100 meter (in seconden).\nHoeveel seconden liep ${namen[2]}?`, fig:{t:'tab', kop:['naam', 'tijd (s)'], rijen:namen.map((n, i) => [n, t[i]])}, velden:[veld(t[2], 's')], calc:false, u:`In de rij van ${namen[2]}: ${t[2]} s.`},
+    {code:'B-STA-C6', q:'De tijden staan van snel naar traag.\nWat is de mediaan?', fig:{t:'tab', kop:['naam', 'tijd (s)'], rijen:namen.map((n, i) => [n, t[i]])}, velden:[veld(t[2], 's')], calc:false, u:`Vijf tijden: de middelste (3de) is ${t[2]} s.`},
+    {code:'B-STA-B7', q:'Wat is de gemiddelde tijd?', fig:{t:'tab', kop:['naam', 'tijd (s)'], rijen:namen.map((n, i) => [n, t[i]])}, velden:[veld(som / 5, 's')], calc:'e', u:`${t.join(' + ')} = ${som}. ${som} : 5 = ${som / 5} s.`},
+    {code:'B-STA-A2', q:`Wie sneller liep dan 17 s, krijgt een medaille.\nHoeveel procent van de lopers krijgt een medaille?`, fig:{t:'tab', kop:['naam', 'tijd (s)'], rijen:namen.map((n, i) => [n, t[i]])}, velden:[veld(t.filter(x => x < 17).length * 20, '%')], calc:'e',
+      u:`Sneller dan 17 s: ${t.filter(x => x < 17).length} van de 5 lopers.\n${t.filter(x => x < 17).length} : 5 = ${f(t.filter(x => x < 17).length / 5)} = ${t.filter(x => x < 17).length * 20} %.`}
+  ];
+}, 'B');
+LAD('blad_tad_bib', 'tad', 'In de bibliotheek', R => {
+  const m = ['jan', 'feb', 'maa', 'apr', 'mei'], y = m.map(() => R.int(6, 24) * 10); if (new Set(y).size < 5) return null;
+  const i = R.int(0, 4), mx = Math.max(...y), mn = Math.min(...y);
+  const fg = {t:'lijn', titel:'Uitgeleende boeken', x:m, y, min:0, max:260, stap:20, ylab:'aantal boeken'};
+  return [
+    {code:'B-TAD-D1', q:`De tabel toont hoeveel boeken de bib uitleende.\nHoeveel boeken waren het in ${m[i]}?`, fig:{t:'tab', kop:['maand'].concat(m), rijen:[['boeken'].concat(y)]}, velden:[veld(y[i], 'boeken')], calc:false, u:`In de kolom ${m[i]}: ${y[i]}.`},
+    {code:'B-TAD-B5', q:'In welke maand leende de bib de meeste boeken uit?', fig:fg, o:keuzes(m[y.indexOf(mx)], m.filter((x, j) => y[j] !== mx)), u:`Het hoogste punt: ${m[y.indexOf(mx)]} (${mx}).`},
+    {code:'B-TAD-B3', q:'Hoeveel boeken leende de bib in totaal uit in die vijf maanden?', fig:{t:'tab', kop:['maand'].concat(m), rijen:[['boeken'].concat(y)]}, velden:[veld(somV(y), 'boeken')], calc:'e', u:`${y.join(' + ')} = ${somV(y)}.`},
+    {code:'B-TAD-A3', q:'Hoeveel boeken scheelt de beste maand met de slechtste maand?', fig:fg, velden:[veld(mx - mn, 'boeken')], calc:'e', u:`Beste: ${mx}. Slechtste: ${mn}. ${mx} − ${mn} = ${mx - mn}.`}
+  ];
+}, 'B');
+LAD('blad_ver_pannenkoeken', 'ver', 'Pannenkoeken bakken', R => {
+  const p = R.kies([4, 6]), meel = p === 4 ? 125 : 200, melk = p === 4 ? 2.5 : 4, k = R.int(2, 4), q = p * k + p / 2;
+  return [
+    {code:'B-VER-D1', q:`Voor ${p} personen heb je ${meel} g bloem nodig.\nHoeveel gram bloem heb je nodig voor ${p * k} personen?`, velden:[veld(meel * k, 'g')], calc:'e', u:`${p * k} is ${k} keer ${p}: ${k} × ${meel} = ${meel * k} g.`},
+    {code:'B-VER-C1', q:`Voor ${p} personen heb je ${f(melk)} dl melk nodig.\nHoeveel dl melk voor ${p * k} personen?`, fig:{t:'tab', titel:'Verhoudingstabel', kop:['personen', 'melk (dl)'], rijen:[[String(p), f(melk)], [String(p * k), '…']]}, velden:[veld(melk * k, 'dl')], calc:'e', u:`× ${k}: ${k} × ${f(melk)} = ${f(melk * k)} dl.`},
+    {code:'B-VER-B1', q:`Voor ${p} personen heb je ${f(melk)} dl melk nodig.\nHoeveel liter melk heb je nodig voor ${q} personen?`, velden:[veld(melk / p * q / 10, 'liter')], calc:'e',
+      u:`Voor 1 persoon: ${f(melk)} : ${p} = ${f(melk / p, 3)} dl.\nVoor ${q} personen: ${q} × ${f(melk / p, 3)} = ${f(melk / p * q, 3)} dl = ${f(melk / p * q / 10, 3)} liter.`},
+    {code:'B-VER-A2', q:`Van de ${p * k} gasten eten er ${p * k / 2 + 1} meer dan twee pannenkoeken.\nHoeveel procent van de gasten is dat? Rond af op 1 %.`, velden:[veld(Math.round((p * k / 2 + 1) / (p * k) * 100), '%')], calc:'e',
+      u:`${p * k / 2 + 1} : ${p * k} = ${f((p * k / 2 + 1) / (p * k), 4)} ≈ ${Math.round((p * k / 2 + 1) / (p * k) * 100)} %.`}
+  ];
+}, 'B');
 /* ---------- motor van de site wiskundige problemen (platform: GitHub Pages + Firebase) ----------
    Opbouw zoals de toets: het breedtethema Wiskundige problemen oplossen en de dieptethema's van de stroom.
    Elke vraag hoort bij een doel uit de leeswijzer bij de vaardigheidsniveaus (code zoals A-OOI-C3: stroom, thema, letter, nummer).
@@ -7584,15 +8499,16 @@ const THEMAS_ALLE = {
     {k:'sta', naam:'Statistiek', code:'STA', oms:'Frequentietabellen, diagrammen, gemiddelde, mediaan, modus en variatiebreedte.'},
     {k:'tad', naam:'Tabellen en diagrammen', code:'TAD', oms:'Gegevens aflezen, vergelijken en verwerken uit tabellen, diagrammen en infografieken.'},
     {k:'vzm', naam:'Verzamelingen', code:'VZM', oms:'Elementen, deelverzamelingen, doorsnede, unie, verschil en venndiagrammen.'}],
+  /* 2B: volgorde van de leeswijzer (keuze van Tom, 24 oktober 2026) */
   B: [
     {k:'wpo', naam:'Wiskundige problemen oplossen', kort:'Problemen oplossen', code:'WPO', breed:true,
       oms:'Problemen uit het dagelijks leven: goed lezen, een plan maken, rekenen en controleren.'},
     {k:'get', naam:'Getallenleer', code:'GET', oms:'Rekenen met getallen, breuken en procenten, afronden, schatten, tijd en eenheden.'},
-    {k:'ver', naam:'Verhoudingen', code:'VER', oms:'Rekenen met verhoudingen, verhoudingstabellen en procenten.'},
     {k:'mor', naam:'Meetkundige objecten en relaties', kort:'Objecten en relaties', code:'MOR', oms:'Figuren herkennen, hoeken en lengtes meten, roosters en coördinaten.'},
     {k:'ooi', naam:'Omtrek, oppervlakte en inhoud', kort:'Omtrek en oppervlakte', code:'OOI', oms:'Omtrek, oppervlakte en inhoud berekenen met het formularium.'},
     {k:'sta', naam:'Statistiek', code:'STA', oms:'Frequentietabellen, diagrammen, gemiddelde en mediaan.'},
-    {k:'tad', naam:'Tabellen en diagrammen', code:'TAD', oms:'Gegevens aflezen en gebruiken uit tabellen, diagrammen en infografieken.'}]
+    {k:'tad', naam:'Tabellen en diagrammen', code:'TAD', oms:'Gegevens aflezen en gebruiken uit tabellen, diagrammen en infografieken.'},
+    {k:'ver', naam:'Verhoudingen', code:'VER', oms:'Rekenen met verhoudingen, verhoudingstabellen en procenten.'}]
 };
 const THEMAS = THEMAS_ALLE[STROOM];
 const themaVan = k => THEMAS.find(t => t.k === k);
@@ -8379,6 +9295,7 @@ function startLadder(thema) {
     const code = o.code, q = Object.assign({id:L.id + '_' + (i + 1), d:thema, codes:{[STROOM]:code}, lv:[0, 0], gemaakt:true}, o);
     q.lv[si()] = LIDX[code.split('-')[2][0]];
     q.calc = rekenSoort(thema, o.calc);
+    if (STROOM === 'B' && q.calc === 'w') q.calc = 'e';
     q.t = o.velden ? 'num' : o.mk ? 'mk' : o.jf ? 'jf' : o.sym ? 'sym' : o.venn ? 'venn' : o.cel ? 'cel' : o.rooster ? 'klik' : o.kaartjes ? (o.vakken ? 'vak' : 'volg') : 'mc';
     if (q.velden) q.velden = q.velden.map(vd => Object.assign({}, vd, {w:typeof vd.w === 'number' ? wv(vd.w) : vd.w}));
     if (!q.o) q.o = [];
@@ -8474,7 +9391,8 @@ function voorafLijst() {
     '<li>Antwoord je juist, dan wordt de volgende vraag <span class="acc">moeilijker</span>. Antwoord je fout, dan wordt ze makkelijker.</li>' +
     '<li>Weet je het antwoord niet? Klik op <span class="acc">Ik weet het niet</span>. Gok niet: dan krijg je vragen die bij jou passen.</li>' +
     '<li>Bij elk thema zie je welke <span class="acc">doelen</span> je al bereikt hebt en waaraan je nog werkt. Een doel is bereikt als je de laatste keren meestal juist antwoordde.</li>' +
-    '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, het <span class="acc">Woordenboek</span> en soms de <span class="acc">Rekenmachine</span> of het <span class="acc">Formularium</span>. Staat de rekenmachine er niet, dan reken je zonder.</li>' +
+    (STROOM === 'B' ? '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, het <span class="acc">Woordenboek</span> en soms de <span class="acc">Rekenmachine</span>. Staat de rekenmachine er niet, dan reken je zonder. De <span class="acc">formules</span> die je nodig hebt, staan in een kader bij de vraag.</li>'
+      : '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, het <span class="acc">Woordenboek</span> en soms de <span class="acc">Rekenmachine</span> of het <span class="acc">Formularium</span>. Staat de rekenmachine er niet, dan reken je zonder.</li>') +
     '<li>Wil je een stuk tekst laten <span class="acc">voorlezen</span>? Zet links Voorlezen aan en selecteer de tekst.</li></ul>';
 }
 
@@ -8588,7 +9506,9 @@ const BOEKICOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const FORMICOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
 const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
 const tijd = () => mmss(Math.floor((Date.now() - ses.begin) / 1000));
-const metForm = q => q.form || (STROOM === 'B' && q.d === 'ooi');
+const metForm = q => q.form;
+/* formulekader naast de opgave (2B, 'met gegeven formularium'): enkel de formules die de vraag nodig heeft */
+const formKader = q => q.fk ? '<div class="formkader" role="note" aria-label="Formules">' + q.fk.map(x => '<p>' + wis(x) + '</p>').join('') + '</div>' : '';
 /* leerkracht: bij welk doel en welke letter een vraag hoort */
 function lkCode(q) {
   const c = q.codes && q.codes[STROOM]; if (!c || !leerkracht()) return '';
@@ -8674,7 +9594,7 @@ function toonVraag() {
     '<div class="vraag' + (q.breed ? ' breed' : '') + '"><section class="kaart opgave' + (ses.marker ? ' markeren' : '') + '" aria-label="Opgave">' +
     (ses.paneel === 'calc' && q.calc ? calcHtml(q.calc) : '') + (ses.paneel === 'wb' ? wbHtml(q) : '') + (ses.paneel === 'form' ? formHtml() : '') +
     (ses.marker ? '<p class="klein markuitleg">Markeerstift aan: selecteer woorden om ze te markeren. Klik op een markering om ze weg te halen.</p>' : '') +
-    '<div class="tekst">' + (it.mark || alineas(q.q, true)) + '</div>' + (q.fig ? figuur(q.fig) : '') + (sols ? '<div class="sols">' + sols + '</div>' : '') + '</section>' +
+    '<div class="tekst">' + (it.mark || alineas(q.q, true)) + '</div>' + formKader(q) + (q.fig ? figuur(q.fig) : '') + (sols ? '<div class="sols">' + sols + '</div>' : '') + '</section>' +
     '<section class="antw" aria-label="Antwoord">' + antwSectie() + '</section></div>';
   const opBord = document.querySelector('.px-board .wpkaart');
   if (opBord) {

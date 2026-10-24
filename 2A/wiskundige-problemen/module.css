@@ -381,3 +381,6 @@ body.vraagmodus .wpin{gap:8px}
 .opties2 .optie{flex-wrap:wrap}
 .opties2 .optie .txt{min-width:4.5em}
 .opties2 .optie .merk{flex-basis:100%;padding-left:44px;margin-top:-4px}
+/* formulekader naast de opgave (2B: 'met gegeven formularium', zoals op de toets) */
+.formkader{margin:10px 0 0;padding:8px 12px;border:2px solid var(--tq);border-radius:10px;background:var(--tq-soft, #e8f8f8);font-size:15px;display:inline-block;max-width:100%}
+.formkader p{margin:2px 0}
