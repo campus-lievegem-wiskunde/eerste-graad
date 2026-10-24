@@ -56,7 +56,7 @@
 
 /* vraagstukken */
 .vis-svg{ display:block; width:100%; height:auto; }
-.rv .vis-svg{ max-height:330px; }
+.rv .vis-svg{ max-height:290px; }
 .vt-titel{ font-size:15px; font-weight:800; fill:#173436; text-anchor:middle; }
 .th-buis{ fill:#fff; stroke:#9fb3b6; stroke-width:2; } .th-bol, .th-kwik{ fill:#5b6b73; } .th-bol{ stroke:#46545b; stroke-width:2; }
 .th-streep{ stroke:#6d8286; stroke-width:1.4; } .th-lab{ font-size:12px; fill:#4f6668; font-weight:600; } .th-lab.nul{ font-weight:900; fill:#173436; }
