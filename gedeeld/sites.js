@@ -887,5 +887,76 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "2b-wp",
+  "titel": "Wiskundige problemen · 2de jaar B-stroom",
+  "kort": "Wiskundige problemen",
+  "jaar": "2B",
+  "rubriek": "wiskundige-problemen",
+  "pad": "2B/wiskundige-problemen/",
+  "prefix": "2b_wp_v1_",
+  "onderdelen": [
+   {
+    "id": "wpo",
+    "naam": "Problemen oplossen",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "get",
+    "naam": "Getallenleer",
+    "toets": false,
+    "vragen": 66
+   },
+   {
+    "id": "mor",
+    "naam": "Objecten en relaties",
+    "toets": false,
+    "vragen": 26
+   },
+   {
+    "id": "ooi",
+    "naam": "Omtrek en oppervlakte",
+    "toets": false,
+    "vragen": 31
+   },
+   {
+    "id": "sta",
+    "naam": "Statistiek",
+    "toets": false,
+    "vragen": 38
+   },
+   {
+    "id": "tad",
+    "naam": "Tabellen en diagrammen",
+    "toets": false,
+    "vragen": 24
+   },
+   {
+    "id": "ver",
+    "naam": "Verhoudingen",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
  }
 ];
