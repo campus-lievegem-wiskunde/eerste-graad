@@ -148,3 +148,6 @@ table.sudoku td svg{ display:block; margin:auto; }
 .az-rij{ display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end; margin:.3rem 0 .4rem; padding:.5rem; border:1.5px solid var(--border); border-radius:.6rem; }
 /* figuur blijft in beeld als de vragen ernaast langer zijn dan het scherm */
 @media (min-width:761px){ .kaart .kbody.met-fig > .kfig{ position:sticky; top:.6rem; } }
+.bs-kl{ display:inline-block; width:.85rem; height:.85rem; border-radius:2px; border:1px solid rgba(0,0,0,.35); vertical-align:-1px; margin-right:.15rem; }
+.bs-stand{ font-size:.9rem; min-height:1.3rem; }
+.bs-legende{ margin:.1rem 0 0; }

@@ -835,29 +835,34 @@ const kantel = c => { const m = Math.max(...c.map(p=>p[1])); return c.map(([x, y
 const transp = c => c.map(([x, y])=>[y, x]);
 /* bouwsel tekenen in schuin aanzicht, gedraaid over r x 90° */
 function draaiH(h, r){ let g = h.map(rw=>rw.slice()); const n = g.length; for(let i = 0; i < r; i++){ const ng = rij(n, ()=>rij(n, ()=>0)); for(let z = 0; z < n; z++) for(let x = 0; x < n; x++) ng[x][n - 1 - z] = g[z][x]; g = ng; } return g; }
+/* kleur per oorspronkelijke kant: voorkant geel, rechterzijkant blauw, bovenkant rood, achter- en linkerkant grijs */
+const KANT = { '-z':['#f6c945', '#7a5d0c', 'voorkant'], '+x':['#4fb3d9', '#21516a', 'rechterzijkant'], '+z':['#c9ced1', '#5b6266', 'achterkant'], '-x':['#e3e6e8', '#5b6266', 'linkerzijkant'] };
+const BOVENKANT = ['#e2574c', '#6e211b'];
+/* welke oorspronkelijke kant zie je na r keer draaien vooraan (-z) en rechts (+x)? */
+function kantenNa(r){ let m = { '-z':'-z', '+x':'+x', '+z':'+z', '-x':'-x' }; for(let i = 0; i < r; i++) m = { '+x':m['-z'], '-x':m['+z'], '+z':m['+x'], '-z':m['-x'] }; return m; }
+const VANUIT = { '-z':'van voren', '+x':'van rechts', '+z':'van achteren', '-x':'van links' };
 function bouwselSvg(h, r){
   const g = draaiH(h, r), n = g.length, a = 38, dx = a * .55, dy = a * .42;
-  const W = n * a + n * dx + 30, Hh = 3 * a + n * dy + 46;
-  const ox = 14, oy = Hh - 28;
+  const W = n * a + n * dx + 30, Hh = 3 * a + n * dy + 30;
+  const ox = 14, oy = Hh - 14;
   const P = (x, y, z)=>[rnd(ox + x * a + z * dx, 2), rnd(oy - y * a - z * dy, 2)];
+  const m = kantenNa(r), voor = KANT[m['-z']], rechts = KANT[m['+x']];
   let s = '';
   for(let z = n - 1; z >= 0; z--) for(let y = 0; y < 3; y++) for(let x = 0; x < n; x++){
     if(g[z][x] <= y) continue;
     const f = [P(x, y, z), P(x + 1, y, z), P(x + 1, y + 1, z), P(x, y + 1, z)];
     const t = [P(x, y + 1, z), P(x + 1, y + 1, z), P(x + 1, y + 1, z + 1), P(x, y + 1, z + 1)];
     const rr = [P(x + 1, y, z), P(x + 1, y, z + 1), P(x + 1, y + 1, z + 1), P(x + 1, y + 1, z)];
-    s += veelhoek(rr, { f:'#4fb3d9', k:'#21516a', w:1.3 }) + veelhoek(t, { f:'#e2574c', k:'#6e211b', w:1.3 }) + veelhoek(f, { f:'#f6c945', k:'#7a5d0c', w:1.3 });
+    s += veelhoek(rr, { f:rechts[0], k:rechts[1], w:1.3 }) + veelhoek(t, { f:BOVENKANT[0], k:BOVENKANT[1], w:1.3 }) + veelhoek(f, { f:voor[0], k:voor[1], w:1.3 });
   }
-  /* waar is de oorspronkelijke voorkant? */
-  const kant = [[n / 2, -.15], [n + .15, n / 2], [n / 2, n + .15], [-.15, n / 2]][r % 4];
-  const [qx, qy] = P(kant[0], 0, kant[1]); const pijl = r % 4 === 0 ? 'vooraan' : 'vooraan';
-  s += `<circle cx="${qx}" cy="${qy + 2}" r="9" fill="var(--orange)"/><text x="${qx}" y="${qy + 2.5}" font-size="10" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#2b1b00">V</text>`;
-  return svg(W, Hh, s, { label:'bouwsel van blokjes', b:Math.min(W, 320) });
+  return svg(W, Hh, s, { label:'bouwsel van blokjes, ' + VANUIT[kantenNa(r)['-z']] + ' bekeken', b:Math.min(W, 320) });
 }
+const vakje = k => `<span class="bs-kl" style="background:${k}"></span>`;
 function bouwselBlok(h){
-  const id = 'bs' + Math.floor(Math.random() * 1e9);
-  return { html:`<div class="bouwsel" id="${id}"><div class="bs-fig">${bouwselSvg(h, 0)}</div><div class="bs-knop"><button type="button" class="btn ghost klein" data-d="-1">↺ draai</button><button type="button" class="btn ghost klein" data-d="1">draai ↻</button></div><p class="klein">Het oranje bolletje <b>V</b> staat aan de voorkant.</p></div>`,
-    mount(card){ const b = card.querySelector('.bouwsel'); if(!b) return; let r = 0; b.querySelectorAll('[data-d]').forEach(k=>k.addEventListener('click', ()=>{ r = (r + (+k.dataset.d) + 4) % 4; b.querySelector('.bs-fig').innerHTML = bouwselSvg(h, r); })); } };
+  return { html:`<div class="bouwsel"><div class="bs-stand"><b>Je kijkt ${VANUIT['-z']}.</b></div><div class="bs-fig">${bouwselSvg(h, 0)}</div><div class="bs-knop"><button type="button" class="btn ghost klein" data-d="-1">↺ draai</button><button type="button" class="btn ghost klein" data-d="1">draai ↻</button><button type="button" class="linkbtn" data-d="0">terug naar voren</button></div>
+      <p class="bs-legende klein">${vakje(KANT['-z'][0])} voorkant · ${vakje(BOVENKANT[0])} bovenkant · ${vakje(KANT['+x'][0])} rechterzijkant · ${vakje(KANT['+z'][0])} achter- en linkerkant</p></div>`,
+    mount(card){ const b = card.querySelector('.bouwsel'); if(!b) return; let r = 0;
+      b.querySelectorAll('[data-d]').forEach(k=>k.addEventListener('click', ()=>{ const d = +k.dataset.d; r = d === 0 ? 0 : (r + d + 4) % 4; b.querySelector('.bs-fig').innerHTML = bouwselSvg(h, r); b.querySelector('.bs-stand').innerHTML = `<b>Je kijkt ${VANUIT[kantenNa(r)['-z']]}.</b>${r ? ' De gele kant is nog altijd de voorkant.' : ''}`; })); } };
 }
 function aanzichtKaart(R, min, max){
   const h = bouwsel(R, 3, min, max); const v = aanzichten(h); const tot = som(h.flat());
