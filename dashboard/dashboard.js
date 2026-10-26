@@ -190,14 +190,16 @@ async function paneVoortgang(pane, g){
       if(o.toets){ if(tt){ const r_ = tt.score / tt.n; txt = `${tt.score}/${tt.n}`; cls = r_ >= .8 ? 's4' : r_ >= .6 ? 's3' : r_ >= .4 ? 's2' : 's1'; } }
       else if(p.juist + p.fout){ const r_ = o.vragen ? p.juist / o.vragen : 0; txt = `${p.juist}${o.vragen ? '/' + o.vragen : ''}`; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
       const nv = v.niv[o.id];
-      const td = el('td', 'sc ' + cls, (o.toets ? '' : nivBol(nv)) + (txt || (nv ? '' : '·')) + (o.toets && nv && nv.delen ? `<small class="delen">${deelLetters(site, nv)}</small>` : '') + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
+      /* een testje binnen een gewoon onderdeel (bv. 1A Heuristieken): score klein onder de cel */
+      const tj = !o.toets && tt ? `<small class="testje" title="laatste testje">testje ${tt.score}/${tt.n}</small>` : '';
+      const td = el('td', 'sc ' + cls, (o.toets ? '' : nivBol(nv)) + (txt || (nv || tj ? '' : '·')) + (o.toets && nv && nv.delen ? `<small class="delen">${deelLetters(site, nv)}</small>` : '') + tj + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
       td.title = `${o.naam}: ${p.juist} juist, ${p.fout} fout${o.vragen ? ` (van ${o.vragen} vragen)` : ''}${nv && nv.n ? `, niveau ${nv.n}${nv.n === 'E' ? ' (D nog niet beheerst)' : ''} (${nv.j}/${nv.t} juist)` : nv && nv.t ? `, nog te weinig gegevens voor een niveau (${nv.j}/${nv.t} juist)` : ''}, ${minuten(p.tijd)}`;
       tr.append(td);
     });
     tb.append(tr);
   });
   t.append(tb); wrap.append(t); pane.append(wrap);
-  pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score'));
+  pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score · testje: score van het laatste testje binnen het onderdeel'));
   if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau per onderdeel volgens de leeswijzer bij de vaardigheidsniveaus: A hoogste, D laagste, <b class="niv-l niv-e">E</b> = D nog niet beheerst, <b class="niv-l niv-leeg">?</b> = nog te weinig gegevens. Bij een proeftoets: het niveau per deel. Klik op een naam voor de doelen per letter.'));
 }
 /* overzicht: leerlingen × sites, per site het deel van de vragen juist en de werktijd; klik op een site voor de tabel per onderdeel */
@@ -253,7 +255,7 @@ function detail(pane, site, e, v){
   site.onderdelen.forEach(o=>{ const p = v.per[o.id], tt = v.toets[o.id];
     const nv = v.niv && v.niv[o.id], nm = esc(o.naam) + (nv ? ' ' + (o.toets ? deelLetters(site, nv) : nivBol(nv)) : '');
     tb.append(el('tr', '', o.toets ? `<td>${nm}</td><td colspan="3">${tt ? `score ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}` : 'nog niet gemaakt'}</td><td>${minuten(p.tijd)}</td>`
-      : `<td>${nm}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
+      : `<td>${nm}${tt ? `<br><small class="mini">testje: ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}</small>` : ''}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); d.append(w);
   if(v.dg && Object.keys(v.dg).length) d.append(doelenBlok(site, v));
   if(ST.rol === 'beheerder' && !ST.toeschouwer) d.append(diagRegel(v)); /* diagnose enkel voor beheerders, niet voor collega's of een toeschouwer */
