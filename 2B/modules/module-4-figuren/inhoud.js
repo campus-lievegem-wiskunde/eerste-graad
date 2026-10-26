@@ -770,7 +770,9 @@ function bouwplaat(soort, R){
   if(soort === 'kubus'){ const net = R.pick([[[1, 0], [0, 1], [1, 1], [2, 1], [3, 1], [1, 2]], [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [3, 2]], [[2, 0], [0, 1], [1, 1], [2, 1], [3, 1], [1, 2]]]); net.forEach(([x, y])=>{ s += vk(14 + x * c, 22 + y * c); }); }
   else if(soort === 'balk'){ const a = 30, b = 16; /* kruis met rechthoeken */ s += vk(14 + b, 10, a, b) + vk(14, 10 + b, b, c * 1.6) + vk(14 + b, 10 + b, a, c * 1.6) + vk(14 + b + a, 10 + b, b, c * 1.6) + vk(14 + 2 * b + a, 10 + b, a, c * 1.6) + vk(14 + b, 10 + b + c * 1.6, a, b); }
   else if(soort === 'cilinder'){ s += vk(30, 38, 80, 46) + cirkel(55, 25, 13, { f:VUL, k, w:1.6 }) + cirkel(80, 97, 13, { f:VUL, k, w:1.6 }); }
-  else if(soort === 'kegel'){ s += pad('M80 14 L40 82 A46 46 0 0 0 120 82 Z', { f:VUL, k, w:1.6 }) + cirkel(80, 108, 15, { f:VUL, k, w:1.6 }); }
+  else if(soort === 'kegel'){ /* cirkelsector met middelpunt in de top; het grondvlak raakt de boog juist */
+    const top = [80, 8], Rs = 72, a = 34 * Math.PI / 180, rc = 13, p1 = [rnd(top[0] - Rs * Math.sin(a), 2), rnd(top[1] + Rs * Math.cos(a), 2)], p2 = [rnd(top[0] + Rs * Math.sin(a), 2), p1[1]];
+    s += pad(`M${top[0]} ${top[1]} L${p1[0]} ${p1[1]} A${Rs} ${Rs} 0 0 0 ${p2[0]} ${p2[1]} Z`, { f:VUL, k, w:1.6 }) + cirkel(top[0], top[1] + Rs + rc, rc, { f:VUL, k, w:1.6 }); H = top[1] + Rs + 2 * rc + 6; }
   else if(soort === 'piramide'){ const x = 60, y = 45, w = 34; s += vk(x, y, w, w) + veelhoek([[x, y], [x + w, y], [x + w / 2, y - 30]], { f:VUL, k, w:1.6 }) + veelhoek([[x, y + w], [x + w, y + w], [x + w / 2, y + w + 30]], { f:VUL, k, w:1.6 }) + veelhoek([[x, y], [x, y + w], [x - 30, y + w / 2]], { f:VUL, k, w:1.6 }) + veelhoek([[x + w, y], [x + w, y + w], [x + w + 30, y + w / 2]], { f:VUL, k, w:1.6 }); }
   return svg(W, H, s, { label:'bouwplaat' });
 }
