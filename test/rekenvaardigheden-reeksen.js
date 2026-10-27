@@ -130,6 +130,58 @@ const REEKSEN = [
         return [O.verbeter(q('ex28'), { choice:'a', res:{ s1:'+', t:'3', n:'7' }, sch:S('3/7') }, { good:'b' }),
           O.verbeter(q('ex09'), { p:[], x:0, conv:[], kgv:'12', kx:0, kxv:[], terms:[{ sign:'+', t:'8' }, { sign:'+', t:'3' }], res:{ s1:'+', t:'11', n:'' }, sch:S('11/12') })]; });
       t.check(r[0].pts === 0 && r[0].codes.includes('FOUTENJAGER') && r[0].codes.includes('TELLERS_NOEMERS_OPGETELD') && r[1].pts === .75 && r[1].codes.includes('TEKEN_TERM') && r[1].codes.includes('DOORWERKFOUT'), 'rationale getallen: foutcodes ' + JSON.stringify(r));
+    } },
+  { id:'2a-rv-5-rationale-vermenigvuldigen', url:'2A/rekenvaardigheden/5-rationale-vermenigvuldigen/', blok:'Vermenigvuldigen en delen van rationale getallen', n:30, max:'57',
+    sleutel:{ ex21:{ a:[1, 2], b:[2, 1] }, ex22:{ a:[1, 2], b:[2, 1] }, ex23:{ a:[1, 2], b:[1, 4] }, ex24:{ a:[1, 2], b:[1, 4] }, ex25:{ a:[1, 2], b:[1, 4] },
+      ex28:{ good:'a' }, ex29:{ good:'a' }, ex30:{ good:'a' } },
+    async interactie(p, t){
+      const klik = (s, n = 0)=>p.locator('.rv ' + s).nth(n).click().then(()=>p.waitForTimeout(90));
+      const tekst = s=>p.locator('.rv ' + s).first().textContent().then(x=>x.replace(/\s+/g, ''));
+      /* rechthoekmodel: punt (x, y) in het rooster van C kolommen en R rijen */
+      const vak = async (c, r, C, R)=>{ const pt = await p.evaluate(([x, y])=>{ const m = document.querySelector('.rv .h5-rh').getScreenCTM(); return { x:m.a * x + m.e, y:m.d * y + m.f }; }, [70 + 520 * (c + .5) / C, 34 + 320 * (r + .5) / R]);
+        await p.mouse.click(pt.x, pt.y); await p.waitForTimeout(120); };
+      const schrap = async (ti, ni, d)=>{ await klik(`[data-sc="t"][data-i="${ti}"]`); await klik(`[data-sc="n"][data-i="${ni}"]`); await p.locator('.rv .h5-deler').fill(String(d)); await klik('.h5-schrap'); };
+      /* rechthoekmodel 3/4 van 2/3: 3 kolommen (2 paars), 4 rijen (3 geel), diagonaal schrappen */
+      await klik('[data-arc="1"]'); await klik('[data-arc="1"]'); await vak(0, 0, 3, 1); await vak(1, 0, 3, 1);
+      await klik('[data-armode="r"]'); for(let i = 0; i < 3; i++) await klik('[data-arr="1"]'); for(let r = 0; r < 3; r++) await vak(0, r, 3, 4);
+      t.check(await p.locator('.rv .h5-rh rect[fill="url(#h5-arc)"]').count() === 6, 'rechthoekmodel: 6 vakjes gearceerd');
+      await schrap(0, 1, 3); await p.waitForTimeout(700);
+      t.check(await p.locator('.rv .h5-lijn').count() === 1 && /1/.test(await tekst('[data-sc="t"][data-i="0"] .h5-nu')), 'schrappen: 3 en 3 diagonaal geschrapt, lijn getekend');
+      /* een onmogelijke schrap: 4 en 9 door 2 → rood kruisje */
+      await t.dot(3); await schrap(0, 0, 2); await p.waitForTimeout(150);
+      t.check(await p.locator('.rv .h5-schrap .rv-kruis').count() === 1, 'schrappen: onmogelijke schrap → rood kruisje');
+      await p.waitForTimeout(1000); await t.teken('sign', '−'); await schrap(0, 1, 4); await p.waitForTimeout(300); await schrap(1, 0, 3); await p.waitForTimeout(300);
+      await t.vul('res.t', 2); await t.vul('res.n', 12); await klik('[data-schopen="sch"]');
+      const r1 = await p.locator('.rv').evaluate(e=>{ e.scrollIntoView({ block:'start' }); const s = document.querySelector('.rv .br-schaar'); return { h:Math.round(e.getBoundingClientRect().height), s:s ? Math.round(s.getBoundingClientRect().bottom) : 999 }; });
+      t.check(r1.h <= 600 && r1.s <= 640, `stappenplan: schaar open, alles op het scherm (${r1.h} px, schaar tot ${r1.s} px)`);
+      await p.locator('.rv [data-schgetal="sch"]').fill('2'); await klik('[data-schknip="sch"]'); await klik('[data-schklaar="sch"]');
+      t.check(/=−16$/.test(await tekst('.br-res')), 'stappenplan: −2/12 geknipt tot −1/6: ' + await tekst('.br-res'));
+      /* delen: teller : teller gaat niet op bij 7/8 : 5/2 → rood kruisje; maal het omgekeerde, de breuk keert om */
+      await t.dot(10); await klik('[data-meth="td"]'); await p.waitForTimeout(150);
+      t.check(await p.locator('.rv [data-meth="td"] .rv-kruis').count() === 1, 'delen: teller : teller ging niet op → rood kruisje');
+      await p.waitForTimeout(1000); await klik('[data-meth="om"]'); await klik('[data-flip="1"]');
+      t.check(await p.locator('.rv .h5-maal').count() === 1 && /2/.test(await tekst('[data-sc="t"][data-i="1"]')), 'delen: 5/2 omgekeerd tot 2/5');
+      /* kommagetal maal kommagetal: de komma schuift */
+      await t.dot(15); await t.teken('int.s', '+'); await t.vul('int.n', 12); await t.vul('cnt', 2); await p.waitForTimeout(1100);
+      t.check(/0,12/.test(await tekst('.h5-dres')), 'kommagetallen: 0,3 ⋅ 0,4 = 0,12: ' + await tekst('.h5-dres'));
+      await t.dot(17); await klik('[data-fop="0"]');
+      t.check((await tekst('[data-fop="0"]')) === '⋅', 'weetjes: bewerking gekozen');
+      /* vraagstuk: na het sjabloon verschijnt de rekenmachine */
+      await t.dot(20); for(const [pad, w] of [['tp.a.t', 3], ['tp.a.n', 8], ['tp.b.t', 24], ['tp.c.t', 3], ['tp.c.n', 8], ['tp.d.t', 24]]) await t.vul(pad, w);
+      t.check(await p.locator('.rv .h5-swrap').count() === 0, 'vraagstuk: rekenmachine wacht op het sjabloon');
+      await t.vul('tp.d.n', 1); await p.waitForTimeout(150);
+      t.check(await p.locator('.rv .h5-swrap').count() === 1 && await p.locator('.rv input[data-pad="tp.d.n"]').evaluate(e=>e === document.activeElement), 'vraagstuk: rekenmachine verschijnt, het vak houdt de focus');
+      await t.dot(27); await klik('[data-opt="c"]');
+      await p.waitForTimeout(1600);
+      const w = await t.antw();
+      t.check(w.ex01.cs.length === 2 && w.ex01.rs.length === 3 && w.ex01.cuts.length === 1 && w.ex04.x === 1 && w.ex04.cuts.length === 2 && w.ex04.sch.cuts[0] === 2 && w.ex11.mx === 1 && w.ex11.flip[1]
+        && w.ex16.cnt === '2' && w.ex18.rows[0].op === '⋅' && w.ex21.tp.d.n === '1' && w.ex28.choice === 'c', 'rationale getallen vermenigvuldigen: antwoorden bewaard');
+      const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id), S = f=>({ mode:'skip', cuts:[], done:true, for:f, x:0, nv:0, sx:0 });
+        return [O.verbeter(q('ex28'), { choice:'a', res:{ s1:'+', t:'6', n:'5' }, sch:S('6/5') }, { good:'c' }),
+          O.verbeter(q('ex29'), { choice:'b', res:{ s1:'+', t:'3', n:'10' }, sch:S('3/10') }, { good:'b' }),
+          O.verbeter(q('ex10'), { method:'om', flip:[false, true], sign:'−', cuts:[], cutsFor:'', x:0, mx:0, res:{ t:'2', n:'7' }, sch:S('-2/7') })]; });
+      t.check(r[0].pts === 0 && r[0].codes.includes('FOUTENJAGER') && r[0].codes.includes('NOEMER_BEHOUDEN') && r[1].pts === .5 && r[1].codes.includes('NIET_OMGEKEERD')
+        && r[2].codes.includes('TEKENREGEL') && r[2].codes.includes('NIET_EERST_DELEN') && r[2].codes.includes('NIET_GESCHRAPT'), 'vermenigvuldigen: foutcodes ' + JSON.stringify(r));
     } }
 ];
 

@@ -1,0 +1,147 @@
+/* 2A Rekenvaardigheden 5 · rechthoekmodel, schrappen in de rekenmachine, kommagetallen, vraagstukken (ook geladen in het dashboard en de pdf).
+   Plus, min, maal en deel zijn zwart; de kleuren van de schrappen en van het rechthoekmodel (paars, geel) duiden enkel aan. */
+@import url("../../../gedeeld/rv-breuk.css");
+.vis-svg{ display:block; width:100%; height:auto; }
+.rv .rv-wisk .br{ font-size:1.1rem; }
+.rv .h5-vraag{ font-weight:900; color:var(--ink-soft); margin:0 .2em; }
+.rv .h5-opgave{ display:flex; align-items:center; justify-content:center; gap:.8rem; margin:.1rem 0 .5rem; }
+.rv .h5-olab{ font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); background:var(--bg); border-radius:.4rem; padding:.15rem .5rem; }
+.rv .h5-oexpr{ font-size:1.8rem; font-weight:900; }
+.rv .h5-plan{ margin-bottom:.4rem; }
+.rv .h5-plan span{ font-size:.8rem; padding:.15rem .65rem; }
+.rv .h5-midden{ text-align:center; }
+
+/* rechthoekmodel */
+.rv .rv-werk.h5-rhwerk{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
+.rv .h5-rhwrap{ display:grid; grid-template-columns:minmax(0, 1.15fr) minmax(0, 1fr); gap:.7rem; align-items:start; }
+.rv .h5-rh{ max-height:250px; }
+.rv .h5-vraagwerk .vis-svg{ max-height:135px; }
+.rv .h5-vraagwerk .h5-rh{ max-height:185px; }
+.rv .h5-modi{ display:flex; gap:.35rem; flex-wrap:wrap; }
+.rv .h5-modus{ display:inline-flex; align-items:center; gap:.3rem; font:inherit; font-size:.85rem; font-weight:800; background:var(--card); border:2px solid var(--border); border-radius:.55rem; padding:.25rem .5rem; cursor:pointer; color:var(--ink); }
+.rv .h5-modus.aan{ background:var(--tq-soft); border-color:var(--tq); }
+.h5-swc{ display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:middle; margin-right:.25rem; flex:none; }
+.h5-swc.kol{ background:#b39ddb; } .h5-swc.rij{ background:#ffd54f; }
+.h5-swc.beide{ background:repeating-linear-gradient(45deg, #ffd54f 0 4px, #9575cd 4px 8px); }
+.rv .h5-legend{ display:flex; flex-direction:column; gap:.2rem; margin-top:.3rem; font-weight:700; font-size:.82rem; }
+.rv .h5-legend em{ font-style:normal; font-weight:600; color:var(--ink-soft); }
+.rv .h5-legend .br{ font-size:.95rem; }
+.h5-ico{ width:18px; height:18px; vertical-align:middle; }
+.h5-kl.paars{ color:#5e35b1; } .h5-kl.geel{ color:#8a6500; }
+.rv h3 .h5-kl .br{ font-size:1rem; }
+.rv .h5-knip{ display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; font-size:.88rem; margin-top:.35rem; }
+.rv .h5-nknop{ width:1.9rem; height:1.9rem; font:inherit; font-size:1.1rem; font-weight:900; background:var(--card); border:2px solid var(--orange); border-radius:.45rem; cursor:pointer; color:var(--ink); }
+.rv .h5-nknop:hover{ background:var(--or-soft); }
+.rv .h5-nknop:disabled{ opacity:.4; cursor:not-allowed; }
+.rv .h5-nval{ font-size:1.3rem; font-weight:900; min-width:1.8rem; text-align:center; }
+.rv .h5-rhzij .rv-tip{ margin:.2rem 0; font-size:.82rem; }
+
+/* de rekenmachine in een schriftje */
+.rv .rv-werk.h5-stappen{ grid-template-columns:minmax(0, .8fr) minmax(0, 1.2fr); }
+.rv .h5-schriftje{ background-image:none; padding:.15rem .7rem; }
+.rv .h5-schriftje .srij{ min-height:44px; border-bottom:1px solid #efe9cc; }
+.rv .h5-schriftje .srij:last-child{ border-bottom:0; }
+.rv .h5-schriftje .srij.h5-klein{ min-height:34px; }
+.rv .h5-schriftje .srij.h5-klein .orig{ font-size:.9rem; font-weight:700; }
+.rv .h5-schriftje .orig{ font-size:1.35rem; }
+.rv .h5-schriftje .rv-tip{ margin:0; }
+.rv .h5-tekenrij{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; font-size:1rem; font-weight:800; }
+.rv .h5-tekenrij .rv-tip{ font-size:.8rem; }
+.rv .h5-aanpak{ display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; font-size:.95rem; }
+.rv .h5-apl{ font-weight:800; }
+.rv .h5-ap{ position:relative; font:inherit; font-size:.8rem; font-weight:800; line-height:1.2; background:var(--card); border:2px solid var(--border); border-radius:.6rem; padding:.2rem .6rem; cursor:pointer; color:var(--ink); }
+.rv .h5-ap:hover{ border-color:var(--tq); }
+.rv .h5-ap.aan{ background:var(--tq); border-color:var(--tq); }
+.rv .h5-ap.fout{ background:#fdecea; border-color:#e57373; }
+.rv .h5-let{ display:block; width:100%; font-size:.8rem; font-weight:800; color:#b71c1c; }
+.rv .h5-swrap{ position:relative; display:inline-flex; align-items:center; padding:.1rem .4rem; }
+.rv .h5-lijnen{ position:absolute; left:0; top:0; pointer-events:none; overflow:visible; z-index:0; }
+.rv .h5-lijn{ stroke-width:3; stroke-linecap:round; opacity:.75; }
+.rv .h5-lijn.vers{ stroke-dasharray:400; stroke-dashoffset:400; animation:h5-teken .6s ease-out forwards; }
+@keyframes h5-teken{ to{ stroke-dashoffset:0; } }
+.rv .h5-sbr{ display:inline-flex; flex-direction:column; align-items:center; gap:2px; margin:0 .2rem; position:relative; z-index:2; }
+.rv .h5-sbr.flipin{ animation:h5-keer .7s ease-out; }
+@keyframes h5-keer{ 50%{ transform:rotateX(90deg); } }
+.rv .h5-sbar{ display:block; height:3px; width:100%; min-width:2.4rem; background:var(--ink); border-radius:2px; }
+.rv .h5-chip{ display:inline-flex; align-items:baseline; justify-content:center; gap:.25rem; min-width:2.6rem; padding:.1rem .45rem; font:inherit; font-size:1.35rem; font-weight:900; line-height:1.1; background:var(--card); border:1.5px solid #cbdadb; border-radius:.5rem; cursor:pointer; color:var(--ink); }
+.rv .h5-chip:hover{ border-color:var(--orange); background:#fffaf0; }
+.rv .h5-chip.sel{ border:2.5px solid #b77900; background:#fff3d6; }
+.rv .h5-chip s{ font-size:.85rem; color:#8a969c; text-decoration-thickness:2.5px; font-weight:700; }
+.rv .h5-sbr.omg .h5-chip{ background:#f6f0ff; }
+.rv .h5-sbr.vast .h5-chip{ cursor:default; border-color:transparent; background:transparent; }
+.rv .h5-nu.vers{ animation:br-in .5s ease-out .3s both; }
+.rv .h5-maal{ display:inline-flex; flex-direction:column; align-items:center; margin:0 .9rem; position:relative; z-index:3; }
+.rv .h5-maal > span{ display:flex; align-items:center; font-size:1.6rem; font-weight:900; line-height:1; }
+.rv .h5-mgap{ height:3px; }
+.rv .h5-op{ font-size:1.6rem; font-weight:900; margin:0 .8rem; }
+.rv .h5-deel{ min-width:2.3rem; height:2.3rem; margin:0 .8rem; font:inherit; font-size:1.5rem; font-weight:900; line-height:1; background:#fff4e0; border:2px dashed #e0a800; color:var(--ink); border-radius:.55rem; cursor:pointer; position:relative; z-index:3; animation:h5-puls 1.6s ease-in-out infinite; }
+.rv .h5-deel.klaar{ background:#e9f7ef; border:2px solid #81c784; animation:none; }
+@keyframes h5-puls{ 50%{ box-shadow:0 0 0 5px rgba(224,168,0,.25); } }
+.rv .h5-sg, .rv .h5-rsg{ font-size:1.6rem; font-weight:900; margin-right:.1rem; }
+.rv .h5-haak{ font-size:2rem; font-weight:400; margin:0 .05rem; }
+.rv .h5-mcut{ display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; font-size:.92rem; font-weight:700; background:#fffaf0; border:1.5px solid #f3dcae; border-radius:.55rem; padding:.15rem .5rem; }
+.rv .rv-getal.h5-deler{ width:3rem; height:1.9rem; }
+.rv .h5-legende{ display:flex; flex-wrap:wrap; align-items:center; gap:.3rem; }
+.rv .h5-lg{ font-size:.78rem; font-weight:700; border:1.5px solid; border-radius:999px; padding:.05rem .5rem; background:var(--card); }
+.rv .h5-lg i{ font-style:normal; font-weight:600; opacity:.8; }
+.rv .h5-legende .br-kn{ padding:0 .45rem; }
+.rv .h5-resrij{ display:inline-flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+.rv .h5-tdbr{ display:inline-flex; flex-direction:column; align-items:flex-end; gap:3px; }
+.rv .h5-tdrij{ display:flex; align-items:center; gap:.4rem; }
+.rv .h5-tdl{ font-size:.95rem; font-weight:800; color:var(--ink-soft); }
+.rv .h5-tdbar{ height:3px; width:3.6rem; background:var(--ink); border-radius:2px; }
+
+/* kommagetallen */
+.rv .h5-zonder{ display:flex; align-items:center; gap:.3rem; flex-wrap:wrap; }
+.rv .h5-tel{ font-size:1rem; font-weight:800; display:flex; align-items:center; gap:.4rem; }
+.rv .h5-dres{ display:inline-flex; align-items:center; gap:3px; font-size:1.5rem; font-weight:900; }
+.rv .h5-cijfer{ display:inline-flex; justify-content:center; min-width:1.6rem; padding:0 .2rem; border-radius:.35rem; background:#f4f7f7; }
+.rv .h5-cijfer.nul{ background:#fff3d6; animation:br-in .35s ease-out; }
+.rv .h5-komma{ font-size:1.7rem; margin:0 1px; }
+.rv .h5-komma.hop{ animation:br-in .35s ease-out; }
+.rv .h5-komma.start{ opacity:.45; }
+.rv .h5-dsg{ margin-right:.15rem; }
+.rv .rv-werk.h5-weetwerk{ grid-template-columns:minmax(0, .65fr) minmax(0, 1.35fr); }
+.rv .h5-weetkaart{ background:#f3eefc; border:1.5px solid #d6c8f2; border-radius:.7rem; padding:.5rem .7rem; font-size:.92rem; }
+.rv .h5-weetjes{ display:flex; flex-direction:column; }
+.rv .h5-weetrij{ display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; padding:.2rem .3rem; border-bottom:1px solid #eef2f2; }
+.rv .h5-wq{ font-size:1.25rem; font-weight:800; white-space:nowrap; }
+.rv .h5-wq:first-child{ min-width:7.5rem; }
+.rv .h5-opknop{ width:2.3rem; height:2.3rem; font:inherit; font-size:1.3rem; font-weight:900; background:#fff4e0; border:2px dashed #e0a800; color:var(--ink); border-radius:.5rem; padding:0; cursor:pointer; }
+.rv .h5-opknop.aan{ background:var(--card); border:2px solid #9fb3b6; }
+.rv .rv-getal.h5-k{ width:4rem; }
+.rv .rv-getal.h5-wres{ width:5rem; }
+
+/* vraagstukken */
+.rv .rv-werk.h5-vraagwerk{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
+.rv .h5-vraagwerk .rv-vis h3{ margin-top:.3rem; }
+.rv .h5-sjabloon{ display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; padding:.25rem .6rem; background:#fffef7; border:1.5px dashed #d8cf9c; border-radius:.6rem; margin-bottom:.3rem; }
+.rv .h5-van{ font-size:1rem; font-weight:800; color:var(--ink-soft); }
+.rv .h5-sjabloon .h5-op{ margin:0 .2rem; }
+.rv .h5-sjabloon .rv-getal{ width:3.2rem; }
+.rv .h5-antw{ margin-top:.4rem; font-size:1rem; font-weight:700; display:flex; align-items:center; gap:.35rem; }
+.rv .h5-antw b{ font-size:1.25rem; display:inline-flex; align-items:center; }
+
+/* tweelingsommen en foutenjager */
+.rv .h5-tweelingkop{ text-align:center; font-weight:800; color:var(--ink-soft); }
+.rv .h5-tweeling{ display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
+.rv .h5-tkaart{ border:1.5px solid var(--border); border-radius:.8rem; padding:.4rem .7rem; background:var(--card); }
+.rv .h5-ttop{ font-weight:800; color:var(--ink-soft); }
+.h5-schrift{ position:relative; background:#fffef7; border:1px solid #ece6c8; border-radius:.7rem; padding:.5rem 1rem .7rem 3rem; margin-bottom:.4rem;
+  background-image:linear-gradient(to right, transparent 2.1rem, #f3b4b4 2.1rem 2.2rem, transparent 2.2rem); }
+.h5-snaam{ font-size:.82rem; color:var(--ink-soft); font-weight:700; margin-bottom:.3rem; }
+.h5-slijn{ font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:1.45rem; color:#3a3a3a; }
+.h5-stempel{ position:absolute; right:.8rem; bottom:.5rem; width:2.6rem; height:2.6rem; border-radius:50%; border:3px solid var(--orange); color:var(--orange); font-size:1.5rem; font-weight:900; display:flex; align-items:center; justify-content:center; transform:rotate(-12deg); }
+.rv .keuzes .keuze{ padding:.3rem .55rem; font-size:.92rem; }
+.rv-lees .h5-schrift{ max-width:34rem; }
+.rv-lees .h5-rh{ max-width:16rem; }
+@media (max-width:900px){ .rv .rv-werk.h5-stappen, .rv .rv-werk.h5-rhwerk, .rv .rv-werk.h5-vraagwerk, .rv .rv-werk.h5-weetwerk{ grid-template-columns:minmax(0, 1fr); } .rv .h5-tweeling{ grid-template-columns:1fr; } }
+/* compacte breukvakken in het schriftje en het sjabloon */
+.rv .h5-schriftje .br.br-in .rv-getal.br-get, .rv .h5-sjabloon .br.br-in .rv-getal.br-get, .rv .h5-tdbr .rv-getal.br-get{ height:1.75rem; width:3.2rem; font-size:1.05rem; }
+.rv .h5-schriftje .br.br-in > .br-n, .rv .h5-sjabloon .br.br-in > .br-n{ min-height:0; padding-top:2px; }
+.rv .h5-schriftje .br.br-in > .br-t, .rv .h5-sjabloon .br.br-in > .br-t{ padding-bottom:2px; }
+.rv .h5-schriftje .br-kz{ height:1.9rem; font-size:.76rem; }
+.rv .h5-schriftje .br-res{ font-size:1.1rem; }
+.rv .h5-resrij .br-keuze{ flex-direction:column; gap:.2rem; }
+.rv .h5-resrij .br-keuzeslot{ flex-wrap:nowrap; }
+.rv .h5-modus{ font-size:.78rem; padding:.2rem .4rem; }

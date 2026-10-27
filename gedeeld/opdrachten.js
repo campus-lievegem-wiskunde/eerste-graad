@@ -9,7 +9,8 @@ export const OPDRACHTEN = [
   { id:'2a-rv-1-coordinaten', titel:'1. Coördinaten op het rooster', kort:'Coördinaten', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/1-coordinaten/', op:5 },
   { id:'2a-rv-2-gehele-optellen', titel:'2. Optellen en aftrekken van gehele getallen', kort:'Optellen en aftrekken gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/2-gehele-optellen/', op:5 },
   { id:'2a-rv-3-gehele-vermenigvuldigen', titel:'3. Vermenigvuldigen en delen van gehele getallen', kort:'Vermenigvuldigen en delen gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/3-gehele-vermenigvuldigen/', op:5 },
-  { id:'2a-rv-4-rationale-optellen', titel:'4. Optellen en aftrekken van rationale getallen', kort:'Optellen en aftrekken rationale getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/4-rationale-optellen/', op:5 }
+  { id:'2a-rv-4-rationale-optellen', titel:'4. Optellen en aftrekken van rationale getallen', kort:'Optellen en aftrekken rationale getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/4-rationale-optellen/', op:5 },
+  { id:'2a-rv-5-rationale-vermenigvuldigen', titel:'5. Vermenigvuldigen en delen van rationale getallen', kort:'Vermenigvuldigen en delen rationale getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/5-rationale-vermenigvuldigen/', op:5 }
 ];
 /* Wie ziet de rubrieken toetsen, huistaken en rekenvaardigheden en het tabblad in het dashboard?
    'beheerder' = voorlopig enkel beheerders (keuze van Jeroen, 24 oktober 2026; geen toeschouwer, geen collega's, geen leerlingen);
