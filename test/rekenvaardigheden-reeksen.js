@@ -229,6 +229,61 @@ const REEKSEN = [
       t.check(r[0].pts === .5 && r[0].codes.includes('BOUW_FOUT') && r[0].codes.includes('MINNEN_NIET_GEPAARD') && r[0].codes.includes('TEKEN_MACHT')
         && r[1].pts === 1 && r[1].codes.includes('HAAKJES') && r[2].pts === 0 && r[2].codes.includes('WORTEL_HELFT') && r[2].codes.includes('ZIJDE_NIET_GEZOCHT')
         && r[3].pts === 0 && r[3].codes.includes('FOUTENJAGER') && r[3].codes.includes('WORTEL_SOM'), 'machten: foutcodes ' + JSON.stringify(r));
+    } },
+  { id:'2a-rv-7-volgorde-bewerkingen', url:'2A/rekenvaardigheden/7-volgorde-bewerkingen/', blok:'Volgorde van bewerkingen', n:30, max:'62',
+    sleutel:{ ex01:{ order:['pm', 'md', 'h', 'mw'] }, ex29:{ good:'a' }, ex30:{ good:'a' } },
+    async interactie(p, t){
+      const klik = (s, n = 0)=>p.locator('.rv ' + s).nth(n).click().then(()=>p.waitForTimeout(120));
+      const tekst = s=>p.locator('.rv ' + s).first().textContent().then(x=>x.replace(/\s+/g, ''));
+      /* weetjes: het stappenplan in volgorde aanklikken, bij a) de eerste bewerking */
+      for(const k of ['h', 'mw', 'md', 'pm']) await klik(`[data-wk="${k}"]`);
+      await klik('.h7-witem[data-wi="0"] .h7-op', 0);
+      t.check(await tekst('[data-wk="pm"] .h7-wnr') === '4' && await p.locator('.rv .h7-witem[data-wi="0"] .h7-pick').count() === 1, 'weetjes: stappen genummerd, de bewerking bij a) aangeduid');
+      /* −5 + 3 ⋅ (−2): eerst + aanklikken geeft een rood kruisje V1, dan ⋅ */
+      await t.dot(1); await klik('.h7-lijn.nu .h7-op', 0);
+      t.check(/V1/.test(await tekst('.h7-melding')) && await p.locator('.rv .h7-lijn.nu .rv-kruis').count() === 1, 'volgorde: plus vóór maal geeft een rood kruisje met V1: ' + await tekst('.h7-melding'));
+      await p.waitForTimeout(2000);
+      await klik('.h7-lijn.nu .h7-op', 1);
+      t.check(await p.locator('.rv .h7-kaart.lv3').count() === 1 && await p.locator('.rv .h7-volg').isDisabled(), 'maal: een blauw kaartje, Volgende regel nog niet');
+      await t.teken('L.0.m.0.r.s', '−'); await t.vul('L.0.m.0.r.n', 6); await p.waitForTimeout(100);
+      t.check(!(await p.locator('.rv .h7-volg').isDisabled()), 'uitkomst ingevuld: Volgende regel kan');
+      await klik('.h7-volg'); await p.waitForTimeout(500);
+      t.check(await tekst('.h7-lijn.nu') === '=−5+−6' && await p.locator('.rv .h7-lijn.nu .h7-sg').count() === 1, 'nieuwe regel: −5 + (−6): ' + await tekst('.h7-lijn.nu'));
+      await klik('.h7-lijn.nu .h7-op', 0); await klik('.h7-lijn.nu .h7-sg'); await p.waitForTimeout(700);
+      t.check(await tekst('.h7-lijn.nu') === '=−5−6', 'tekenpaar: + (−6) wordt − 6: ' + await tekst('.h7-lijn.nu'));
+      await klik('.h7-lijn.nu .h7-op', 0); await t.teken('L.1.m.0.r.s', '−'); await t.vul('L.1.m.0.r.n', 11); await klik('.h7-volg'); await p.waitForTimeout(500);
+      t.check(await p.locator('.rv .h7-af').count() === 1 && await tekst('.h7-lijn.nu') === '=−11', 'klaar: −11');
+      /* tekenpaar: − (−10) wordt + 10 */
+      await t.dot(3); await klik('.h7-lijn.nu .h7-op', 1); await klik('.h7-lijn.nu .h7-sg'); await p.waitForTimeout(700);
+      t.check(await tekst('.h7-lijn.nu') === '−6⋅5+10', 'tekenpaar: −6 ⋅ 5 − (−10) wordt −6 ⋅ 5 + 10: ' + await tekst('.h7-lijn.nu'));
+      /* breuken: (5/6 − 1/6) uitrekenen en vereenvoudigen, dan delen door −1/2 */
+      await t.dot(23); await klik('.h7-lijn.nu .h7-op', 0);
+      await t.teken('L.0.m.0.r.s', '+'); await t.vul('L.0.m.0.r.n', 4); await t.vul('L.0.m.0.r.d', 6); await p.waitForTimeout(150);
+      await klik('[data-schopen="L.0.m.0.sch"]'); await p.locator('.rv [data-schgetal="L.0.m.0.sch"]').fill('2'); await klik('[data-schknip="L.0.m.0.sch"]'); await klik('[data-schklaar="L.0.m.0.sch"]');
+      await klik('.h7-volg'); await p.waitForTimeout(500);
+      t.check(await tekst('.h7-lijn.nu') === '=23:−12', 'vereenvoudigd: 2/3 : (−1/2): ' + await tekst('.h7-lijn.nu'));
+      await klik('.h7-lijn.nu .h7-op', 0); await klik('[data-meth="td"]'); await p.waitForTimeout(1100);
+      t.check(await p.locator('.rv .h7-let').count() === 1, 'teller : teller gaat niet op: rood kruisje');
+      await klik('[data-meth="om"]'); await klik('.h7-deel');
+      t.check(await p.locator('.rv .h7-sbr.omg').count() === 1 && await p.locator('.rv .h7-chip.t').count() === 2, 'maal het omgekeerde: de breuk keert om');
+      await t.teken('L.1.m.0.r.s', '−'); await t.vul('L.1.m.0.r.n', 4); await t.vul('L.1.m.0.r.d', 3); await p.waitForTimeout(150);
+      await klik('[data-schniet="L.1.m.0.sch"]'); await klik('.h7-volg'); await p.waitForTimeout(500);
+      t.check(await p.locator('.rv .h7-af').count() === 1 && await tekst('.h7-lijn.nu') === '=−43', 'uitkomst −4/3');
+      await t.dot(28); await klik('[data-opt="b"]');
+      await p.waitForTimeout(1600);
+      const w = await t.antw();
+      t.check(w.ex01.ord.join() === 'h,mw,md,pm' && w.ex01.pick[0] != null && w.ex02.L.length === 3 && w.ex02.L[0].e.length === 1 && w.ex04.L[0].p.length === 1
+        && w.ex24.L[1].m[0].mx === 1 && w.ex24.L[1].m[0].flip === true && w.ex29.choice === 'b', 'volgorde: antwoorden bewaard');
+      const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id);
+        const L = (m, e)=>({ m, p:[], x:0, e:e || [] });
+        return [O.verbeter(q('ex02'), JSON.parse(JSON.stringify((window.__w || {}).ex02 || { L:[] }))),
+          O.verbeter(q('ex15'), { L:[L([{ id:2, r:{ s:'+', n:'9' }, sch:{} }, { id:7, r:{ s:'+', n:'6' }, sch:{} }]), L([])] }),
+          O.verbeter(q('ex16'), { L:[L([{ id:2, r:{ s:'+', n:'8' }, sch:{} }])] }),
+          O.verbeter(q('ex30'), { choice:'c', res:{ s:'−', n:'4' } }, { good:'a' })]; });
+      t.check(r[1].pts === .45 && r[1].codes.includes('GRONDTAL') && r[1].codes.includes('ONAF') && r[2].pts === 0 && r[3].pts === 0
+        && r[3].codes.includes('FOUTENJAGER') && r[3].codes.includes('TEKENFOUT'), 'volgorde: foutcodes ' + JSON.stringify(r.slice(1)));
+      const r2 = await p.evaluate(w=>{ const O = window.OPGAVE, q = O.delen.flatMap(d=>d.vragen).find(x=>x.id === 'ex02'); return O.verbeter(q, w); }, w.ex02);
+      t.check(r2.pts === 1.4 && r2.codes.join() === 'V1_MAAL_EERST' && r2.kruis === 1, 'volgorde: één kruisje V1 kost 0,1 punt: ' + JSON.stringify(r2));
     } }
 ];
 
