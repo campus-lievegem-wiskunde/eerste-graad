@@ -821,6 +821,16 @@ const RH = {
       <p>Controleer altijd alle voorwaarden: verschillend, kleiner dan 20, som 30 en ggd 5.</p>` }
 };
 
+/* één oefening op één scherm: gegevens en venndiagram links, de vragen erover rechts */
+(function(){ const st = document.createElement('style'); st.textContent = `
+  .venn-naast{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1.4rem; align-items:start; }
+  .venn-naast > div{ min-width:0; }
+  @media (max-width: 760px){ .venn-naast{ grid-template-columns:minmax(0,1fr); } }`; document.head.append(st); })();
+function vennNaast(b){
+  const ch = [...b.children], k = ch.findIndex(x=>x.classList.contains('stage')); if(k < 0) return;
+  const w = el('div','venn-naast'), L = el('div'), R = el('div');
+  ch.forEach((x,i)=>(i <= k ? L : R).append(x)); w.append(L, R); b.append(w);
+}
 function venn2Items(A, B){
   const all = [...new Set([...A,...B])].sort((x,y)=>x-y);
   return all.map(n=>{ const a=A.includes(n), b=B.includes(n); return { id:'n'+n, d:String(n), zone: a&&b?'AB':(a?'A':'B'),
@@ -1084,6 +1094,7 @@ const SECTIONS = [
         const g = el('div','tf-grid'); b.append(g);
         [['9 ∈ A ∩ B','w','9 zit in A én in B.'],['{0, 3} ⊂ A','n','0 is geen deler van 18, dus 0 ∉ A.'],['18 ∉ B','w','18 is groter dan 15, dus 18 zit niet in B.']]
           .forEach(([h,a,w],i)=>qChoice(g, st, save, 'w'+i, {html:h, ans:a, why:w, opts:WN}));
+        vennNaast(b);
       }},
       { title:'Opgave B', build:(b,st,save,key)=>{
         const A=[1,2,4,5,10,20], B=[0,5,10,15,20,25];
@@ -1098,6 +1109,7 @@ const SECTIONS = [
         const g = el('div','tf-grid'); b.append(g);
         [['4 ∈ B \\ A','n','4 zit in A, niet in B. Dus 4 ∈ A \\ B.'],['{5, 20} ⊂ A','w','5 en 20 zijn allebei delers van 20.'],['15 ∈ A ∪ B','w','15 zit in B, dus ook in A ∪ B.']]
           .forEach(([h,a,w],i)=>qChoice(g, st, save, 'w'+i, {html:h, ans:a, why:w, opts:WN}));
+        vennNaast(b);
       }}
     ]},
 
