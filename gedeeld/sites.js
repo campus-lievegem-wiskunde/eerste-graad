@@ -1170,5 +1170,70 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "1a-wp",
+  "titel": "Wiskundige problemen · Heuristieken",
+  "kort": "Heuristieken",
+  "jaar": "1A",
+  "rubriek": "wiskundige-problemen",
+  "pad": "1A/wiskundige-problemen/",
+  "prefix": "1a_wp_heur_v1_",
+  "onderdelen": [
+   {
+    "id": "stappen",
+    "naam": "De vier stappen",
+    "toets": false,
+    "vragen": 3
+   },
+   {
+    "id": "schets",
+    "naam": "Een schets maken",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "vereenv",
+    "naam": "Vereenvoudigen",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "uitpr",
+    "naam": "Uitproberen",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "patroon",
+    "naam": "Een patroon zoeken",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "terug",
+    "naam": "Achterwaarts werken",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "tellen",
+    "naam": "Systematisch tellen",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "mix",
+    "naam": "Door elkaar",
+    "toets": false,
+    "vragen": 20
+   },
+   {
+    "id": "toets",
+    "naam": "Testje door elkaar",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
  }
 ];
