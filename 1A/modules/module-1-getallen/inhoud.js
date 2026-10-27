@@ -152,6 +152,7 @@ function qBlock(parent, st, save, id, q){
   });
   optBtns.forEach(b=> b.addEventListener('click', ()=>{ s.c=b.dataset.val; save(); paintChoice(); fb.textContent=''; }));
   paintChoice();
+  if(q.hint && !quiz) hintBox(row, act, s, save, id, q.hint);
 
   function run(){
     const vals = inputs.map(i=>i.value.trim());
@@ -182,6 +183,90 @@ function qBlock(parent, st, save, id, q){
       lock:()=>{ inputs.forEach(i=>i.readOnly=true); optBtns.forEach(b=>b.disabled=true); }
     });
   } else if(s.checked) run();
+}
+
+/* ============================================================
+   INVULBARE HINTS (afspraak: elke basisoefening met meer dan één stap krijgt een hint
+   met invulvakjes voor de tussenstappen, eventueel met "Meer uitleg"; niet in verdieping)
+   Gebruik in een vraag: hint:{ stappen:['12 + 18 = [[0]]', ...], ans:[30, ...], extra:'uitleg', titel:'...', sets:[[1,2,3]] }
+   sets: groepen vakjes waarvan de volgorde niet uitmaakt. Een stap zonder vakjes is een tussentitel of uitleg.
+   De hint telt niet mee in het dashboard en verschijnt niet in een proeftoets.
+   ============================================================ */
+(function(){
+  const css = `
+  .q-act .hint-knop{ border-style:dashed; }
+  .q-act .hint-knop.on{ border-style:solid; border-color:var(--orange); background:var(--or-soft); }
+  .hintbox{ margin:.5rem 0 .3rem; padding:.7rem .9rem; border:2px dashed var(--or-line); border-radius:12px; background:var(--or-soft); }
+  .hintbox h4{ margin:0 0 .35rem; font-size:.98rem; }
+  /* stappen genummerd; een tussentitel (Manier 1, Manier 2) begint opnieuw bij 1, een uitleg telt niet mee */
+  .hintbox ol{ margin:.2rem 0 .5rem; padding:0; list-style:none; display:grid; gap:.45rem; }
+  .hintbox li{ line-height:1.9; }
+  .hintbox li.hb-stap{ padding-left:1.6rem; position:relative; }
+  .hintbox .hb-nr{ position:absolute; left:0; font-weight:700; }
+  .hintbox li.hb-kop{ font-weight:800; color:var(--accent-dark); margin-top:.3rem; }
+  .hintbox li.hb-uitleg{ line-height:1.5; }
+  .hintbox .inp{ min-width:3.2rem; width:4.2rem; margin:0 .25rem; }
+  .hintbox .ladder{ margin:.3rem 0 .2rem; }
+  .hintbox .ladder td{ padding:.15rem .5rem; }
+  .hintbox .ladder .inp{ margin:0; width:3.6rem; }
+  .hintbox .hb-bar{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .hintbox .hb-extra{ margin-top:.5rem; padding:.55rem .75rem; border-left:4px solid var(--accent); background:var(--card); border-radius:8px; line-height:1.55; }
+  .hintbox .hb-extra p{ margin:.3rem 0; }
+  .hintbox .fb{ margin-top:.35rem; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* vergelijk één hintvakje met het verwachte antwoord (getal, woord of lijst van mogelijkheden) */
+function hintJuist(v, a){
+  if(Array.isArray(a)) return a.some(x=>hintJuist(v, x));
+  if(typeof a === 'number'){ const x = parseNum(v); return !isNaN(x) && Math.abs(x - a) < 1e-9; }
+  return String(v).trim().toLowerCase().replace(/\s+/g,' ') === String(a).toLowerCase();
+}
+
+function hintBox(row, act, s, save, id, h){
+  const hs = s.h || (s.h = {v:[]});
+  const knop = el('button','btn ghost hint-knop','💡 Hint'); knop.type = 'button'; act.append(knop);
+  const box = el('div','hintbox'); box.hidden = true;
+  box.append(el('h4','', '💡 ' + (h.titel || 'Hint: vul de tussenstappen in')));
+  const ol = el('ol'); box.append(ol);
+  let nr = 0;
+  h.stappen.forEach(st=>{ const t = typeof st === 'string' ? st : st.t;
+    if(st.kop){ nr = 0; ol.append(el('li','hb-kop', t)); return; }
+    if(st.uitleg){ ol.append(el('li','hb-uitleg', fillInputs(t, id+'-h', 'xs', 'numeric'))); return; }
+    ol.append(el('li','hb-stap', `<span class="hb-nr">${++nr}.</span>` + fillInputs(t, id+'-h', 'xs', 'numeric'))); });
+  const bar = el('div','hb-bar'); box.append(bar);
+  const ctl = el('button','btn ghost','Controleer de hint'); ctl.type = 'button'; bar.append(ctl);
+  let extra = null;
+  if(h.extra){ const xk = el('button','btn ghost','🔍 Meer uitleg'); xk.type = 'button'; bar.append(xk);
+    extra = el('div','hb-extra', h.extra); extra.hidden = !hs.x; box.append(extra);
+    xk.addEventListener('click', ()=>{ extra.hidden = !extra.hidden; hs.x = !extra.hidden; save(); }); }
+  const fb = el('div','fb'); box.append(fb);
+  row.append(box);
+  const inps = [...box.querySelectorAll('.inp')].sort((a,b)=>a.dataset.f-b.dataset.f);
+  inps.forEach((inp,i)=>{ if(typeof h.ans[i] === 'string' || (Array.isArray(h.ans[i]) && typeof h.ans[i][0] === 'string')) inp.inputMode = 'text'; });
+  inps.forEach((inp,i)=>{ if(hs.v[i]!=null) inp.value = hs.v[i];
+    inp.addEventListener('input', ()=>{ hs.v[i] = inp.value; save(); inp.classList.remove('ok','bad'); });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); controle(); } }); });
+  function oordeel(vals){
+    const ok = vals.map((v,i)=>v==='' ? null : hintJuist(v, h.ans[i]));
+    (h.sets||[]).forEach(g=>{ const nodig = g.map(i=>h.ans[i]), gezien = [];
+      g.forEach(i=>{ if(vals[i]==='') return; const x = parseNum(vals[i]); const hit = nodig.some(a=>hintJuist(vals[i], a)) && !gezien.includes(x); ok[i] = hit; if(hit) gezien.push(x); }); });
+    return ok;
+  }
+  function controle(){
+    const vals = inps.map(i=>i.value.trim());
+    if(vals.every(v=>v==='')){ fb.className = 'fb info'; fb.textContent = 'Vul eerst de vakjes van de hint in.'; return; }
+    const ok = oordeel(vals); let goed = 0;
+    inps.forEach((inp,i)=>{ inp.classList.remove('ok','bad'); if(ok[i]==null) return; inp.classList.add(ok[i]?'ok':'bad'); if(ok[i]) goed++; });
+    const leeg = vals.filter(v=>v==='').length;
+    if(goed === inps.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Alle tussenstappen kloppen. Gebruik ze nu voor je antwoord.'; }
+    else { fb.className = 'fb bad'; fb.innerHTML = (goed < inps.length - leeg ? 'De rode vakjes kloppen nog niet. ' : '') + (leeg ? 'Vul ook de lege vakjes in.' : '') + (h.extra && extra.hidden ? ' Kijk eens bij 🔍 Meer uitleg.' : ''); }
+  }
+  ctl.addEventListener('click', controle);
+  const open = o => { box.hidden = !o; knop.classList.toggle('on', o); knop.textContent = o ? '💡 Verberg hint' : '💡 Hint'; };
+  open(!!hs.o);
+  knop.addEventListener('click', ()=>{ hs.o = box.hidden; save(); open(hs.o); });
 }
 
 function qChoice(parent, st, save, id, q){
@@ -623,10 +708,118 @@ function posQ(orig, task, newNum, dir, sol){
       return {ok:false, choiceOk:false}; } };
 }
 
-function threeQ(text, ans, sol){
-  return { html:`<span>${text}</span>`, block:true, html2:'[[0]] [[1]] [[2]]', size:'xs', mode:'numeric', sol,
+/* ---------- hints bij ontbinden, ggd en kgv, zoek x en de getallenraadsels ---------- */
+const HK = t => ({t, kop:true}), HU = t => ({t, uitleg:true});
+const delersVan = n => { const d = []; for(let i = 1; i <= n; i++) if(n % i === 0) d.push(i); return d; };
+/* deelladder met invulvakjes: rechts de deler, links eronder het quotiënt */
+function ladderHint(n){
+  const f = factorize(n), ans = []; let m = n, rows = '';
+  f.forEach((p,i)=>{ const links = i === 0 ? String(n) : `[[${ans.length}]]`; if(i > 0) ans.push(m);
+    rows += `<tr><td>${links}</td><td>[[${ans.length}]]</td></tr>`; ans.push(p); m /= p; });
+  rows += `<tr><td>1</td><td></td></tr>`;
+  return { titel:'Hint: maak de deelladder af',
+    stappen:[
+      HU(`Deel telkens door het <b>kleinste priemgetal</b> dat past (eerst 2, dan 3, dan 5, 7, …). Schrijf rechts van de streep waardoor je deelt, en links eronder het quotiënt. Je stopt bij 1.<table class="ladder">${rows}</table>`),
+      HU(`De getallen rechts van de streep vormen samen het product. Dat product vul je in als antwoord: ${n} = … · … · …`) ],
+    ans,
+    extra:`<p><b>Past een priemgetal?</b> Door 2: het getal is even. Door 3: de som van de cijfers is deelbaar door 3. Door 5: het getal eindigt op 0 of 5. Past geen van die, probeer dan 7, 11, 13, …</p>
+      <p><b>Voorbeeld met 60.</b> 60 is even: 60 : 2 = 30. 30 is even: 30 : 2 = 15. 15 is oneven, 1 + 5 = 6 is deelbaar door 3: 15 : 3 = 5. 5 is zelf een priemgetal: 5 : 5 = 1.</p>
+      <table class="ladder"><tr><td>60</td><td>2</td></tr><tr><td>30</td><td>2</td></tr><tr><td>15</td><td>3</td></tr><tr><td>5</td><td>5</td></tr><tr><td>1</td><td></td></tr></table>
+      <p>Dus 60 = 2 · 2 · 3 · 5 = 2² · 3 · 5.</p>` };
+}
+/* ggd: delers van het kleinste getal, welke delen ook de andere */
+function ggdHint(nums){
+  const k = Math.min(...nums), rest = nums.filter(x=>x !== k), d = delersVan(k), g = nums.reduce(gcd);
+  const gem = d.filter(x=>rest.every(r=>r % x === 0)), ans = [...d, ...gem, g];
+  const vak = (from, n) => Array.from({length:n}, (_,i)=>`[[${from+i}]]`).join(' , ');
+  return { titel:'Hint: zoek de gemeenschappelijke delers',
+    stappen:[
+      `Schrijf alle delers van het kleinste getal op: del ${k} = { ${vak(0, d.length)} }`,
+      `Welke van die delers zijn ook een deler van ${rest.join(' en van ')}? ${vak(d.length, gem.length)}`,
+      `De grootste daarvan: ggd(${nums.join(', ')}) = [[${d.length+gem.length}]]` ],
+    ans, sets:[d.map((_,i)=>i), gem.map((_,i)=>d.length+i)],
+    extra:`<p><b>ggd</b> = <b>g</b>rootste <b>g</b>emeenschappelijke <b>d</b>eler: het grootste getal waardoor je ${nums.join(' en ')} allemaal kan delen zonder rest.</p>
+      <p>Delers vind je in paren: bij 12 is dat 1 · 12, 2 · 6, 3 · 4. Dus del 12 = {1, 2, 3, 4, 6, 12}.</p>
+      <p>Je begint bij het kleinste getal, want een gemeenschappelijke deler kan nooit groter zijn dan het kleinste getal.</p>` };
+}
+/* kgv: veelvouden van het grootste getal tot er een past bij de andere */
+function kgvHint(nums){
+  const G = Math.max(...nums), rest = nums.filter(x=>x !== G), K = nums.reduce(lcm), n = K / G + 1;
+  const ans = [], vv = [];
+  for(let i = 1; i <= n; i++){ if(i <= 2) vv.push(String(G*i)); else { vv.push(`[[${ans.length}]]`); ans.push(G*i); } }
+  ans.push(K);
+  return { titel:'Hint: zoek het kleinste gemeenschappelijke veelvoud',
+    stappen:[
+      `Schrijf de veelvouden van het grootste getal op: ${vv.join(' , ')} , …`,
+      `Welk van die veelvouden is het kleinste dat ook deelbaar is door ${rest.join(' en door ')}? kgv(${nums.join(', ')}) = [[${ans.length-1}]]` ],
+    ans,
+    extra:`<p><b>kgv</b> = <b>k</b>leinste <b>g</b>emeenschappelijk <b>v</b>eelvoud: het kleinste getal (niet 0) dat in de tafels van ${nums.join(' en ')} allemaal voorkomt.</p>
+      <p>Je begint met de tafel van het grootste getal: zo ben je het snelst. Voor elk veelvoud kijk je of het ook deelbaar is door ${rest.join(' en ')}.</p>
+      <p>Voorbeeld: kgv(4, 10). Veelvouden van 10: 10, 20, 30, … 10 is niet deelbaar door 4, 20 wel. Dus kgv(4, 10) = 20.</p>` };
+}
+
+function threeQ(text, ans, sol, hint){
+  return { hint, html:`<span>${text}</span>`, block:true, html2:'[[0]] [[1]] [[2]]', size:'xs', mode:'numeric', sol,
     check:v=>{ const a=v.map(parseNum).sort((x,y)=>x-y), b=[...ans].sort((x,y)=>x-y); if(a.some(isNaN)) return {ok:false,msg:'Vul drie getallen in.'}; return {ok:a.every((x,i)=>x===b[i])}; } };
 }
+/* hints bij de getallenraadsels: telkens twee manieren, een derde in "Meer uitleg" */
+const RH = {
+  product30:{ titel:'Hint: twee manieren om dit raadsel op te lossen', stappen:[
+      HK('Manier 1: zoek alle drietallen met product 30'),
+      'Drie verschillende getallen met product 30: 1 · 2 · [[0]] , 1 · 3 · [[1]] , 1 · 5 · [[2]] , 2 · 3 · [[3]]',
+      'Bereken telkens de som: 1 + 2 + 15 = [[4]] , 1 + 3 + 10 = [[5]] , 1 + 5 + 6 = [[6]] , 2 + 3 + 5 = [[7]]',
+      HU('Welk drietal heeft som 10? Dat is je antwoord.'),
+      HK('Manier 2: ontbind 30 in priemfactoren'),
+      '30 = [[8]] · [[9]] · [[10]]',
+      'Tel die drie getallen op: [[11]]. Is dat de som uit het raadsel?' ],
+    ans:[15,10,6,5,18,14,12,10,2,3,5,10], sets:[[8,9,10]],
+    extra:`<p><b>Manier 1</b> werkt altijd: begin met 1 als kleinste getal, dan met 2, … Zo vergeet je geen enkel drietal.</p>
+      <p><b>Manier 2</b> werkt hier snel, omdat 30 precies drie verschillende priemfactoren heeft.</p>
+      <p><b>Manier 3: proberen en controleren.</b> Kies drie verschillende getallen met som 10, bv. 1, 4 en 5. Het product is 20: te klein. Probeer 2, 3 en 5: het product is 30. Gevonden!</p>` },
+  som42:{ titel:'Hint: twee manieren om dit raadsel op te lossen', stappen:[
+      HK('Manier 1: zoek het middelste getal'),
+      HU('Bij drie opeenvolgende getallen ligt het middelste precies in het midden. Het is het gemiddelde van de drie.'),
+      'Het middelste getal = 42 : 3 = [[0]]',
+      'Het getal ervoor en het getal erna: [[1]] en [[2]]',
+      HK('Manier 2: proberen en bijsturen'),
+      'Probeer 10, 11 en 12. Hun som is [[3]]',
+      'Hoeveel is dat te weinig? 42 − 33 = [[4]]',
+      HU('Maak je elk getal 1 groter, dan wordt de som 3 groter.'),
+      'Hoeveel keer moet je dat doen? 9 : 3 = [[5]] keer. Tel dat bij elk getal op.' ],
+    ans:[14,13,15,33,9,3], sets:[[1,2]],
+    extra:`<p><b>Waarom delen door 3?</b> Neem 13, 14 en 15: het eerste is 1 kleiner dan 14, het laatste 1 groter. Samen is dat evenveel als 14 + 14 + 14 = 3 · 14.</p>
+      <p><b>Manier 3: met een letter</b> (voor wie dat al kan). Noem het kleinste getal n. De drie getallen zijn n, n + 1 en n + 2. Hun som is 3 · n + 3 = 42. Dus 3 · n = 39 en n = 13.</p>
+      <p>Controleer altijd: 13 + 14 + 15 = 42.</p>` },
+  kgv24:{ titel:'Hint: twee manieren om dit raadsel op te lossen', stappen:[
+      HK('Manier 1: redeneren'),
+      'Noem het kleinste getal k. Het middelste is het dubbel: [[0]] · k. Het grootste is het dubbel van het middelste: [[1]] · k.',
+      HU('Het grootste getal is dan een veelvoud van de twee andere getallen. Het kgv is dus gewoon het grootste getal.'),
+      'Het grootste getal is [[2]]',
+      'Het kleinste: 24 : 4 = [[3]]. Het middelste: [[4]]',
+      HK('Manier 2: proberen en een patroon zoeken'),
+      'Kleinste 1: de getallen 1, 2 en 4. kgv = [[5]]',
+      'Kleinste 2: de getallen 2, 4 en 8. kgv = [[6]]',
+      'Kleinste 3: de getallen 3, 6 en 12. kgv = [[7]]',
+      HU('Zie je het patroon? Het kgv is telkens het grootste getal, en dat is 4 keer het kleinste. Welk kleinste getal geeft kgv 24?') ],
+    ans:[2,4,24,6,12,4,8,12],
+    extra:`<p><b>Waarom is het kgv hier het grootste getal?</b> Bij 3, 6 en 12: 12 is deelbaar door 3 en door 6. Het kleinste veelvoud van 12 is 12 zelf, en dat zit dus ook in de tafels van 3 en 6.</p>
+      <p>Dat geldt altijd: is het grootste getal een veelvoud van de andere, dan is het kgv het grootste getal.</p>
+      <p>Controleer je antwoord: is het middelste het dubbel van het kleinste, het grootste het dubbel van het middelste, en is het kgv 24?</p>` },
+  ggd5:{ titel:'Hint: twee manieren om dit raadsel op te lossen', stappen:[
+      HK('Manier 1: veelvouden van 5'),
+      HU('Is de ggd 5, dan zijn alle drie de getallen deelbaar door 5: het zijn veelvouden van 5.'),
+      'Veelvouden van 5 die groter zijn dan 0 en kleiner dan 20: [[0]] , [[1]] , [[2]]',
+      'Hun som is [[3]]. Klopt dat met het raadsel?',
+      'Controleer de ggd: ggd(5, 10, 15) = [[4]]',
+      HK('Manier 2: deel alles door 5'),
+      'Elk getal is 5 · iets. Deel de som door 5: 30 : 5 = [[5]]',
+      'Drie verschillende getallen (groter dan 0) met som 6: [[6]] , [[7]] , [[8]]',
+      HU('Maak die weer 5 keer zo groot. Dan heb je de drie getallen uit het raadsel.') ],
+    ans:[5,10,15,30,5,6,1,2,3], sets:[[0,1,2],[6,7,8]],
+    extra:`<p><b>Manier 1</b> werkt hier snel, omdat er maar drie veelvouden van 5 kleiner zijn dan 20.</p>
+      <p><b>Manier 2</b> werkt ook als er meer mogelijkheden zijn: je maakt het raadsel 5 keer kleiner, lost het makkelijkere raadsel op en maakt alles terug 5 keer groter.</p>
+      <p>Controleer altijd alle voorwaarden: verschillend, kleiner dan 20, som 30 en ggd 5.</p>` }
+};
 
 function venn2Items(A, B){
   const all = [...new Set([...A,...B])].sort((x,y)=>x-y);
@@ -964,13 +1157,58 @@ const SECTIONS = [
     tip:'Geef alle mogelijke oplossingen, gescheiden door komma’s.',
     cards:[
       { title:'Zoek x', build:list([
-        {html:'<span class="stmt">3 18x</span> is deelbaar door 5. &nbsp;x = [[0]]', check:digitsIs([0,5]), sol:'Deelbaar door 5: eindigt op 0 of 5 → x ∈ {0, 5}.'},
-        {html:'<span class="stmt">7x4</span> is deelbaar door 3. &nbsp;x = [[0]]', check:digitsIs([1,4,7]), sol:'7 + x + 4 = 11 + x moet een veelvoud van 3 zijn: 12, 15 of 18 → x ∈ {1, 4, 7}.'},
-        {html:'<span class="stmt">5x6</span> is deelbaar door 4. &nbsp;x = [[0]]', check:digitsIs([1,3,5,7,9]), sol:'De laatste twee cijfers (x6) moeten deelbaar zijn door 4: 16, 36, 56, 76, 96 → x ∈ {1, 3, 5, 7, 9}.'},
+        {html:'<span class="stmt">3 18x</span> is deelbaar door 5. &nbsp;x = [[0]]', hint:{titel:'Hint: gebruik het kenmerk van deelbaarheid door 5', stappen:[
+          HU('<b>Kenmerk:</b> een getal is deelbaar door 5 als het eindigt op 0 of op 5.'),
+          'Op welke plaats staat x in 3 18x? Het is het [[0:sm]] cijfer.',
+          'Welke cijfers mag x dus zijn? x = [[1]] of x = [[2]]'],
+          ans:[['laatste','eenheden','achterste'],0,5], sets:[[1,2]],
+          extra:'<p>Kijk naar de tafel van 5: 5, 10, 15, 20, 25, 30, … Alle uitkomsten eindigen op 5 of op 0.</p><p>Voorbeeld: 4 27x is deelbaar door 5 als x = 0 (4 270) of x = 5 (4 275).</p>'},
+        check:digitsIs([0,5]), sol:'Deelbaar door 5: eindigt op 0 of 5 → x ∈ {0, 5}.'},
+        {html:'<span class="stmt">7x4</span> is deelbaar door 3. &nbsp;x = [[0]]', hint:{titel:'Hint: gebruik het kenmerk van deelbaarheid door 3', stappen:[
+          HU('<b>Kenmerk:</b> een getal is deelbaar door 3 als de som van zijn cijfers deelbaar is door 3.'),
+          'Tel de cijfers die je kent op: 7 + 4 = [[0]]. De som van de cijfers is dus [[1]] + x.',
+          'x is een cijfer van 0 tot 9. Dan ligt de som tussen 11 + 0 = 11 en 11 + 9 = [[2]].',
+          'Welke veelvouden van 3 liggen tussen 11 en 20? [[3]] , [[4]] , [[5]]',
+          'Wat moet je telkens bij 11 tellen om daar te komen? Dat zijn de mogelijke x-en: [[6]] , [[7]] , [[8]]'],
+          ans:[11,11,20,12,15,18,1,4,7], sets:[[3,4,5],[6,7,8]],
+          extra:'<p><b>Kenmerk van deelbaarheid door 3:</b> een getal is deelbaar door 3 als de som van zijn cijfers deelbaar is door 3.</p><p>Voorbeeld: 2x5 is deelbaar door 3. De som van de cijfers is 2 + x + 5 = 7 + x. Die ligt tussen 7 en 16. De veelvouden van 3 daartussen zijn 9, 12 en 15. Dus x = 2, 5 of 8: 225, 255 en 285 zijn alle drie deelbaar door 3.</p><p>Geef altijd <b>alle</b> mogelijke cijfers, gescheiden door komma’s.</p>'},
+        check:digitsIs([1,4,7]), sol:'7 + x + 4 = 11 + x moet een veelvoud van 3 zijn: 12, 15 of 18 → x ∈ {1, 4, 7}.'},
+        {html:'<span class="stmt">5x6</span> is deelbaar door 4. &nbsp;x = [[0]]', hint:{titel:'Hint: gebruik het kenmerk van deelbaarheid door 4', stappen:[
+          HU('<b>Kenmerk:</b> een getal is deelbaar door 4 als het getal gevormd door de <b>laatste twee cijfers</b> deelbaar is door 4.'),
+          'De laatste twee cijfers van 5x6 zijn x en 6. Dat getal kan zijn: 06, 16, 26, 36, 46, 56, 66, 76, 86 of 96.',
+          'De tafel van 4 tot 100: 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100.',
+          'Welke van de getallen uit stap 2 staan in de tafel van 4? [[0]] , [[1]] , [[2]] , [[3]] , [[4]]',
+          'Het cijfer x is telkens het eerste cijfer van die getallen.'],
+          ans:[16,36,56,76,96], sets:[[0,1,2,3,4]],
+          extra:'<p>Waarom alleen de laatste twee cijfers? 100 is deelbaar door 4. Dus 500 is ook deelbaar door 4, en alleen wat er na de honderdtallen komt, beslist het.</p><p>Voorbeeld: 7 312 is deelbaar door 4, want 12 is deelbaar door 4.</p>'},
+        check:digitsIs([1,3,5,7,9]), sol:'De laatste twee cijfers (x6) moeten deelbaar zijn door 4: 16, 36, 56, 76, 96 → x ∈ {1, 3, 5, 7, 9}.'},
         {html:'<span class="stmt">1 &lt; x &lt; 5</span> &nbsp;x = [[0]]', check:digitsIs([2,3,4]), sol:'1 en 5 horen er zelf niet bij → x ∈ {2, 3, 4}.'},
-        {html:'<span class="stmt">6x1</span> is deelbaar door 9. &nbsp;x = [[0]]', check:digitsIs([2]), sol:'6 + x + 1 = 7 + x moet een veelvoud van 9 zijn: 9 → x = 2.'},
-        {html:'<span class="stmt">83x</span> gedeeld door 4 heeft als rest 1. &nbsp;x = [[0]]', check:digitsIs([3,7]), sol:'833 = 4 · 208 + 1 en 837 = 4 · 209 + 1 → x ∈ {3, 7}.'},
-        {html:'<span class="stmt">4x2</span> is deelbaar door 6. &nbsp;x = [[0]]', check:digitsIs([0,3,6,9]), sol:'Het getal is even (eindigt op 2). Deelbaar door 3: 4 + x + 2 = 6 + x moet een veelvoud van 3 zijn → x ∈ {0, 3, 6, 9}.'}
+        {html:'<span class="stmt">6x1</span> is deelbaar door 9. &nbsp;x = [[0]]', hint:{titel:'Hint: gebruik het kenmerk van deelbaarheid door 9', stappen:[
+          HU('<b>Kenmerk:</b> een getal is deelbaar door 9 als de som van zijn cijfers deelbaar is door 9.'),
+          'Tel de cijfers die je kent op: 6 + 1 = [[0]]. De som van de cijfers is dus [[1]] + x.',
+          'x is een cijfer van 0 tot 9. Dan ligt de som tussen 7 en [[2]].',
+          'Welk veelvoud van 9 ligt tussen 7 en 16? [[3]]',
+          'Wat moet je bij 7 tellen om daar te komen? x = [[4]]'],
+          ans:[7,7,16,9,2],
+          extra:'<p><b>Kenmerk van deelbaarheid door 9:</b> een getal is deelbaar door 9 als de som van zijn cijfers deelbaar is door 9.</p><p>Voorbeeld: 3x5 is deelbaar door 9. De som is 3 + x + 5 = 8 + x, tussen 8 en 17. Het enige veelvoud van 9 daartussen is 9, dus x = 1: 315 = 9 · 35.</p>'},
+        check:digitsIs([2]), sol:'6 + x + 1 = 7 + x moet een veelvoud van 9 zijn: 9 → x = 2.'},
+        {html:'<span class="stmt">83x</span> gedeeld door 4 heeft als rest 1. &nbsp;x = [[0]]', hint:{titel:'Hint: rest 1 bij delen door 4', stappen:[
+          HU('Rest 1 betekent: 83x is <b>1 meer</b> dan een getal uit de tafel van 4. Dus 83x − 1 is deelbaar door 4.'),
+          'De getallen van 830 tot 839 die deelbaar zijn door 4 (kijk naar de laatste twee cijfers): [[0]] en [[1]]',
+          'Tel er telkens 1 bij: [[2]] en [[3]]',
+          'Het laatste cijfer daarvan is x.'],
+          ans:[832,836,833,837], sets:[[0,1],[2,3]],
+          extra:'<p><b>Kenmerk van deelbaarheid door 4:</b> kijk naar het getal gevormd door de laatste twee cijfers. 32 en 36 zijn deelbaar door 4, dus 832 en 836 ook.</p><p>Controle met een deling: 833 : 4 = 208 rest 1, want 4 · 208 = 832 en 832 + 1 = 833.</p>'},
+        check:digitsIs([3,7]), sol:'833 = 4 · 208 + 1 en 837 = 4 · 209 + 1 → x ∈ {3, 7}.'},
+        {html:'<span class="stmt">4x2</span> is deelbaar door 6. &nbsp;x = [[0]]', hint:{titel:'Hint: deelbaar door 6 = deelbaar door 2 én door 3', stappen:[
+          HU('<b>Kenmerk:</b> een getal is deelbaar door 6 als het deelbaar is door 2 (even) <b>én</b> door 3 (som van de cijfers deelbaar door 3).'),
+          'Is 4x2 even, welk cijfer x je ook kiest? Typ ja of nee: [[0:sm]]',
+          'Tel de cijfers die je kent op: 4 + 2 = [[1]]. De som van de cijfers is dus [[2]] + x, tussen 6 en [[3]].',
+          'Welke veelvouden van 3 liggen tussen 6 en 15 (6 en 15 tellen mee)? [[4]] , [[5]] , [[6]] , [[7]]',
+          'Wat moet je telkens bij 6 tellen om daar te komen? Dat zijn de mogelijke x-en.'],
+          ans:['ja',6,6,15,6,9,12,15], sets:[[4,5,6,7]],
+          extra:'<p>6 = 2 · 3. Een getal dat deelbaar is door 6, is dus deelbaar door 2 én door 3. Je controleert de twee kenmerken apart.</p><p>4x2 eindigt op 2, dus het is altijd even. Dan moet je enkel nog het kenmerk van 3 controleren.</p><p>Voorbeeld: 1x4 is deelbaar door 6. Even: ja. Som 1 + x + 4 = 5 + x, tussen 5 en 14: 6, 9 of 12. Dus x = 1, 4 of 7.</p>'},
+        check:digitsIs([0,3,6,9]), sol:'Het getal is even (eindigt op 2). Deelbaar door 3: 4 + x + 2 = 6 + x moet een veelvoud van 3 zijn → x ∈ {0, 3, 6, 9}.'}
       ], {letters:true}) }
     ]},
 
@@ -981,6 +1219,7 @@ const SECTIONS = [
         const f=factorize(n); let m=n, rows='';
         f.forEach(p=>{ rows+=`<tr><td>${m}</td><td>${p}</td></tr>`; m/=p; }); rows+=`<tr><td>1</td><td></td></tr>`;
         const q = {html:`<span class="stmt">${n} =</span> [[0]]`, size:'wide', check:factorIs(n), sol:`<table class="ladder">${rows}</table>${n} = <b>${powerForm(n)}</b>`};
+        q.hint = ladderHint(n);
         if(idx===0) q.help = `<b>Gebruik een deelladder.</b> Deel ${n} door het kleinste priemgetal dat past en schrijf het quotiënt eronder. Ga zo verder tot je 1 krijgt:<table class="ladder"><tr><td>84</td><td>2</td></tr><tr><td>42</td><td>2</td></tr><tr><td>21</td><td>…</td></tr><tr><td>…</td><td>…</td></tr><tr><td>1</td><td></td></tr></table>De getallen rechts van de streep vormen samen het product.`;
         return q;
       }), {letters:true}) }
@@ -989,9 +1228,9 @@ const SECTIONS = [
   { id:'ggdkgv', ic:'ggdkgv', nav:'ggd en kgv', title:'Vul aan: ggd en kgv',
     tip:'ggd = grootste gemeenschappelijke deler: schrijf de delers op en zoek de grootste die overal in zit. kgv = kleinste gemeenschappelijk veelvoud (≠ 0): schrijf de veelvouden van het grootste getal op tot je er een vindt dat ook bij de andere past.',
     cards:[
-      { title:'Reeks A', build:list([ggdQ([18,24]), ggdQ([9,16]), kgvQ([4,6]), kgvQ([3,5,10])], {letters:true}) },
-      { title:'Reeks B', build:list([ggdQ([28,42]), ggdQ([30,45,60]), kgvQ([8,12]), kgvQ([6,7])], {letters:true}) },
-      { title:'Reeks C', build:list([ggdQ([13,39]), ggdQ([36,54]), kgvQ([4,10,15]), kgvQ([9,12])], {letters:true}) }
+      { title:'Reeks A', build:list([{...ggdQ([18,24]), hint:ggdHint([18,24])}, {...ggdQ([9,16]), hint:ggdHint([9,16])}, {...kgvQ([4,6]), hint:kgvHint([4,6])}, {...kgvQ([3,5,10]), hint:kgvHint([3,5,10])}], {letters:true}) },
+      { title:'Reeks B', build:list([{...ggdQ([28,42]), hint:ggdHint([28,42])}, {...ggdQ([30,45,60]), hint:ggdHint([30,45,60])}, {...kgvQ([8,12]), hint:kgvHint([8,12])}, {...kgvQ([6,7]), hint:kgvHint([6,7])}], {letters:true}) },
+      { title:'Reeks C', build:list([{...ggdQ([13,39]), hint:ggdHint([13,39])}, {...ggdQ([36,54]), hint:ggdHint([36,54])}, {...kgvQ([4,10,15]), hint:kgvHint([4,10,15])}, {...kgvQ([9,12]), hint:kgvHint([9,12])}], {letters:true}) }
     ]},
 
   { id:'vraagstukken', ic:'vraag', nav:'Vraagstukken', title:'Waarmee los je het vraagstuk op?',
@@ -1063,10 +1302,10 @@ const SECTIONS = [
   { id:'raadsels', ic:'raadsel', nav:'Welke getallen?', title:'Welke 3 getallen zoeken we?',
     cards:[
       { title:'Getallenraadsels', instr:'Vul de drie getallen in. De volgorde maakt niet uit.', build:list([
-        threeQ('Het product van drie verschillende natuurlijke getallen is 30. De som van deze getallen is 10.', [2,3,5], 'Drietallen met product 30: 1·2·15, 1·3·10, 1·5·6 en 2·3·5. Enkel 2 + 3 + 5 = 10 → <b>2, 3 en 5</b>.'),
-        threeQ('De som van drie opeenvolgende natuurlijke getallen is 42.', [13,14,15], '42 : 3 = 14 is het middelste getal → <b>13, 14 en 15</b>.'),
-        threeQ('Het kgv van drie verschillende getallen is 24. Het middelste getal is het dubbel van het kleinste. Het grootste getal is het dubbel van het middelste.', [6,12,24], 'Het grootste getal is een veelvoud van de andere twee, dus het kgv is het grootste getal: 24. Dan is het middelste 12 en het kleinste 6 → <b>6, 12 en 24</b>.'),
-        threeQ('De ggd van drie verschillende natuurlijke getallen (groter dan 0) is 5. Alle drie zijn ze kleiner dan 20. Hun som is 30.', [5,10,15], 'Het zijn veelvouden van 5 kleiner dan 20: 5, 10 en 15. Controle: 5 + 10 + 15 = 30 en ggd(5, 10, 15) = 5 → <b>5, 10 en 15</b>.')
+        threeQ('Het product van drie verschillende natuurlijke getallen is 30. De som van deze getallen is 10.', [2,3,5], 'Drietallen met product 30: 1·2·15, 1·3·10, 1·5·6 en 2·3·5. Enkel 2 + 3 + 5 = 10 → <b>2, 3 en 5</b>.', RH.product30),
+        threeQ('De som van drie opeenvolgende natuurlijke getallen is 42.', [13,14,15], '42 : 3 = 14 is het middelste getal → <b>13, 14 en 15</b>.', RH.som42),
+        threeQ('Het kgv van drie verschillende getallen is 24. Het middelste getal is het dubbel van het kleinste. Het grootste getal is het dubbel van het middelste.', [6,12,24], 'Het grootste getal is een veelvoud van de andere twee, dus het kgv is het grootste getal: 24. Dan is het middelste 12 en het kleinste 6 → <b>6, 12 en 24</b>.', RH.kgv24),
+        threeQ('De ggd van drie verschillende natuurlijke getallen (groter dan 0) is 5. Alle drie zijn ze kleiner dan 20. Hun som is 30.', [5,10,15], 'Het zijn veelvouden van 5 kleiner dan 20: 5, 10 en 15. Controle: 5 + 10 + 15 = 30 en ggd(5, 10, 15) = 5 → <b>5, 10 en 15</b>.', RH.ggd5)
       ], {letters:true}) }
     ]},
 
