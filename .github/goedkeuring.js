@@ -2,6 +2,8 @@
    Elk bestand heeft een eigenaar. Wijzigt iemand bestanden van een andere eigenaar, dan moet die eigenaar de pull request
    goedkeuren (Approve) op de laatste commit. Wie enkel eigen bestanden wijzigt, mag zelf samenvoegen zodra de tests slagen.
    Jeroen (STANDAARD) is eigenaar van alles: zijn pull requests hebben nooit een andere goedkeuring nodig; Tom is eigenaar van zijn delen.
+   Sinds 27 oktober 2026 vraagt een bestand van Jeroen enkel nog zijn goedkeuring als het BEWAAKT is (firestore.rules en .github/);
+   al de rest mag Tom samenvoegen zodra de tests slagen.
    gedeeld/sites.js wordt per site bekeken: het element van een site hoort bij de eigenaar van haar pad.
    Draait met de versie van main (pull_request_target) en voert geen code uit de pull request uit. */
 const EIGENAARS = [
@@ -13,6 +15,7 @@ const EIGENAARS = [
   ] },
 ];
 const STANDAARD = { wie:'dejaegerjeroen', naam:'Jeroen De Jaeger' };
+const BEWAAKT = [ /^firestore\.rules$/, /^\.github\// ];
 const SITES = 'gedeeld/sites.js';
 
 const { GH_TOKEN, REPO, PR, GITHUB_STEP_SUMMARY } = process.env;
@@ -32,7 +35,7 @@ function lees(tekst){ if(tekst == null) return []; const m = tekst.match(/export
 (async()=>{
   const pr = await api('/pulls/' + PR); const auteur = pr.user.login, sha = pr.head.sha;
   const nodig = new Map(); /* eigenaar -> redenen */
-  const voeg = (wie, waarom)=>{ if(!nodig.has(wie)) nodig.set(wie, []); nodig.get(wie).push(waarom); };
+  const voeg = (wie, waarom)=>{ if(wie === STANDAARD.wie && !BEWAAKT.some(r=>r.test(waarom))) return; if(!nodig.has(wie)) nodig.set(wie, []); nodig.get(wie).push(waarom); };
   for(const f of await alles('/pulls/' + PR + '/files')){
     for(const b of new Set([f.filename, f.previous_filename].filter(Boolean))){
       if(b !== SITES){ voeg(eigenaar(b), b); continue; }
