@@ -1,0 +1,73 @@
+/* Rekenvaardigheden met breuken (gedeeld/rv-breuk.js): breuken tonen, breukvak, vereenvoudigschaar, kommagetal → breuk.
+   opgave.css van hoofdstuk 4 tot 7 importeert dit bestand, zodat ook het dashboard en de pdf de breuken goed tonen. */
+.br{ display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; line-height:1.05; margin:0 .1em; }
+.br-t{ border-bottom:2px solid currentColor; padding:0 .15em .04em; display:inline-flex; align-items:center; }
+.br-n{ padding:.04em .15em 0; }
+.br > .br-t, .br > .br-n{ font-size:.82em; }
+.br-int{ margin:0 .06em; }
+.rv-titel .br{ font-size:.9em; }
+
+/* breukvak: tekenvak + teller boven noemer */
+.rv .br-veld{ gap:4px; }
+.rv .br.br-in{ font-size:1rem; }
+.rv .br.br-in > .br-t, .rv .br.br-in > .br-n{ font-size:1rem; }
+.rv .br.br-in > .br-t{ padding:0 .1em 3px; border-bottom-width:3px; }
+.rv .br.br-in > .br-n{ padding-top:3px; min-height:1.6rem; display:flex; align-items:center; justify-content:center; }
+.rv .br.br-in b{ font-size:1.2rem; font-weight:900; }
+.rv .rv-getal.br-get{ width:3.6rem; height:2.1rem; font-size:1.1rem; }
+.rv .br-veld .rv-teken{ height:2.4rem; }
+
+/* vereenvoudigen: keuze naast de breuk */
+.rv .br-keuzeslot{ display:inline-flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+.rv .br-keuzeslot:empty{ display:none; }
+.rv .br-keuze{ display:inline-flex; gap:.3rem; flex-wrap:wrap; }
+.rv .br-kz{ position:relative; display:inline-flex; align-items:center; gap:.3rem; height:2.1rem; padding:0 .55rem 0 .4rem; font:inherit; font-size:.82rem; font-weight:800; border-radius:.5rem; background:var(--card); border:2px solid var(--border); color:var(--ink); cursor:pointer; }
+.rv .br-kz:hover{ border-color:var(--orange); background:var(--or-soft); }
+.rv .br-kz.aan{ background:var(--tq); border-color:var(--tq); }
+.rv .br-kz.fout{ background:#fdecea; border-color:#e57373; }
+.rv .br-ico{ width:18px; height:18px; display:block; flex:none; }
+.rv .br-res{ display:inline-flex; align-items:center; gap:.3rem; font-size:1.3rem; font-weight:900; background:var(--tq-soft); border:2px solid var(--tq); border-radius:.5rem; padding:.05rem .55rem; animation:br-in .3s ease-out; }
+.rv .br-res .br{ font-size:1.25rem; }
+@keyframes br-in{ from{ opacity:0; transform:translateY(-3px); } to{ opacity:1; transform:none; } }
+.br-schud{ animation:rv-schud .45s; }
+
+/* de vereenvoudigschaar */
+.rv .br-schaarslot:empty{ display:none; }
+.rv .rv-vis, .rv .rv-ant{ position:relative; }
+.rv .rv-werk:has(.br-schaarslot.zweef){ align-items:stretch; }
+.rv .br-schaarslot.zweef{ position:absolute; left:.5rem; right:.5rem; bottom:.5rem; z-index:4; }
+.rv .br-schaarslot.zweef .br-schaar{ box-shadow:0 6px 22px rgba(23,52,54,.22); }
+.rv .br-schaar{ border:2px solid var(--orange); background:#fffaf0; border-radius:.7rem; padding:.4rem .7rem .5rem; }
+.rv .br-schaar.uit{ border-style:dashed; color:var(--ink-soft); font-size:.88rem; }
+.rv .br-skop{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; font-size:.9rem; }
+.rv .br-keten{ display:inline-flex; align-items:center; gap:.3rem; font-size:1.3rem; font-weight:900; flex-wrap:wrap; }
+.rv .br-pijl{ font-size:.78rem; font-weight:800; background:var(--card); border:1.5px solid var(--orange); border-radius:999px; padding:0 .45rem; }
+.rv .br-sluit{ margin-left:auto; background:transparent; border:0; color:var(--ink-soft); font:inherit; font-size:.95rem; cursor:pointer; padding:.1rem .35rem; border-radius:.3rem; }
+.rv .br-sluit:hover{ background:var(--or-soft); color:var(--ink); }
+.rv .br-sknop{ display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; margin:.3rem 0; font-size:.88rem; font-weight:700; }
+.rv .br-sknop label{ display:inline-flex; align-items:center; gap:.4rem; }
+.rv .rv-getal.br-knipgetal{ width:3.2rem; height:2rem; font-size:1.05rem; }
+.rv .br-kn{ position:relative; font:inherit; font-size:.85rem; font-weight:800; background:var(--card); border:2px solid var(--orange); border-radius:.5rem; padding:.2rem .6rem; cursor:pointer; color:var(--ink); }
+.rv .br-kn:hover{ background:var(--or-soft); }
+.rv .br-kn.terug{ border-color:var(--border); color:var(--ink-soft); }
+.rv .br-kn.fout{ background:#fdecea; border-color:#e57373; }
+.rv .br-swarn{ font-size:.82rem; font-weight:800; color:#8a5a00; margin:.15rem 0 .3rem; }
+.rv .br-klaar{ width:100%; font:inherit; font-size:.82rem; font-weight:800; background:var(--card); border:2px solid var(--tq); border-radius:.5rem; padding:.2rem; color:var(--ink); cursor:pointer; }
+.rv .br-klaar:hover{ background:var(--tq-soft); }
+
+/* kommagetal → breuk */
+.rv .br-conv{ border:1.5px solid var(--border); background:var(--card); border-radius:.7rem; padding:.35rem .7rem .4rem; }
+.rv .br-ckop{ font-weight:800; font-size:.92rem; margin-bottom:.2rem; }
+.rv .br-crij{ display:flex; gap:1rem; align-items:flex-start; }
+.rv .br-pwt{ border-collapse:collapse; font-weight:900; flex:none; margin-top:.2rem; }
+.rv .br-pwt th{ font-size:.75rem; color:var(--ink-soft); padding:0 .55rem; border-bottom:2px solid var(--border); }
+.rv .br-pwt td{ font-size:1.4rem; text-align:center; padding:.1rem .55rem; position:relative; }
+.rv .br-pwt td.e{ border-right:2px dashed var(--border); }
+.rv .br-komma{ position:absolute; right:-5px; bottom:0; font-size:1.4rem; }
+.rv .br-cmid{ flex:1; min-width:0; }
+.rv .br-clab{ font-size:.8rem; font-weight:800; color:var(--ink-soft); margin:.1rem 0 .15rem; }
+.rv .br-posknoppen{ display:flex; gap:.3rem; flex-wrap:wrap; }
+.rv .br-pos{ font:inherit; font-size:.82rem; font-weight:700; background:var(--card); border:2px solid var(--border); border-radius:.5rem; padding:.15rem .55rem; color:var(--ink); cursor:pointer; }
+.rv .br-pos:hover{ border-color:var(--orange); }
+.rv .br-pos.aan{ background:var(--tq); border-color:var(--tq); }
+.rv .br-conv .rv-rij{ margin:.1rem 0 0; }

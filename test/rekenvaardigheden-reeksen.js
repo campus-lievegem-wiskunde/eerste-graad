@@ -70,6 +70,66 @@ const REEKSEN = [
         return [O.verbeter(q('ex07'), { p:[], x:0, sign:'−', res:{ s:'+', n:'32' } }), O.verbeter(q('ex23'), { pairs:[{ L:{ p:[], x:2 }, R:{ p:[], x:0 }, a:{ s:'+', n:'12' }, b:S0() }, { L:{ p:[], x:0 }, R:{ p:[], x:0 }, a:S0(), b:S0() }, { L:{ p:[], x:0 }, R:{ p:[], x:0 }, a:S0(), b:S0() }] })];
         function S0(){ return { s:null, n:'' }; } });
       t.check(r[0].pts === .25 && r[0].codes.includes('OPTELREGEL_BIJ_MAAL') && r[1].kruis === 2 && r[1].codes.includes('KRUISJE_PLUSMIN') && r[1].codes.includes('MAALREGEL_BIJ_PLUSMIN'), 'vermenigvuldigen: foutcodes en kruisjes ' + JSON.stringify(r));
+    } },
+  { id:'2a-rv-4-rationale-optellen', url:'2A/rekenvaardigheden/4-rationale-optellen/', blok:'Optellen en aftrekken van rationale getallen', n:30, max:'55',
+    sleutel:{ ex23:{ terms:[[1, 2], [1, 4]] }, ex24:{ terms:[[1, 2], [1, 4]] }, ex25:{ terms:[[1, 2], [1, 4]] }, ex26:{ terms:[[1, 2], [1, 4]] }, ex27:{ terms:[[1, 2], [1, 4]] },
+      ex28:{ good:'a' }, ex29:{ good:'a' }, ex30:{ good:'a' } },
+    async interactie(p, t){
+      const klik = (s, n = 0)=>p.locator('.rv ' + s).nth(n).click().then(()=>p.waitForTimeout(90));
+      const sg = (key, n)=>p.locator(`.rv [data-sg="${key}"]`).nth(n).click().then(()=>p.waitForTimeout(60));
+      const tekst = s=>p.locator('.rv ' + s).first().textContent().then(x=>x.replace(/\s+/g, ''));
+      /* met de schaar open blijft alles op het scherm */
+      const schaarPast = async wat=>{ const r = await p.locator('.rv').evaluate(e=>{ e.scrollIntoView({ block:'start' }); const s = document.querySelector('.rv .br-schaar'); return { h:Math.round(e.getBoundingClientRect().height), s:s ? Math.round(s.getBoundingClientRect().bottom) : 999 }; });
+        if(process.env.SCHERMEN) await p.locator('.rv').screenshot({ path:`${process.env.SCHERMEN}/schaar_${wat}.png` });
+        t.check(r.h <= 600 && r.s <= 640, `${wat}: schaar open, alles op het scherm (${r.h} px, schaar tot ${r.s} px)`); };
+      /* legers: verdelen tot de stukjes passen, samenkomen, gelijknamig, uitkomst, kan niet eenvoudiger */
+      for(let i = 0; i < 11; i++) await klik('[data-n="1"]');
+      t.check(await p.locator('.rv .h4-tag.ok').count() === 2, 'legers: stukjes passen bij 12');
+      await klik('.h4-go'); await p.waitForTimeout(1300);
+      t.check(await p.locator('.rv .h4-blok[data-r="r"]').count() === 7, 'legers: 7 blokjes samen');
+      await t.vul('a', 4); await t.vul('b', 3); await t.teken('res.s1', '+'); await t.vul('res.t', 7); await klik('[data-schniet="sch"]');
+      t.check(/=712$/.test(await tekst('.br-res')) && await p.locator('.rv [data-teken="res.s1"].plus-weg').count() === 1, 'legers: uitkomst 7/12, een + vooraan verdwijnt');
+      /* legers die vechten en de vereenvoudigschaar: −1/2 + 7/10 */
+      await t.dot(4); for(let i = 0; i < 9; i++) await klik('[data-n="1"]');
+      await klik('.h4-go'); await p.waitForTimeout(2700);
+      t.check(await p.locator('.rv .h4-blok[data-r="r"]').count() === 2, 'legers: vechten, 2 blokjes over');
+      await t.teken('res.s1', '+'); await t.vul('res.t', 2); await klik('[data-schniet="sch"]'); await p.waitForTimeout(150);
+      t.check(await p.locator('.rv [data-schniet="sch"] .rv-kruis').count() === 1, 'schaar: "kan niet eenvoudiger" terwijl het wel kon → rood kruisje');
+      await p.waitForTimeout(1200); await klik('[data-schopen="sch"]'); await schaarPast('legers');
+      await p.locator('.rv [data-schgetal="sch"]').fill('3'); await klik('[data-schknip="sch"]'); await p.waitForTimeout(1000);
+      await p.locator('.rv [data-schgetal="sch"]').fill('2'); await klik('[data-schknip="sch"]'); await klik('[data-schklaar="sch"]');
+      t.check(/=15$/.test(await tekst('.br-res')), 'schaar: 2/10 geknipt door 2 is 1/5');
+      /* noemerzoeker */
+      await t.dot(5); await klik('[data-pick="24"]'); await t.teken('terms.0.sign', '−'); await t.vul('terms.0.t', 20); await t.teken('terms.1.sign', '+'); await t.vul('terms.1.t', 9);
+      t.check(/2024.*924/.test(await tekst('[data-afgeleid]')), 'noemerzoeker: gelijknamige termen verschijnen in stap 3');
+      /* stappenplan: de min in de teller van −3/7 en het bewerkingsteken mogen niet samen, − (−1/2) wel */
+      await t.dot(12); await sg('main', 0); await sg('main', 1); await p.waitForTimeout(300);
+      t.check(await p.locator('.rv .rv-kruis').count() === 2, 'stappenplan: verkeerd tekenpaar → rode kruisjes');
+      await p.waitForTimeout(900); await sg('main', 1); await sg('main', 2); await p.waitForTimeout(500);
+      t.check(/\+12/.test(await tekst('.srij .orig')), 'stappenplan: − (−1/2) wordt + 1/2: ' + await tekst('.srij .orig'));
+      await p.locator('.rv input[data-pad="kgv"]').fill('7'); await p.locator('.rv input[data-pad="kgv"]').press('Enter'); await p.waitForTimeout(200);
+      t.check(await p.locator('.rv .h4-kx').count() === 1, 'stappenplan: fout kgv → rood kruisje');
+      await p.locator('.rv input[data-pad="kgv"]').fill('14'); await p.waitForTimeout(300);
+      t.check(await p.locator('.rv .br-veld').count() === 1, 'stappenplan: juist kgv → stap 3 verschijnt');
+      /* kommagetal omzetten naar een breuk */
+      await t.dot(16); await klik('[data-pos="conv.0"][data-k="h"]'); await t.vul('conv.0.t', 75);
+      await klik('[data-schopen="conv.0.sch"]'); await schaarPast('omzetten'); await p.locator('.rv [data-schgetal="conv.0.sch"]').fill('25'); await klik('[data-schknip="conv.0.sch"]'); await klik('[data-schklaar="conv.0.sch"]');
+      t.check(/34/.test(await tekst('[data-omgezet]')), 'omzetten: 0,75 = 3/4 in de omgezette rij');
+      /* kommagetallen: een 0 bijzetten */
+      await t.dot(13); await klik('[data-dz="0"][data-act="1"]');
+      t.check(/3,50/.test(await p.locator('.rv .srij .orig').nth(1).textContent()), 'kommagetallen: 3,5 wordt 3,50');
+      /* vraagstuk fles: uitgieten */
+      await t.dot(24); await klik('.h4-giet'); await p.waitForTimeout(1600);
+      t.check(/Terug/.test(await tekst('.h4-giet')), 'fles: uitgegoten');
+      await t.dot(27); await klik('[data-opt="b"]');
+      await p.waitForTimeout(1600);
+      const w = await t.antw();
+      t.check(w.ex01.merged && w.ex01.N === 12 && w.ex01.sch.mode === 'skip' && w.ex05.sch.x === 1 && w.ex05.sch.sx === 1 && w.ex05.sch.cuts[0] === 2 && w.ex13.x === 1 && w.ex13.p.length === 1 && w.ex13.kx === 1
+        && w.ex17.conv[0].sch.done && w.ex14.z[0] === 1 && w.ex25.pour && w.ex28.choice === 'b', 'rationale getallen: antwoorden bewaard');
+      const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id), S = f=>({ mode:'skip', cuts:[], done:true, for:f, x:0, nv:0, sx:0 });
+        return [O.verbeter(q('ex28'), { choice:'a', res:{ s1:'+', t:'3', n:'7' }, sch:S('3/7') }, { good:'b' }),
+          O.verbeter(q('ex09'), { p:[], x:0, conv:[], kgv:'12', kx:0, kxv:[], terms:[{ sign:'+', t:'8' }, { sign:'+', t:'3' }], res:{ s1:'+', t:'11', n:'' }, sch:S('11/12') })]; });
+      t.check(r[0].pts === 0 && r[0].codes.includes('FOUTENJAGER') && r[0].codes.includes('TELLERS_NOEMERS_OPGETELD') && r[1].pts === .75 && r[1].codes.includes('TEKEN_TERM') && r[1].codes.includes('DOORWERKFOUT'), 'rationale getallen: foutcodes ' + JSON.stringify(r));
     } }
 ];
 
@@ -102,7 +162,7 @@ const REEKSEN = [
     check(await p.locator('.rv-dot').count() === R.n, `${R.n} bolletjes, één per oefening`);
     const rv = p.locator('.rv'), dot = i=>p.locator(`.rv-dot[data-i="${i}"]`).click().then(()=>p.waitForTimeout(150));
     const hoogtes = async wat=>{ let hoogst = 0, waar = 0;
-      for(let i = 0; i < R.n; i++){ await dot(i); await rv.evaluate(e=>e.scrollIntoView({ block:'start' })); const h = await rv.evaluate(e=>e.getBoundingClientRect().height); if(h > hoogst){ hoogst = h; waar = i + 1; } }
+      for(let i = 0; i < R.n; i++){ await dot(i); await rv.evaluate(e=>e.scrollIntoView({ block:'start' })); const h = await rv.evaluate(e=>e.getBoundingClientRect().height); if(process.env.HOOGTES) console.log('     ', wat, i + 1, Math.round(h)); if(process.env.SCHERMEN) await rv.screenshot({ path:`${process.env.SCHERMEN}/${wat}_${i + 1}.png` }); if(h > hoogst){ hoogst = h; waar = i + 1; } }
       check(hoogst <= 600, `${wat}: elke oefening past op het scherm boven de balk Indienen (hoogste: oefening ${waar}, ${Math.round(hoogst)} px)`); };
     await hoogtes('leeg');
     const t = { check, dot,
@@ -136,6 +196,7 @@ const REEKSEN = [
     check(await p.locator('.blad').count() === 1 && /5/.test(await p.locator('.hf-res').textContent()), 'afdruk: blad met punten op 5');
     await p.goto(H.B + `dashboard/afdruk.html?opdr=${R.id}&soort=sleutel`); await p.waitForTimeout(1000);
     check(await p.locator('.blad .ov').count() === R.n, 'afdruk: verbetersleutel');
+    if(process.env.SCHERMEN) await p.screenshot({ path:`${process.env.SCHERMEN}/sleutel_${R.id}.png`, fullPage:true });
   }
   check(!p.fouten.length, 'geen JavaScript-fouten ' + p.fouten.join(' | '));
   await b.close(); process.exit(ok ? 0 : 1);

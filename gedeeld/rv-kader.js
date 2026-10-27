@@ -20,16 +20,19 @@
   const norm = s => String(s == null ? '' : s).trim().replace(/[−–—]/g, '-').replace(/\s+/g, '');
   RV.nat = s => { const t = norm(s); return /^\d{1,6}$/.test(t) ? Number(t) : null; };
   RV.int = s => { const t = norm(s); return /^[+-]?\d{1,6}$/.test(t) ? Number(t) : null; };
+  /* kommagetal zonder teken, als tekst met een komma: '3,25' (een punt mag ook) */
+  RV.dec = s => { const t = norm(s).replace('.', ','); return /^\d{1,6}(,\d{1,5})?$/.test(t) ? t : null; };
   RV.bewerking = s => { const t = String(s || '').trim(); if(!t || !/^[\d\s+\-−–()=,.€°Ccm⋅·×xX*:\/]+$/.test(t)) return false;
     return (t.match(/\d+/g) || []).length >= 2 && /[+\-−–⋅·×xX*:\/]/.test(t.replace(/^\s*[\-−–]/, '')); };
   const FMT = {
     nat:'Schrijf hier enkel het getal, zonder teken. Het teken kies je in het vakje ervoor.',
     int:'Schrijf een geheel getal, bijvoorbeeld 12 of −7.',
+    dec:'Schrijf een getal zonder teken, eventueel met een komma, bijvoorbeeld 3,50. Het teken kies je in het vakje ervoor.',
     expr:'Gebruik enkel getallen, +, −, ⋅ (of x), :, haakjes en =. Schrijf minstens twee getallen.'
   };
-  const geldig = (soort, w) => String(w).trim() === '' || (soort === 'nat' ? RV.nat(w) != null : soort === 'int' ? RV.int(w) != null : soort === 'expr' ? RV.bewerking(w) : true);
+  const geldig = (soort, w) => String(w).trim() === '' || (soort === 'nat' ? RV.nat(w) != null : soort === 'int' ? RV.int(w) != null : soort === 'dec' ? RV.dec(w) != null : soort === 'expr' ? RV.bewerking(w) : true);
 
-  /* invulvak; soort nat (getal zonder teken), int (geheel getal) of expr (bewerking) */
+  /* invulvak; soort nat (getal zonder teken), int (geheel getal), dec (kommagetal zonder teken) of expr (bewerking) */
   RV.getal = (pad, w, soort = 'nat', cls = '', label = 'antwoord') =>
     `<input class="rv-getal ${cls}" type="text" autocomplete="off" spellcheck="false" data-pad="${pad}" data-soort="${soort}" value="${esc(w)}" aria-label="${esc(label)}">`;
   RV.bewerkingVak = (pad, w) => `<input class="rv-expr" type="text" autocomplete="off" spellcheck="false" data-pad="${pad}" data-soort="expr" value="${esc(w)}" placeholder="Typ hier je bewerking" aria-label="bewerking">`;
