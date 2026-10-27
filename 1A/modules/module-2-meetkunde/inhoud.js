@@ -142,6 +142,7 @@ function qBlock(parent, st, save, id, q){
   });
   optBtns.forEach(b=> b.addEventListener('click', ()=>{ if(b.disabled) return; s.c=b.dataset.val; save(); paintChoice(); fb.textContent=''; }));
   paintChoice();
+  if(q.hint && !quiz) hintBox(row, act, s, save, id, q.hint);
 
   function evaluate(){
     const vals = inputs.map(i=>i.value.trim());
@@ -186,6 +187,106 @@ function qBlock(parent, st, save, id, q){
   } else if(s.checked) run(true);
   return {row, B, fb};
 }
+
+/* ============================================================
+   INVULBARE HINTS (afspraak: elke basisoefening met meer dan één stap krijgt een hint
+   met invulvakjes voor de tussenstappen, eventueel met "Meer uitleg"; niet in verdieping)
+   Gebruik in een vraag: hint:{ stappen:['12 + 18 = [[0]]', ...], ans:[30, ...], extra:'uitleg', titel:'...', sets:[[1,2,3]] }
+   sets: groepen vakjes waarvan de volgorde niet uitmaakt. Een stap zonder vakjes is een tussentitel of uitleg.
+   De hint telt niet mee in het dashboard en verschijnt niet in een proeftoets.
+   ============================================================ */
+(function(){
+  const css = `
+  .q-act .hint-knop{ border-style:dashed; }
+  .q-act .hint-knop.on{ border-style:solid; border-color:var(--orange); background:var(--or-soft); }
+  .hintbox{ margin:.5rem 0 .3rem; padding:.7rem .9rem; border:2px dashed var(--or-line); border-radius:12px; background:var(--or-soft); }
+  .hintbox h4{ margin:0 0 .35rem; font-size:.98rem; }
+  /* stappen genummerd; een tussentitel (Manier 1, Manier 2) begint opnieuw bij 1, een uitleg telt niet mee */
+  .hintbox ol{ margin:.2rem 0 .5rem; padding:0; list-style:none; display:grid; gap:.45rem; }
+  .hintbox li{ line-height:1.9; }
+  .hintbox li.hb-stap{ padding-left:1.6rem; position:relative; }
+  .hintbox .hb-nr{ position:absolute; left:0; font-weight:700; }
+  .hintbox li.hb-kop{ font-weight:800; color:var(--accent-dark); margin-top:.3rem; }
+  .hintbox li.hb-uitleg{ line-height:1.5; }
+  .hintbox .inp{ min-width:3.2rem; width:4.2rem; margin:0 .25rem; }
+  .hintbox .ladder{ margin:.3rem 0 .2rem; }
+  .hintbox .ladder td{ padding:.15rem .5rem; }
+  .hintbox .ladder .inp{ margin:0; width:3.6rem; }
+  .hintbox .hb-figs{ display:flex; flex-wrap:wrap; gap:.6rem 1rem; align-items:flex-end; margin:.35rem 0; }
+  .hintbox .hb-figs figure{ margin:0; text-align:center; font-size:.85rem; line-height:1.35; max-width:100%; }
+  .hintbox .hb-figs svg{ display:block; margin:0 auto .2rem; max-width:100%; height:auto; }
+  .fig-row > .fig-card.hint-open{ grid-column:1 / -1; }
+  .fig-card.hint-open > div:first-child{ align-self:flex-start; max-width:260px; }
+  .hintbox .hb-bar{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .hintbox .hb-extra{ margin-top:.5rem; padding:.55rem .75rem; border-left:4px solid var(--accent); background:var(--card); border-radius:8px; line-height:1.55; }
+  .hintbox .hb-extra p{ margin:.3rem 0; }
+  .hintbox .fb{ margin-top:.35rem; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* vergelijk één hintvakje met het verwachte antwoord (getal, woord of lijst van mogelijkheden) */
+function hintJuist(v, a){
+  if(Array.isArray(a)) return a.some(x=>hintJuist(v, x));
+  if(typeof a === 'number'){ const x = parseDeg(v); return !isNaN(x) && Math.abs(x - a) < 1e-6; }
+  return String(v).trim().toLowerCase().replace(/\s+/g,' ') === String(a).toLowerCase();
+}
+
+function hintBox(row, act, s, save, id, h){
+  const hs = s.h || (s.h = {v:[]});
+  const knop = el('button','btn ghost hint-knop','💡 Hint'); knop.type = 'button'; act.append(knop);
+  const box = el('div','hintbox'); box.hidden = true;
+  box.append(el('h4','', '💡 ' + (h.titel || 'Hint: vul de tussenstappen in')));
+  const ol = el('ol'); box.append(ol);
+  let nr = 0;
+  h.stappen.forEach(st=>{ const t = typeof st === 'string' ? st : st.t;
+    if(st.kop){ nr = 0; ol.append(el('li','hb-kop', t)); return; }
+    if(st.uitleg){ ol.append(el('li','hb-uitleg', fillInputs(t, id+'-h', 'xs', 'decimal'))); return; }
+    ol.append(el('li','hb-stap', `<span class="hb-nr">${++nr}.</span>` + fillInputs(t, id+'-h', 'xs', 'decimal'))); });
+  const bar = el('div','hb-bar'); box.append(bar);
+  const ctl = el('button','btn ghost','Controleer de hint'); ctl.type = 'button'; bar.append(ctl);
+  let extra = null;
+  if(h.extra){ const xk = el('button','btn ghost','🔍 Meer uitleg'); xk.type = 'button'; bar.append(xk);
+    extra = el('div','hb-extra', h.extra); extra.hidden = !hs.x; box.append(extra);
+    xk.addEventListener('click', ()=>{ extra.hidden = !extra.hidden; hs.x = !extra.hidden; save(); }); }
+  const fb = el('div','fb'); box.append(fb);
+  row.append(box);
+  const inps = [...box.querySelectorAll('.inp')].sort((a,b)=>a.dataset.f-b.dataset.f);
+  inps.forEach((inp,i)=>{ if(typeof h.ans[i] === 'string' || (Array.isArray(h.ans[i]) && typeof h.ans[i][0] === 'string')) inp.inputMode = 'text'; });
+  inps.forEach((inp,i)=>{ if(hs.v[i]!=null) inp.value = hs.v[i];
+    inp.addEventListener('input', ()=>{ hs.v[i] = inp.value; save(); inp.classList.remove('ok','bad'); });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); controle(); } }); });
+  function oordeel(vals){
+    const ok = vals.map((v,i)=>v==='' ? null : hintJuist(v, h.ans[i]));
+    (h.sets||[]).forEach(g=>{ const nodig = g.map(i=>h.ans[i]), gezien = [];
+      g.forEach(i=>{ if(vals[i]==='') return; const x = parseDeg(vals[i]); const hit = nodig.some(a=>hintJuist(vals[i], a)) && !gezien.includes(x); ok[i] = hit; if(hit) gezien.push(x); }); });
+    return ok;
+  }
+  function controle(){
+    const vals = inps.map(i=>i.value.trim());
+    if(vals.every(v=>v==='')){ fb.className = 'fb info'; fb.textContent = 'Vul eerst de vakjes van de hint in.'; return; }
+    const ok = oordeel(vals); let goed = 0;
+    inps.forEach((inp,i)=>{ inp.classList.remove('ok','bad'); if(ok[i]==null) return; inp.classList.add(ok[i]?'ok':'bad'); if(ok[i]) goed++; });
+    const leeg = vals.filter(v=>v==='').length;
+    if(goed === inps.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Alle tussenstappen kloppen. Gebruik ze nu voor je antwoord.'; }
+    else { fb.className = 'fb bad'; fb.innerHTML = (goed < inps.length - leeg ? 'De rode vakjes kloppen nog niet. ' : '') + (leeg ? 'Vul ook de lege vakjes in.' : '') + (h.extra && extra.hidden ? ' Kijk eens bij 🔍 Meer uitleg.' : ''); }
+  }
+  ctl.addEventListener('click', controle);
+  /* in een smal figuurkaartje krijgt een open hint de volle breedte van de rij */
+  const kaartje = row.parentElement && row.parentElement.classList.contains('fig-card') ? row.parentElement : null;
+  const open = o => { box.hidden = !o; knop.classList.toggle('on', o); knop.textContent = o ? '💡 Verberg hint' : '💡 Hint'; if(kaartje) kaartje.classList.toggle('hint-open', o); };
+  open(!!hs.o);
+  knop.addEventListener('click', ()=>{ hs.o = box.hidden; save(); open(hs.o); });
+}
+
+/* één oefening op één scherm: figuur links, vragen rechts (smal scherm: onder elkaar).
+   .mee: de figuur loopt mee bij het scrollen, zodat ze naast elke vraag zichtbaar blijft */
+(function(){ const st = document.createElement('style'); st.textContent = `
+  .naast2{ display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:1.4rem; align-items:start; margin-bottom:1rem; }
+  .naast2 > div{ min-width:0; }
+  .naast2 > .mee{ position:sticky; top:8px; }
+  @media (max-width: 760px){ .naast2{ grid-template-columns:minmax(0,1fr); } .naast2 > .mee{ position:static; } }`; document.head.append(st); })();
+const naast2 = (b, mee) => { const w = el('div','naast2'), L = el('div', mee ? 'mee' : ''), R = el('div'); w.append(L, R); b.append(w); return [L, R]; };
 
 function qChoice(parent, st, save, id, q){
   const row = el('div','q'); const qid = QID(id); if(!QZ) CLvraag(qid);
@@ -2326,7 +2427,7 @@ SEC.hoeken = { id:'hoeken', ic:'hoek', nav:'Soorten hoeken', title:'Hoeken: nota
         qBlock(box, st, save, 'k'+i, {tv:[String(ang)], tc:soortVan(ang), nr:LET[i]+'.', html:`${h}.${String(m).padStart(2,'0')} uur: hoek = [[0:xs]]°`, mode:'decimal', choice:SOORT.slice(0,5), choiceLast:true,
           check:(v,c)=>{ const x = parseDeg(v[0]); const okA = Math.abs(x-ang)<1e-6, okS = c===soortVan(ang);
             return {ok:okA&&okS, fields:[okA], choiceOk:okS, msg: !okA ? (m===30 ? 'Let op: om half staat de kleine wijzer halfweg tussen twee cijfers (15° verder).' : 'Tel het aantal “stappen” van 30° tussen de wijzers.') : !okS ? 'De hoekgrootte klopt, maar de benaming niet.' : ''}; },
-          sol:`${m===30?`De grote wijzer staat op 6, de kleine halfweg tussen ${h%12||12} en ${h%12+1}. `:''}De kleinste hoek is <b>${ang}°</b>: een ${soortNaam(soortVan(ang))}.` });
+          hint:klokHint(h,m,ang), sol:`${m===30?`De grote wijzer staat op 6, de kleine halfweg tussen ${h%12||12} en ${h%12+1}. `:''}De kleinste hoek is <b>${ang}°</b>: een ${soortNaam(soortVan(ang))}.` });
       });
     }},
   { title:'Zet de wijzers', lvl:3, instr:'Sleep de grote (oranje) wijzer. De kleine wijzer draait vanzelf mee, zoals bij een echte klok.', build:(b,st,save,key)=>{
@@ -2550,7 +2651,7 @@ SEC.inspringend = { id:'inspringend', ic:'inspringend', nav:'Inspringende hoeken
       ['a.','b.'].forEach((nr,i)=>{
         const a = R.int(200,335); const [nv,n1] = R.letters(2);
         const d1 = R.pick([0,180,R.int(-15,15)]); const [V] = pickIn(R, ()=>{ const v = P(R.int(30,170), R.int(25,105)); return [v, polar(v,LEG,d1), polar(v,LEG,d1+a), polar(v,LEG,d1+180)]; }, 200, 130, 4);
-        qBlock(b, st, save, 't'+i, { nr, block:true, html:`Teken aan het been een hoek ${hat(nv)} = <b>${a}°</b>.`,
+        qBlock(b, st, save, 't'+i, { nr, block:true, html:`Teken aan het been een hoek ${hat(nv)} = <b>${a}°</b>.`, hint:inspHint(a),
           board:{w:200, h:130, tools:['pencil','eraser','arc','geo'], given:[G.ray(V, polar(V,LEG,d1)), ptOff(polar(V,LEG-6,d1), d1-90, n1), ptOff(V, d1+180+30, nv, 4)]},
           check:(v,c,B)=>{ const r1 = secondLegCheck(B, V, d1, a, nv); if(!r1.ok) return {ok:false, msg: r1.msg.includes('Jouw hoek') ? `${r1.msg.split('.')[0]}. Manier 1: trek het been door en teken nog ${a-180}° bij. Manier 2: teken aan de andere kant ${360-a}°.` : r1.msg};
             if(!CK.amAt(B, V, r1.mid, a, 4)) return {ok:false, msg:'Je been staat goed. Zet nu een boogje bij de <b>inspringende</b> hoek: tik aan de kant van de grote hoek.'};
@@ -2810,11 +2911,11 @@ SEC.verbanden = { id:'verbanden', ic:'verband', nav:'Verbanden tussen hoeken', t
       const items = R.shuffle([
         {html:`Het complement van een hoek van ${a1}° is een hoek van [[0:xs]]°.`, tv:[String(90-a1)], check:degIs(90-a1), sol:`90° − ${a1}° = <b>${90-a1}°</b>`},
         {html:`De supplementaire hoek van een hoek van ${a2}° is een hoek van [[0:xs]]°.`, tv:[String(180-a2)], check:degIs(180-a2), sol:`180° − ${a2}° = <b>${180-a2}°</b>`},
-        {html:`Het complement van het supplement van een hoek van ${a3}° is een hoek van [[0:xs]]°.`, tv:[String(a3-90)], check:degIs(a3-90), sol:`Supplement: 180° − ${a3}° = ${180-a3}°. Complement daarvan: 90° − ${180-a3}° = <b>${a3-90}°</b>`},
-        {html:`Het supplement van het supplement van een hoek van ${a4}° is een hoek van [[0:xs]]°.`, tv:[String(a4)], check:degIs(a4), sol:`Twee keer het supplement nemen geeft de hoek zelf terug: <b>${a4}°</b>`},
+        {html:`Het complement van het supplement van een hoek van ${a3}° is een hoek van [[0:xs]]°.`, tv:[String(a3-90)], check:degIs(a3-90), hint:csHint.compSup(a3), sol:`Supplement: 180° − ${a3}° = ${180-a3}°. Complement daarvan: 90° − ${180-a3}° = <b>${a3-90}°</b>`},
+        {html:`Het supplement van het supplement van een hoek van ${a4}° is een hoek van [[0:xs]]°.`, tv:[String(a4)], check:degIs(a4), hint:csHint.supSup(a4), sol:`Twee keer het supplement nemen geeft de hoek zelf terug: <b>${a4}°</b>`},
         {html:`De complementaire hoek van een hoek van ${a5}° is een hoek van [[0:xs]]°.`, tv:[String(90-a5)], check:degIs(90-a5), sol:`90° − ${a5}° = <b>${90-a5}°</b>`},
-        {html:'Het complement van een hoek is die hoek zelf. Dan meet die hoek [[0:xs]]°.', tv:['45'], check:degIs(45), sol:'α + α = 90°, dus α = <b>45°</b>'},
-        {html:'Het supplement van een hoek is die hoek zelf. Dan meet die hoek [[0:xs]]°.', tv:['90'], check:degIs(90), sol:'α + α = 180°, dus α = <b>90°</b>'},
+        {html:'Het complement van een hoek is die hoek zelf. Dan meet die hoek [[0:xs]]°.', tv:['45'], check:degIs(45), hint:csHint.zelf(90), sol:'α + α = 90°, dus α = <b>45°</b>'},
+        {html:'Het supplement van een hoek is die hoek zelf. Dan meet die hoek [[0:xs]]°.', tv:['90'], check:degIs(90), hint:csHint.zelf(180), sol:'α + α = 180°, dus α = <b>90°</b>'},
         {tv:['180° − α'], html:'Het supplement van α is [[0:md]].', check:v=>({ok:/^180°?-α$/.test(nsp(v[0]).replace(/[−–]/g,'-')), msg:'Schrijf bv. 180° − α.'}), sol:'<b>180° − α</b>'}
       ]).slice(0,6);
       items.forEach((q,i)=>qBlock(b, st, save, 'v'+i, Object.assign({nr:LET[i]+'.', mode:'text'}, q)));
@@ -2826,10 +2927,10 @@ SEC.verbanden = { id:'verbanden', ic:'verband', nav:'Verbanden tussen hoeken', t
       const o = [G.line(polar(V,-55,d0),polar(V,55,d0)), G.line(polar(V,-46,d0+x),polar(V,46,d0+x)), G.ray(V,polar(V,44,d0+90)),
         G.am(V,d0,d0+x,{r:12,txt:'1',tr:16}), G.am(V,d0+x,d0+90,{r:12,txt:'2',tr:16}), G.am(V,d0+90,d0+180,{r:9,txt:'3',tr:13}), G.am(V,d0+90,d0+180,{r:4,style:'right'}),
         G.am(V,d0+180,d0+180+x,{r:12,txt:'4',tr:16}), G.am(V,d0+180+x,d0+360,{r:9,txt:'5',tr:14}), ptOff(V,d0-120,nC,4.5)];
-      b.append(el('div','',fig(120,96,o,{scale:3.6, margin:4})));
-      b.append(el('p','instructions', `Gegeven: ${nrAng(nC,1)} = ${x}°.`));
+      const [L, Rq] = naast2(b, true);
+      L.append(el('div','',fig(120,96,o,{scale:3.6, margin:4})), el('p','instructions', `Gegeven: ${nrAng(nC,1)} = ${x}°.`));
       const rows = [[2, 90-x, ['loodr'], `${nrAngT(nC,1)} + ${nrAngT(nC,2)} = 90°`], [3, 90, ['loodr'], 'loodrechte stand'], [4, x, ['over'], `overstaand met ${nrAngT(nC,1)}`], [5, 180-x, ['neven','gestr'], `nevenhoek van ${nrAngT(nC,1)} (of van ${nrAngT(nC,4)})`]];
-      rows.forEach(([i,val,rs,why],k)=>qBlock(b, st, save, 'r'+k, { tv:[String(val)], tc:rs[0], html:`${nrAng(nC,i)} = [[0:xs]]° &nbsp;want …`, mode:'decimal', choice:REASONS, choiceLast:true,
+      rows.forEach(([i,val,rs,why],k)=>qBlock(Rq, st, save, 'r'+k, { tv:[String(val)], tc:rs[0], html:`${nrAng(nC,i)} = [[0:xs]]° &nbsp;want …`, mode:'decimal', choice:REASONS, choiceLast:true,
         check:(v,c)=>{ const okV = Math.abs(parseDeg(v[0])-val)<1e-6, okR = rs.includes(c); return {ok:okV&&okR, fields:[okV], choiceOk:okR, msg: !okV ? 'De hoekgrootte klopt niet.' : !okR ? 'De hoekgrootte klopt, maar kies een betere reden.' : ''}; },
         sol:`${nrAng(nC,i)} = <b>${val}°</b> (${why})` }));
     }},
@@ -3203,18 +3304,18 @@ NEW.snijpunten = { title:'Snijpunten en concurrente rechten', lvl:1, build:(b,st
     const T = [P(R.int(55,75),R.int(15,25)), P(R.int(20,35),R.int(70,80)), P(R.int(110,130),R.int(65,80))];
     const L = (p,q,nm)=>{ const [u,w] = clipLine(lerp(p,q,-.6), lerp(p,q,1.6), 150, 95, 2); return [G.line(u,w), G.txt(polar(w,5,dirAng(u,w)+150), nm, {italic:true, size:4.4})]; };
     const o1 = [...L(T[0],T[1],na), ...L(T[1],T[2],nb), ...L(T[2],T[0],nc), G.pt(T[0],P1,{lx:3,ly:-2}), G.pt(T[1],P2,{lx:-3,ly:-2.5}), G.pt(T[2],P3,{lx:3,ly:-2.5})];
-    b.append(el('div','', fig(150,95,o1,{fit:false, scale:3.6})));
+    const [L1, R1] = naast2(b); L1.append(el('div','', fig(150,95,o1,{fit:false, scale:3.6})));
     const opts = [[P1,P1],[P2,P2],[P3,P3]];
-    qChoice(b, st, save, 's1', {nr:'1.', html:`${na} ∩ ${nb} = { … }`, opts, ans:P2, why:`${P2} ligt op ${na} én op ${nb}.`, sym:true});
-    qChoice(b, st, save, 's2', {nr:'2.', html:`${nb} ∩ ${nc} = { … }`, opts, ans:P3, why:`${P3} ligt op ${nb} én op ${nc}.`, sym:true});
-    qChoice(b, st, save, 's3', {nr:'3.', html:`${na} ∩ ${nc} = { … }`, opts, ans:P1, why:`${P1} ligt op ${na} én op ${nc}.`, sym:true});
-    qChoice(b, st, save, 's4', {nr:'4.', html:`Zijn ${na}, ${nb} en ${nc} concurrente rechten?`, opts:[['j','Ja'],['n','Neen']], ans:'n', why:'Ze hebben niet één gemeenschappelijk punt: er zijn drie verschillende snijpunten.'});
+    qChoice(R1, st, save, 's1', {nr:'1.', html:`${na} ∩ ${nb} = { … }`, opts, ans:P2, why:`${P2} ligt op ${na} én op ${nb}.`, sym:true});
+    qChoice(R1, st, save, 's2', {nr:'2.', html:`${nb} ∩ ${nc} = { … }`, opts, ans:P3, why:`${P3} ligt op ${nb} én op ${nc}.`, sym:true});
+    qChoice(R1, st, save, 's3', {nr:'3.', html:`${na} ∩ ${nc} = { … }`, opts, ans:P1, why:`${P1} ligt op ${na} én op ${nc}.`, sym:true});
+    qChoice(R1, st, save, 's4', {nr:'4.', html:`Zijn ${na}, ${nb} en ${nc} concurrente rechten?`, opts:[['j','Ja'],['n','Neen']], ans:'n', why:'Ze hebben niet één gemeenschappelijk punt: er zijn drie verschillende snijpunten.'});
     /* figuur 2: concurrente rechten */
     const S = P(75,48); const o2 = []; const k = R.int(3,4); const dd = R.shuffle([10,40,70,100,135,160]).slice(0,k);
     dd.forEach((d,i)=>{ const [u,w] = clipLine(polar(S,-40,d), polar(S,40,d), 150, 95, 3); o2.push(G.line(u,w)); });
     o2.push(G.pt(S,nS,{lx:3.5,ly:3}));
-    b.append(el('div','', fig(150,95,o2,{fit:false, scale:3.6})));
-    qChoice(b, st, save, 's5', {nr:'5.', html:`Zijn deze ${k} rechten concurrent?`, opts:[['j','Ja'],['n','Neen']], ans:'j', why:`Ze gaan allemaal door één punt ${nS}.`});
+    const [L2, R2] = naast2(b); L2.append(el('div','', fig(150,95,o2,{fit:false, scale:3.6})));
+    qChoice(R2, st, save, 's5', {nr:'5.', html:`Zijn deze ${k} rechten concurrent?`, opts:[['j','Ja'],['n','Neen']], ans:'j', why:`Ze gaan allemaal door één punt ${nS}.`});
   }};
 NEW.snijVraag = { title:'Vraagstuk: hoeveel snijpunten?', lvl:3, instr:'Schets op het blad om te ontdekken. Tel het grootste aantal snijpunten dat mogelijk is.', build:(b,st,save,key)=>{
     const R = makeR(st);
@@ -3452,28 +3553,28 @@ NEW.driehoekAOE = { title:'Teken een driehoek met een zijde en twee hoeken', lvl
    ============================================================ */
 const RA = '#f5a40f';
 function calcFig(R, type){
-  const O = P(50,46), Lg = 40; const d0 = R.int(-12,12); const o = []; const q = []; let sol = '';
+  const O = P(50,46), Lg = 40; const d0 = R.int(-12,12); const o = []; const q = []; let sol = '', H = null;
   const ray = d => o.push(G.ray(O, polar(O,Lg,d)));
   const line = d => o.push(G.line(polar(O,-Lg-4,d), polar(O,Lg+4,d)));
   const arc = (a0,a1,txt,r,unk) => o.push(G.am(O, a0, a1, Object.assign({r, txt}, unk?{tcol:RA, color:RA}:{} )));
   const right = (a0) => o.push(G.am(O, a0, a0+90, {style:'right'}));
   switch(type){
-    case 'rechte2': { const x = R.int(18,72); ray(d0); ray(d0+90); ray(d0+x); right(d0); arc(d0, d0+x, x+'°', 14); arc(d0+x, d0+90, 'α', 10, true); q.push(['α',90-x]); sol = `${x}° + α = 90° (rechte hoek) → α = 90° − ${x}° = <b>${90-x}°</b>`; break; }
-    case 'rechte3': { const x = R.int(15,40), y = R.int(15,40); ray(d0); ray(d0+90); ray(d0+x); ray(d0+x+y); right(d0); arc(d0,d0+x,x+'°',15); arc(d0+x,d0+x+y,y+'°',19); arc(d0+x+y,d0+90,'α',10,true); q.push(['α',90-x-y]); sol = `${x}° + ${y}° + α = 90° → α = 90° − ${x}° − ${y}° = <b>${90-x-y}°</b>`; break; }
-    case 'gestrekt2': { const x = R.int(25,155); line(d0); ray(d0+x); arc(d0,d0+x,x+'°',x<45?16:12); arc(d0+x,d0+180,'α',9,true); q.push(['α',180-x]); sol = `${x}° + α = 180° (gestrekte hoek) → α = 180° − ${x}° = <b>${180-x}°</b>`; break; }
-    case 'gestrekt3': { const x = R.int(25,70), y = R.int(25,70); line(d0); ray(d0+x); ray(d0+180-y); arc(d0,d0+x,x+'°',13); arc(d0+180-y,d0+180,y+'°',13); arc(d0+x,d0+180-y,'α',8,true); q.push(['α',180-x-y]); sol = `${x}° + α + ${y}° = 180° → α = 180° − ${x}° − ${y}° = <b>${180-x-y}°</b>`; break; }
-    case 'loodlijn': { const x = R.int(20,70); line(d0); ray(d0+90); ray(d0+90+x); right(d0); arc(d0+90,d0+90+x,x+'°',15); arc(d0+90+x,d0+180,'α',10,true); q.push(['α',90-x]); sol = `90° + ${x}° + α = 180° → α = 180° − 90° − ${x}° = <b>${90-x}°</b>`; break; }
-    case 'vol3': { const x = R.int(80,140), y = R.int(80,140); ray(d0); ray(d0+x); ray(d0+x+y); arc(d0,d0+x,x+'°',9); arc(d0+x,d0+x+y,y+'°',12); arc(d0+x+y,d0+360,'α',7,true); q.push(['α',360-x-y]); sol = `${x}° + ${y}° + α = 360° (volle hoek) → α = 360° − ${x}° − ${y}° = <b>${360-x-y}°</b>`; break; }
-    case 'vol4': { const x = R.int(55,100), y = R.int(55,100); ray(d0); ray(d0+90); ray(d0+90+x); ray(d0+90+x+y); right(d0); arc(d0+90,d0+90+x,x+'°',11); arc(d0+90+x,d0+90+x+y,y+'°',14); arc(d0+90+x+y,d0+360,'α',8,true); q.push(['α',270-x-y]); sol = `90° + ${x}° + ${y}° + α = 360° → α = 360° − 90° − ${x}° − ${y}° = <b>${270-x-y}°</b>`; break; }
+    case 'rechte2': { const x = R.int(18,72); ray(d0); ray(d0+90); ray(d0+x); right(d0); arc(d0, d0+x, x+'°', 14); arc(d0+x, d0+90, 'α', 10, true); q.push(['α',90-x]); sol = `${x}° + α = 90° (rechte hoek) → α = 90° − ${x}° = <b>${90-x}°</b>`; H={tot:90,naam:'rechte hoek',k:[x],a0:d0}; break; }
+    case 'rechte3': { const x = R.int(15,40), y = R.int(15,40); ray(d0); ray(d0+90); ray(d0+x); ray(d0+x+y); right(d0); arc(d0,d0+x,x+'°',15); arc(d0+x,d0+x+y,y+'°',19); arc(d0+x+y,d0+90,'α',10,true); q.push(['α',90-x-y]); sol = `${x}° + ${y}° + α = 90° → α = 90° − ${x}° − ${y}° = <b>${90-x-y}°</b>`; H={tot:90,naam:'rechte hoek',k:[x,y],a0:d0}; break; }
+    case 'gestrekt2': { const x = R.int(25,155); line(d0); ray(d0+x); arc(d0,d0+x,x+'°',x<45?16:12); arc(d0+x,d0+180,'α',9,true); q.push(['α',180-x]); sol = `${x}° + α = 180° (gestrekte hoek) → α = 180° − ${x}° = <b>${180-x}°</b>`; H={tot:180,naam:'gestrekte hoek',k:[x],a0:d0}; break; }
+    case 'gestrekt3': { const x = R.int(25,70), y = R.int(25,70); line(d0); ray(d0+x); ray(d0+180-y); arc(d0,d0+x,x+'°',13); arc(d0+180-y,d0+180,y+'°',13); arc(d0+x,d0+180-y,'α',8,true); q.push(['α',180-x-y]); sol = `${x}° + α + ${y}° = 180° → α = 180° − ${x}° − ${y}° = <b>${180-x-y}°</b>`; H={tot:180,naam:'gestrekte hoek',k:[x,y],a0:d0}; break; }
+    case 'loodlijn': { const x = R.int(20,70); line(d0); ray(d0+90); ray(d0+90+x); right(d0); arc(d0+90,d0+90+x,x+'°',15); arc(d0+90+x,d0+180,'α',10,true); q.push(['α',90-x]); sol = `90° + ${x}° + α = 180° → α = 180° − 90° − ${x}° = <b>${90-x}°</b>`; H={tot:180,naam:'gestrekte hoek',k:[90,x],a0:d0}; break; }
+    case 'vol3': { const x = R.int(80,140), y = R.int(80,140); ray(d0); ray(d0+x); ray(d0+x+y); arc(d0,d0+x,x+'°',9); arc(d0+x,d0+x+y,y+'°',12); arc(d0+x+y,d0+360,'α',7,true); q.push(['α',360-x-y]); sol = `${x}° + ${y}° + α = 360° (volle hoek) → α = 360° − ${x}° − ${y}° = <b>${360-x-y}°</b>`; H={tot:360,naam:'volle hoek',k:[x,y],a0:d0}; break; }
+    case 'vol4': { const x = R.int(55,100), y = R.int(55,100); ray(d0); ray(d0+90); ray(d0+90+x); ray(d0+90+x+y); right(d0); arc(d0+90,d0+90+x,x+'°',11); arc(d0+90+x,d0+90+x+y,y+'°',14); arc(d0+90+x+y,d0+360,'α',8,true); q.push(['α',270-x-y]); sol = `90° + ${x}° + ${y}° + α = 360° → α = 360° − 90° − ${x}° − ${y}° = <b>${270-x-y}°</b>`; H={tot:360,naam:'volle hoek',k:[90,x,y],a0:d0}; break; }
     case 'gelijk': { const full = R.f()<.5; const k = full ? R.pick([5,6,8,9,10,12]) : R.pick([3,4,5,6]); const tot = full?360:180; const s = tot/k;
       if(full) for(let i=0;i<k;i++) ray(d0+i*s); else { line(d0); for(let i=1;i<k;i++) ray(d0+i*s); }
       for(let i=0;i<k;i++) o.push(G.am(O, d0+i*s, d0+(i+1)*s, {r:i===0?11:8, n:1, txt:i===0?'α':'', tcol:RA, color:i===0?RA:INK}));
-      q.push(['α',s]); sol = `De ${full?'volle':'gestrekte'} hoek (${tot}°) is verdeeld in ${k} even grote hoeken (zelfde merkteken): α = ${tot}° : ${k} = <b>${fmtDeg(s)}</b>`; break; }
-    case 'insp': { const x = R.int(35,150); ray(d0); ray(d0+x); arc(d0,d0+x,x+'°',13); arc(d0+x,d0+360,'α',7,true); q.push(['α',360-x]); sol = `α + ${x}° = 360° (volle hoek) → α = 360° − ${x}° = <b>${360-x}°</b>`; break; }
-    case 'over': { const x = R.int(25,80); line(d0); line(d0+x); arc(d0,d0+x,x+'°',12); arc(d0+180,d0+180+x,'α',12,true); arc(d0+x,d0+180,'β',8,true); q.push(['α',x],['β',180-x]); sol = `α = <b>${x}°</b> (overstaande hoeken zijn even groot) · β = 180° − ${x}° = <b>${180-x}°</b> (nevenhoeken)`; break; }
+      q.push(['α',s]); sol = `De ${full?'volle':'gestrekte'} hoek (${tot}°) is verdeeld in ${k} even grote hoeken (zelfde merkteken): α = ${tot}° : ${k} = <b>${fmtDeg(s)}</b>`; H={gelijk:true,k,tot,s,full,a0:d0}; break; }
+    case 'insp': { const x = R.int(35,150); ray(d0); ray(d0+x); arc(d0,d0+x,x+'°',13); arc(d0+x,d0+360,'α',7,true); q.push(['α',360-x]); sol = `α + ${x}° = 360° (volle hoek) → α = 360° − ${x}° = <b>${360-x}°</b>`; H={tot:360,naam:'volle hoek',k:[x],a0:d0}; break; }
+    case 'over': { const x = R.int(25,80); line(d0); line(d0+x); arc(d0,d0+x,x+'°',12); arc(d0+180,d0+180+x,'α',12,true); arc(d0+x,d0+180,'β',8,true); q.push(['α',x],['β',180-x]); sol = `α = <b>${x}°</b> (overstaande hoeken zijn even groot) · β = 180° − ${x}° = <b>${180-x}°</b> (nevenhoeken)`; H={over:true,x,a0:d0}; break; }
     case 'bis': { const h = R.int(15,50); const half = R.f()<.5; ray(d0); ray(d0+2*h); o.push(G.seg(O, polar(O,Lg,d0+h), {color:'#1fa6ab', w:.5}), G.txt(polar(O,Lg+4,d0+h),'b',{italic:true, color:'#1fa6ab'}));
       if(half){ o.push(G.am(O,d0,d0+h,{r:12,n:1,txt:h+'°'}), G.am(O,d0+h,d0+2*h,{r:12,n:1}), G.am(O,d0,d0+2*h,{r:22,txt:'α',color:RA,tcol:RA})); q.push(['α',2*h]); sol = `b is de bissectrice: beide helften zijn ${h}°. α = 2 · ${h}° = <b>${2*h}°</b>`; }
-      else { o.push(G.am(O,d0,d0+2*h,{r:22,txt:(2*h)+'°'}), G.am(O,d0,d0+h,{r:11,n:1,txt:'α',color:RA,tcol:RA}), G.am(O,d0+h,d0+2*h,{r:11,n:1})); q.push(['α',h]); sol = `b is de bissectrice: α = ${2*h}° : 2 = <b>${h}°</b>`; } break; }
+      else { o.push(G.am(O,d0,d0+2*h,{r:22,txt:(2*h)+'°'}), G.am(O,d0,d0+h,{r:11,n:1,txt:'α',color:RA,tcol:RA}), G.am(O,d0+h,d0+2*h,{r:11,n:1})); q.push(['α',h]); sol = `b is de bissectrice: α = ${2*h}° : 2 = <b>${h}°</b>`; } H={bis:true,h,half,a0:d0}; break; }
     case 'keten': { const x = R.int(25,70), y = R.int(20, 160-x-20); line(d0); line(d0+x); ray(d0+x+y);
       arc(d0,d0+x,x+'°',11); arc(d0+x,d0+x+y,y+'°',15); arc(d0+x+y,d0+180,'α',9,true); arc(d0+180,d0+180+x,'β',11,true); arc(d0+180+x,d0+360,'γ',8,true);
       q.push(['α',180-x-y],['β',x],['γ',180-x]); sol = `α = 180° − ${x}° − ${y}° = <b>${180-x-y}°</b> (gestrekte hoek) · β = <b>${x}°</b> (overstaand) · γ = 180° − ${x}° = <b>${180-x}°</b> (nevenhoek)`; break; }
@@ -3485,15 +3586,123 @@ function calcFig(R, type){
       break; }
   }
   o.push(Object.assign(G.pt(O,''),{small:true}));
-  return {o, q, sol};
+  return {o, q, sol, H, O, Lg};
 }
-const calcCard = (title, lvl, types, n, instr) => ({ title, lvl, instr: instr || 'Bereken zonder te meten. Noteer enkel het getal.', build:(b,st,save,key)=>{
+/* ---------- invulbare hints bij het rekenen met hoeken (met figuur) ---------- */
+const HK = t => ({t, kop:true}), HU = t => ({t, uitleg:true});
+/* figuren naast elkaar in een hint: [[svg, onderschrift], ...] */
+const HF = (...figs) => HU(`<div class="hb-figs">${figs.map(([f,c])=>`<figure>${f}${c?`<figcaption>${c}</figcaption>`:''}</figure>`).join('')}</div>`);
+const HZACHT = 'rgba(252,175,23,.22)', HTQ = 'rgba(59,193,197,.22)';
+/* de drie 'hele' hoeken: rechte, gestrekte en volle hoek */
+const HEEL_FIGS = (()=>{ const O = P(30,30), L = 24;
+  const recht = fig(60,60,[G.ray(O,polar(O,L,0)), G.ray(O,polar(O,L,90)), G.am(O,0,90,{style:'right'}), G.am(O,0,90,{r:12, fill:HZACHT, color:RA, txt:'90°', tr:17, tcol:RA}), Object.assign(G.pt(O,''),{small:true})],{scale:3, margin:4});
+  const gestr = fig(60,60,[G.line(polar(O,-L,0),polar(O,L,0)), G.am(O,0,180,{r:12, fill:HZACHT, color:RA, txt:'180°', tr:17, tcol:RA}), Object.assign(G.pt(O,''),{small:true})],{scale:3, margin:4});
+  const vol = fig(60,60,[G.ray(O,polar(O,L,0)), G.am(O,0,359.5,{r:10, fill:HZACHT, color:RA}), G.txt(polar(O,15,135),'360°',{color:RA, size:4.4}), Object.assign(G.pt(O,''),{small:true})],{scale:3, margin:4});
+  return `<div class="hb-figs"><figure>${recht}<figcaption>rechte hoek</figcaption></figure><figure>${gestr}<figcaption>gestrekte hoek</figcaption></figure><figure>${vol}<figcaption>volle hoek</figcaption></figure></div>`; })();
+function calcHint(F){
+  const H = F.H; if(!H) return null; const O = F.O, d0 = H.a0;
+  const tekening = (extra, cap, sc=3.3) => [fig(110,92,[...F.o, ...extra],{scale:sc, margin:6}), cap];
+  if(H.over){ const x = H.x;
+    return { titel:'Hint: kijk welke hoeken bij elkaar horen',
+      stappen:[
+        HF(tekening([G.am(O,d0,d0+x,{r:12, fill:HZACHT, color:RA}), G.am(O,d0+180,d0+180+x,{r:12, fill:HZACHT, color:RA})], 'oranje: overstaande hoeken', 2.3),
+           tekening([G.am(O,d0+x,d0+180,{r:8, fill:HTQ, color:HILITE}), G.am(O,d0,d0+x,{r:12, fill:HTQ, color:HILITE})], 'blauw: nevenhoeken, samen 180°', 2.3)),
+        `α ligt tegenover de hoek van ${x}°. Overstaande hoeken zijn even groot: α = [[0]]°`,
+        `β ligt naast de hoek van ${x}°. Samen vormen ze een gestrekte hoek: β = 180° − [[1]]° = [[2]]°` ],
+      ans:[x, x, 180-x],
+      extra:`<p><b>Overstaande hoeken</b> liggen schuin tegenover elkaar, met hetzelfde hoekpunt. Ze zijn altijd <b>even groot</b>.</p><p><b>Nevenhoeken</b> liggen naast elkaar op een rechte. Samen vormen ze een gestrekte hoek: <b>180°</b>.</p>${HEEL_FIGS}` };
+  }
+  if(H.bis){ const h = H.h;
+    const kleur = [G.am(O,d0,d0+h,{r:12, fill:HZACHT, color:RA}), G.am(O,d0+h,d0+2*h,{r:12, fill:HZACHT, color:RA})];
+    const st = H.half
+      ? [`De bissectrice b deelt de hoek in twee even grote helften. Eén helft is ${h}°, de andere helft is dus ook [[0]]°.`, `α bestaat uit de twee helften: α = 2 · [[1]]° = [[2]]°`]
+      : [`De bissectrice b deelt de hoek van ${2*h}° in twee even grote helften.`, `α is één helft: α = [[0]]° : 2 = [[1]]°`];
+    return { titel:'Hint: de bissectrice maakt twee gelijke helften',
+      stappen:[HF(tekening(kleur, 'twee even grote helften')), ...st],
+      ans: H.half ? [h, h, 2*h] : [2*h, h],
+      extra:'<p>De <b>bissectrice</b> van een hoek is de halfrechte die de hoek in <b>twee even grote hoeken</b> verdeelt. De twee helften krijgen hetzelfde merkteken.</p><p>Ken je een helft, dan is de hele hoek het dubbel. Ken je de hele hoek, dan is een helft de helft daarvan.</p>' };
+  }
+  if(H.gelijk){ const {k, tot, s, full} = H;
+    const kleur = Array.from({length:k}, (_,i)=>G.am(O,d0+i*s,d0+(i+1)*s,{r:16, fill:i%2?HTQ:HZACHT, color:'none'}));
+    return { titel:'Hint: tel de gelijke stukken',
+      stappen:[
+        HF(tekening(kleur, 'tel de gekleurde stukken')),
+        'Hoeveel even grote hoeken (met hetzelfde merkteken) tel je? [[0]]',
+        `Samen vormen ze een ${full?'volle':'gestrekte'} hoek: samen [[1]]°`,
+        'α = [[2]]° : [[3]] = [[4]]°' ],
+      ans:[k, tot, tot, k, s],
+      extra:`<p>Hoeken met <b>hetzelfde merkteken</b> zijn even groot. Verdeel de hele hoek dus eerlijk over het aantal stukken.</p>${HEEL_FIGS}` };
+  }
+  const {tot, naam, k} = H, som = k.reduce((a,b)=>a+b,0);
+  const a1 = tot===360 ? d0+359.5 : d0+tot;
+  const st = [HF(tekening([G.am(O,d0,a1,{r:tot===360?20:24, fill:HZACHT, color:RA, w:.5})], 'het oranje deel is de hele hoek')),
+    `Het oranje deel is een ${naam}. Hoeveel graden is dat? [[0]]°` ];
+  const ans = [tot];
+  if(k.length>1){ st.push(`De gegeven hoeken samen: ${k.map(v=>v+'°').join(' + ')} = [[1]]°`); ans.push(som); }
+  const i = ans.length; st.push(`α = [[${i}]]° − [[${i+1}]]° = [[${i+2}]]°`); ans.push(tot, som, tot-som);
+  return { titel:'Hint: wat is de hele hoek?', stappen:st, ans,
+    extra:`<p>Zoek eerst de <b>hele hoek</b> waar α een stuk van is. Een rechte hoek (met het teken ∟) is 90°, een gestrekte hoek (een rechte lijn) is 180°, een volle hoek (helemaal rond) is 360°.</p>${HEEL_FIGS}<p>Trek dan de hoeken die je al kent af van de hele hoek. Wat overblijft, is α.</p>` };
+}
+/* klok in een hint: lijnen naar elk cijfer (vakjes van 30°) en het vak tussen de wijzers gekleurd */
+function klokHintSVG(h, m){
+  const C = P(50,50), ha = (h%12)*30 + m*.5, ma = m*6;
+  let a = ha, b = ma; if(norm360(b-a)>180){ [a,b] = [b,a]; }  /* kleinste kant, met de klok mee van a naar b */
+  const sweep = norm360(b-a); let ex = '';
+  if(sweep>0){ const p0 = polar(C,40,90-a), p1 = polar(C,40,90-b);
+    ex += `<path d="M50 50L${f2(p0.x)} ${f2(p0.y)}A40 40 0 ${sweep>180?1:0} 1 ${f2(p1.x)} ${f2(p1.y)}Z" fill="rgba(252,175,23,.3)" stroke="none"/>`; }
+  for(let k=0;k<12;k++){ const q = polar(C,40,90-k*30); ex += `<line x1="50" y1="50" x2="${f2(q.x)}" y2="${f2(q.y)}" stroke="#1fa6ab" stroke-width=".5" stroke-dasharray="1.5 1"/>`; }
+  return `<svg viewBox="0 0 100 100" style="width:150px">${clockSVG(ha, ma, ex)}</svg>`;
+}
+function klokHint(h, m, ang){
+  const uur = `${h}.${String(m).padStart(2,'0')} uur`;
+  if(m===0){ const n = ang/30;
+    return { titel:'Hint: tel de vakjes van 30°',
+      stappen:[ HF([klokHintSVG(h,0), `${uur}: het oranje deel ligt tussen de wijzers`]),
+        'Tel de vakjes tussen de wijzers (langs de kleinste kant): [[0]] vakjes',
+        'Elk vakje is 30°: hoek = [[1]] · 30° = [[2]]°' ],
+      ans:[n, n, ang],
+      extra:`<p>De klok is een volle hoek van 360°. De 12 cijfers verdelen hem in 12 even grote vakjes: 360° : 12 = <b>30°</b> per vakje.</p><p>Om 3.00 uur staan de wijzers 3 vakjes uit elkaar: 3 · 30° = 90°, een rechte hoek.</p><div class="hb-figs"><figure>${klokHintSVG(3,0)}<figcaption>3.00 uur: 3 vakjes = 90°</figcaption></figure></div>` };
+  }
+  const heel = (ang-15)/30;
+  return { titel:'Hint: hele vakjes plus een half vakje',
+    stappen:[ HF([klokHintSVG(h,30), `${uur}: de kleine wijzer staat halfweg tussen ${h%12||12} en ${h%12+1}`]),
+      'Tel de <b>hele</b> vakjes tussen de wijzers: [[0]]',
+      'De kleine wijzer staat halfweg in een vakje. Een half vakje is 30° : 2 = [[1]]°',
+      'hoek = [[2]] · 30° + [[3]]° = [[4]]°' ],
+    ans:[heel, 15, heel, 15, ang],
+    extra:`<p>Om half staat de grote wijzer op 6. De kleine wijzer is dan al een half uur verder gedraaid: hij staat <b>halfweg</b> tussen twee cijfers.</p><p>Een heel vakje is 360° : 12 = 30°, een half vakje is dus 15°.</p><div class="hb-figs"><figure>${klokHintSVG(3,30)}<figcaption>3.30 uur: 2 hele vakjes + een half vakje = 60° + 15° = 75°</figcaption></figure></div>` };
+}
+/* inspringende hoek tekenen: twee manieren, met een voorbeeld van 235° */
+const INSP_FIGS = (()=>{ const V = P(40,32), L = 30;
+  const m1 = fig(80,64,[G.ray(V,polar(V,L,0)), G.ray(V,polar(V,L,180),{dash:'1.5 1'}), G.am(V,0,180,{r:7, txt:'180°', tr:11}), G.am(V,180,235,{r:12, fill:HZACHT, color:RA, txt:'55°', tr:17, tcol:RA}), G.ray(V,polar(V,L,235)), Object.assign(G.pt(V,''),{small:true})],{scale:3.2, margin:4});
+  const m2 = fig(80,64,[G.ray(V,polar(V,L,0)), G.ray(V,polar(V,L,235)), G.am(V,235,360,{r:12, fill:HTQ, color:HILITE, txt:'125°', tr:17, tcol:HILITE}), G.am(V,0,235,{r:6, color:RA, txt:'235°', tr:10, tcol:RA}), Object.assign(G.pt(V,''),{small:true})],{scale:3.2, margin:4});
+  return [[m1,'Manier 1: 180° + 55° = 235°'], [m2,'Manier 2: 360° − 125° = 235°']]; })();
+function inspHint(a){
+  return { titel:'Hint: twee manieren',
+    stappen:[ HU('Voorbeeld met een hoek van 235°:'), HF(...INSP_FIGS),
+      HK('Manier 1: via de gestrekte hoek'),
+      `Trek het been door, voorbij het hoekpunt: dat is al 180°. Je tekent er nog ${a}° − 180° = [[0]]° bij.`,
+      HK('Manier 2: via de volle hoek'),
+      `Een volle hoek is 360°. Aan de andere kant teken je 360° − ${a}° = [[1]]°.`,
+      HU('Kies één manier. Zet het boogje bij de <b>grote</b> hoek: tik aan de kant van de inspringende hoek.') ],
+    ans:[a-180, 360-a],
+    extra:'<p>Een <b>inspringende hoek</b> is groter dan 180° en kleiner dan 360°. Je gradenboog gaat maar tot 180°, daarom teken je hem in twee stukken (manier 1) of teken je de kleine hoek aan de andere kant (manier 2).</p>' };
+}
+/* complement en supplement: vragen met twee stappen */
+const CS_FIGS = () => [[csFig(60,30,90,true,'α','β'), 'complementair: samen 90°'], [csFig(140,40,180,true,'γ','δ'), 'supplementair: samen 180°']];
+const CS_EXTRA = '<p>Het <b>complement</b> van een hoek vult hem aan tot <b>90°</b>: complement = 90° − de hoek.</p><p>Het <b>supplement</b> van een hoek vult hem aan tot <b>180°</b>: supplement = 180° − de hoek.</p>';
+const csHint = {
+  compSup: a => ({ titel:'Hint: werk in twee stappen', stappen:[HF(...CS_FIGS()), `Eerst het supplement: 180° − ${a}° = [[0]]°`, 'Dan het complement daarvan: 90° − [[1]]° = [[2]]°'], ans:[180-a, 180-a, a-90], extra:CS_EXTRA }),
+  supSup: a => ({ titel:'Hint: werk in twee stappen', stappen:[HF(...CS_FIGS()), `Eerst het supplement: 180° − ${a}° = [[0]]°`, 'Dan het supplement daarvan: 180° − [[1]]° = [[2]]°'], ans:[180-a, 180-a, a], extra:CS_EXTRA }),
+  zelf: tot => ({ titel:'Hint: twee keer dezelfde hoek', stappen:[HF([csFig(tot/2,tot/2,tot,true,'α','α'), `α + α = ${tot}°`]), `Twee keer dezelfde hoek α geeft samen ${tot}°: 2 · α = [[0]]°`, 'α = [[1]]° : 2 = [[2]]°'], ans:[tot, tot, tot/2], extra:CS_EXTRA })
+};
+const calcCard = (title, lvl, types, n, instr, hint) => ({ title, lvl, instr: instr || 'Bereken zonder te meten. Noteer enkel het getal.', build:(b,st,save,key)=>{
     const R = makeR(st); const grid = el('div','fig-row'); b.append(grid);
     const list = []; for(let i=0;i<n;i++) list.push(types[i % types.length]);
     R.shuffle(list).forEach((t,i)=>{ const F = calcFig(R,t);
       const box = el('div','fig-card'); grid.append(box); box.append(el('div','', fig(110,92,F.o,{scale:3.3, margin:6})));
       qBlock(box, st, save, 'c'+i, {nr:LET[i]+'.', html:F.q.map(([l],k)=>`${l} = [[${k}:xs]]°`).join(' &nbsp; '), mode:'decimal', tv:F.q.map(([,a])=>fmtDeg(a)),
-        check:v=>{ const x = pd(v); const f = F.q.map(([,a],k)=>Math.abs(x[k]-a)<.01); return {ok:f.every(Boolean), fields:f}; }, sol:F.sol});
+        check:v=>{ const x = pd(v); const f = F.q.map(([,a],k)=>Math.abs(x[k]-a)<.01); return {ok:f.every(Boolean), fields:f}; }, sol:F.sol, hint: hint ? calcHint(F) : null});
     }); }});
 
 /* ============================================================
@@ -3643,11 +3852,11 @@ const CARD = {
   verbOntdek:TO.verbanden[0], verbBenoem:TO.verbanden[1], csTabel:TO.verbanden[2], csVulAan:TO.verbanden[3], verbReden:TO.verbanden[4], verbTeken:TO.verbanden[5], verbWaar:TO.verbanden[6], pizza:TO.verbanden[7]
 };
 Object.assign(CARD, {
-  rekenA: calcCard('Rechte en gestrekte hoeken', 1, ['rechte2','gestrekt2','gestrekt3','loodlijn','rechte3','rechte2'], 6, 'Een rechte hoek is 90°, een gestrekte hoek is 180°. Bereken zonder te meten.'),
-  rekenB: calcCard('Volle hoeken en gelijke delen', 1, ['vol3','insp','gelijk','vol4','gelijk','vol3'], 6, 'Een volle hoek is 360°. Hoeken met hetzelfde merkteken zijn even groot.'),
-  rekenC: calcCard('Overstaande hoeken en nevenhoeken', 2, ['over'], 4, 'Overstaande hoeken zijn even groot. Nevenhoeken vormen samen 180°.'),
+  rekenA: calcCard('Rechte en gestrekte hoeken', 1, ['rechte2','gestrekt2','gestrekt3','loodlijn','rechte3','rechte2'], 6, 'Een rechte hoek is 90°, een gestrekte hoek is 180°. Bereken zonder te meten.', true),
+  rekenB: calcCard('Volle hoeken en gelijke delen', 1, ['vol3','insp','gelijk','vol4','gelijk','vol3'], 6, 'Een volle hoek is 360°. Hoeken met hetzelfde merkteken zijn even groot.', true),
+  rekenC: calcCard('Overstaande hoeken en nevenhoeken', 2, ['over'], 4, 'Overstaande hoeken zijn even groot. Nevenhoeken vormen samen 180°.', true),
   rekenD: calcCard('Met de bissectrice', 2, ['bis'], 4, 'De bissectrice b deelt de hoek in twee even grote hoeken.'),
-  rekenE: calcCard('Alles door elkaar', 2, ['rechte2','gestrekt3','vol3','over','bis','loodlijn','insp','gelijk'], 8),
+  rekenE: calcCard('Alles door elkaar', 2, ['rechte2','gestrekt3','vol3','over','bis','loodlijn','insp','gelijk'], 8, null, true),
   rekenF: calcCard('Meerdere hoeken tegelijk', 3, ['keten'], 3, 'Bereken alle aangeduide hoeken. Begin met de hoek die je meteen kan berekenen.'),
   rekenG: calcCard('Rekenen met α', 3, ['alfa'], 4, 'Hier staan stukken als 3 · α (3 keer α). Hoeveel keer α past er in de hele hoek?'),
   vraagHoek: vraagCard('Vraagstukken met hoeken', 2, [0,1,2,3], 4),
