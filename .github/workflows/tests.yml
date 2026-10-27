@@ -22,5 +22,9 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.63.0 xlsx@0.18.5
           npx playwright install --with-deps chromium
+      # Carlito is het lettertype van de site (Google Fonts, maar de tests blokkeren die): zonder Carlito tekent de browser met
+      # een breder reservelettertype en lopen de schermhoogtes van de rekenvaardigheden tot 80 px uit.
+      - name: Lettertype Carlito installeren
+        run: sudo apt-get install -y fonts-crosextra-carlito
       - name: Alle tests
         run: test/alles.sh
