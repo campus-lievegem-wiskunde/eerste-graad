@@ -34,6 +34,42 @@ const REEKSEN = [
       const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id);
         return [O.verbeter(q('ex04'), { v:{ xs:'+', x:'3', ys:'−', y:'4' } }), O.verbeter(q('ex04'), { v:{ xs:'−', x:'4', ys:'−', y:'3' } }), O.verbeter(q('ex21'), { v:{ xs:'−', x:'8', ys:'−', y:'7' } }, { answer:[-2, 3] })]; });
       t.check(r[0].codes[0] === 'XY_OMGEWISSELD' && r[0].pts === 0 && r[1].codes[0] === 'TEKEN_Y' && r[1].pts === .5 && r[2].codes[0] === 'VOLGORDE_HOEKPUNTEN' && r[2].pts === .5, 'coördinaten: foutcodes ' + JSON.stringify(r));
+    } },
+  { id:'2a-rv-3-gehele-vermenigvuldigen', url:'2A/rekenvaardigheden/3-gehele-vermenigvuldigen/', blok:'Vermenigvuldigen en delen van gehele getallen', n:30, max:'39',
+    sleutel:{ ex14:{ key:{ m0:1, m1:1, t:1 } }, ex15:{ key:{ b1:1, m0:1, t:1 } }, ex18:{ key:['factor', 'factor', 'factor', 'factor', 'factor', 'factor'] }, ex19:{ key:[1, 1], wrongOp:[9, 9] },
+      ex20:{ expr:'1 + 1', numbers:[1, 1] }, ex21:{ expr:'1 + 1', numbers:[1, 1] }, ex22:{ expr:'1 + 1', numbers:[1, 1] } },
+    async interactie(p, t){
+      const sg = (key, n)=>p.locator(`.rv [data-sg="${key}"]`).nth(n).click().then(()=>p.waitForTimeout(60));
+      /* patroonontdekker (oefenvraag): directe feedback */
+      await t.teken('cells.0.s', '−'); await t.vul('cells.0.n', 2); await t.teken('cells.2.s', '−'); await t.vul('cells.2.n', 2); await p.waitForTimeout(900);
+      t.check(await p.locator('.rv .h3-merk.ok').count() === 1 && await p.locator('.rv .h3-merk.fout').count() === 1 && /Bijna/.test(await p.locator('.rv .h3-fb').textContent()), 'patroonontdekker: directe feedback');
+      /* sprongen: twee sprongen van −3 vanuit 0, één weg */
+      await t.dot(2); const nl = async n=>{ const pt = await p.evaluate(n=>{ const s = document.querySelector('.rv .nl-svg'), m = s.getScreenCTM(); return { x:m.a * (38 + (n + 15) * 924 / 20) + m.e, y:m.d * 150 + m.f }; }, n); await p.mouse.click(pt.x, pt.y); await p.waitForTimeout(120); };
+      await nl(-3); await nl(-6); await nl(-9); await p.locator('.rv .h3-terug').click(); await p.waitForTimeout(100);
+      t.check(/2/.test(await p.locator('.rv .th-paneel .val').textContent()), 'sprongen: aantal sprongen na één weg');
+      /* minnetjes tellen: twee minnetjes verdwijnen samen */
+      await t.dot(4); await sg('main', 0); await sg('main', 1); await p.waitForTimeout(500);
+      t.check(await p.locator('.rv .h3-paar:not(.solo)').count() === 1 && await p.locator('.rv [data-sg="main"]').count() === 0, 'minnetjes tellen: paar gevormd, minnetjes weg');
+      await p.locator('.rv [data-tsign="+"]').click(); await t.teken('res.s', '+'); await t.vul('res.n', 42);
+      /* tweelingsommen: de twee minnen in −8 − 4 mogen niet samen (rood kruisje), − en − in −8 : (−4) wel */
+      await t.dot(22); await sg('0L', 0); await sg('0L', 1); await p.waitForTimeout(300);
+      t.check(await p.locator('.rv .rv-kruis').count() === 2 && /Stop/.test(await p.locator('.rv .h3-twfb.toon').textContent()), 'tweelingsommen: rood kruisje en melding');
+      await p.waitForTimeout(800); await sg('0R', 0); await sg('0R', 1); await p.waitForTimeout(500);
+      t.check(await p.locator('.rv [data-sg="0R"]').count() === 0, 'tweelingsommen: minnetjes bij maal en deel verdwenen');
+      /* tekenparen: − (−5) wordt + 5 */
+      await t.dot(25); await sg('2', 0); await sg('2', 1); await p.waitForTimeout(500);
+      t.check(/7 \+ 5/.test((await p.locator('.rv .h3-prij').nth(2).textContent()).replace(/\s+/g, ' ')), 'tekenparen: − (−5) wordt + 5: ' + (await p.locator('.rv .h3-prij').nth(2).textContent()).replace(/\s+/g, ' '));
+      /* wiskundetaal en piramide */
+      await t.dot(17); await p.locator('.rv [data-woord="deeltal"]').click(); await p.locator('.rv [data-slot="0"]').click(); await p.waitForTimeout(100);
+      t.check((await p.locator('.rv [data-slot="0"]').textContent()) === 'deeltal', 'wiskundetaal: woord geplaatst');
+      await t.dot(13); await t.teken('cells.m0.s', '−'); await t.vul('cells.m0.n', 6);
+      await p.waitForTimeout(1600);
+      const w = await t.antw();
+      t.check(w.ex05.p.length === 1 && w.ex05.sign === '+' && w.ex23.pairs[0].L.x === 1 && w.ex23.pairs[0].R.p.length === 1 && w.ex18.slots[0] === 'deeltal' && w.ex14.cells.m0.n === '6' && w.ex03.jumps.length === 2, 'vermenigvuldigen: antwoorden bewaard');
+      const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id);
+        return [O.verbeter(q('ex07'), { p:[], x:0, sign:'−', res:{ s:'+', n:'32' } }), O.verbeter(q('ex23'), { pairs:[{ L:{ p:[], x:2 }, R:{ p:[], x:0 }, a:{ s:'+', n:'12' }, b:S0() }, { L:{ p:[], x:0 }, R:{ p:[], x:0 }, a:S0(), b:S0() }, { L:{ p:[], x:0 }, R:{ p:[], x:0 }, a:S0(), b:S0() }] })];
+        function S0(){ return { s:null, n:'' }; } });
+      t.check(r[0].pts === .25 && r[0].codes.includes('OPTELREGEL_BIJ_MAAL') && r[1].kruis === 2 && r[1].codes.includes('KRUISJE_PLUSMIN') && r[1].codes.includes('MAALREGEL_BIJ_PLUSMIN'), 'vermenigvuldigen: foutcodes en kruisjes ' + JSON.stringify(r));
     } }
 ];
 

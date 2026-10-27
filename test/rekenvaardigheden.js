@@ -116,7 +116,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   await als(p, 'dashboard/', LK);
   if(CODE){
     await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
-    await p.locator('.opdr-blok', { hasText:'gehele getallen' }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
+    await p.locator('.opdr-blok', { hasText:'Optellen en aftrekken van gehele getallen' }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
     await p.fill('.sl-code', CODE); await p.click('button:has-text("Ontgrendel")'); await p.waitForTimeout(2500);
     check(!!(await db())[`sleutels/${ID}`], 'echte sleutel ontgrendeld met de sleutelcode');
   } else {
@@ -127,7 +127,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
     await p.evaluate(s=>{ const d = JSON.parse(localStorage.getItem('__fakedb')); d['sleutels/' + s.opdr] = s; localStorage.setItem('__fakedb', JSON.stringify(d)); }, { opdr:ID, vragen:v });
     await p.reload(); await p.waitForTimeout(900);
     await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
-    await p.locator('.opdr-blok', { hasText:'gehele getallen' }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
+    await p.locator('.opdr-blok', { hasText:'Optellen en aftrekken van gehele getallen' }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
   }
   const rij = p.locator('table.opdr-tabel tbody tr', { hasText:'Claes' }), cel = i=>rij.locator('td').nth(1 + i);
   const tekst = async i=>(await cel(i).textContent()).trim();

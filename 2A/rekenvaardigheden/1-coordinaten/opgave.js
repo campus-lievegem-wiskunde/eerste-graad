@@ -251,7 +251,7 @@ TYPEN.missing.teken = c=>{
   teken(v);
   c.ant.innerHTML = '<h3>Jouw antwoord</h3><p class="rv-tip">Vul de coördinaat in als <b>(x, y)</b>.</p>' + coVak('v', v.v, 'D') + TIP_CO;
   /* D verschijnt meteen op het rooster */
-  c.ant.addEventListener('input', ()=>teken(c.huidig()));
+  c.ant.oninput = ()=>teken(c.huidig());
 };
 TYPEN.coords.teken = c=>{ werk(c); c.vis.innerHTML = rooster(c.q.p, false);
   c.ant.innerHTML = '<h3>Coördinaten</h3><p class="rv-tip">Noteer de coördinaten van elk hoekpunt.</p>' + Object.keys(c.q.p).map(k=>coVak('pts.' + k, c.v.pts[k], k)).join('') + TIP_CO; };

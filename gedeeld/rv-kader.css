@@ -66,6 +66,27 @@
 .rv-dubbel.weg button:hover{ border-color:var(--border); }
 .rv-teken-wacht{ display:inline-grid; place-items:center; height:2.6rem; width:1.9rem; flex:none; border:2px dashed var(--border); border-radius:.45rem; color:var(--ink-soft); font-weight:900; cursor:help; }
 
+/* tekenparen: elk + en − aanklikbaar (zwart) */
+.rv-uitdr{ white-space:nowrap; font-variant-numeric:tabular-nums; }
+.rv-sp{ display:inline-block; width:.28em; }
+.rv-sg{ position:relative; display:inline-flex; align-items:center; justify-content:center; font:inherit; color:var(--ink); line-height:1.1; min-width:.7em; padding:0 .08em; margin:0; background:transparent; border:2px solid transparent; border-radius:.45rem; cursor:pointer; }
+.rv-sg:hover{ background:var(--or-soft); }
+.rv-sg.kader{ border:2px dashed var(--accent-dark); }
+.rv-sg.sel{ background:var(--tq); border:2px solid var(--tq); }
+.rv-sg:focus-visible{ outline:2px solid var(--orange); outline-offset:1px; }
+.rv-sg.verdwijn{ animation:rv-sg-weg .38s ease-in forwards; }
+.rv-sg.samen{ animation:rv-sg-samen .38s ease-in-out; }
+.rv-sg.pop{ animation:rv-sg-pop .5s ease-out; }
+.rv-sg.fout{ background:#fdecea; border:2px solid #e57373; animation:rv-schud .45s; }
+.rv-kruis{ position:absolute; top:-.55em; right:-.4em; font-style:normal; font-size:.5em; font-weight:900; color:#fff; background:#d32f2f; border-radius:50%; width:1.35em; height:1.35em; display:flex; align-items:center; justify-content:center; }
+@keyframes rv-sg-weg{ to{ transform:scale(.2); opacity:0; } }
+@keyframes rv-sg-samen{ 50%{ transform:scale(1.3); } }
+@keyframes rv-sg-pop{ 0%{ transform:scale(.3); } 70%{ transform:scale(1.25); } 100%{ transform:none; } }
+@keyframes rv-schud{ 20%, 60%{ transform:translateX(-3px); } 40%, 80%{ transform:translateX(3px); } }
+.rv-br{ display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; line-height:1.05; margin:0 .1em; font-size:.82em; }
+.rv-br-t{ border-bottom:2px solid currentColor; padding:0 .15em; }
+.rv-br-n{ padding:0 .15em; }
+
 /* meerkeuze (foutenjager) en vergelijken */
 .rv .keuzes{ display:flex; flex-direction:column; gap:.35rem; }
 .rv .keuze{ text-align:left; background:var(--card); border:1.5px solid var(--border); border-radius:.6rem; color:var(--ink); font:inherit; font-weight:600; line-height:1.3; display:flex; gap:.6rem; align-items:center; padding:.4rem .6rem; cursor:pointer; }

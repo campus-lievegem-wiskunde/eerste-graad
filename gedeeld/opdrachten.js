@@ -7,7 +7,8 @@ export const OPDRACHTEN = [
   /* { id:'1a-t-m1-getallen', titel:'Toets · Inzicht in getallen', kort:'Toets getallen', jaar:'1A', rubriek:'toetsen', pad:'1A/toetsen/m1-getallen/' }
      op:5 = de punten ook omrekenen naar punten op 5 (dat komt op het rapport) */
   { id:'2a-rv-1-coordinaten', titel:'1. Coördinaten op het rooster', kort:'Coördinaten', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/1-coordinaten/', op:5 },
-  { id:'2a-rv-2-gehele-optellen', titel:'2. Optellen en aftrekken van gehele getallen', kort:'Optellen en aftrekken gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/2-gehele-optellen/', op:5 }
+  { id:'2a-rv-2-gehele-optellen', titel:'2. Optellen en aftrekken van gehele getallen', kort:'Optellen en aftrekken gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/2-gehele-optellen/', op:5 },
+  { id:'2a-rv-3-gehele-vermenigvuldigen', titel:'3. Vermenigvuldigen en delen van gehele getallen', kort:'Vermenigvuldigen en delen gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/3-gehele-vermenigvuldigen/', op:5 }
 ];
 /* Wie ziet de rubrieken toetsen, huistaken en rekenvaardigheden en het tabblad in het dashboard?
    'beheerder' = voorlopig enkel beheerders (keuze van Jeroen, 24 oktober 2026; geen toeschouwer, geen collega's, geen leerlingen);
