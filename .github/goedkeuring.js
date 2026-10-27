@@ -1,13 +1,15 @@
 /* Controle "goedkeuring": wie moet een pull request goedkeuren voor ze op main mag?
    Elk bestand heeft een eigenaar. Wijzigt iemand bestanden van een andere eigenaar, dan moet die eigenaar de pull request
    goedkeuren (Approve) op de laatste commit. Wie enkel eigen bestanden wijzigt, mag zelf samenvoegen zodra de tests slagen.
+   Jeroen (STANDAARD) is eigenaar van alles: zijn pull requests hebben nooit een andere goedkeuring nodig; Tom is eigenaar van zijn delen.
    gedeeld/sites.js wordt per site bekeken: het element van een site hoort bij de eigenaar van haar pad.
    Draait met de versie van main (pull_request_target) en voert geen code uit de pull request uit. */
 const EIGENAARS = [
   { wie:'vandaelet', naam:'Tom Van Daele', paden:[
     /^[12][AB]\/(basisgeletterdheid|heuristieken|wiskundige-problemen)\//,
     /^2B\/modules\//,
-    /^test\/wiskundigeproblemen\.js$/,
+    /^2B\/index\.html$/,
+    /^test\/wiskundigeproblemen(2b)?\.js$/,
   ] },
 ];
 const STANDAARD = { wie:'dejaegerjeroen', naam:'Jeroen De Jaeger' };
@@ -53,6 +55,7 @@ function lees(tekst){ if(tekst == null) return []; const m = tekst.match(/export
   for(const [wie, redenen] of nodig){
     const lijst = [...new Set(redenen)]; const kort = lijst.slice(0, 8).join(', ') + (lijst.length > 8 ? ' en ' + (lijst.length - 8) + ' andere' : '');
     if(wie === auteur){ regels.push(`OK   eigen bestanden van ${naam(wie)}: ${kort}`); continue; }
+    if(auteur === STANDAARD.wie){ regels.push(`OK   ${STANDAARD.naam} is eigenaar van alles, ook van de bestanden van ${naam(wie)}: ${kort}`); continue; }
     const r = laatste.get(wie);
     if(r && r.state === 'APPROVED' && r.commit_id === sha) regels.push(`OK   goedgekeurd door ${naam(wie)} (@${wie}): ${kort}`);
     else { ontbreekt.push(wie); regels.push(`NODIG goedkeuring van ${naam(wie)} (@${wie})` + (r && r.state === 'APPROVED' ? ' (opnieuw: er kwam een commit bij na de goedkeuring)' : '') + `: ${kort}`); }
