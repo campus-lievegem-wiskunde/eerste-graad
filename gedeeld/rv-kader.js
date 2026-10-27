@@ -3,7 +3,7 @@
      OPGAVE.invullen = opts => RV.maak(OPGAVE, TYPEN, opts);   (opts van gedeeld/opdracht.js: { antw, onInput(id, tekst) })
    Elke vraag in OPGAVE.delen: { id, type:'eigen', soort, punten, vraag:html (opdrachtzin), ... }; de titel van het deel is de badge.
    TYPEN[soort] = { leeg(q) → beginwaarde, volledig(q, v), uitleg(q) → html, teken(c) }
-     c = { q, v (kopie van de waarde), vis, ant (de twee vakken), bewaar(v), teken() (opnieuw tekenen), ui (tijdelijke toestand), bezig(b) }
+     c = { q, v (kopie van de waarde), vis, ant (de twee vakken), bewaar(v), teken() (opnieuw tekenen), ui (tijdelijke toestand), bezig(b), huidig() (de waarde nu) }
    Een antwoord wordt bewaard als JSON-tekst (Firestore weigert lijsten in lijsten): antw[id] = '{"start":-12,...}'.
    Invulvakken: RV.getal(pad, waarde, soort) en het tekenvak RV.teken(pad, waarde) (+ boven, − onder) werken vanzelf via data-pad.
    Een dubbel teken in de opgave: RV.dubbel(pad, buiten, binnen, getal, weg); beide tekens aanklikken zet { sign, weg } op pad. */
@@ -78,7 +78,7 @@
       $('.rv-badge').textContent = q.blok || ''; $('.rv-nr').textContent = `Oefening ${i + 1} van ${N}`;
       $('.rv-titel').innerHTML = begrippen(opg, q.vraag); $('.rv-uitleg').innerHTML = begrippen(opg, T.uitleg ? T.uitleg(q) : '');
       root.dataset.soort = q.soort; $('.rv-werk').className = 'rv-werk'; vis.innerHTML = ''; ant.innerHTML = '';
-      const c = { q, v:waarde(q), vis, ant, ui, root, bewaar:v=>bewaar(q, v), teken, bezig:b=>{ bezig = b; }, nogHier:()=>vragen[i] === q };
+      const c = { q, v:waarde(q), vis, ant, ui, root, bewaar:v=>bewaar(q, v), teken, bezig:b=>{ bezig = b; }, nogHier:()=>vragen[i] === q, huidig:()=>waarde(q) };
       T.teken(c); bind(c);
       $('.rv-vorige').disabled = i === 0;
       const laatste = i === N - 1, vb = $('.rv-volgende'); vb.textContent = laatste ? 'Klaar: indienen ↓' : 'Volgende →';
