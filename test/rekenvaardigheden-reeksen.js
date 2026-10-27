@@ -183,6 +183,53 @@ const REEKSEN = [
       t.check(r[0].pts === 0 && r[0].codes.includes('FOUTENJAGER') && r[0].codes.includes('NOEMER_BEHOUDEN') && r[1].pts === .5 && r[1].codes.includes('NIET_OMGEKEERD')
         && r[2].codes.includes('TEKENREGEL') && r[2].codes.includes('NIET_EERST_DELEN') && r[2].codes.includes('NIET_GESCHRAPT'), 'vermenigvuldigen: foutcodes ' + JSON.stringify(r));
     } }
+  ,
+  { id:'2a-rv-6-machten-wortels', url:'2A/rekenvaardigheden/6-machten-wortels/', blok:'Machten en vierkantswortels', n:30, max:'49,5',
+    sleutel:{ ex28:{ good:'a' }, ex29:{ good:'a' }, ex30:{ good:'a' } },
+    async interactie(p, t){
+      const klik = (s, n = 0)=>p.locator('.rv ' + s).nth(n).click().then(()=>p.waitForTimeout(90));
+      const tekst = s=>p.locator('.rv ' + s).first().textContent().then(x=>x.replace(/\s+/g, ''));
+      /* 5²: een rij van 5 bouwen, vastzetten, 5 rijen, vastzetten → de vakjes worden genummerd tot 25 */
+      for(let i = 0; i < 5; i++) await klik('[data-bld="a"][data-d="1"]');
+      await klik('[data-lock="ra"]'); for(let i = 0; i < 4; i++) await klik('[data-bld="r"][data-d="1"]'); await klik('[data-lock="rr"]');
+      await p.waitForTimeout(2000);
+      t.check(await tekst('.h6-btel b') === '25' && await p.locator('.rv .h6-gn.aan').count() === 25, 'bouwen: vierkant 5 bij 5, de vakjes genummerd tot ' + await tekst('.h6-btel b'));
+      await t.vul('n', 2); await p.waitForTimeout(150);
+      t.check(await tekst('.h6-keten') === '5⋅5' && await p.locator('.rv input[data-pad="n"]').evaluate(e=>e === document.activeElement), 'macht: herhaalde vermenigvuldiging 5 ⋅ 5, het vak houdt de focus');
+      await t.teken('res.s', '+'); await t.vul('res.n', 25);
+      /* (−3)³: twee minnen aanklikken, samen verdwijnen ze */
+      await t.dot(2); await t.vul('n', 3); await p.waitForTimeout(150);
+      t.check(await p.locator('.rv .h6-keten .rv-sg').count() === 3, 'minnen: drie minnen aanklikbaar');
+      await klik('.h6-keten .rv-sg', 0); await klik('.h6-keten .rv-sg', 1); await p.waitForTimeout(600);
+      t.check(await p.locator('.rv .h6-keten .rv-sg').count() === 1 && /^3⋅3⋅\(−3\)$/.test(await tekst('.h6-keten')), 'minnen: twee minnen samen weg: ' + await tekst('.h6-keten'));
+      /* haakjes of niet: het verkeerde grondtal kiezen toont de gevolgen */
+      await t.dot(7); await klik('[data-gp="0"][data-g="p"]');
+      t.check(await tekst('.h6-twkaart .h6-keten') === '−(3⋅3)', 'haakjes of niet: grondtal 3 bij (−3)² geeft −(3 ⋅ 3)');
+      /* macht van een breuk: teller maal teller, noemer maal noemer, kan niet eenvoudiger */
+      await t.dot(10); await t.vul('n', 3); await t.teken('s0', '+'); await t.teken('res.s1', '+'); await t.vul('res.t', 1); await t.vul('res.n', 1000);
+      await klik('[data-schniet="sch"]');
+      t.check(await p.locator('.rv .h6-prod .br-t').textContent() === '1 ⋅ 1 ⋅ 1' && await p.locator('.rv [data-schniet="sch"].aan').count() === 1, 'breuk: 1 ⋅ 1 ⋅ 1 over 10 ⋅ 10 ⋅ 10, kan niet eenvoudiger');
+      /* kommagetal: de komma schuift op zijn plaats */
+      await t.dot(14); await t.vul('n', 2); await t.vul('i', 9); await t.vul('cnt', 2); await p.waitForTimeout(1100);
+      t.check(await tekst('.h6-dres') === '0,09', 'kommagetal: (0,3)² = 0,09: ' + await tekst('.h6-dres'));
+      /* vierkantswortel: de zijde zoeken */
+      await t.dot(16); for(let i = 0; i < 3; i++) await klik('[data-side="1"]');
+      t.check(await tekst('.h6-nval') === '4' && await p.locator('.rv .h6-gn').count() === 16, 'wortel: vierkant met zijde 4 en 16 genummerde vakjes');
+      await t.dot(22); await t.vul('x', '0,5'); await p.waitForTimeout(100);
+      t.check(await tekst('.h6-spiegel') === '0,5', 'wortel van een kommagetal: het getal staat ook in de tweede factor');
+      await t.dot(27); await klik('[data-opt="b"]');
+      await p.waitForTimeout(1600);
+      const w = await t.antw();
+      t.check(w.ex01.bld.num && w.ex01.n === '2' && w.ex01.res.n === '25' && w.ex03.mp.p.length === 1 && w.ex08.parts[0].g === 'p' && w.ex11.sch.mode === 'skip'
+        && w.ex15.cnt === '2' && w.ex17.side === 4 && w.ex23.x === '0,5' && w.ex28.choice === 'b', 'machten en wortels: antwoorden bewaard');
+      const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id);
+        return [O.verbeter(q('ex03'), { n:'3', mp:{ p:[], x:0 }, res:{ s:'+', n:'27' } }),
+          O.verbeter(q('ex02'), { bld:{ a:7, ra:true, r:7, rr:true, l:1, ll:false, num:true }, n:'2', mp:{ p:[], x:0 }, res:{ s:'+', n:'49' } }),
+          O.verbeter(q('ex17'), { side:1, res:'8' }), O.verbeter(q('ex30'), { choice:'c', res:{ s:'+', n:'7' } }, { good:'b' })]; });
+      t.check(r[0].pts === .5 && r[0].codes.includes('BOUW_FOUT') && r[0].codes.includes('MINNEN_NIET_GEPAARD') && r[0].codes.includes('TEKEN_MACHT')
+        && r[1].pts === 1 && r[1].codes.includes('HAAKJES') && r[2].pts === 0 && r[2].codes.includes('WORTEL_HELFT') && r[2].codes.includes('ZIJDE_NIET_GEZOCHT')
+        && r[3].pts === 0 && r[3].codes.includes('FOUTENJAGER') && r[3].codes.includes('WORTEL_SOM'), 'machten: foutcodes ' + JSON.stringify(r));
+    } }
 ];
 
 (async()=>{
