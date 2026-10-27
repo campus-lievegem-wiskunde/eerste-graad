@@ -5953,15 +5953,15 @@ function liniaal(a, b) {
   return fig('0 0 ' + (X(10) + 30) + ' 112', s, 'Liniaal in cm met mm-streepjes en het lijnstuk AB erboven.');
 }
 
-/* blokkenbouwsels: h[r][c] = hoogte (r = 0 vooraan) */
+/* blokkenbouwsels: h[r][c] = hoogte (r = 0 vooraan); kleuren zoals op het hele portaal: voorkant geel, bovenkant rood, rechterzijkant blauw */
 function bouwFig(h) {
   const s0 = 34, dx = 17, dy = -14, R0 = h.length, C0 = h[0].length; let s = '';
   const ox = 20, oy = 40 + (Math.max.apply(null, h.map(r => Math.max.apply(null, r)))) * s0 + R0 * -dy;
   for (let r = R0 - 1; r >= 0; r--) for (let c = 0; c < C0; c++) for (let k = 0; k < h[r][c]; k++) {
     const x = ox + c * s0 + r * dx, y = oy - k * s0 + r * dy;
-    s += '<polygon points="' + [[x, y], [x + s0, y], [x + s0, y - s0], [x, y - s0]].map(pt2).join(' ') + '" fill="#9fdcde" stroke="var(--inkt)" stroke-width="1.5"/>';
-    s += '<polygon points="' + [[x, y - s0], [x + s0, y - s0], [x + s0 + dx, y - s0 + dy], [x + dx, y - s0 + dy]].map(pt2).join(' ') + '" fill="#e6f6f6" stroke="var(--inkt)" stroke-width="1.5"/>';
-    s += '<polygon points="' + [[x + s0, y], [x + s0 + dx, y + dy], [x + s0 + dx, y - s0 + dy], [x + s0, y - s0]].map(pt2).join(' ') + '" fill="#5fb9bc" stroke="var(--inkt)" stroke-width="1.5"/>';
+    s += '<polygon points="' + [[x, y], [x + s0, y], [x + s0, y - s0], [x, y - s0]].map(pt2).join(' ') + '" fill="#f6c945" stroke="var(--inkt)" stroke-width="1.5"/>';
+    s += '<polygon points="' + [[x, y - s0], [x + s0, y - s0], [x + s0 + dx, y - s0 + dy], [x + dx, y - s0 + dy]].map(pt2).join(' ') + '" fill="#e2574c" stroke="var(--inkt)" stroke-width="1.5"/>';
+    s += '<polygon points="' + [[x + s0, y], [x + s0 + dx, y + dy], [x + s0 + dx, y - s0 + dy], [x + s0, y - s0]].map(pt2).join(' ') + '" fill="#4fb3d9" stroke="var(--inkt)" stroke-width="1.5"/>';
   }
   s += tekst([ox + C0 * s0 / 2, oy + 26], 'vooraan');
   return fig('0 0 ' + (ox + C0 * s0 + R0 * dx + 24) + ' ' + (oy + 34), s, 'Bouwsel van kubusjes in perspectief.');
