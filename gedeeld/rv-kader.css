@@ -3,6 +3,7 @@
   font-family:var(--f-body); border:2px solid var(--tq); border-radius:1rem; background:var(--card); color:var(--ink); scroll-margin-top:8px; }
 .rv h3{ margin:0 0 .3rem; font-size:1.02rem; }
 .rv h3 ~ h3{ margin-top:.7rem; }
+.rv h3.rv-inline{ margin:0; }
 .rv-balk{ display:flex; align-items:center; gap:1rem; padding:.55rem 1rem; border-bottom:1.5px solid var(--border); }
 .rv-dots{ display:flex; gap:5px; flex-wrap:wrap; align-items:center; flex:1; }
 .rv-dot{ width:13px; height:13px; border-radius:50%; background:var(--border); border:0; padding:0; cursor:pointer; flex:none; }
@@ -52,6 +53,18 @@
 .rv-teken button[aria-pressed="true"]{ background:var(--tq); color:var(--ink); }
 .rv-teken button:focus-visible{ outline:2px solid var(--orange); outline-offset:-2px; }
 .rv-teken.gekozen button[aria-pressed="false"]{ color:var(--border); }
+.rv-teken.plus-weg button[data-w="+"]{ color:transparent; background:transparent; }
+.rv-teken.plus-weg.net button[data-w="+"]{ animation:rv-plus-weg 1.2s ease-in forwards; }
+@keyframes rv-plus-weg{ 0%, 45%{ color:var(--ink); background:var(--tq); } 100%{ color:transparent; background:transparent; } }
+/* dubbel teken in de opgave: beide tekens aanklikken */
+.rv-dubbel{ white-space:nowrap; }
+.rv-dubbel button{ font:inherit; font-weight:900; color:var(--ink); background:var(--card); border:2px dashed var(--accent-dark); border-radius:.4rem; padding:0 .18em; margin:0 .04em; line-height:1.15; cursor:pointer; }
+.rv-dubbel button:hover{ border-color:var(--orange); background:var(--or-soft); }
+.rv-dubbel button.aan{ background:var(--tq); border:2px solid var(--tq); }
+.rv-dubbel button:focus-visible{ outline:2px solid var(--orange); outline-offset:1px; }
+.rv-dubbel.weg button{ border:2px solid transparent; background:var(--zone-bg); color:var(--ink-soft); }
+.rv-dubbel.weg button:hover{ border-color:var(--border); }
+.rv-teken-wacht{ display:inline-grid; place-items:center; height:2.6rem; width:1.9rem; flex:none; border:2px dashed var(--border); border-radius:.45rem; color:var(--ink-soft); font-weight:900; cursor:help; }
 
 /* meerkeuze (foutenjager) en vergelijken */
 .rv .keuzes{ display:flex; flex-direction:column; gap:.35rem; }

@@ -42,8 +42,8 @@ const UITLEG = {
   numberline:'① Klik het startgetal aan. ② Klik waar je na de sprong uitkomt. ③ Noteer de uitkomst.',
   armiesFight:'Een min-leger en een plus-leger: elk minsoldaatje en elk plussoldaatje die elkaar tegenkomen, schakelen elkaar uit. Wie blijft er over?',
   armiesMerge:'Twee legers met hetzelfde teken vechten niet: ze voegen zich samen tot één groot leger.',
-  armiesDouble:'Werk eerst het dubbele teken weg. Stel daarna de legertjes op.',
-  steps:'Gebruik het stappenplan. Noteer elke tussenstap. Kies voor elk getal het teken in het vakje ervoor.',
+  armiesDouble:'Werk eerst het dubbele teken weg: klik de twee tekens aan. Stel daarna de legertjes op.',
+  steps:'Gebruik het stappenplan. Noteer elke tussenstap. Kies voor elk getal het teken in het vakje ervoor. Een dubbel teken werk je weg door in de opgave de twee tekens aan te klikken.',
   compare:'Kies telkens het juiste teken. Je mag eerst in je schrift rekenen.',
   context:'Noteer eerst de bewerking. Vul daarna de uitkomst in.',
   errorhunt:'Kies wat er fout ging en noteer de juiste uitkomst.'
@@ -202,7 +202,7 @@ const uitAf = v => v.resSign != null && nat(v.res) != null;
 const bewerkingOk = s => { const t = String(s || '').trim(); if(!t || !/^[\d\s+\-−–()=,.€°Cc]+$/.test(t)) return false; return (t.match(/\d+/g) || []).length >= 2 && /[+\-−–]/.test(t.replace(/^\s*[\-−–]/, '')); };
 const VOLLEDIG = {
   numberline:(q, v)=>v.start != null && v.end != null && uitAf(v),
-  armies:(q, v)=>v.a > 0 && v.b > 0 && v.fought && uitAf(v),
+  armies:(q, v)=>(!q.doubleSign || !!(v.dub && v.dub.weg)) && v.a > 0 && v.b > 0 && v.fought && uitAf(v),
   steps:(q, v)=>v.s1.every(t=>t.sign && nat(t.n) != null) && (!q.collect || (nat(v.plus) != null && nat(v.min) != null)) && uitAf(v),
   compare:(q, v)=>v.c.every(x=>!!x),
   context:(q, v)=>(q.visual !== 'thermo' || v.temp != null) && bewerkingOk(v.bew) && uitAf(v),
@@ -210,8 +210,8 @@ const VOLLEDIG = {
 };
 const LEEG = {
   numberline:()=>({ start:null, end:null, res:'', resSign:null }),
-  armies:()=>({ a:0, b:0, fought:false, res:'', resSign:null }),
-  steps:q=>Object.assign({ s1:Array.from({ length:q.n }, ()=>({ sign:null, n:'' })), res:'', resSign:null }, q.collect ? { plus:'', min:'' } : {}),
+  armies:q=>Object.assign({ a:0, b:0, fought:false, res:'', resSign:null }, q.doubleSign ? { dub:{ sign:null, weg:false } } : {}),
+  steps:q=>Object.assign({ s1:termen(q.expr).terms.map(t=>t.double ? { sign:null, n:'', weg:false } : { sign:null, n:'' }), res:'', resSign:null }, q.collect ? { plus:'', min:'' } : {}),
   compare:q=>({ c:q.items.map(()=>null) }),
   context:q=>Object.assign(q.visual === 'thermo' ? { temp:null } : {}, { bew:'', res:'', resSign:null }),
   errorhunt:()=>({ choice:null, res:'', resSign:null })
@@ -318,7 +318,7 @@ function toon(q, a, modus, k){
     case 'steps': {
       const P = termen(q.expr);
       const s1 = sl ? P.terms.map(t=>({ sign:t.t < 0 ? '−' : '+', n:Math.abs(t.t) })) : v.s1;
-      const r1 = blanco ? leeg : s1.map(t=>`${teken(t.sign)} ${t.n === '' || t.n == null ? '…' : esc(t.n)}`).join(' ');
+      const r1 = blanco ? leeg : s1.map((t, i)=>`${i === 0 && t.sign === '+' ? '' : teken(t.sign) + ' '}${t.n === '' || t.n == null ? '…' : esc(t.n)}`).join(' ');
       let h = lijn('', uitdr(q.expr)) + lijn('=', r1);
       if(q.collect){ const pl = P.terms.filter(t=>t.t > 0).reduce((a, t)=>a + t.t, 0), mi = -P.terms.filter(t=>t.t < 0).reduce((a, t)=>a + t.t, 0);
         h += lijn('=', blanco ? leeg : sl ? `+ ${pl} − ${mi}` : `+ ${w(v.plus)} − ${w(v.min)}`); }
@@ -377,7 +377,7 @@ TYPEN.numberline.teken = c=>{
 };
 
 TYPEN.armies.teken = c=>{
-  const { q, v, ui } = c, RV = window.RV, merge = samen(q), cnt = [v.a, v.b], anim = ui.legerAnim, lock = v.fought || anim, klein = v.a + v.b > 36, MAX = 30;
+  const { q, v, ui } = c, RV = window.RV, merge = samen(q), cnt = [v.a, v.b], anim = ui.legerAnim, wacht = q.doubleSign && !(v.dub && v.dub.weg), lock = v.fought || anim || wacht, klein = v.a + v.b > 36, MAX = 30;
   const troepen = (soort, n, gevallen, extra) => !n ? '<div class="leeg-kamp">Klik hier om soldaatjes<br>toe te voegen</div>'
     : Array.from({ length:n }, (_, i)=>`<span class="soldaat${klein ? ' klein' : ''}${i < gevallen ? ' dood' : ''}${extra || ''}">${soldaat(soort)}</span>`).join('');
   if(merge && v.fought){
@@ -394,10 +394,15 @@ TYPEN.armies.teken = c=>{
     return `<div class="legerrij ${s}"><span class="lbl">${LEGERIC[s]} ${LEGER[s]}</span><span class="aantal">${n}</span>
       <button type="button" data-leger="${idx}" data-d="1"${lock || n >= MAX ? ' disabled' : ''}>1 erbij</button><button type="button" data-leger="${idx}" data-d="5"${lock || n > MAX - 5 ? ' disabled' : ''}>5 erbij</button><button type="button" data-leger="${idx}" data-d="-1"${lock || n <= 0 ? ' disabled' : ''}>1 weg</button></div>`; };
   const actie = merge ? '🤝 Samenvoegen!' : '⚔️ Ten aanval!';
-  c.ant.innerHTML = `<h3>① Stel je legers op</h3><p class="rv-tip">${q.doubleSign ? 'Werk eerst het dubbele teken weg. Zet dan in elk vak het juiste aantal soldaatjes.' : 'Zet in elk vak het juiste aantal soldaatjes.'}</p>${rij(0)}${rij(1)}`
-    + (v.fought ? '<button type="button" class="btn ghost rv-breed opnieuw">↺ Legers opnieuw opstellen</button>' : `<button type="button" class="btn rv-breed aanval"${v.a === 0 || v.b === 0 || anim ? ' disabled' : ''}>${actie}</button>`)
-    + `<p class="rv-tip">${v.fought ? (merge ? 'De legers zijn samengevoegd. Hoeveel soldaatjes telt het leger nu?' : 'Het gevecht is voorbij. Tel de soldaatjes die overblijven.') : `Klik op ${actie.slice(3)} als je legers klaarstaan.`}</p>`
-    + `<h3>② Noteer de uitkomst</h3><div class="rv-rij"><span class="rv-wisk">${uitdr(q.expr)} =</span>${RV.uitkomst(v)}</div>${RV.tekenTip}`;
+  let nr = 0; const cirkel = () => '①②③'[nr++];
+  const dub = q.doubleSign ? (()=>{ const P = termen(q.expr), t0 = P.terms[0], t1 = P.terms[1], op = t1.op === '-' ? '−' : '+';
+    const nieuw = v.dub.weg ? ` <span class="rv-op">=</span> ${esc(fmt(t0.t))} <span class="rv-op">${v.dub.sign}</span> ${Math.abs(t1.lit)}` : '';
+    return `<div class="rv-rij"><h3 class="rv-inline">${cirkel()} Dubbel teken wegwerken:</h3><span class="rv-wisk">${esc(fmt(t0.t))} ${RV.dubbel('dub', op, t1.lit < 0 ? '−' : '+', Math.abs(t1.lit), v.dub.weg)}${nieuw}</span></div>`
+      + (v.dub.weg ? '' : `<p class="rv-tip">${RV.dubbelTip}</p>`); })() : '';
+  c.ant.innerHTML = dub + `<h3>${cirkel()} Stel je legers op</h3>${q.doubleSign && !wacht ? '' : `<p class="rv-tip">${wacht ? 'Werk eerst het dubbele teken weg.' : 'Zet in elk vak het juiste aantal soldaatjes.'}</p>`}${rij(0)}${rij(1)}`
+    + (v.fought ? '<button type="button" class="btn ghost rv-breed opnieuw">↺ Legers opnieuw opstellen</button>' : `<button type="button" class="btn rv-breed aanval"${v.a === 0 || v.b === 0 || anim || wacht ? ' disabled' : ''}>${actie}</button>`)
+    + (q.doubleSign && !v.fought ? '' : `<p class="rv-tip">${v.fought ? (merge ? 'De legers zijn samengevoegd. Hoeveel soldaatjes telt het leger nu?' : 'Het gevecht is voorbij. Tel de soldaatjes die overblijven.') : `Klik op ${actie.slice(3)} als je legers klaarstaan.`}</p>`)
+    + `<h3>${cirkel()} Noteer de uitkomst</h3><div class="rv-rij"><span class="rv-wisk">${uitdr(q.expr)} =</span>${RV.uitkomst(v)}</div>${RV.tekenTip}`;
   const wijzig = (idx, d)=>{ const w = RV.kopie(v), key = idx ? 'b' : 'a', voor = w[key]; w[key] = Math.max(0, Math.min(MAX, w[key] + d)); if(w[key] === voor) return;
     w.fought = false; c.bewaar(w); c.teken();
     if(d > 0){ const s = c.vis.querySelectorAll(`.t${idx} .soldaat`); for(let i = Math.max(0, s.length - d); i < s.length; i++) s[i].classList.add('erbij'); } };
@@ -430,12 +435,17 @@ TYPEN.steps.teken = c=>{
   const plan = q.collect ? ['Stap 1 · dubbele tekens wegwerken', 'Stap 2 · plustermen en mintermen samennemen', 'Stap 3 · uitrekenen'] : ['Stap 1 · dubbele tekens wegwerken', 'Stap 2 · uitrekenen'];
   c.root.querySelector('.rv-werk').classList.add('stapel');
   c.vis.innerHTML = '<div class="plan">' + plan.map(p=>`<span>${p}</span>`).join('') + '</div>';
-  const term = v.s1.map((t, i)=>`<span class="rv-term">${RV.teken(`s1.${i}.sign`, t.sign, `teken van term ${i + 1}`)}${RV.getal(`s1.${i}.n`, t.n, 'nat', '', `getal van term ${i + 1}`)}</span>`).join('');
+  const P = termen(q.expr), dubbel = P.terms.some(t=>t.double);
+  const orig = P.terms.map((t, i)=>i === 0 ? esc(fmt(t.lit)) : !t.double ? ` <span class="rv-op">${t.op === '-' ? '−' : '+'}</span> ${t.lit}`
+    : ' ' + RV.dubbel(`s1.${i}`, t.op === '-' ? '−' : '+', t.lit < 0 ? '−' : '+', Math.abs(t.lit), v.s1[i].weg)).join('');
+  const tekenvak = (t, i) => !P.terms[i].double ? RV.teken(`s1.${i}.sign`, t.sign, `teken van term ${i + 1}`, i === 0)
+    : t.weg ? `<span class="vast-teken" title="uit het dubbele teken">${esc(t.sign)}</span>` : '<span class="rv-teken-wacht" title="Klik eerst in de opgave de twee tekens van het dubbele teken aan">?</span>';
+  const term = v.s1.map((t, i)=>`<span class="rv-term">${tekenvak(t, i)}${RV.getal(`s1.${i}.n`, t.n, 'nat', '', `getal van term ${i + 1}`)}</span>`).join('');
   const rij2 = q.collect ? `<div class="srij"><span class="gelijk">=</span><div class="termen"><span class="rv-term"><span class="vast-teken">+</span>${RV.getal('plus', v.plus, 'nat', '', 'som van de plustermen')}</span><span class="rv-term"><span class="vast-teken">−</span>${RV.getal('min', v.min, 'nat', '', 'som van de mintermen')}</span></div><span class="stapnaam">Stap 2</span></div>` : '';
-  c.ant.innerHTML = `<div class="schrift"><div class="srij"><span></span><span class="orig">${uitdr(q.expr)}</span><span></span></div>
+  c.ant.innerHTML = `<div class="schrift"><div class="srij"><span></span><span class="orig">${orig}</span><span></span></div>
     <div class="srij"><span class="gelijk">=</span><div class="termen">${term}</div><span class="stapnaam">Stap 1</span></div>${rij2}
     <div class="srij"><span class="gelijk">=</span><div class="termen">${RV.uitkomst(v)}</div><span class="stapnaam">Stap ${q.collect ? 3 : 2}</span></div></div>
-    <p class="rv-tip">Stap 1: kies voor elk getal het teken (<b>+</b> of <b>−</b>) en schrijf het getal <b>zonder</b> teken ernaast. ${q.collect ? 'Stap 2: tel alle plustermen samen en alle mintermen samen. Stap 3: reken uit.' : 'Stap 2: reken uit.'} Kies ook het toestandsteken van je uitkomst.</p>`;
+    <p class="rv-tip">${dubbel ? RV.dubbelTip + ' ' : ''}Stap 1: kies voor elk getal het teken (<b>+</b> of <b>−</b>) en schrijf het getal <b>zonder</b> teken ernaast. ${q.collect ? 'Stap 2: tel alle plustermen samen en alle mintermen samen. Stap 3: reken uit.' : 'Stap 2: reken uit.'} Kies ook het toestandsteken van je uitkomst.</p>`;
 };
 
 TYPEN.compare.teken = c=>{

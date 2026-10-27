@@ -35,6 +35,12 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   const past = async n=>{ await rv.evaluate(e=>e.scrollIntoView({ block:'start' })); const h = await rv.evaluate(e=>e.getBoundingClientRect().height); check(h <= 600, `${n}: past op het scherm boven de balk Indienen (${Math.round(h)} px)`); };
   const teken = (pad, w)=>p.locator(`.rv [data-teken="${pad}"] [data-w="${w}"]`).click().then(()=>p.waitForTimeout(80));
   const vul = (pad, w)=>p.locator(`.rv input[data-pad="${pad}"]`).fill(String(w));
+  /* term i van stap 1: een dubbel teken werk je weg in de opgave (beide tekens aanklikken), anders kies je het teken */
+  const term = async (i, sg, n)=>{ const d = p.locator(`.rv [data-dubbel="s1.${i}"]`);
+    if(await d.count()){ await d.locator('[data-k="0"]').click(); await d.locator('[data-k="1"]').click(); await p.waitForTimeout(80);
+      check((await p.locator(`.rv [data-pad="s1.${i}.n"]`).locator('xpath=preceding-sibling::span[1]').textContent()).trim() === sg, `dubbel teken van term ${i + 1} wordt ${sg}`); }
+    else await teken(`s1.${i}.sign`, sg);
+    await vul(`s1.${i}.n`, n); };
 
   /* getallenas: −12 − 19 */
   const svgKlik = async n=>{ await rv.evaluate(e=>e.scrollIntoView({ block:'start' })); const pt = await p.evaluate(n=>{ const svg = document.querySelector('.rv .nl-svg'), m = svg.getScreenCTM(); return { x:m.a * (38 + (n + 40) * 924 / 50) + m.e, y:m.d * 150 + m.f }; }, n); await p.mouse.click(pt.x, pt.y); await p.waitForTimeout(150); };
@@ -51,19 +57,31 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   check(/over/.test(await p.locator('.rv .kamp').first().textContent()), 'legertjes: gevecht uitgevoerd');
   await teken('resSign', '+'); await vul('res', 4);
   await past('legertjes'); await shot(p, '2_leerling_legertjes');
+  /* 19 − (−8): eerst het dubbele teken wegwerken, dan pas de legers opstellen */
+  await dot(11);
+  check(await p.locator('.rv [data-leger="0"][data-d="1"]').isDisabled(), 'legertjes met dubbel teken: legers wachten op het wegwerken');
+  await p.locator('.rv [data-dubbel="dub"] [data-k="1"]').click(); await p.locator('.rv [data-dubbel="dub"] [data-k="0"]').click(); await p.waitForTimeout(100);
+  check(/19 \+ 8/.test(await p.locator('.rv .rv-ant').textContent()) && !(await p.locator('.rv [data-leger="0"][data-d="1"]').isDisabled()), 'legertjes: − (−8) wordt + 8, legers vrij');
+  await past('legertjes met dubbel teken'); await p.locator('.rv-wis').click(); await p.waitForTimeout(100);
   /* 9 − 15 met een fout teken */
   await dot(6); await teken('resSign', '+'); await vul('res', 6);
 
   /* stappenplan: −9 + (−6) en 7 − (−5) met een fout dubbel teken */
-  await dot(13); await teken('s1.0.sign', '−'); await vul('s1.0.n', 9); await teken('s1.1.sign', '−'); await vul('s1.1.n', 6); await teken('resSign', '−'); await vul('res', 15);
+  await dot(13);
+  check(await p.locator('.rv [data-pad="s1.1.n"]').locator('xpath=preceding-sibling::span[1]').getAttribute('class') === 'rv-teken-wacht', 'stappenplan: tekenvak wacht tot het dubbele teken weggewerkt is');
+  await term(0, '−', 9); await term(1, '−', 6); await teken('resSign', '−'); await vul('res', 15);
   await past('stappenplan'); await shot(p, '3_leerling_stappenplan');
-  await dot(16); await teken('s1.0.sign', '+'); await vul('s1.0.n', 7); await teken('s1.1.sign', '−'); await vul('s1.1.n', 5); await teken('resSign', '+'); await vul('res', 2);
+  /* 7 − (−5): dubbel teken weggewerkt, maar 3 overgeschreven in plaats van 5, daarna juist verder gerekend (doorwerkfout) */
+  await dot(16); await term(0, '+', 7);
+  check(await p.locator('.rv [data-teken="s1.0.sign"].plus-weg').count() === 1, 'een + vooraan verdwijnt na het aanklikken');
+  await term(1, '+', 3); await teken('resSign', '+'); await vul('res', 10);
+  check(/7 − \(−5\)/.test(await p.locator('.rv .orig').textContent()) && await p.locator('.rv .rv-dubbel.weg').count() === 1, 'opgave toont het weggewerkte dubbele teken');
 
   /* vergelijken */
   await dot(19); for(const [i, s] of [[0, '>'], [1, '='], [2, '<']]) await p.locator(`.rv [data-vgl="${i}"][data-s="${s}"]`).click();
   await past('vergelijken');
   /* gedurige som met 6 termen */
-  await dot(23); for(const [i, s, n] of [[0, '+', 15], [1, '+', 9], [2, '−', 21], [3, '−', 14], [4, '−', 3], [5, '+', 6]]){ await teken(`s1.${i}.sign`, s); await vul(`s1.${i}.n`, n); }
+  await dot(23); for(const [i, s, n] of [[0, '+', 15], [1, '+', 9], [2, '−', 21], [3, '−', 14], [4, '−', 3], [5, '+', 6]]) await term(i, s, n);
   await vul('plus', 30); await vul('min', 38); await teken('resSign', '−'); await vul('res', 8);
   await past('gedurige som'); await shot(p, '4_leerling_gedurige_som');
 
