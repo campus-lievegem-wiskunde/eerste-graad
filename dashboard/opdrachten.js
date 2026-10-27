@@ -152,8 +152,8 @@ async function resultaten(pane, g, o){
       const td0 = el('td'); td0.append(nb); tr.append(td0, el('td', '', statusVan(e)));
       const b = I.get(e) ? ber(e) : null, hand = new Set((R.get(e) || {}).hand || []);
       vragen.forEach(q=>{ const v = b && b.per[q.id], p = v && v.p, mx = q.punten || 1;
-        const td = el('td', 'sc ' + (!b ? 's0' : p == null ? 's2' : p >= mx ? 's4' : p > 0 ? 's3' : 's1') + (hand.has(q.id) ? ' hand' : ''), !b ? '·' : p == null ? '?' : komma(p) + (v.kruis ? '<sup class="kruis">✗' + v.kruis + '</sup>' : ''));
-        if(v && (v.codes || v.kruis)) td.title = [...(v.codes || []).map(c=>((opg.codes || {})[c] || {}).label || c), v.kruis ? `${v.kruis} rood kruisje${v.kruis > 1 ? 's' : ''} tijdens het maken` : ''].filter(Boolean).join(' · ');
+        const td = el('td', 'sc ' + (!b ? 's0' : p == null ? 's2' : p >= mx ? 's4' : p > 0 ? 's3' : 's1') + (hand.has(q.id) ? ' hand' : ''), !b ? '·' : p == null ? '?' : komma(p));
+        if(v && v.codes && v.codes.length) td.title = v.codes.map(c=>((opg.codes || {})[c] || {}).label || c).join(' · ');
         tr.append(td); });
       tr.append(el('td', 'c', b ? `<b>${komma(b.totaal)}</b>/${komma(b.max)}${b.volledig ? '' : ' ?'}` : '–'));
       if(o.op) tr.append(el('td', 'c', b ? `<b>${komma(opSchaal(o, b.totaal, b.max))}</b>/${o.op}` : '–'));

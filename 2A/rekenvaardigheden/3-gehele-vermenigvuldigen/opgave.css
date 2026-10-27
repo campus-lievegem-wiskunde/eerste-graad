@@ -109,7 +109,6 @@
 .h3-prij{ display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; background:#fff; border:1px solid var(--border); border-radius:.8rem; padding:.55rem .9rem; margin-bottom:.5rem; }
 .h3-pexpr{ font-size:1.5rem; }
 /* lezen */
-.tl-kruis{ color:#c62828; font-weight:800; font-size:.85rem; }
 .tl-pyr{ align-items:center; } .tl-pyr > div{ display:flex; gap:.3rem; } .tl-steen{ min-width:4rem; text-align:center; border:1.5px solid var(--border); border-radius:.4rem; padding:.1rem .3rem; font-weight:700; } .tl-steen.gegeven{ background:#fff7e6; }
 .tl-woord{ display:inline-block; border-bottom:1.5px solid var(--ink); font-weight:700; color:var(--accent-dark); margin-right:.4rem; }
 @media (max-width:900px){ .h3-tweeling{ grid-template-columns:1fr; } .h3-steen{ width:110px; } }

@@ -365,7 +365,7 @@ function toon(q, a, modus, k){
   const lijn = (l, r) => `<div class="tl"><span class="tl-l">${l}</span><span class="tl-r">${r}</span></div>`;
   const leeg = '<span class="tl-leeg">……</span>';
   const g = (o, W) => sl ? (W == null ? leeg : esc(fmt(W))) : blanco ? leeg : sval(o) === null ? (o && (o.n !== '' || o.s) ? esc((neg(o.s) ? '−' : '') + (o.n || '…')) : leeg) : esc(fmt(sval(o)));
-  const kr = x => !sl && !blanco && x ? ` <span class="tl-kruis">✕ ${x}</span>` : '';
+  const kr = () => '';   /* rode kruisjes: enkel directe feedback voor de leerling, niet in het dashboard of de pdf (keuze van Jeroen) */
   /* de uitdrukking zoals de leerling ze herschreef met de tekenparen */
   const herschreven = (expr, st, maal) => T && st && st.p && st.p.length && !sl && !blanco ? T.html(expr, st, null, { maal }) : uitdr(expr);
   switch(q.soort){

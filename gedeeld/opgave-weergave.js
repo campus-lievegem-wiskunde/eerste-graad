@@ -64,8 +64,7 @@ export function tekenOpgave(opg, opts = {}){
         r.innerHTML = !v ? `<b>Richtlijn:</b> ${esc(sl[q.id].richtlijn)}`
           : v.p == null ? 'Nog niet verbeterd.'
           : (ok ? '<b>✓ Juist</b>' : `<b>${half ? '½ Deels juist' : '✗ Niet juist'}</b>${v.toon ? ` · juist antwoord: <span class="ov-juist">${esc(v.toon)}</span>` : ''}`) + (v.opm ? `<br><i>${esc(v.opm)}</i>` : '')
-            + (v.codes && v.codes.length ? `<br><span class="ov-codes">Foutcodes: ${v.codes.map(c=>`<span title="${esc(((opg.codes || {})[c] || {}).uitleg || '')}">${esc(((opg.codes || {})[c] || {}).label || c)}</span>`).join(' · ')}</span>` : '')
-            + (v.kruis ? `<br><span class="ov-codes">${v.kruis} rood kruisje${v.kruis > 1 ? 's' : ''} tijdens het maken</span>` : '');
+            + (v.codes && v.codes.length ? `<br><span class="ov-codes">Foutcodes: ${v.codes.map(c=>`<span title="${esc(((opg.codes || {})[c] || {}).uitleg || '')}">${esc(((opg.codes || {})[c] || {}).label || c)}</span>`).join(' · ')}</span>` : '');
         div.append(r);
       }
       deel.append(div);

@@ -136,7 +136,6 @@ table.dt.overzicht th.rot{ height:7rem; }
 .ov-punten{ margin:.5rem 0 0 2.4rem; }
 .ov-punten input{ width:5rem; }
 table.opdr-tabel td.hand{ text-decoration:underline; text-underline-offset:3px; }
-table.opdr-tabel sup.kruis{ color:var(--bad); font-size:.68rem; margin-left:.1rem; }
 .opdr-fouten{ margin-top:1rem; }
 .opdr-fouten h4{ margin:.2rem 0 .4rem; font-size:1rem; }
 .opdr-fouten table{ max-width:720px; }

@@ -316,7 +316,7 @@ function toon(q, a, modus, k){
   if(modus === 'lezen' && !v) return '<p class="tl-niet">Niet ingevuld.</p>';
   if(!v || blanco || sl) v = LEEG[q.soort](q);
   const lijn = (l, r) => `<div class="tl"><span class="tl-l">${l}</span><span class="tl-r">${r}</span></div>`;
-  const kr = x => !sl && !blanco && x ? ` <span class="tl-kruis">✕ ${x}</span>` : '';
+  const kr = () => '';   /* rode kruisjes: enkel directe feedback voor de leerling, niet in het dashboard of de pdf (keuze van Jeroen) */
   const g = w => blanco || w === '' || w == null ? leeg : esc(w);
   /* uitkomst als breuk, met het resultaat na vereenvoudigen */
   const res = (terms, o, sch, vastN) => {
