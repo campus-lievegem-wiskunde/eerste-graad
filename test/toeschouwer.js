@@ -35,6 +35,8 @@ const H = require('./helpers');
   await q.click('.tab:has-text("Leerlingen")'); await q.waitForTimeout(400);
   check((await q.locator('#dash').innerText()).includes('Echt Leerling'), 'echte leerling zichtbaar');
   await q.click('.tab:has-text("Openzetten")'); await q.waitForTimeout(300);
+  /* 1A heeft meer dan één rubriek: die staan ingeklapt zolang er niets openstaat */
+  await q.evaluate(()=>document.querySelectorAll('details.rub-blok').forEach(d=>d.open = true));
   await q.locator('.site-blok').first().locator('.switch input').check(); await q.waitForTimeout(400);
   await q.click('.dash-top .tab:has-text("Beheer")'); await q.waitForTimeout(400);
   check((await q.locator('#dash').innerText()).includes('Echte Collega') && await q.locator('.dash-card', { hasText:'Toeschouwers' }).count() === 0, 'Beheer met echte collega, zonder kaart Toeschouwers');

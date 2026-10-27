@@ -960,6 +960,218 @@ export const SITES = [
   ]
  },
  {
+  "id": "2b-m1",
+  "titel": "Module 1 · Rekenen",
+  "kort": "Module 1",
+  "jaar": "2B",
+  "rubriek": "modules",
+  "pad": "2B/modules/module-1-rekenen/",
+  "prefix": "2b_m1_rekenen_v1_",
+  "onderdelen": [
+   {
+    "id": "geld",
+    "naam": "Rekenen met geld",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "handig",
+    "naam": "Handig rekenen",
+    "toets": false,
+    "vragen": 33
+   },
+   {
+    "id": "schatten",
+    "naam": "Schatten",
+    "toets": false,
+    "vragen": 11
+   },
+   {
+    "id": "gem",
+    "naam": "Gemiddelde en mediaan",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "rekmach",
+    "naam": "Met de rekenmachine",
+    "toets": false,
+    "vragen": 17
+   },
+   {
+    "id": "puzzels",
+    "naam": "Puzzels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets",
+    "naam": "Proeftoets",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
+  "id": "2b-m2",
+  "titel": "Module 2 · Lengte, massa, inhoud en oppervlakte",
+  "kort": "Module 2",
+  "jaar": "2B",
+  "rubriek": "modules",
+  "pad": "2B/modules/module-2-meten/",
+  "prefix": "2b_m2_meten_v1_",
+  "onderdelen": [
+   {
+    "id": "eenheid",
+    "naam": "Welke eenheid?",
+    "toets": false,
+    "vragen": 8
+   },
+   {
+    "id": "lengte",
+    "naam": "Lengte en massa",
+    "toets": false,
+    "vragen": 17
+   },
+   {
+    "id": "inhoud",
+    "naam": "Inhoud",
+    "toets": false,
+    "vragen": 15
+   },
+   {
+    "id": "opp",
+    "naam": "Oppervlakte",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "vraag",
+    "naam": "Vraagstukken",
+    "toets": false,
+    "vragen": 15
+   },
+   {
+    "id": "puzzels",
+    "naam": "Puzzels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets",
+    "naam": "Proeftoets",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
+  "id": "2b-m3",
+  "titel": "Module 3 · Coördinaten",
+  "kort": "Module 3",
+  "jaar": "2B",
+  "rubriek": "modules",
+  "pad": "2B/modules/module-3-coordinaten/",
+  "prefix": "2b_m3_coord_v1_",
+  "onderdelen": [
+   {
+    "id": "rooster",
+    "naam": "Rooster en zeeslag",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "kaart",
+    "naam": "Kaarten",
+    "toets": false,
+    "vragen": 8
+   },
+   {
+    "id": "assen",
+    "naam": "Assenstelsel",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "puzzels",
+    "naam": "Puzzels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets",
+    "naam": "Proeftoets",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
+  "id": "2b-m4",
+  "titel": "Module 4 · Figuren",
+  "kort": "Module 4",
+  "jaar": "2B",
+  "rubriek": "modules",
+  "pad": "2B/modules/module-4-figuren/",
+  "prefix": "2b_m4_figuren_v1_",
+  "onderdelen": [
+   {
+    "id": "vlak",
+    "naam": "Vlakke figuren",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "ruimte",
+    "naam": "Ruimtefiguren",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "aanzicht",
+    "naam": "Aanzichten",
+    "toets": false,
+    "vragen": 8
+   },
+   {
+    "id": "puzzels",
+    "naam": "Puzzels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets",
+    "naam": "Proeftoets",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
   "id": "1a-wp",
   "titel": "Wiskundige problemen · Heuristieken",
   "kort": "Heuristieken",
