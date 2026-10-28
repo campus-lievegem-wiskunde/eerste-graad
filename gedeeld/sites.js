@@ -782,6 +782,29 @@ export const SITES = [
   ]
  },
  {
+  "id": "2a-m4",
+  "titel": "Module 4 · Machten",
+  "kort": "Module 4",
+  "jaar": "2A",
+  "rubriek": "modules",
+  "pad": "2A/modules/module-4-machten/",
+  "prefix": "2a_m4_machten_v1_",
+  "onderdelen": [
+   {
+    "id": "neg",
+    "naam": "Negatieve exponent en exponent 0",
+    "toets": false,
+    "vragen": 53
+   },
+   {
+    "id": "verm",
+    "naam": "Machten vermenigvuldigen",
+    "toets": false,
+    "vragen": 52
+   }
+  ]
+ },
+ {
   "id": "2a-wp",
   "titel": "Wiskundige problemen · 2de jaar",
   "kort": "Wiskundige problemen",
