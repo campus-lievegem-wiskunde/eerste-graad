@@ -506,7 +506,7 @@ const isq = '<span class="m4-is">=</span>';
 
 /* ============================================================
    INVOER: tekenvak, slim vak (wordt een breuk bij /), machtvak
-   Tokens in een regel: {{u:k}} uitkomst (tekenvak + getal of breuk)
+   Tokens in een regel: {{u:k}} uitkomst (getal of breuk; {{u:k,t}} met tekenvak)
    {{m:k,opts}} machtvak (opts: i = "1/" typen maakt een breuk, t = tekenvak), {{e:k}} exponent,
    {{b:k}} grondtal, {{g:k}} gewoon vak
    ============================================================ */
@@ -559,7 +559,8 @@ function mountW(root, V, save, onCh, onEnter){
     const k = sp.dataset.k, t = sp.dataset.t, o = (sp.dataset.o||'').split(',').filter(Boolean);
     const v = V[k] || (V[k] = {}); W[k] = {sp, t, o};
     sp.classList.add('m4-w' + t);
-    if(t==='u'){ sp.append(tekenvak(v, save, onCh)); const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'u', 'uitkomst'); }
+    if(t==='u'){ /* tekenvak enkel met ,t: bij oefeningen waar het teken iets is om over na te denken */
+      if(o.includes('t')){ delete v.z; sp.append(tekenvak(v, save, onCh)); } else v.z = true; const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'u', 'uitkomst'); }
     else if(t==='b'){ const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'b', 'grondtal'); }
     else if(t==='e' || t==='g'){ const i = m4inp(t==='e' ? 'ex' : 'g', v.t, t==='e' ? 'exponent' : 'antwoord'); i.addEventListener('input', ()=>{ v.t = i.value; save(); onCh(); }); sp.append(i); }
     else if(t==='m'){
@@ -589,12 +590,13 @@ function mountW(root, V, save, onCh, onEnter){
     empty(){ return Object.entries(W).some(([k, w]) => isEmptyW(w.t, V[k])); }
   };
 }
-const isEmptyW = (t, v) => !v || (t==='m' ? !(v.bt||'').trim() : t==='u' ? !(v.t||'').trim() && !v.s : !(v.t||'').trim()) || (v.n!=null && !String(v.n).trim());
+const isEmptyW = (t, v) => !v || (t==='m' ? !(v.bt||'').trim() : t==='u' ? !(v.t||'').trim() && (v.z || !v.s) : !(v.t||'').trim()) || (v.n!=null && !String(v.n).trim());
 
 /* ---------- lezen ---------- */
 /* uitkomst: {q, simp} of {err, info} */
 function rdU(v){
   v = v || {}; const t = nrm(v.t||''), n = v.n==null ? null : nrm(v.n);
+  if(v.z){ /* zonder tekenvak: een minteken mag vooraan in het vak */ const m = t.match(/^-\s*/); return rdU({t: m ? t.slice(m[0].length) : t, n: v.n, s: m ? '-' : '+'}); }
   if(t==='' || n==='') return {err:'Vul het getal volledig in.'};
   if(!v.s) return {err:'Kies eerst het teken: klik op + of op − in het tekenvak.'};
   if(/-/.test(t + (n||''))) return {err:'Het minteken hoort in het tekenvak, niet bij het getal.'};
@@ -1082,16 +1084,16 @@ function negPool(R){
 }
 const negSteps = (b, e) => { const T = powQ(b, e), P = powQ(b, -e);
   return [{u:'Neem het omgekeerde en maak de exponent positief.', line:`${mH(b, e)} ${isq} ${brH('1', '{{m:a}}')}`, check:V=>chkM(V.a, {b, e:-e}), show:`${mH(b, e)} ${isq} ${brH('1', mH(b, -e))}`},
-    {u:'Reken de macht in de noemer uit. Let op het teken.', line:`${mH(b, -e)} ${isq} {{u:a}}`, check:V=>chkU(V.a, P), show:`${mH(b, -e)} ${isq} ${qH(P)}`},
+    {u:'Reken de macht in de noemer uit. Let op het teken.', line:`${mH(b, -e)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, P), show:`${mH(b, -e)} ${isq} ${qH(P)}`},
     [`Schrijf 1 gedeeld door ${qH(P)} als een breuk.${P.n<0 ? ' Een negatieve noemer: het minteken zet je in het tekenvak.' : ''}`, `${brH('1', qH(P))} ${isq} ${qH(T)}`]]; };
 NG.reken = { title:'Reken uit', lvl:2,
-  instr:'Reken de macht uit. Kies eerst het teken in het tekenvak en typ dan het getal. Wil je een breuk, klik dan op <b>breuk</b> naast het vak.',
+  instr:'Reken de macht uit. Kies eerst het teken in het tekenvak (+ boven, − onder) en typ dan het getal. Wil je een breuk, klik dan op <b>breuk</b> naast het vak.',
   build(b, st, save){
     stapUitleg(b, [[mH('-2', -3), 'Een negatieve exponent.'], [`${isq} ${brH('1', mH('-2', 3))}`, 'Neem het omgekeerde en maak de exponent positief.'],
       [`${isq} ${brH('1', MIN + '8')}`, `${mH('-2', 3)} = (−2) · (−2) · (−2) = −8: drie mintekens, dus negatief.`], [`${isq} ${qH(Q(-1, 8))}`, 'Het minteken zet je voor de breuk.']], {kop:'Voorbeeld'});
     const R = makeR(st); const pool = negPool(R);
     reeks(b, 6, (g, i, nr) => { const [bb, e] = pool[i]; const T = powQ(bb, e);
-      mQ(g, st, save, 'r' + i, { nr, html:`${mH(bb, e)} ${isq} {{u:a}}`, check:V=>chkU(V.a, T, negFout(bb, e)), hint:negSteps(bb, e),
+      mQ(g, st, save, 'r' + i, { nr, html:`${mH(bb, e)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T, negFout(bb, e)), hint:negSteps(bb, e),
         sol:`${mH(bb, e)} ${isq} ${brH('1', mH(bb, -e))} ${isq} ${brH('1', qH(powQ(bb, -e)))} ${isq} ${qH(T)}` }); });
   } };
 
@@ -1105,7 +1107,7 @@ NG.nul = { title:'Exponent 0 en exponent 1', lvl:1,
       [mH(gs[0], 0), Q(1)], [mH(-gs[1], 0), Q(1)], [minH(mH(gs[2], 0)), Q(-1), 'Het minteken staat niet bij het grondtal: eerst de macht, dan het minteken.'],
       [mH(gs[3], 1), Q(gs[3])], [mH(-gs[4], 1), Q(-gs[4])], R.f()<.5 ? [mH(`${p}/${q}`, 0), Q(1)] : [mH(`-${p}/${q}`, 1), Q(-p, q)]];
     reeks(b, L.length, (g, i, nr) => { const [h, T, m] = L[i];
-      mQ(g, st, save, 'n' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkU(V.a, T, [[Q(0), 'Een macht met exponent 0 is niet 0, maar 1.'], ...(m ? [[Q(1), m]] : [])]) }); });
+      mQ(g, st, save, 'n' + i, { nr, html:`${h} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T, [[Q(0), 'Een macht met exponent 0 is niet 0, maar 1.'], ...(m ? [[Q(1), m]] : [])]) }); });
     b.append(el('div', 'm4-regel', `<div class="m4-line">${mH('a', 0)} ${isq} 1 &nbsp; en &nbsp; ${mH('a', 1)} ${isq} <i>a</i></div>Waarom is ${mH('a', 0)} = 1? Kijk naar de machtentrap: één trede onder ${mH('a', 1)} = <i>a</i> deel je door <i>a</i>, en <i>a</i> : <i>a</i> = 1.`));
   } };
 
@@ -1146,7 +1148,7 @@ NG.komma = { title:'Kommagetallen met een negatieve exponent', lvl:3,
     const R = makeR(st);
     const L = R.shuffle([['0,5', -2], ['0,1', -3], ['0,2', -1], ['0,25', -2], ['1,5', -2], ['-0,5', -3], ['0,4', -2], ['2,5', -1], ['-0,2', -2]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [bb, e] = L[i], T = powQ(bb, e);
-      mQ(g, st, save, 'k' + i, { nr, html:`${mH(bb, e)} ${isq} {{u:a}}`, check:V=>chkU(V.a, T, negFout(bb, e)),
+      mQ(g, st, save, 'k' + i, { nr, html:`${mH(bb, e)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T, negFout(bb, e)),
         sol:(()=>{ const v = bVal(bb); return `${bH(bb)} ${isq} ${qH(v)}, dus ${mH(bb, e)} ${isq} ${mH(qS(v), e)} ${isq} ${mH(qS(qInv(v)), -e)} ${isq} ${qH(T)}`; })() }); });
   } };
 
@@ -1179,7 +1181,7 @@ NG.grond = { title:'Welk grondtal?', lvl:3,
   } };
 
 SEC.neg = { id:'neg', ic:'m_neg', nav:'Negatieve exponent en exponent 0', title:'Negatieve exponent en exponent 0',
-  tip:'Kies bij een uitkomst altijd eerst het teken: <b>+</b> boven of <b>−</b> onder in het tekenvak. Wil je een breuk, klik dan op <b>breuk</b> naast het vak: de teller en de noemer komen onder elkaar (met de pijltjestoetsen ga je van teller naar noemer).',
+  tip:'Staat er een tekenvak naast het antwoord, kies dan eerst het teken: <b>+</b> boven of <b>−</b> onder. Wil je een breuk, klik dan op <b>breuk</b> naast het vak: de teller en de noemer komen onder elkaar (met de pijltjestoetsen ga je van teller naar noemer).',
   cheat:CHEAT_NEG, cards:[NG.trap, NG.schimmel, NG.pos, NG.reken, NG.nul, NG.exp, NG.wn, NG.komma, NG.vgl, NG.grond] };
 
 /* ============================================================
@@ -1327,11 +1329,11 @@ VM.reken = { title:'Schrijf als één macht en reken uit', lvl:2,
     const R = makeR(st);
     const L = R.shuffle([['2', [-5, 3]], ['-3', [2, 1]], ['10', [-4, 2]], ['5', [-3, 3]], ['-2', [-4, 1]], ['3', [-4, 2]], ['4', [-3, 2]], ['-2', [3, 2]], ['-1', [4, 3]], ['6', [-1, -1]]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [bb, es] = L[i]; const S = es[0] + es[1]; const T = powQ(bb, S);
-      mQ(g, st, save, 'r' + i, { nr, html:`${prodE(bb, es)} ${isq} ${mE(bb, 'a')} ${isq} {{u:b}}`,
+      mQ(g, st, save, 'r' + i, { nr, html:`${prodE(bb, es)} ${isq} ${mE(bb, 'a')} ${isq} {{u:b,t}}`,
         check:V=>allOf([['a', chkE(V.a, S, prodFout(es))], ['b', chkU(V.b, T, negFout(bb, S))]]),
         hint:[{u:'Tel de exponenten op.', line:`${ePlus(es)} ${isq} {{g:a}}`, check:V=>chkE(V.a, S), show:`${ePlus(es)} ${isq} ${S}`},
-          S<0 ? {u:'Reken de macht uit: neem het omgekeerde.', line:`${mH(bb, S)} ${isq} ${brH('1', mH(bb, -S))} ${isq} {{u:a}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}
-            : {u:S===0 ? 'Een macht met exponent 0 is …' : 'Reken de macht uit. Let op het teken.', line:`${mH(bb, S)} ${isq} {{u:a}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}],
+          S<0 ? {u:'Reken de macht uit: neem het omgekeerde.', line:`${mH(bb, S)} ${isq} ${brH('1', mH(bb, -S))} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}
+            : {u:S===0 ? 'Een macht met exponent 0 is …' : 'Reken de macht uit. Let op het teken.', line:`${mH(bb, S)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}],
         sol:`${prodE(bb, es)} ${isq} ${mH(bb, S)} ${isq} ${qH(T)}` }); });
   } };
 
