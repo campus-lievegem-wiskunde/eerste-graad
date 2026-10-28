@@ -21,6 +21,7 @@ node test/allesopen.js        # Beheer: site openzetten voor alle groepen van ee
 node test/opdrachten.js       # toetsen en taken: openzetten, module dicht, invullen, indienen, sleutelcode, verbeteren, vrijgeven, afdrukken, huistaak opnieuw (voorbeelden in test/opdracht/)
 node test/resultaten.js       # resultaten nooit kwijt: mislukt ophalen bij het openen, tweede tabblad (nep-getDoc mislukt met window.__getDocFout = n)
 node test/classroom.js        # Google Classroom: klas koppelen, opdracht vanzelf in Classroom, conceptpunten, vrijgeven = definitief en teruggegeven, verbinden (nep-Classroom in fake/classroom.js)
+node test/uitgroep.js          # tabblad Leerlingen van een groep: Uit groep en Verplaatsen naar (database én lijst meteen bijgewerkt)
 ```
 
 | Bestand | Rol |
