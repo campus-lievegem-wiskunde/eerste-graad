@@ -1484,7 +1484,7 @@ SEC.coord = { id:'coord', ic:'coord', nav:'Coördinaten', title:'Transformaties 
   .tb-cell svg{ width:100% }
   .tb-cell .cf .lbl{ font-size:8px } .tb-cell .cf .lbl.help{ font-size:7.4px } .tb-cell .cf .lbl.axn{ font-size:8.4px }
   .tb-cell .cf .seg, .tb-cell .cf polygon, .tb-cell .cf .axisL{ stroke-width:.9 }
-  .tb-pool{ margin-bottom:.5rem; position:sticky; top:calc(env(safe-area-inset-top, 0px) + .4rem); z-index:5; background:var(--card); box-shadow:0 4px 10px -6px rgba(0,0,0,.25) }
+  .tb-pool{ margin-bottom:.5rem; position:sticky; top:calc(env(safe-area-inset-top, 0px) + .4rem); z-index:7; /* boven de geplaatste kaartjes (.chip heeft z-index 6) */ background:var(--card); box-shadow:0 4px 10px -6px rgba(0,0,0,.25) }
   /* eigenschappentabel */
   .tab-wrap{ overflow-x:auto; margin:.4rem 0 }
   .eig-tab{ border-collapse:separate; border-spacing:.3rem; min-width:620px; width:100% }
@@ -2404,7 +2404,7 @@ function wordFill(parent, st, save, id, q){
   return row;
 }
 function wordBank(parent, words){
-  const bank = el('div','pool'); bank.style.position = 'sticky'; bank.style.top = '0'; bank.style.background = 'var(--card)'; bank.style.zIndex = '3';
+  const bank = el('div','pool'); bank.style.position = 'sticky'; bank.style.top = '0'; bank.style.background = 'var(--card)'; bank.style.zIndex = '7';
   bank.prepend(el('span','mini-note','Klik op een leeg vakje en daarna op het juiste woord. Een woord mag je meermaals gebruiken.'));
   let target = null;
   words.forEach(w=>{ const c = el('button','opt', w); c.type='button'; c.addEventListener('click', ()=>{ if(target && target._fill) target._fill(w); }); bank.append(c); });
@@ -2938,9 +2938,15 @@ function latticeRows(R, pts, k, kinds){
 }
 PT.rooster = { title:'Punten op een rooster', lvl:2, instr:'De punten liggen op een rooster. Typ telkens de juiste letter.', build:(b,st,save)=>{
   const R = makeR(st); const L = 'ABCDEFGHIJKLMN'.split(''); L.push('P'); const pts = {}; let i = 0;
-  for(let y=2;y>=0;y--) for(let x=0;x<5;x++) pts[L[i++]] = [x,y];
+  /* zoals bij 'Alle transformaties door elkaar': punten 2 eenheden uit elkaar op lijnen, zodat de letters niet overlappen */
+  const S = 2, W = S*4, H = S*2;
+  for(let y=2;y>=0;y--) for(let x=0;x<5;x++) pts[L[i++]] = [S*x,S*y];
   const two = el('div','cf-two'); b.append(two); const A = el('div'), Rt = el('div'); two.append(A, Rt);
-  const F = gridFig(A, {g:[0,4,0,2], lattice:true, maxw:300}); F.draw(Object.entries(pts).map(([n,p])=>({t:'pt', p, n, c:'orig', away:[p[0]-.6, p[1]-1]})));
+  const F = gridFig(A, {g:[-1.2, W+1.6, -1, H+1.4], plain:true, maxw:380}); const o = [];
+  for(let x=0;x<5;x++) o.push({t:'line', a:[S*x,-.8], b:[S*x,H+.8], c:'latline'});
+  for(let y=0;y<3;y++) o.push({t:'line', a:[-.8,S*y], b:[W+.8,S*y], c:'latline'});
+  Object.entries(pts).forEach(([n,p])=>o.push({t:'pt', p, n, c:'orig', r:1, away:[p[0]-1, p[1]-1.4]}));
+  F.draw(o);
   latticeRows(R, pts, 6, ['img']).forEach((r,j)=>letterQ(Rt, st, save, 'r'+j, {nr:LET[j]+'.', html:r.html, ans:r.ans, kind:'pt', sol:r.sol, bad:'Het centrum is het midden tussen het punt en zijn beeld.'}));
 }};
 /* ============================================================
