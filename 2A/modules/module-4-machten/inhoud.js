@@ -527,25 +527,27 @@ function tekenvak(o, save, onCh){
 function slimVak(host, o, save, onCh, cls, lab, focus){
   host.innerHTML = '';
   const redraw = f => slimVak(host, o, save, onCh, cls, lab, f);
-  const fbtn = el('button', 'm4-brk', BRK_IC); fbtn.type = 'button'; fbtn.dataset.tip = o.n==null ? 'maak er een breuk van' : 'geen breuk';
+  /* bij een uitkomst: één knopje 'breuk' (leerlingen typen niet graag een schuine streep); / of : typen werkt ook */
+  const fbtn = el('button', 'm4-brk', BRK_IC + `<span>${o.n==null ? 'breuk' : 'geen breuk'}</span>`); fbtn.type = 'button'; fbtn.dataset.tip = o.n==null ? 'maak er een breuk van' : 'geen breuk';
   fbtn.setAttribute('aria-label', o.n==null ? 'maak er een breuk van' : 'maak er geen breuk van'); fbtn.setAttribute('aria-pressed', String(o.n!=null));
   fbtn.addEventListener('mousedown', e=>e.preventDefault());
-  fbtn.addEventListener('click', ()=>{ if(o.n==null){ o.n = ''; save(); redraw('n'); } else { o.n = null; save(); redraw('t'); } onCh(); });
+  fbtn.addEventListener('click', ()=>{ if(o.n==null){ o.n = ''; save(); redraw((o.t||'').trim() ? 'n' : 't'); } else { o.n = null; save(); redraw('t'); } onCh(); });
   let first;
   if(o.n==null){
     const i = m4inp(cls, o.t, lab); first = i;
-    i.addEventListener('input', ()=>{ const v = i.value, p = v.indexOf('/');
+    i.addEventListener('keydown', e=>{ if(e.key==='ArrowDown'){ e.preventDefault(); o.n = ''; save(); redraw('n'); onCh(); } });
+    i.addEventListener('input', ()=>{ const v = i.value.replace(':', '/'), p = v.indexOf('/');
       if(p>=0){ o.t = v.slice(0, p); o.n = v.slice(p+1); save(); redraw('n'); } else { o.t = v; save(); } onCh(); });
-    host.append(i);
+    host.append(i); if(cls==='u') host.append(fbtn);
     if(focus){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
   } else {
     const t = m4inp(cls + ' br-get', o.t, lab + ', teller'), n = m4inp(cls + ' br-get', o.n, lab + ', noemer'); first = t;
-    t.addEventListener('input', ()=>{ o.t = t.value.replace('/', ''); if(t.value.includes('/')){ t.value = o.t; n.focus(); } save(); onCh(); });
+    t.addEventListener('input', ()=>{ o.t = t.value.replace(/[/:]/, ''); if(/[/:]/.test(t.value)){ t.value = o.t; n.focus(); } save(); onCh(); });
     n.addEventListener('input', ()=>{ o.n = n.value; save(); onCh(); });
     n.addEventListener('keydown', e=>{ if(e.key==='Backspace' && n.value===''){ e.preventDefault(); o.n = null; save(); redraw('t'); onCh(); } });
     t.addEventListener('keydown', e=>{ if(e.key==='ArrowDown' || (e.key==='Enter' && n.value==='')){ e.preventDefault(); n.focus(); } });
     n.addEventListener('keydown', e=>{ if(e.key==='ArrowUp'){ e.preventDefault(); t.focus(); } });
-    const br = el('span', 'br br-in'); const bt = el('span', 'br-t'), bn = el('span', 'br-n'); bt.append(t); bn.append(n); br.append(bt, bn); host.append(br);
+    const br = el('span', 'br br-in'); const bt = el('span', 'br-t'), bn = el('span', 'br-n'); bt.append(t); bn.append(n); br.append(bt, bn); host.append(br); if(cls==='u') host.append(fbtn);
     if(focus==='n'){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } else if(focus){ t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
   }
   return first;
@@ -829,9 +831,10 @@ const VGL = [['<', '&lt;'], ['=', '='], ['>', '&gt;']];
   .br.br-in > .br-t, .br.br-in > .br-n{font-size:1rem}
   .m4-w.ok .m4-in{border-color:var(--ok); background:var(--ok-bg)} .m4-w.bad .m4-in{border-color:var(--bad); background:var(--bad-bg)}
   .m4-w.ok .m4-teken{border-color:var(--ok)} .m4-w.bad .m4-teken{border-color:var(--bad)}
-  .m4-brk{border:0; background:transparent; padding:0 .1rem; cursor:pointer; color:var(--accent-dark); display:inline-flex; opacity:.7}
+  .m4-brk{border:1.5px solid var(--border); border-radius:999px; background:#fff; padding:.15rem .55rem .15rem .4rem; margin-left:.35rem; cursor:pointer; color:var(--accent-dark); display:inline-flex; align-items:center; gap:.3rem; font:inherit; font-size:.85rem; font-weight:600; line-height:1.2; align-self:center}
+  .m4-brk:hover{border-color:#FCAF17; background:#fff6e5}
   .m4-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
-  .m4-brk:hover, .m4-brk:focus-visible, .m4-brk[aria-pressed="true"]{opacity:1; color:var(--accent-dark)}
+  .m4-brk[aria-pressed="true"]{color:var(--ink-soft); font-weight:400}
   .m4-teken{display:inline-flex; flex-direction:column; border:2px dashed var(--accent-dark); border-radius:.45rem; overflow:hidden; height:2.6rem; width:1.9rem; flex:none; background:var(--card)}
   .m4-teken.gekozen{border-style:solid; border-color:var(--border)}
   .m4-teken button{flex:1; border:0; margin:0; padding:0; background:transparent; color:var(--ink-soft); font:inherit; font-size:1.05rem; font-weight:900; line-height:1; cursor:pointer}
@@ -1082,7 +1085,7 @@ const negSteps = (b, e) => { const T = powQ(b, e), P = powQ(b, -e);
     {u:'Reken de macht in de noemer uit. Let op het teken.', line:`${mH(b, -e)} ${isq} {{u:a}}`, check:V=>chkU(V.a, P), show:`${mH(b, -e)} ${isq} ${qH(P)}`},
     [`Schrijf 1 gedeeld door ${qH(P)} als een breuk.${P.n<0 ? ' Een negatieve noemer: het minteken zet je in het tekenvak.' : ''}`, `${brH('1', qH(P))} ${isq} ${qH(T)}`]]; };
 NG.reken = { title:'Reken uit', lvl:2,
-  instr:'Reken de macht uit. Kies eerst het teken in het tekenvak en typ dan het getal. Een breuk maak je door <b>/</b> te typen.',
+  instr:'Reken de macht uit. Kies eerst het teken in het tekenvak en typ dan het getal. Wil je een breuk, klik dan op <b>breuk</b> naast het vak.',
   build(b, st, save){
     stapUitleg(b, [[mH('-2', -3), 'Een negatieve exponent.'], [`${isq} ${brH('1', mH('-2', 3))}`, 'Neem het omgekeerde en maak de exponent positief.'],
       [`${isq} ${brH('1', MIN + '8')}`, `${mH('-2', 3)} = (−2) · (−2) · (−2) = −8: drie mintekens, dus negatief.`], [`${isq} ${qH(Q(-1, 8))}`, 'Het minteken zet je voor de breuk.']], {kop:'Voorbeeld'});
@@ -1176,7 +1179,7 @@ NG.grond = { title:'Welk grondtal?', lvl:3,
   } };
 
 SEC.neg = { id:'neg', ic:'m_neg', nav:'Negatieve exponent en exponent 0', title:'Negatieve exponent en exponent 0',
-  tip:'Kies bij een uitkomst altijd eerst het teken: <b>+</b> boven of <b>−</b> onder in het tekenvak. Een breuk maak je door <b>/</b> te typen; de teller en de noemer komen dan onder elkaar.',
+  tip:'Kies bij een uitkomst altijd eerst het teken: <b>+</b> boven of <b>−</b> onder in het tekenvak. Wil je een breuk, klik dan op <b>breuk</b> naast het vak: de teller en de noemer komen onder elkaar (met de pijltjestoetsen ga je van teller naar noemer).',
   cheat:CHEAT_NEG, cards:[NG.trap, NG.schimmel, NG.pos, NG.reken, NG.nul, NG.exp, NG.wn, NG.komma, NG.vgl, NG.grond] };
 
 /* ============================================================
