@@ -109,6 +109,13 @@ export async function versleutel(obj, code, iter = 200000){
   return { v:1, iter, salt:b64.naar(salt), iv:b64.naar(iv), data:b64.naar(data) };
 }
 
+/* Firestore bewaart geen lijst in een lijst (bv. punten [[-3, 3], [2, 3]]): bij het bewaren wordt elke binnenste lijst { rij:[…] },
+   bij het lezen weer een gewone lijst. */
+export const naarDb = v => Array.isArray(v) ? v.map(x=>Array.isArray(x) ? { rij:naarDb(x) } : naarDb(x))
+  : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x])=>[k, naarDb(x)])) : v;
+export const uitDb = v => Array.isArray(v) ? v.map(x=>x && typeof x === 'object' && !Array.isArray(x) && Array.isArray(x.rij) && Object.keys(x).length === 1 ? uitDb(x.rij) : uitDb(x))
+  : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x])=>[k, uitDb(x)])) : v;
+
 /* interactieve opdracht (type eigen, rekenvaardigheden): opgave.js verbetert zelf met OPGAVE.verbeter(q, waarde, sleutel)
    → { pts, codes:[foutcodes], kruis:aantal rode kruisjes tijdens het maken }; het antwoord staat als JSON-tekst in antw */
 function verbeterEigen(opg, q, a, k){
