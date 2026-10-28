@@ -321,7 +321,7 @@ function errBlock(parent, st, save, id, e){
     btns.forEach((b,i)=>{ b.classList.toggle('nope', s.tried.includes(i)); b.classList.toggle('found', s.found && i===e.wrong); });
     if(s.found){
       fb.className='fb ok'; fb.innerHTML = `✅ Juist, de fout zit in stap ${e.wrong+1}. ${e.why}`;
-      if(fixBox.hidden){ fixBox.hidden=false; fixBox.append(el('div','sub','Verbeter deze stap:')); qBlock(fixBox, st, save, id+'_fix', {noCL:true, html:e.fix, check:e.fixCheck, sol:e.fixSol, mode:e.mode}); }
+      if(fixBox.hidden){ fixBox.hidden=false; fixBox.append(el('div','sub','Verbeter deze stap:')); if(e.fixMQ) mQ(fixBox, st, save, id+'_fix', Object.assign({noCL:true}, e.fixMQ)); else qBlock(fixBox, st, save, id+'_fix', {noCL:true, html:e.fix, check:e.fixCheck, sol:e.fixSol, mode:e.mode}); }
     }
   }
   if(quiz){
@@ -960,9 +960,10 @@ function chkUD(v, T, fout){ v = v || {}; const t = nrm(v.t||'').replace('.', ','
 /* getal uit een gewoon vak: geheel getal of kommagetal, ook met spaties (12 500) */
 function rdG(s){ const t = nrm(s||'').replace('.', ','); if(/^-?\d+$/.test(t)) return Q(+t); if(/^-?\d*,\d+$/.test(t)) return qDec(t); return null; }
 /* waarde als kommagetal-tekst: 3/4 -> 0,75 ; enkel voor noemers met 2 en 5 */
-function qKomma(q){ let n = Math.abs(q.n), d = q.d, k = 0; while(d % 10 && k < 20){ if(d % 2===0){ n *= 5; d /= 2; } else if(d % 5===0){ n *= 2; d /= 5; } else return null; k++; }
-  while(d > 1){ d /= 10; k++; } let s = String(n); if(k){ s = s.padStart(k+1, '0'); s = s.slice(0, -k) + ',' + s.slice(-k); s = s.replace(/,?0+$/, ''); }
-  return (q.n<0 ? MIN : '') + s.replace(/\B(?=(\d{3})+(?!\d)(?![^,]*$))/g, ' '); }
+function qKomma(q){ let n = Math.abs(q.n), d = q.d, k = 0;
+  while(d > 1){ if(d % 2===0){ n *= 5; d /= 2; } else if(d % 5===0){ n *= 2; d /= 5; } else return null; k++; }
+  let s = String(n); if(k){ s = s.padStart(k+1, '0'); s = s.slice(0, -k) + ',' + s.slice(-k); s = s.replace(/,?0+$/, ''); }
+  const [a, c] = s.split(','); return (q.n<0 ? MIN : '') + a.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (c ? ',' + c : ''); }
 /* getal met spaties per drie cijfers voor het scherm: 1250000 -> 1 250 000 */
 const dz = x => { const s = String(x); const [a, b] = s.split(','); return a.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (b ? ',' + b : ''); };
 /* wetenschappelijke schrijfwijze: mantisse als tekst ('3,2'), exponent als getal */
@@ -2855,7 +2856,446 @@ DR.som = { title:'Sommen van gelijke machten', lvl:3,
 SEC.door = { id:'door', ic:'m_door', nav:'Rekenregels door elkaar', title:'Rekenregels door elkaar',
   tip:'Kijk eerst welke bewerking er staat: vermenigvuldigen (optellen), delen (aftrekken), macht van een macht (vermenigvuldigen), product of quotiënt tot een macht (elke factor). Bij een som is er geen rekenregel.',
   cheat:CHEAT_DOOR, cards:[DR.kies, DR.een, DR.mk, DR.gelijk, DR.coef, DR.ontbr, DR.slim, DR.kwant, DR.som] };
-const ORDER = ['herh','neg','brk','teken','verm','del','mm','prod','quot','door'];
+/* ============================================================
+   ONDERDEEL 11 · WETENSCHAPPELIJKE SCHRIJFWIJZE
+   a · 10^n met 1 ≤ a < 10 (één cijfer verschillend van 0 voor de komma)
+   ============================================================ */
+Object.assign(ICONS, {
+  m_wet:'<text x="0" y="16" font-size="9" font-weight="700" fill="currentColor" stroke="none">a·10</text><text x="19" y="8" font-size="7" font-weight="700" fill="currentColor" stroke="none">n</text>'
+});
+const CHEAT_WET = `<h3>Spiekbriefje · wetenschappelijke schrijfwijze</h3><table>
+  <tr><td>vorm</td><td><div class="m4-line"><i>a</i> · ${mH('10', 'n')}</div>voor de komma van <i>a</i> staat precies één cijfer dat geen 0 is; <i>n</i> is een geheel getal</td></tr>
+  <tr><td>groot getal</td><td><div class="m4-line">4 500 000 ${isq} ${wH('4,5', 6)}</div>de komma schuift 6 plaatsen naar links: positieve exponent</td></tr>
+  <tr><td>klein getal</td><td><div class="m4-line">0,000 32 ${isq} ${wH('3,2', -4)}</div>de komma schuift 4 plaatsen naar rechts: negatieve exponent</td></tr>
+  <tr><td>rekenen</td><td><div class="m4-line">(${wH('3', 4)}) · (${wH('5', 2)}) ${isq} ${wH('15', 6)} ${isq} ${wH('1,5', 7)}</div>getallen samen, machten van 10 samen, daarna opnieuw wetenschappelijk schrijven</td></tr>
+  <tr><td>rekenmachine</td><td>tik <b>×10ⁿ</b> voor de exponent, en <b>(−)</b> voor een negatieve exponent</td></tr></table>`;
+/* willekeurig getal: mantisse als tekst ('4,5'), exponent */
+function wRand(R, klein){ const d = R.pick([1, 2, 2, 3]); let m = String(R.int(1, 9)); if(d>1){ let r = ''; for(let i=1; i<d; i++) r += R.int(i===d-1 ? 1 : 0, 9); m += ',' + r; }
+  return [m, klein ? -R.int(2, 7) : R.int(3, 9)]; }
+const wGetal = (m, e) => qKomma(wQ(m, e));
+const WT = {};
+
+/* ---------- machten van 10 ---------- */
+WT.tien = { title:'Machten van 10', lvl:1,
+  instr:'Een macht van 10 als gewoon getal, en omgekeerd. Tel de nullen.',
+  build(b, st, save){
+    regelTop(b, `<div class="m4-line">${mH('10', 4)} ${isq} 10 000 &nbsp; ${mH('10', -3)} ${isq} ${brH('1', '1000')} ${isq} 0,001</div>Positieve exponent: het aantal nullen. Negatieve exponent: het aantal cijfers na de komma.`);
+    const R = makeR(st); const a = R.int(3, 7), c = R.int(2, 5), d = R.int(5, 9), f = R.int(2, 6);
+    const L = [[`${mH('10', a)} ${isq} {{g:a}}`, V=>{ const v = rdG((V.a||{}).t); return v ? {ok:qEq(v, qPow(Q(10), a))} : {info:true, msg:'Typ een getal.'}; }, `${mH('10', a)} ${isq} ${qKomma(qPow(Q(10), a))}`],
+      [`${mH('10', -c)} ${isq} {{g:a}}`, V=>{ const v = rdG((V.a||{}).t); return v ? {ok:qEq(v, qPow(Q(10), -c))} : {info:true, msg:'Typ een kommagetal, bijvoorbeeld 0,01.'}; }, `${mH('10', -c)} ${isq} ${qKomma(qPow(Q(10), -c))}`],
+      [`${qKomma(qPow(Q(10), d))} ${isq} ${mE('10', 'a')}`, V=>chkE(V.a, d), `${mH('10', d)}`], [`${qKomma(qPow(Q(10), -f))} ${isq} ${mE('10', 'a')}`, V=>chkE(V.a, -f, [[f, 'Een getal kleiner dan 1: de exponent is negatief.']]), `${mH('10', -f)}`],
+      [`1 ${isq} ${mE('10', 'a')}`, V=>chkE(V.a, 0), mH('10', 0)], [`${brH('1', '100')} ${isq} ${mE('10', 'a')}`, V=>chkE(V.a, -2), mH('10', -2)]];
+    reeks(b, L.length, (g, i, nr) => { const [h, check, sol] = L[i]; mQ(g, st, save, 't' + i, { nr, html:h, check, sol }); });
+  } };
+
+/* ---------- herkennen ---------- */
+WT.herken = { title:'Is het wetenschappelijk geschreven?', lvl:1,
+  instr:'Is het getal in wetenschappelijke schrijfwijze geschreven?',
+  build(b, st, save){
+    regelTop(b, `<div class="m4-line"><i>a</i> · ${mH('10', 'n')}</div>Voor de komma van <i>a</i> staat precies één cijfer dat geen 0 is. De exponent <i>n</i> is een geheel getal.`);
+    const R = makeR(st);
+    const L = R.shuffle([[wH('3,2', 5), 'j'], [wH('32', 4), 'n', 'Voor de komma staan twee cijfers.'], [wH('0,5', 3), 'n', 'Voor de komma staat een 0.'], [wH('1', -3), 'j'], [wH('10', 2), 'n', 'Voor de komma staan twee cijfers.'],
+      [wH('2,5', -7), 'j'], [wH('-4,1', 3), 'j'], [wH('12,5', -2), 'n', 'Voor de komma staan twee cijfers.'], [`3,2 · ${mH('100', 3)}`, 'n', 'Het moet een macht van 10 zijn.'], [wH('9,99', 0), 'j']]).slice(0, 6);
+    const g = el('div', 'm4-items'); b.append(g);
+    L.forEach(([h, ans, why], i) => { const row = el('div', 'm4-wn'); g.append(row);
+      qChoice(row, st, save, 'h' + i, { nr:'abcdef'[i] + ')', html:`<span class="m4-line" style="display:inline-flex">${h}</span>`, opts:[['j', 'ja'], ['n', 'nee']], ans,
+        why:ans==='j' ? 'Eén cijfer verschillend van 0 voor de komma en een macht van 10.' : why, whyBad:ans==='j' ? 'Kijk nog eens: één cijfer (geen 0) voor de komma, en een macht van 10. Ook een negatief getal of exponent 0 mag.' : why }); });
+  } };
+
+/* ---------- de komma schuift ---------- */
+function kommaSvg(D, p0, p1, k, t){
+  const dx = 30, x0 = 30, y = 70; let s = ''; const n = D.length; const hops = Math.abs(p0 - p1);
+  const first = D.search(/[1-9]/);
+  for(let i=0; i<n; i++){ const keep = k<2 || (i>=first && i < Math.max(p1, D.replace(/0+$/, '').length));
+    s += `<text class="t big" x="${x0 + i*dx}" y="${y}" text-anchor="middle" dominant-baseline="central" style="${keep ? '' : 'opacity:.3'}">${D[i]}</text>`; }
+  const cx = p => x0 + p*dx - dx/2;
+  const pos = k===0 ? p0 : k===1 ? lerp(p0, p1, t) : p1;
+  if(k===0 && p0===n) s += `<text class="t" x="${cx(p0) + 2}" y="${y + 6}" style="fill:var(--ink-soft)">,</text>`;
+  s += `<text class="t big" x="${fx(cx(pos) + 2)}" y="${y + 8}" style="fill:var(--orange);font-weight:900">,</text>`;
+  if(k>=1){ const done = k===1 ? Math.floor(t*hops + 1e-9) : hops; const dir = p1 < p0 ? -1 : 1;
+    for(let j=0; j<done; j++){ const a = cx(p0 + dir*j), c2 = cx(p0 + dir*(j+1)); s += `<path class="pijl" d="M${fx(a)} ${y - 22} Q${fx((a+c2)/2)} ${y - 46} ${fx(c2)} ${y - 22}"/>`; }
+    s += sT(x0 + (n-1)*dx/2, y + 46, `${done} ${done===1 ? 'plaats' : 'plaatsen'} naar ${dir<0 ? 'links' : 'rechts'}`, 't'); }
+  return s;
+}
+WT.schuif = { title:'De komma schuift', lvl:1, keep:true,
+  instr:'Bekijk hoe de komma schuift tot er één cijfer (geen 0) voor de komma staat. Vul daarna in.',
+  build(b, st, save){
+    const R = makeR(st); const klein = R.int(0, 1)===1;
+    let D, p0, p1, m, e;
+    if(klein){ const z = R.int(2, 4); const sig = String(R.int(11, 99)); D = '0'.repeat(z + 1) + sig; p0 = 1; p1 = z + 2; e = p0 - p1; m = sig[0] + ',' + sig[1]; }
+    else { const z = R.int(3, 6); const sig = String(R.int(11, 99)); D = sig + '0'.repeat(z); p0 = D.length; p1 = 1; e = p0 - p1; m = sig[0] + ',' + sig[1]; }
+    const T = wQ(m, e); const W = 60 + D.length*30;
+    const wrap = el('div', 'm4-naast breed-l'); b.append(wrap); const l = el('div'), r = el('div'); wrap.append(l, r);
+    stepFig(l, { W:Math.max(W, 360), H:140, maxw:560, alt:'een komma die schuift', steps:[
+      {cap:`Het getal ${qKomma(T)}.`, draw:t=>kommaSvg(D, p0, p1, 0, t)},
+      {cap:'Schuif de komma tot er één cijfer (geen 0) voor de komma staat. Tel de sprongen.', draw:t=>kommaSvg(D, p0, p1, 1, t), ms:1800},
+      {cap:`${qKomma(T)} ${isq} ${wH(m, e)}: ${Math.abs(e)} ${Math.abs(e)===1 ? 'plaats' : 'plaatsen'} naar ${e>0 ? 'links, dus een positieve' : 'rechts, dus een negatieve'} exponent.`, draw:t=>kommaSvg(D, p0, p1, 2, t)}] });
+    r.append(el('p', '', 'Speel de stappen links af en vul in.'));
+    const it = el('div', 'm4-items een'); r.append(it);
+    mQ(it, st, save, 'p', { nr:'a)', html:`<span class="txt">Hoeveel plaatsen schuift de komma?</span> {{g:a}}`, check:V=>{ const v = rdG((V.a||{}).t); return v ? {ok:qEq(v, Q(Math.abs(e)))} : {info:true, msg:'Typ een getal.'}; } });
+    mQ(it, st, save, 'w', { nr:'b)', html:`${qKomma(T)} ${isq} {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T), sol:`${qKomma(T)} ${isq} ${wH(m, e)}`,
+      onOk:()=>{ if(!r.querySelector('.m4-regel')) r.append(el('div', 'm4-regel nieuw', 'Groot getal: de komma schuift naar links, de exponent is positief. Klein getal (tussen 0 en 1): de komma schuift naar rechts, de exponent is negatief.')); } });
+  } };
+
+/* ---------- schrijf wetenschappelijk ---------- */
+WT.schrijf = { title:'Schrijf wetenschappelijk', lvl:2, brk:false,
+  instr:'Schrijf in wetenschappelijke schrijfwijze. Typ in het eerste vak een kommagetal met één cijfer (geen 0) voor de komma.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([wRand(R, false), wRand(R, false), wRand(R, false), wRand(R, true), wRand(R, true), wRand(R, true)]);
+    reeks(b, L.length, (g, i, nr) => { const [m, e] = L[i]; const T = wQ(m, e);
+      mQ(g, st, save, 's' + i, { nr, html:`${qKomma(T)} ${isq} {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T),
+        hint:[['Zet de komma na het eerste cijfer dat geen 0 is.'], [`Tel hoeveel plaatsen de komma schuift. Naar links: positieve exponent. Naar rechts: negatieve exponent.`]], sol:`${qKomma(T)} ${isq} ${wH(m, e)}` }); });
+  } };
+
+/* ---------- als gewoon getal ---------- */
+WT.gewoon = { title:'Schrijf als gewoon getal', lvl:2,
+  instr:'Schrijf als gewoon getal. Je mag spaties typen tussen groepjes van drie cijfers.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([wRand(R, false), wRand(R, false), wRand(R, false), wRand(R, true), wRand(R, true), wRand(R, true)]);
+    reeks(b, L.length, (g, i, nr) => { const [m, e] = L[i]; const T = wQ(m, e);
+      mQ(g, st, save, 'g' + i, { nr, html:`${wH(m, e)} ${isq} {{g:a}}`, check:V=>{ const v = rdG((V.a||{}).t); if(!v) return {info:true, msg:'Typ een getal, bijvoorbeeld 45 000 of 0,0032.'};
+          if(qEq(v, T)) return {ok:true}; if(qEq(v, wQ(m, -e))) return {ok:false, msg:'Je schoof de komma de verkeerde kant op.'}; return {ok:false}; },
+        hint:[[e>0 ? `Positieve exponent: schuif de komma ${e} plaatsen naar rechts (het getal wordt groter).` : `Negatieve exponent: schuif de komma ${-e} plaatsen naar links (het getal wordt kleiner).`]], sol:`${wH(m, e)} ${isq} ${qKomma(T)}` }); });
+  } };
+
+/* ---------- ordenen ---------- */
+WT.orden = { title:'Rangschik van klein naar groot', lvl:2, keep:true,
+  instr:'Tik de getallen aan van klein naar groot.',
+  build(b, st, save){
+    const R = makeR(st); const k = R.int(3, 6);
+    const V = [['2,1', k], ['9,8', k - 1], ['1,5', k + 1], ['4', -2], ['7,5', -3], ['-3', k]];
+    const S = V.map(([m, e]) => [wQ(m, e), wH(m, e)]).sort((x, y) => qCmp(x[0], y[0]));
+    orderEx(b, st, save, 'o', { lab:'Van klein naar groot:', html:'Kijk eerst naar het teken, dan naar de exponent, en pas daarna naar het getal voor de macht.', lines:S.map(x => `<span class="m4-line" style="display:inline-flex">${x[1]}</span>`),
+      why:'Een negatief getal is het kleinst. Bij positieve getallen beslist eerst de exponent.' });
+  } };
+
+/* ---------- contexten ---------- */
+WT.context = { title:'Grote en kleine getallen rondom ons', lvl:2, brk:false,
+  instr:'Schrijf het getal uit de zin in wetenschappelijke schrijfwijze.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = R.shuffle([['De afstand van de aarde tot de zon is ongeveer 150 000 000 km.', '1,5', 8], ['Een bacterie is ongeveer 0,000 002 m lang.', '2', -6], ['Op aarde wonen ongeveer 8 100 000 000 mensen.', '8,1', 9],
+      ['Een haar is ongeveer 0,000 07 m dik.', '7', -5], ['Licht legt per seconde ongeveer 300 000 km af.', '3', 5], ['Een rode bloedcel is ongeveer 0,000 007 5 m breed.', '7,5', -6],
+      ['Je hart klopt in een leven ongeveer 3 000 000 000 keer.', '3', 9], ['Een zandkorrel weegt ongeveer 0,000 044 g.', '4,4', -5]]).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => { const [zin, m, e] = L[i]; const T = wQ(m, e);
+      mQ(g, st, save, 'c' + i, { nr, html:`<span class="txt">${zin}</span><br>{{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T), sol:wH(m, e) }); }, {een:true});
+  } };
+
+/* ---------- product en quotiënt ---------- */
+WT.reken = { title:'Vermenigvuldigen en delen', lvl:2, brk:false,
+  instr:'Reken uit en schrijf het resultaat wetenschappelijk. Een negatief getal? Typ het minteken in het eerste vak.',
+  build(b, st, save){
+    regelTop(b, `<div class="m4-line">(${wH('4', -3)}) · (${wH('5', 7)}) ${isq} 20 · ${mH('10', 4)} ${isq} ${wH('2', 5)}</div>Vermenigvuldig (of deel) de getallen en de machten van 10 apart. Schrijf daarna opnieuw wetenschappelijk.`);
+    const R = makeR(st);
+    const L = R.shuffle([[['3', 4], '·', ['2', 5]], [['4', -3], '·', ['5', 7]], [['8', 6], ':', ['2', 2]], [['-3', 5], '·', ['2', -2]], [['1,5', 3], ':', ['5', -2]], [['-6', 8], ':', ['-3', 2]], [['2,5', -4], '·', ['4', -3]], [['9', 2], ':', ['-3', 6]]]).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => { const [[m1, e1], op, [m2, e2]] = L[i]; const A = wQ(m1, e1), C = wQ(m2, e2); const T = op==='·' ? qMul(A, C) : qMul(A, qInv(C));
+      const h = `(${wH(m1, e1)}) ${op} (${wH(m2, e2)})`; const E = op==='·' ? e1 + e2 : e1 - e2; const M = op==='·' ? qMul(qDec(m1.includes(',') ? m1 : m1 + ',0'), qDec(m2.includes(',') ? m2 : m2 + ',0')) : qMul(qDec(m1.includes(',') ? m1 : m1 + ',0'), qInv(qDec(m2.includes(',') ? m2 : m2 + ',0')));
+      mQ(g, st, save, 'r' + i, { nr, html:`${h} ${isq} {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T),
+        hint:[[`Getallen: ${sg(m1)} ${op} ${sg(m2)} ${isq} ${qKomma(M)}. Machten van 10: ${op==='·' ? 'exponenten optellen' : 'exponenten aftrekken'}, ${mH('10', E)}.`], ['Staat er nu geen of meer dan één cijfer voor de komma? Schuif de komma en pas de exponent aan.']],
+        sol:`${h} ${isq} ${qKomma(M)} · ${mH('10', E)} ${isq} ${wH(qKomma(qMul(T, qPow(Q(10), -Math.floor(Math.log10(Math.abs(T.n/T.d)) + 1e-9)))), Math.floor(Math.log10(Math.abs(T.n/T.d)) + 1e-9))}` }); });
+  } };
+
+/* ---------- rekenmachine: aflezen ---------- */
+const tScherm = (inv, m, e) => scherm(inv, `${m.replace(',', '.')}<span style="font-size:.85em">×10</span><sup>${sg(e)}</sup>`);
+WT.toestel = { title:'Rekenmachine: het scherm aflezen', lvl:2, brk:false,
+  instr:'De rekenmachine toont een heel groot of heel klein resultaat in wetenschappelijke schrijfwijze. Schrijf op wat je leest. Let op: het toestel toont een punt, jij schrijft een komma.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = R.shuffle([['45000000×3000000', '1,35', 14], ['0.0006×0.0004', '2,4', -7], ['2^40', '1,099511628', 12], ['1÷8000000', '1,25', -7], ['123456789×1000', '1,23456789', 11], ['0.3^10', '5,9049', -6]]).slice(0, 4);
+    reeks(b, L.length, (g, i, nr) => { const [inv, m, e] = L[i]; const T = wQ(m, e);
+      mQ(g, st, save, 'a' + i, { nr, html:`${tScherm(inv, m, e)} <span class="txt">betekent</span> {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T), sol:wH(m, e) }); });
+  } };
+
+/* ---------- rekenmachine: intikken ---------- */
+WT.intik = { title:'Rekenmachine: intikken', lvl:2,
+  instr:'Hoe tik je het getal in op je rekenmachine? Kies de juiste toetsen.',
+  build(b, st, save){
+    const k = t => `<span class="m4-toets">${t}</span>`;
+    const L = [[wH('3,2', -5), [['a', `3.2 ${k('×10ⁿ')} ${k('(−)')} 5`, 1], ['b', `3.2 ${k('×')} 10 ${k('^')} 5 ${k('(−)')}`], ['c', `3.2 ${k('×10ⁿ')} ${k('−')} 5`], ['d', `3.2 ${k('×')} ${k('×10ⁿ')} ${k('(−)')} 5`]], 'Na ×10ⁿ tik je de exponent. Voor een negatieve exponent gebruik je de toets (−), niet de mintoets.'],
+      [wH('-4', 8), [['a', `${k('(−)')} 4 ${k('×10ⁿ')} 8`, 1], ['b', `4 ${k('×10ⁿ')} ${k('(−)')} 8`], ['c', `${k('(−)')} 4 ${k('×')} 8`], ['d', `${k('−')} 4 ${k('×')} 10 8`]], 'Het minteken hoort bij het getal 4: tik eerst (−).'],
+      [wH('6,02', 23), [['a', `6.02 ${k('×10ⁿ')} 23`, 1], ['b', `6.02 ${k('×')} 10 ${k('×')} 23`], ['c', `6.02 ${k('^')} 23`], ['d', `6.02 ${k('×10ⁿ')} 10 23`]], 'Met ×10ⁿ tik je enkel nog de exponent.']];
+    const R = makeR(st); const g = el('div', 'm4-items een'); b.append(g);
+    L.forEach(([h, opts, why], i) => { const row = el('div', 'm4-wn'); g.append(row);
+      qChoice(row, st, save, 'k' + i, { nr:'abc'[i] + ')', html:`Tik in: <span class="m4-line" style="display:inline-flex">${h}</span>`, opts:R.shuffle(opts.slice()), ans:'a', why, whyBad:why }); });
+  } };
+
+/* ---------- verdieping: optellen en aftrekken ---------- */
+WT.som = { title:'Optellen en aftrekken', lvl:3, brk:false,
+  instr:'Reken uit en schrijf wetenschappelijk. Maak eerst de exponenten gelijk, of schrijf als gewoon getal.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = R.shuffle([[['3', 4], '+', ['5', 3]], [['6,2', 5], MIN, ['2', 4]], [['4', -3], '+', ['3', -4]], [['9', 6], '+', ['2', 6]], [['1', 5], MIN, ['5', 4]], [['2,5', -2], MIN, ['5', -3]]]).slice(0, 5);
+    reeks(b, L.length, (g, i, nr) => { const [[m1, e1], op, [m2, e2]] = L[i]; const A = wQ(m1, e1), C = wQ(m2, e2); const T = op==='+' ? Q(A.n*C.d + C.n*A.d, A.d*C.d) : Q(A.n*C.d - C.n*A.d, A.d*C.d);
+      const h = `${wH(m1, e1)} ${op} ${wH(m2, e2)}`;
+      mQ(g, st, save, 'm' + i, { nr, html:`${h} ${isq} {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T),
+        hint:[[`Schrijf beide als gewoon getal: ${qKomma(A)} ${op} ${qKomma(C)} ${isq} ${qKomma(T)}. Schrijf dat wetenschappelijk.`]], sol:`${h} ${isq} ${qKomma(T)}` }); });
+  } };
+
+/* ---------- verdieping: voorvoegsels ---------- */
+WT.si = { title:'Kilo, mega, micro, nano', lvl:3, keep:true,
+  instr:'Voorvoegsels zijn machten van 10. Welke exponent hoort in het oranje vakje?',
+  build(b, st, save){
+    regelTop(b, `<div class="m4-tabel">tera T = ${mH('10', 12)} · giga G = ${mH('10', 9)} · mega M = ${mH('10', 6)} · kilo k = ${mH('10', 3)}<br>milli m = ${mH('10', -3)} · micro µ = ${mH('10', -6)} · nano n = ${mH('10', -9)}</div>`);
+    const L = [['1 nanometer (nm)', 'm', -9], ['1 gigabyte (GB)', 'byte', 9], ['1 micrometer (µm)', 'm', -6], ['1 megawatt (MW)', 'W', 6], ['1 milligram (mg)', 'g', -3], ['1 terabyte (TB)', 'byte', 12]];
+    reeks(b, L.length, (g, i, nr) => { const [w, e, n] = L[i];
+      mQ(g, st, save, 'v' + i, { nr, html:`<span class="txt">${w} ${isq}</span> ${mE('10', 'a')} <span class="txt">${e}</span>`, check:V=>chkE(V.a, n, [[-n, 'Kijk naar het teken: is het een groot of een klein voorvoegsel?']]), sol:`${w} = ${mH('10', n)} ${e}` }); });
+  } };
+
+(function(){ const s = document.createElement('style'); s.textContent = `.m4-toets{display:inline-block; padding:0 .35rem; margin:0 .1rem; border:1.5px solid var(--ink-soft); border-radius:.3rem; background:var(--zone-bg); font-size:.9em}`; document.head.append(s); })();
+
+SEC.wet = { id:'wet', ic:'m_wet', nav:'Wetenschappelijke schrijfwijze', title:'Wetenschappelijke schrijfwijze',
+  tip:'Eén cijfer (geen 0) voor de komma, maal een macht van 10. Groot getal: positieve exponent. Getal tussen 0 en 1: negatieve exponent.',
+  cheat:CHEAT_WET, cards:[WT.tien, WT.herken, WT.schuif, WT.schrijf, WT.gewoon, WT.orden, WT.context, WT.reken, WT.toestel, WT.intik, WT.som, WT.si] };
+/* ============================================================
+   ONDERDEEL 12 · ZOEK DE FOUT
+   typische fouten: duid de eerste foute stap aan en verbeter
+   ============================================================ */
+Object.assign(ICONS, {
+  m_fout:'<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/><path d="M8 8l4 4M12 8l-4 4"/>'
+});
+const ln = h => `<span class="m4-line" style="display:inline-flex">${h}</span>`;
+const FT = {};
+/* macht met een letterlijke exponent-tekst (niet uitgerekend): a^(3·4) */
+const mT = (b, t) => `<span class="m4-m">${bHp(b)}<sup class="m4-sup">${t}</sup></span>`;
+const foutKaart = (title, lvl, maak) => ({ title, lvl, instr:'Klik op de eerste stap die fout is. Verbeter die stap daarna.', build(b, st, save){ const R = makeR(st); const L = maak(R); L.forEach((e, i) => errBlock(b, st, save, 'f' + i, Object.assign({nr:'ab'[i] + ')'}, e))); } });
+
+FT.verm = foutKaart('Vermenigvuldigen en delen', 2, R => { const x = R.pick(['a', 'x', 'y']), m = R.int(2, 5), p = R.int(3, 6), q = R.pick([2, 3]), k = q*R.int(2, 4);
+  return [{task:`Schrijf als één macht: ${mH(x, m)} · ${mH(x, p)}`, lines:[ln(`${mH(x, m)} · ${mH(x, p)} ${isq} ${mT(x, `${m}·${p}`)}`), ln(`${isq} ${mH(x, m*p)}`)], wrong:0, cons:[1],
+      why:'Machten met hetzelfde grondtal vermenigvuldigen: je telt de exponenten op, je vermenigvuldigt ze niet.', fixMQ:{html:`${mH(x, m)} · ${mH(x, p)} ${isq} {{m:a}}`, check:V=>chkM(V.a, {b:x, e:m+p}), sol:mH(x, m+p)}},
+    {task:`Schrijf als één macht: ${mH('2', k)} : ${mH('2', q)}`, lines:[ln(`${mH('2', k)} : ${mH('2', q)} ${isq} ${mT('2', `${k}:${q}`)}`), ln(`${isq} ${mH('2', k/q)}`)], wrong:0, cons:[1],
+      why:'Machten met hetzelfde grondtal delen: je trekt de exponenten af.', fixMQ:{html:`${mH('2', k)} : ${mH('2', q)} ${isq} {{m:a}}`, check:V=>chkM(V.a, {b:'2', e:k-q}), sol:mH('2', k-q)}}]; });
+
+FT.teken = foutKaart('Het minteken', 2, R => { const g = R.pick([3, 4, 5]);
+  return [{task:`Bereken ${minH(mH(String(g), 2))}.`, lines:[ln(`${minH(mH(String(g), 2))} ${isq} (${MIN}${g}) · (${MIN}${g})`), ln(`${isq} ${g*g}`)], wrong:0, cons:[1],
+      why:`De exponent hoort enkel bij ${g}: ${minH(mH(String(g), 2))} ${isq} ${MIN}(${g} · ${g}).`, fixMQ:{html:`${minH(mH(String(g), 2))} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, Q(-g*g)), sol:sg(-g*g)}},
+    {task:`Bereken ${mH('-2', 3)}.`, lines:[ln(`${mH('-2', 3)} ${isq} (${MIN}2) · (${MIN}2) · (${MIN}2)`), ln(`${isq} 4 · (${MIN}2)`), ln(`${isq} 8`)], wrong:2,
+      why:'Drie mintekens: er blijft er één over, dus het resultaat is negatief.', fixMQ:{html:`4 · (${MIN}2) ${isq} {{u:a,t}}`, check:V=>chkU(V.a, Q(-8)), sol:sg(-8)}}]; });
+
+FT.neg = foutKaart('Negatieve exponent', 2, R => { const n = R.pick([2, 3]); const [p, q] = R.pick([[2, 3], [3, 4], [2, 5]]);
+  return [{task:`Bereken ${mH('2', -n)}.`, lines:[ln(`${mH('2', -n)} ${isq} ${minH(mH('2', n))}`), ln(`${isq} ${MIN}${2**n}`)], wrong:0, cons:[1],
+      why:'Een negatieve exponent maakt het getal niet negatief: je neemt het omgekeerde.', fixMQ:{html:`${mH('2', -n)} ${isq} {{u:a}}`, check:V=>chkU(V.a, Q(1, 2**n)), sol:qH(Q(1, 2**n))}},
+    {task:`Bereken ${mH(`${p}/${q}`, -2)}.`, lines:[ln(`${mH(`${p}/${q}`, -2)} ${isq} ${mH(`${q}/${p}`, 2)}`), ln(`${isq} ${brH(q*q, p)}`)], wrong:1,
+      why:'Ook de noemer gaat tot de macht.', fixMQ:{html:`${mH(`${q}/${p}`, 2)} ${isq} {{u:a}}`, check:V=>chkU(V.a, Q(q*q, p*p)), sol:qH(Q(q*q, p*p))}}]; });
+
+FT.prod = foutKaart('Macht van een product', 2, R => { const c = R.pick([3, 4, 5]), m = R.int(2, 3), x = R.pick(['a', 'x']);
+  return [{task:`Werk uit: ${pPH(c, [[x, m]], 2)}`, lines:[ln(`${pPH(c, [[x, m]], 2)} ${isq} ${mH(String(c), 2)} · ${mmH(x, m, 2)}`), ln(`${isq} ${2*c}${mH(x, 2*m)}`)], wrong:1,
+      why:`${mH(String(c), 2)} ${isq} ${c} · ${c} ${isq} ${c*c}, niet 2 · ${c}.`, fixMQ:{html:`${mH(String(c), 2)} · ${mmH(x, m, 2)} ${isq} {{u:c}}${mE(x, 'a')}`, check:V=>allOf([['c', chkU(V.c, Q(c*c))], ['a', chkE(V.a, 2*m)]]), sol:`${c*c}${mH(x, 2*m)}`}},
+    {task:`Werk uit: ${pPH(2, [[x, 1]], 3)}`, lines:[ln(`${pPH(2, [[x, 1]], 3)} ${isq} 2 · ${mH(x, 3)}`), ln(`${isq} 2${mH(x, 3)}`)], wrong:0, cons:[1],
+      why:'Elke factor gaat tot de macht, ook het getal 2.', fixMQ:{html:`${pPH(2, [[x, 1]], 3)} ${isq} {{u:c}}${mE(x, 'a')}`, check:V=>allOf([['c', chkU(V.c, Q(8))], ['a', chkE(V.a, 3)]]), sol:`8${mH(x, 3)}`}}]; });
+
+FT.mm = foutKaart('Macht van een macht en exponent 0', 2, R => { const m = R.int(2, 5), p = R.int(3, 5), g = R.pick(['5', '7', '9']);
+  return [{task:`Schrijf als één macht: ${mmH('a', m, p)}`, lines:[ln(`${mmH('a', m, p)} ${isq} ${mT('a', `${m}+${p}`)}`), ln(`${isq} ${mH('a', m+p)}`)], wrong:0, cons:[1],
+      why:'Een macht van een macht: je vermenigvuldigt de exponenten.', fixMQ:{html:`${mmH('a', m, p)} ${isq} {{m:a}}`, check:V=>chkM(V.a, {b:'a', e:m*p}), sol:mH('a', m*p)}},
+    {task:`Bereken ${mH(g, 0)}.`, lines:[ln(`${mH(g, 0)} ${isq} ${g} · 0`), ln(`${isq} 0`)], wrong:0, cons:[1],
+      why:`Een macht met exponent 0 is 1: ${mH(g, 0)} ${isq} ${mH(g, 3)} : ${mH(g, 3)} ${isq} 1.`, fixMQ:{html:`${mH(g, 0)} ${isq} {{u:a}}`, check:V=>chkU(V.a, Q(1)), sol:'1'}}]; });
+
+FT.wet = foutKaart('Wetenschappelijke schrijfwijze', 2, R => { const [m, e] = [R.pick(['4,5', '3,2', '7,1']), -R.int(3, 5)]; const T = wQ(m, e);
+  return [{task:`Schrijf ${qKomma(T)} wetenschappelijk.`, lines:[ln(`De komma schuift ${-e} plaatsen naar rechts.`), ln(`${qKomma(T)} ${isq} ${wH(m, -e)}`)], wrong:1,
+      why:'Een getal tussen 0 en 1 krijgt een negatieve exponent.', fixMQ:{html:`${qKomma(T)} ${isq} {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, T), sol:wH(m, e)}},
+    {task:`Bereken (${wH('3', 4)}) · (${wH('5', 3)}).`, lines:[ln(`(${wH('3', 4)}) · (${wH('5', 3)}) ${isq} 15 · ${mH('10', 7)}`), ln(`${isq} ${wH('1,5', 6)}`)], wrong:1,
+      why:`15 ${isq} ${wH('1,5', 1)}: de exponent wordt één groter, niet kleiner.`, fixMQ:{html:`15 · ${mH('10', 7)} ${isq} {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, wQ('1,5', 8)), sol:wH('1,5', 8)}}]; });
+
+SEC.fout = { id:'fout', ic:'m_fout', nav:'Zoek de fout', title:'Zoek de fout',
+  tip:'Lees elke stap en vraag je af: welke rekenregel staat hier, en klopt hij? De eerste stap die fout is, telt.',
+  cheat:CHEAT_DOOR, cards:[FT.verm, FT.teken, FT.neg, FT.prod, FT.mm, FT.wet] };
+/* ============================================================
+   ONDERDEEL 13 · SNELLE QUIZ: 10 vragen in 3 minuten, telt niet mee
+   ============================================================ */
+Object.assign(ICONS, {
+  m_quiz:'<circle cx="12" cy="13" r="8"/><path d="M12 13V9M12 13l3 2M10 3h4"/>'
+});
+const SQ = {
+  ch:(q, opts, ans, show) => ({kind:'ch', q, opts, ans, show}),
+  w:(q, check, show) => ({kind:'w', q, check, show})
+};
+const QUIZ = [
+  R => { const n = R.int(2, 5); const T = qPow(Q(-2), n); return SQ.w(`${mH('-2', n)} ${isq} {{u:a}}`, V=>chkU(V.a, T), sg(T.n)); },
+  R => { const g = R.pick([2, 3, 5, 10]), n = R.int(1, g===10 ? 3 : 2); const T = qPow(Q(g), -n); return SQ.w(`${mH(String(g), -n)} ${isq} {{u:a}}`, V=>chkUD(V.a, T), qH(T)); },
+  R => { const m = R.int(2, 7), p = R.int(-3, 6); return SQ.w(`${mH('a', m)} · ${mH('a', p)} ${isq} ${mE('a', 'a')}`, V=>chkE(V.a, m+p), mH('a', m+p)); },
+  R => { const m = R.int(2, 9), p = R.int(-3, 5); return SQ.w(`${mH('x', m)} : ${mH('x', p)} ${isq} ${mE('x', 'a')}`, V=>chkE(V.a, m-p), mH('x', m-p)); },
+  R => { const m = R.int(-3, 5) || 2, p = R.int(2, 4); return SQ.w(`${mmH('y', m, p)} ${isq} ${mE('y', 'a')}`, V=>chkE(V.a, m*p), mH('y', m*p)); },
+  R => { const c = R.pick([2, 3, 5]), n = R.pick([2, 3]); return SQ.w(`${pPH(c, [['a', 1]], n)} ${isq} {{u:c}}${mE('a', 'a')}`, V=>allOf([['c', chkU(V.c, Q(c**n))], ['a', chkE(V.a, n)]]), `${c**n}${mH('a', n)}`); },
+  R => { const [p, q] = R.pick([[2, 3], [3, 4], [2, 5], [4, 7]]); return SQ.w(`${mH(`${p}/${q}`, -1)} ${isq} {{u:a}}`, V=>chkU(V.a, Q(q, p)), qH(Q(q, p))); },
+  R => { const x = R.pick(['7', '−12', 'a', '0,5']); return SQ.w(`${mH(x.replace('−', '-'), 0)} ${isq} {{u:a}}`, V=>chkU(V.a, Q(1)), '1'); },
+  R => { const g = R.int(2, 9), n = R.int(2, 9); const neg = R.f() < .5; const h = neg ? minH(mH(String(g), n)) : mH(String(-g), n); const pos = !neg && n % 2===0;
+    return SQ.ch(`Is ${h} positief of negatief?`, [['+', 'positief'], ['-', 'negatief']], pos ? '+' : '-', pos ? 'positief' : 'negatief'); },
+  R => { const [m, e, ok] = R.pick([['3,2', 5, true], ['32', 4, false], ['0,7', -2, false], ['7', -3, true], ['10', 3, false], ['1,05', 8, true]]);
+    return SQ.ch(`Is ${wH(m, e)} een wetenschappelijke schrijfwijze?`, [['j', 'ja'], ['n', 'nee']], ok ? 'j' : 'n', ok ? 'ja' : 'nee'); },
+  R => { const [m, e] = wRand(R, R.f() < .5); const T = wQ(m, e); return SQ.w(`${qKomma(T)} ${isq} ${sg(m)} · ${mE('10', 'a')}`, V=>chkE(V.a, e), wH(m, e)); },
+  R => { const k = R.int(5, 40); return SQ.ch(`${mH('2', k)} + ${mH('2', k)} ${isq} …`, [['a', mH('2', k+1)], ['b', mH('2', 2*k)], ['c', mH('4', k)], ['d', mH('4', 2*k)]], 'a', mH('2', k+1)); }
+];
+function quizKaart(gens){ return (b, st, save) => {
+  const N = 10, T = 180, root = el('div', 'qz'); b.append(root);
+  let timer = null; const stop = () => { if(timer){ clearInterval(timer); timer = null; } };
+  const mm = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  function intro(){
+    stop(); root.innerHTML = '';
+    root.append(el('p', 'qz-intro', N + ' vragen, ' + mm(T) + ' minuten. Hoeveel krijg jij juist? Deze quiz telt niet mee.'));
+    if(st.best) root.append(el('p', 'qz-sub', 'Jouw beste score: <b>' + st.best.score + ' / ' + N + '</b>' + (st.best.time != null ? ' in ' + mm(st.best.time) : '') + '.'));
+    const go = el('button', 'btn', '▶ Start de quiz'); go.type = 'button'; go.addEventListener('click', run); root.append(go);
+  }
+  function run(){
+    stop(); root.innerHTML = '';
+    const R = makeR({seed:1 + Math.floor(Math.random() * 2e9)});
+    const order = []; while(order.length < N) R.shuffle(gens.map((g, i) => i)).forEach(i => { if(order.length < N) order.push(i); });
+    const Qs = order.map(i => gens[i](R));
+    const top = el('div', 'qz-top'), klok = el('span', 'qz-klok', mm(T)), prog = el('span'), sc = el('span');
+    top.append(klok, prog, sc);
+    const balk = el('div', 'qz-balk', '<span style="width:100%"></span>'), vak = el('div', 'qz-vak'), fb = el('div', 'fb');
+    root.append(top, balk, vak, fb);
+    let k = 0, score = 0, over = T, bezig = false; const mis = [], t0 = Date.now();
+    timer = setInterval(() => { if(!root.isConnected){ stop(); return; } over--; klok.textContent = mm(Math.max(0, over)); klok.classList.toggle('laag', over <= 20); balk.firstChild.style.width = Math.max(0, over / T * 100) + '%'; if(over <= 0) einde(true); }, 1000);
+    function toon(){
+      bezig = false; fb.className = 'fb'; fb.textContent = '';
+      prog.textContent = 'Vraag ' + (k + 1) + ' / ' + N; sc.textContent = '✓ ' + score;
+      const q = Qs[k]; vak.innerHTML = '';
+      if(q.kind === 'ch'){ vak.append(el('div', 'qz-q m4-line', q.q)); const ant = el('div', 'qz-ant'); vak.append(ant);
+        q.opts.forEach(o => { const bt = el('button', 'btn ghost qz-opt', o[1]); bt.type = 'button'; bt.addEventListener('click', () => antwoord(o[0] === q.ans, bt)); ant.append(bt); }); }
+      else {
+        const line = el('div', 'qz-q m4-line', tokens(q.q)); vak.append(line); const V = {};
+        const M = mountW(line, V, ()=>{}, ()=>{ M.clear(); }, () => go());
+        const ok = el('button', 'btn', 'OK'); ok.type = 'button'; const ant = el('div', 'qz-ant'); ant.append(ok); vak.append(ant);
+        const go = () => { if(bezig) return; if(M.empty()){ fb.className = 'fb'; fb.textContent = 'Vul eerst je antwoord in.'; return; }
+          let r; try{ r = q.check(V) || {}; }catch(e){ r = {}; } if(r.info){ fb.className = 'fb info'; fb.innerHTML = r.msg || ''; return; }
+          M.mark(Object.fromEntries(Object.keys(M.W).map(x => [x, !!r.ok]))); M.lock(); antwoord(!!r.ok); };
+        ok.addEventListener('click', go);
+        const f = line.querySelector('input'); if(f) f.focus({preventScroll:true});
+      }
+    }
+    function antwoord(goed, bt){
+      if(bezig) return; bezig = true; const q = Qs[k];
+      if(goed) score++; else mis.push(q);
+      if(bt) bt.classList.add(goed ? 'goed' : 'fout');
+      vak.querySelectorAll('button').forEach(x => { x.disabled = true; });
+      fb.className = 'fb ' + (goed ? 'ok' : 'bad'); fb.innerHTML = goed ? 'Juist!' : 'Juist was: <b>' + q.show + '</b>';
+      sc.textContent = '✓ ' + score;
+      setTimeout(() => { if(!timer) return; k++; if(k >= N) einde(false); else toon(); }, goed ? 700 : 2200);
+    }
+    function einde(tijdOm){
+      if(!timer && !tijdOm) return; stop(); const gebruikt = Math.min(T, Math.round((Date.now() - t0) / 1000));
+      const best = !st.best || score > st.best.score || (score === st.best.score && gebruikt < (st.best.time || 1e9));
+      if(best){ st.best = {score, time:tijdOm ? null : gebruikt}; save(); }
+      root.innerHTML = '';
+      root.append(el('div', 'qz-groot', score + ' / ' + N));
+      root.append(el('p', '', (tijdOm ? 'De tijd is om. ' : 'Klaar in ' + mm(gebruikt) + '. ') + (best && score > 0 ? 'Dat is jouw beste score!' : 'Jouw beste score: ' + st.best.score + ' / ' + N + '.')));
+      if(mis.length){ root.append(el('p', 'qz-sub', 'Dit ging nog mis:')); const ul = el('ul', 'qz-mis');
+        mis.forEach(q => ul.append(el('li', '', `<span class="m4-line" style="display:inline-flex">${q.q.replace(/\{\{[^}]*\}\}/g, '…').replace(/ ?<span class="m4-is">=<\/span> …$/, '')}</span> → <b>${q.show}</b>`))); root.append(ul); }
+      if(tijdOm && k < N) root.append(el('p', 'qz-sub', (N - k) + ' vragen kwamen niet meer aan bod.'));
+      const nog = el('button', 'btn', '↻ Nog eens'); nog.type = 'button'; nog.addEventListener('click', run); root.append(nog);
+    }
+    toon();
+  }
+  intro();
+}; }
+SEC.quiz = { id:'quiz', ic:'m_quiz', nav:'Snelle quiz', title:'Snelle quiz: hoe snel ben jij?',
+  tip:'Tien korte vragen tegen de klok. De quiz telt niet mee: speel hem zo vaak je wil en probeer je beste score te verbeteren.',
+  cards:[ { title:'Quiz machten', noReset:true, build:quizKaart(QUIZ) } ] };
+
+(function(){ const css = `
+  .qz{display:flex; flex-direction:column; gap:.7rem}
+  .qz-top{display:flex; flex-wrap:wrap; gap:.6rem 1.2rem; align-items:center; font-weight:700; color:var(--accent-dark)}
+  .qz-klok{font-variant-numeric:tabular-nums; font-size:1.4rem} .qz-klok.laag{color:var(--bad)}
+  .qz-balk{height:.55rem; border-radius:999px; background:var(--accent-soft); overflow:hidden}
+  .qz-balk span{display:block; height:100%; background:var(--orange); transition:width 1s linear}
+  .qz-q{font-size:1.2rem; line-height:1.7}
+  .qz-ant{display:flex; flex-wrap:wrap; gap:.5rem; align-items:center}
+  .qz-opt.goed{border-color:var(--ok); background:var(--ok-bg)} .qz-opt.fout{border-color:var(--bad); background:var(--bad-bg)}
+  .qz-groot{font-size:2.2rem; font-weight:700; color:var(--accent-dark)}
+  .qz-mis{margin:.2rem 0 0; padding-left:1.2rem; line-height:1.9}
+  .qz-sub{color:var(--ink-soft)}
+  `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
+/* ============================================================
+   PROEFTOETSEN 1–3 · op 30 punten, niveau van de toets
+   eigen opgaven, geïnspireerd op de soorten vragen van de toets
+   ============================================================ */
+const TOETS_TIP = 'Een proeftoets op 30 punten over de hele module. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk zonder spiekbriefje en zonder rekenmachine, behalve waar het gevraagd wordt.';
+const tReeks = (b, n, fn) => reeks(b, n, fn);
+
+/* 1. bereken (3 pt) */
+function tBereken(b, st, save){
+  const R = makeR(st); const [p, q] = R.pick([[2, 3], [3, 4], [2, 5], [3, 5]]); const n = R.pick([3, 5]), k = 2000 + R.int(10, 40);
+  const g1 = R.pick([3, 4]), g2 = R.pick([2, 5]);
+  const L = R.shuffle([[mH('-2', 4), Q(16)], [minH(mH(String(g1), 2)), Q(-g1*g1)], [mH(String(g2), -2), Q(1, g2*g2)], [mH(`${p}/${q}`, -2), Q(q*q, p*p)], [mH('-1', 2*k + 1), Q(-1)], [mH('-3', n), qPow(Q(-3), n)]]);
+  tReeks(b, 6, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 'b' + i, { nr, html:`${h} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), sol:`${h} ${isq} ${qH(T)}` }); });
+}
+/* 2. positief of negatief (2 pt) */
+function tTeken(b, st, save){
+  const R = makeR(st); const PN2 = [['+', 'positief'], ['-', 'negatief']];
+  const L = R.shuffle([[`${mH('-5', 7)}`, '-'], [`${mH('-4', 10)}`, '+'], [minH(mH('6', 4)), '-'], [`${mH('-2', 3)} · ${mH('-3', 5)}`, '+'], [`${mH('-7', -3)}`, '-'], [minH(mH('-2', 6)), '-']]).slice(0, 4);
+  const g = el('div', 'm4-items'); b.append(g);
+  L.forEach(([h, ans], i) => { const row = el('div', 'm4-wn'); g.append(row); qChoice(row, st, save, 't' + i, { nr:'abcd'[i] + ')', html:`<span class="m4-line" style="display:inline-flex">${h}</span>`, opts:PN2, ans }); });
+}
+/* 3. schrijf als één macht met een positieve exponent (6 pt) */
+function tEen(b, st, save){
+  const R = makeR(st); const x = R.pick(['a', 'x', 'b']);
+  const m = R.int(3, 6), p = R.int(2, 5), c = R.int(2, 4), d = R.int(2, 3);
+  const L = [[`${mH(x, m)} · ${mH(x, p)} · ${bH(x)}`, m + p + 1], [`${mH(x, -m)} · ${mH(x, p)}`, p - m], [brH(mH(x, p), mH(x, p + c)), -c], [mmH(x, -d, c), -d*c],
+    [`<span class="m4-m">(${mH(x, c)} · ${bH(x)})<sup class="m4-sup">${d}</sup></span> : ${mH(x, d)}`, (c + 1)*d - d], [brH(`${mmH(x, 2, 3)} · ${mH(x, -1)}`, mH(x, 4)), 1]];
+  tReeks(b, 6, (g, i, nr) => { const [h, S] = L[i]; mQ(g, st, save, 'e' + i, { nr, html:`${h} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true}), sol:`${h} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', mH(x, -S))}` : '') }); });
+}
+/* 4. werk uit: product en quotiënt (4 pt) */
+function tWerk(b, st, save){
+  const R = makeR(st); const c = R.pick([2, 3]), m = R.int(2, 4), n = R.pick([2, 3]);
+  const L = [[pPH(-c, [['a', m]], 3), `{{u:c,t}}${mE('a', 'a')}`, {c:Q((-c)**3), a:3*m}, `${sg((-c)**3)}${mH('a', 3*m)}`],
+    [pPH(2, [['a', 1], ['b', n]], 4), `{{u:c,t}}${mE('a', 'a')}${mE('b', 'b')}`, {c:Q(16), a:4, b:4*n}, `16${mH('a', 4)}${mH('b', 4*n)}`],
+    [qPH(mH('x', 3), '2', 2), brH(mE('x', 'a'), '{{u:c,t}}'), {c:Q(4), a:6}, brH(mH('x', 6), '4')],
+    [qPH('3', mH('y', 2), -2), brH(mE('y', 'a'), '{{u:c,t}}'), {c:Q(9), a:4}, brH(mH('y', 4), '9')]];
+  tReeks(b, 4, (g, i, nr) => { const [h, ant, T, sol] = L[i]; mQ(g, st, save, 'w' + i, { nr, html:`${h} ${isq} ${ant}`, check:V=>allOf(Object.entries(T).map(([k, v]) => [k, k==='c' ? chkU(V.c, v) : chkE(V[k], v)])), sol:`${h} ${isq} ${sol}` }); });
+}
+/* 5. slim rekenen (3 pt) */
+function tSlim(b, st, save){
+  const R = makeR(st); const n = R.int(3, 6), k = R.int(3, 5);
+  const L = R.shuffle([[`${mH('5', n)} · ${mH('2', n)}`, qPow(Q(10), n)], [`${mH('4', k)} : ${mH('2', 2*k - 2)}`, Q(4)], [`${mH('0,25', 5)} · ${mH('4', 5)}`, Q(1)], [`${mH('9', 3)} · ${mH('3', -5)}`, Q(3)], [`${mH('150', 3)} : ${mH('50', 3)}`, Q(27)]]).slice(0, 3);
+  tReeks(b, 3, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 's' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkU(V.a, T), sol:`${h} ${isq} ${qH(T)}` }); });
+}
+/* 6. kies het juiste antwoord (3 pt) */
+function tKies(b, st, save){
+  const R = makeR(st); const k = 2*R.int(10, 30), j = R.int(5, 9);
+  const L = R.shuffle([[`${mH('3', k)} + ${mH('3', k)} + ${mH('3', k)}`, [['a', mH('3', k+1)], ['b', mH('3', 3*k)], ['c', mH('9', k)], ['d', mH('9', 3*k)]]],
+    [`De helft van ${mH('2', k)}`, [['a', mH('2', k-1)], ['b', mH('1', k)], ['c', mH('2', k/2)], ['d', mH('1', k/2)]]],
+    [`<span class="m4-m">(<span class="m4-m">(${MIN}<i>a</i>)<sup class="m4-sup">2</sup></span>)<sup class="m4-sup">${j}</sup></span>`, [['a', mH('a', 2*j)], ['b', minH(mH('a', 2*j))], ['c', mH('a', 2+j)], ['d', minH(mH('a', 2+j))]]],
+    [`${mH('10', j)} · ${mH('10', j)}`, [['a', mH('10', 2*j)], ['b', mH('100', 2*j)], ['c', mH('10', j*j)], ['d', mH('20', j)]]]]).slice(0, 3);
+  const g = el('div', 'm4-items een'); b.append(g);
+  L.forEach(([h, opts], i) => { const row = el('div', 'm4-wn'); g.append(row); qChoice(row, st, save, 'k' + i, { nr:'abc'[i] + ')', html:`<span class="m4-line" style="display:inline-flex">${h} ${isq} …</span>`, opts:R.shuffle(opts.slice()).map(([v, l]) => [v, `<span class="m4-line">${l}</span>`]), ans:'a' }); });
+}
+/* 7. wetenschappelijke schrijfwijze (5 pt) */
+function tWet(b, st, save){
+  const R = makeR(st); const [m1, e1] = wRand(R, false), [m2, e2] = wRand(R, true), [m3, e3] = wRand(R, R.f() < .5);
+  const [a, x, c, y] = [R.pick(['4', '6', '8']), R.int(3, 6), R.pick(['2', '5']), -R.int(2, 5)];
+  const T4 = qMul(wQ(a, x), wQ(c, y));
+  const L = [[`${qKomma(wQ(m1, e1))} ${isq} {{g:a}} · ${mE('10', 'b')}`, V=>chkW(V.a, V.b, wQ(m1, e1)), wH(m1, e1)], [`${qKomma(wQ(m2, e2))} ${isq} {{g:a}} · ${mE('10', 'b')}`, V=>chkW(V.a, V.b, wQ(m2, e2)), wH(m2, e2)],
+    [`${wH(m3, e3)} ${isq} {{g:a}}`, V=>{ const v = rdG((V.a||{}).t); return {ok:!!v && qEq(v, wQ(m3, e3))}; }, qKomma(wQ(m3, e3))],
+    [`(${wH(a, x)}) · (${wH(c, y)}) ${isq} {{g:a}} · ${mE('10', 'b')}`, V=>chkW(V.a, V.b, T4), qKomma(T4), 2]];
+  tReeks(b, 4, (g, i, nr) => { const [h, check, sol, pts] = L[i]; mQ(g, st, save, 'w' + i, { nr, html:h, check, sol, pts:pts || 1 }); });
+}
+/* 8. context (2 pt) */
+const T_CTX = [
+  {zin:'Een virus is 0,000 000 2 m lang. Hoeveel virussen passen er naast elkaar op 1 mm (0,001 m)?', T:Q(5000), sol:`${mH('10', -3)} : (${wH('2', -7)}) ${isq} ${wH('5', 3)}`},
+  {zin:'Een lichtjaar is ongeveer 9 460 000 000 000 km. Een ster staat op 4 lichtjaar. Hoeveel km is dat?', T:Q(37840000000000), sol:`4 · ${wH('9,46', 12)} ${isq} ${wH('3,784', 13)}`},
+  {zin:'Een zandkorrel weegt 0,000 05 g. Hoeveel weegt een zak met 6 000 000 zandkorrels, in gram?', T:Q(300), sol:`(${wH('5', -5)}) · (${wH('6', 6)}) ${isq} ${wH('3', 2)}`}];
+const tCtx = i => (b, st, save) => { const c = T_CTX[i];
+  mQ(b, st, save, 'c', { html:`<span class="txt">${c.zin}</span><br><span class="txt">Antwoord in wetenschappelijke schrijfwijze:</span> {{g:a}} · ${mE('10', 'b')}`, check:V=>chkW(V.a, V.b, c.T), sol:c.sol }); };
+/* 9. zoek de fout (2 pt) */
+const T_FOUT = [
+  {task:`Schrijf als één macht: ${mmH('a', 3, 4)} · ${mH('a', 2)}`, lines:[ln(`${mmH('a', 3, 4)} · ${mH('a', 2)} ${isq} ${mH('a', 7)} · ${mH('a', 2)}`), ln(`${isq} ${mH('a', 9)}`)], wrong:0, cons:[1]},
+  {task:`Bereken ${mH('-2', -3)}.`, lines:[ln(`${mH('-2', -3)} ${isq} ${brH('1', mH('-2', 3))}`), ln(`${isq} ${brH('1', '8')}`)], wrong:1},
+  {task:`Werk uit: ${pPH(-3, [['x', 2]], 2)}`, lines:[ln(`${pPH(-3, [['x', 2]], 2)} ${isq} ${mH('-3', 2)} · ${mmH('x', 2, 2)}`), ln(`${isq} ${MIN}9${mH('x', 4)}`)], wrong:1}];
+const tFout = i => (b, st, save) => errBlock(b, st, save, 'f', Object.assign({nr:'', pts:2}, T_FOUT[i]));
+
+function bigToets(i){ return [
+  {sec:'Bereken', pts:3, prompt:'Bereken. Kies het teken in het tekenvak. Schrijf een breuk vereenvoudigd.', build:tBereken},
+  {sec:'Positief of negatief?', pts:2, prompt:'Is het resultaat positief of negatief? Reken niet uit.', build:tTeken},
+  {sec:'Schrijf als één macht', pts:6, prompt:'Schrijf als één macht met een positieve exponent.', build:tEen},
+  {sec:'Macht van een product en van een quotiënt', pts:4, prompt:'Werk uit. Schrijf met positieve exponenten.', build:tWerk},
+  {sec:'Slim rekenen', pts:3, prompt:'Reken uit zonder rekenmachine.', build:tSlim},
+  {sec:'Kies het juiste antwoord', pts:3, build:tKies},
+  {sec:'Wetenschappelijke schrijfwijze', pts:5, build:tWet},
+  {sec:'Toepassing', pts:2, prompt:'Je mag je rekenmachine gebruiken.', build:tCtx(i)},
+  {sec:'Zoek de fout', pts:2, prompt:'Klik op de eerste stap die fout is.', build:tFout(i)}
+]; }
+[0, 1, 2].forEach(i => { SEC['toets' + (i+1)] = { id:'toets' + (i+1), ic:'toets', nav:'Proeftoets ' + (i+1), title:'Proeftoets ' + (i+1), tip:TOETS_TIP,
+  cards:[ { title:'Proeftoets ' + (i+1), noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, bigToets(i)) } ] }; });
+const ORDER = ['herh','neg','brk','teken','verm','del','mm','prod','quot','door','wet','fout','quiz','toets1','toets2','toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================

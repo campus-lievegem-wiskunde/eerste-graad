@@ -849,6 +849,42 @@ export const SITES = [
     "naam": "Rekenregels door elkaar",
     "toets": false,
     "vragen": 53
+   },
+   {
+    "id": "wet",
+    "naam": "Wetenschappelijke schrijfwijze",
+    "toets": false,
+    "vragen": 57
+   },
+   {
+    "id": "fout",
+    "naam": "Zoek de fout",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
    }
   ]
  },
