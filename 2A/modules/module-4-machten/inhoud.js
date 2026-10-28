@@ -1214,12 +1214,12 @@ function tegelSvg(g, m, p, k, t){
   const tile = (x, y, cls, txt, op=1) => `<g opacity="${fx(op)}"><rect class="tegel ${cls}" x="${fx(x)}" y="${fx(y)}" width="${s}" height="${s}" rx="5"/>` + (txt ? `<text class="t" x="${fx(x+s/2)}" y="${fx(y+s/2)}" text-anchor="middle" dominant-baseline="central"${let_ ? ' font-style="italic"' : ''}>${txt}</text>` : '') + '</g>';
   const dot = (x, y, op=1) => `<text class="t" x="${fx(x)}" y="${fx(y)}" text-anchor="middle" dominant-baseline="central" opacity="${fx(op)}">·</text>`;
   const gt = let_ ? g : sg(g);
-  const lab = (y, e) => `<text class="t" x="${x0-14}" y="${y+s/2}" text-anchor="end" dominant-baseline="central">${let_ ? `<tspan font-style="italic">${g}</tspan>` : gt}<tspan class="sup" dy="-7">${e}</tspan></text>`;
+  const lab = (y, e) => `<text class="t big" x="${x0-14}" y="${y+s/2}" text-anchor="end" dominant-baseline="central">${let_ ? `<tspan font-style="italic">${g}</tspan>` : gt}<tspan class="sup" dy="-9">${e}</tspan></text>`;
   const txtOp = k===0 ? 0 : k===1 ? t : 1;
   for(let i=0; i<m; i++){ out += tile(x0 + i*d, y1, '', gt, 1); }
   for(let j=0; j<p; j++){ let x = x0 + j*d, y = y2; if(k===2){ x = lerp(x, x0 + (m+j)*d, t); y = lerp(y2, y1, t); } else if(k>2){ x = x0 + (m+j)*d; y = y1; }
     out += tile(x, y, 'b', gt, 1); }
-  if(k<2){ out += lab(y1, m) + lab(y2, p); out += sT(x0 - 40, (y1+y2)/2 + s/2, '·', 'big');
+  if(k<2){ out += lab(y1, m) + lab(y2, p); out += sT(x0 - 30, (y1+y2)/2 + s/2, '·', 'big');
     if(k===1){ for(let i=0; i<m-1; i++) out += dot(x0 + i*d + s + 3, y1 + s/2, txtOp); for(let j=0; j<p-1; j++) out += dot(x0 + j*d + s + 3, y2 + s/2, txtOp); } }
   else { for(let i=0; i<n-1; i++) out += dot(x0 + i*d + s + 3, y1 + s/2, k===2 ? (i<m-1 ? 1 : (t>.9 ? (t-.9)*10 : 0)) : 1);
     if(k===3){ const xr = x0 + n*d - (d-s); out += `<path class="as" fill="none" d="M${x0} ${y1+s+10} v8 H${fx(xr)} v-8"/>` + `<text class="t big" x="${fx((x0+xr)/2)}" y="${y1+s+40}" text-anchor="middle" dominant-baseline="central">${let_ ? `<tspan font-style="italic">${g}</tspan>` : gt}<tspan class="sup" dy="-8">${n}</tspan></text>` + sT((x0+xr)/2, y1+s+70, `${m} + ${p} = ${n} factoren`, 't'); }
@@ -1236,7 +1236,7 @@ VM.tegels = { title:'Tegels schuiven samen', lvl:1,
       {cap:`Schrijf elke macht uit als een product: ${mH(g, m)} heeft ${m} factoren ${bH(g)}, ${mH(g, p)} heeft er ${p}.`, draw:t=>tegelSvg(g, m, p, 1, t)},
       {cap:'Schuif de tweede rij achter de eerste: alles wordt één lang product.', draw:t=>tegelSvg(g, m, p, 2, t), ms:1300},
       {cap:`Tel de factoren: ${m} + ${p} = ${m+p}.`, draw:t=>tegelSvg(g, m, p, 3, t)}] });
-    r.append(el('p', '', 'Gebruik de tegels.'));
+    r.append(el('p', '', 'Speel de stappen links af. Tel dan de tegels en vul in.'));
     const g2 = el('div', 'm4-items een'); r.append(g2);
     mQ(g2, st, save, 'f', { nr:'a)', html:`<span class="txt">Hoeveel factoren ${bH(g)} staan er samen?</span> {{g:a}}`, check:V=>chkE(V.a, m+p, [[m*p, `Je vermenigvuldigde ${m} en ${p}. Tel de tegels.`]]) });
     mQ(g2, st, save, 'm', { nr:'b)', html:`${mH(g, m)} · ${mH(g, p)} ${isq} ${mE(g, 'a')}`, check:V=>chkE(V.a, m+p, [[m*p, 'De exponenten vermenigvuldigen klopt niet: tel de factoren.']]),
@@ -1348,7 +1348,7 @@ VM.lexp = { title:'Letters in de exponent', lvl:2,
         hint:[['Tel de exponenten op, net zoals bij getallen. Een voorbeeld met een andere letter:', `${mH('a', 'k')} · ${mH('a', 2)} ${isq} ${mH('a', 'k+2')} &nbsp; en &nbsp; ${mH('a', '3k')} · ${mH('a', 'k')} ${isq} ${mH('a', '4k')}`]],
         sol:`${mH(x, e1)} · ${mH(x, e2)} ${isq} ${mH(x, S)}` }); });
     const row = el('div', 'm4-wn'); b.append(row);
-    qChoice(row, st, save, 'pos', { html:`<span class="m4-line" style="display:inline-flex">${mH('b', 'm')} · ${mH('b', -n5)} ${isq} ${mH('b', `m-${n5}`)}</span> Wanneer is die exponent positief?`,
+    qChoice(row, st, save, 'pos', { html:`<span class="m4-line" style="display:inline-flex">${mH('b', 'm')} · ${mH('b', -n5)} ${isq} ${mH('b', `m-${n5}`)}</span><span class="txt" style="display:block;margin-top:.4rem">Wanneer is die exponent positief?</span>`,
       opts:[['g', `als m &gt; ${n5}`], ['k', `als m &lt; ${n5}`], ['n', `als m &gt; ${MIN}${n5}`], ['i', `als m = ${n5}`]], ans:'g',
       why:`m − ${n5} is positief als m groter is dan ${n5}. Bijvoorbeeld m = ${n5+2}: ${n5+2} − ${n5} = 2.`, whyBad:`Probeer een getal: neem m = ${n5+2} en m = ${n5-1}. Wanneer is m − ${n5} positief?` });
   } };
