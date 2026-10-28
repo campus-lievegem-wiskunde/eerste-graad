@@ -794,7 +794,7 @@ export const SITES = [
     "id": "neg",
     "naam": "Negatieve exponent en exponent 0",
     "toets": false,
-    "vragen": 53
+    "vragen": 52
    },
    {
     "id": "verm",
