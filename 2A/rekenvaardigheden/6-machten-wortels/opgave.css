@@ -1,0 +1,159 @@
+/* 2A Rekenvaardigheden 6 · machten, wortels, bouwen, minnen wegklikken, vraagstukken (ook geladen in het dashboard en de pdf).
+   Plus, min, maal en deel zijn zwart; de kleuren van de vakjes en de blokjes duiden enkel aan. */
+@import url("../../../gedeeld/rv-breuk.css");
+.vis-svg{ display:block; width:100%; height:auto; }
+
+/* machten en wortels tonen */
+.h6-pw{ display:inline-flex; align-items:flex-start; font-weight:900; white-space:nowrap; }
+.h6-pw sup{ font-size:.58em; font-weight:900; margin-left:1px; line-height:1; vertical-align:baseline; }
+.h6-pwout{ align-self:center; margin-right:1px; }
+.h6-hkw{ display:inline-flex; align-items:stretch; vertical-align:middle; padding:.04em 0; }
+.h6-hk{ position:relative; width:.36em; flex:none; }
+.h6-hk svg{ position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; }
+.h6-hk path{ fill:none; stroke:currentColor; stroke-width:2.3; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.h6-hkin{ display:inline-flex; align-items:center; padding:0 .08em; }
+.h6-rt{ display:inline-flex; align-items:stretch; vertical-align:middle; font-weight:900; white-space:nowrap; }
+.h6-rtout{ align-self:center; margin-right:3px; }
+.h6-rtv{ position:relative; width:.62em; flex:none; margin-top:1.25px; }
+.h6-rtv svg{ position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; }
+.h6-rtv path{ fill:none; stroke:currentColor; stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.h6-rtin{ border-top:2.5px solid currentColor; padding:.14em .22em 0 .14em; display:inline-flex; align-items:center; gap:2px; line-height:1; }
+.h6-rtin .br{ margin:0 .05em; }
+.rv-titel .h6-pw, .rv-titel .h6-rt{ font-weight:inherit; }
+.rv-lees .h6-pw, .rv-lees .h6-rt{ font-weight:700; }
+
+/* opgave en regel */
+.rv .h6-opgave{ display:flex; align-items:center; justify-content:center; gap:.8rem; margin:.1rem 0 .4rem; }
+.rv .h6-olab{ font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); background:var(--bg); border-radius:.4rem; padding:.15rem .5rem; }
+.rv .h6-oexpr{ font-size:2rem; font-weight:900; }
+.rv .h6-oexpr .br{ font-size:.85em; }
+.rv .h6-regel{ background:var(--card); border:1.5px solid var(--border); border-radius:.7rem; padding:.45rem .8rem; font-size:.92rem; line-height:1.5; text-align:center; }
+.rv .h6-regel > .h6-rt{ font-size:1.1rem; margin-right:.3rem; }
+.rv .h6-rex{ font-size:1.25rem; font-weight:900; display:inline-flex; align-items:center; gap:.4rem; vertical-align:middle; margin:0 .3rem .3rem; }
+.rv .h6-plan{ margin-top:.2rem; }
+.rv .h6-plan span{ font-size:.8rem; padding:.15rem .65rem; }
+
+/* werkvlakken */
+.rv .rv-werk.h6-smal{ grid-template-columns:minmax(0, .75fr) minmax(0, 1.25fr); }
+.rv .rv-werk.h6-bouwwerk{ grid-template-columns:minmax(0, .85fr) minmax(0, 1.15fr); }
+.rv .rv-werk.h6-wortelwerk{ grid-template-columns:minmax(0, 1.1fr) minmax(0, .9fr); }
+.rv .rv-werk.h6-vraagwerk{ grid-template-columns:minmax(0, .8fr) minmax(0, 1.2fr); }
+.rv .rv-werk:has(.br-schaarslot.zweef .br-schaar) .rv-vis{ min-height:12rem; }
+
+/* het schriftje met de stappen */
+.rv .h6-schriftje{ background-image:none; padding:.15rem .7rem; }
+.rv .h6-schriftje .srij{ min-height:44px; border-bottom:1px solid #efe9cc; }
+.rv .h6-schriftje .srij:last-child{ border-bottom:0; }
+.rv .h6-schriftje .orig{ font-size:1.35rem; display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
+.rv .h6-schriftje .srij.h6-vraagrij .orig{ font-size:1rem; }
+.rv .h6-schriftje .stapnaam{ font-size:.72rem; line-height:1.2; text-align:center; }
+.rv .h6-qlab{ font-size:.88rem; font-weight:800; line-height:1.25; flex:1 1 12rem; }
+.rv .h6-reken{ font-size:1.25rem; font-weight:900; white-space:nowrap; display:inline-flex; align-items:center; gap:.3rem; }
+.rv .rv-getal.h6-klein{ width:3.6rem; height:2.2rem; font-size:1.1rem; }
+.rv .rv-getal.h6-exp{ width:2.4rem; height:1.8rem; font-size:.95rem; padding:.1rem; }
+.rv .h6-wacht{ font-size:.85rem; font-weight:700; color:var(--ink-soft); }
+.rv .h6-keten{ font-size:1.35rem; font-weight:900; }
+.rv .h6-keten .rv-br{ font-size:.78em; }
+.rv .h6-keten .rv-sg{ min-width:.8em; }
+.rv .h6-prod .br-t, .rv .h6-prod .br-n{ font-size:1.05rem; padding-left:.4em; padding-right:.4em; }
+.rv .h6-schriftje .br.br-in .rv-getal.br-get{ height:1.75rem; width:3.4rem; font-size:1.05rem; }
+.rv .h6-schriftje .br.br-in > .br-n{ min-height:0; padding-top:2px; }
+.rv .h6-schriftje .br.br-in > .br-t{ padding-bottom:2px; }
+.rv .h6-schriftje .br-kz{ height:1.9rem; font-size:.76rem; }
+.rv .h6-schriftje .br-res{ font-size:1.1rem; }
+.rv .h6-resrij .orig{ flex-wrap:nowrap; }
+.rv .h6-resrij .br-keuze{ flex-direction:column; }
+.rv .h6-wbr .br-t, .rv .h6-wbr .br-n{ gap:.25rem; }
+.rv .h6-plab{ font-size:.9rem; font-weight:800; color:var(--ink-soft); display:inline-flex; align-items:center; gap:2px; }
+.rv .h6-schriftje .rv-tip, .rv .rv-ant > .rv-tip{ font-size:.82rem; margin:.25rem 0 0; }
+.rv .h6-groot{ font-size:1.6rem; }
+
+/* bouwen: vierkant en kubus */
+.rv .h6-bouw{ display:flex; gap:.8rem; align-items:center; justify-content:center; }
+.rv .h6-bpic{ flex:1 1 auto; min-width:0; display:flex; justify-content:center; }
+.rv .h6-bpic svg{ max-height:235px; width:auto; max-width:100%; }
+.rv .h6-btel{ font-size:2.2rem; font-weight:900; color:var(--accent-dark); background:var(--tq-soft); border-radius:.8rem; padding:.1rem .8rem; white-space:nowrap; }
+.rv .h6-btel small{ font-size:.85rem; }
+.h6-grid .h6-gn{ fill:#fff; font-weight:800; opacity:0; transition:opacity .15s; font-family:inherit; }
+.h6-grid .h6-gn.aan{ opacity:1; }
+.h6-cb path{ stroke:#7a5c00; stroke-width:1.2; stroke-linejoin:round; transition:fill .2s; }
+.h6-cb .cf{ fill:#fdd835; } .h6-cb .ct{ fill:#fff59d; } .h6-cb .cr{ fill:#f9a825; }
+.h6-cb.aan .cf{ fill:#ffca28; } .h6-cb.aan .ct{ fill:#ffe082; } .h6-cb.aan .cr{ fill:#ef8f00; }
+.rv .h6-bpaneel{ display:flex; flex-direction:column; gap:.3rem; margin-bottom:.4rem; }
+.rv .h6-bstap{ display:flex; align-items:center; gap:.45rem; background:var(--card); border:1.5px solid var(--border); border-radius:.6rem; padding:.2rem .45rem; }
+.rv .h6-bstap.uit{ opacity:.45; }
+.rv .h6-bstap.vast{ background:var(--bg); }
+.rv .h6-bnr{ font-weight:900; color:var(--accent-dark); }
+.rv .h6-blab{ font-weight:800; font-size:.82rem; line-height:1.2; flex:1 1 8rem; }
+.rv .h6-bctl{ display:inline-flex; align-items:center; gap:.3rem; }
+.rv .h6-bknop{ width:2rem; height:2rem; padding:0; font:inherit; font-size:1.2rem; font-weight:900; line-height:1; background:var(--card); border:2px solid var(--border); color:var(--ink); border-radius:.45rem; cursor:pointer; }
+.rv .h6-bknop.plus{ background:var(--tq); border-color:var(--tq); }
+.rv .h6-bknop:hover:not(:disabled){ border-color:var(--orange); }
+.rv .h6-bknop:disabled{ opacity:.35; cursor:not-allowed; }
+.rv .h6-bcnt{ min-width:4.4rem; text-align:center; font-size:1.1rem; font-weight:900; }
+.rv .h6-bcnt small{ font-size:.72rem; color:var(--ink-soft); font-weight:800; }
+.rv .h6-slot{ display:inline-flex; align-items:center; gap:.25rem; height:2rem; padding:0 .45rem; font:inherit; font-size:.76rem; font-weight:800; background:var(--card); border:1.5px solid #b0bec5; color:#455a64; border-radius:.45rem; cursor:pointer; white-space:nowrap; }
+.rv .h6-slot.aan{ background:#37474f; border-color:#37474f; color:#fff; }
+.rv .h6-slot:disabled{ opacity:.4; cursor:not-allowed; }
+.h6-lk{ width:15px; height:15px; }
+
+/* haakjes of niet? */
+.rv .h6-twkop{ text-align:center; font-weight:800; color:var(--ink-soft); }
+.rv .h6-tweeling{ display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
+.rv .h6-twkaart{ border:1.5px solid var(--border); border-radius:.8rem; padding:.45rem .8rem; background:var(--card); }
+.rv .h6-twexpr{ font-size:1.9rem; text-align:center; }
+.rv .h6-gsel{ display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; margin:.2rem 0 .3rem; }
+.rv .h6-gsel .h6-qlab{ flex:0 0 auto; }
+.rv .h6-gknop{ min-width:3.4rem; height:2.4rem; font:inherit; font-size:1.25rem; font-weight:900; background:var(--card); border:2px solid var(--border); color:var(--ink); border-radius:.6rem; cursor:pointer; }
+.rv .h6-gknop:hover{ border-color:var(--orange); }
+.rv .h6-gknop.aan{ background:var(--tq); border-color:var(--tq); }
+.rv .h6-twwerk{ min-height:2.6rem; margin:.15rem 0; }
+.rv .h6-twwerk .rv-wisk{ font-size:1.25rem; }
+
+/* kommagetallen */
+.rv .h6-dres{ display:inline-flex; align-items:center; gap:3px; font-size:1.4rem; font-weight:900; }
+.rv .h6-dcijfer{ display:inline-flex; justify-content:center; min-width:1.5rem; padding:0 .2rem; border-radius:.35rem; background:var(--bg); }
+.rv .h6-dcijfer.nul{ background:var(--or-soft); animation:h6-in .35s ease-out; }
+.rv .h6-dkomma{ font-size:1.6rem; margin:0 1px; }
+.rv .h6-dkomma.hop{ animation:h6-hop .35s ease-out; }
+.rv .h6-spiegel{ display:inline-block; min-width:2.6rem; text-align:center; font-weight:900; }
+@keyframes h6-in{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+@keyframes h6-hop{ 50%{ transform:translateY(-8px); } }
+
+/* vierkantswortel: de zijde zoeken */
+.rv .h6-wortelpic{ display:flex; justify-content:center; }
+.rv .h6-wortelpic svg{ max-height:310px; width:auto; max-width:100%; }
+.rv .h6-zijde{ display:flex; align-items:center; gap:.45rem; font-size:1rem; }
+.rv .h6-nval{ font-size:1.5rem; font-weight:900; min-width:2.2rem; text-align:center; }
+
+/* weetjes */
+.rv .h6-weetkop{ text-align:center; font-size:.95rem; }
+.rv .h6-weetjes{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.5rem; }
+.rv .h6-weetrij{ display:flex; align-items:center; justify-content:center; gap:.4rem; border:1.5px solid var(--border); border-radius:.7rem; padding:.4rem .3rem; font-size:1.3rem; font-weight:900; }
+.rv .h6-fq{ display:inline-flex; justify-content:flex-end; min-width:3.6rem; }
+
+/* vraagstukken */
+.rv .h6-vraagwerk .vis-svg{ max-height:260px; }
+.rv .h6-haaglab{ display:flex; align-items:center; gap:.5rem; justify-content:center; font-size:.82rem; font-weight:700; color:#6d4c41; }
+.rv .h6-haagsw{ display:inline-block; width:2rem; border-top:5px dotted #6d4c41; }
+.rv .h6-tpl{ display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; padding:.45rem .8rem; background:#fffef7; border:1.5px dashed #d8cf9c; border-radius:.7rem; margin-bottom:.5rem; }
+.rv .h6-tpl .h6-rt{ font-size:1.3rem; }
+.rv .h6-tplmacht{ display:inline-flex; align-items:flex-start; gap:.1rem; }
+.rv .h6-tplmacht sup{ position:relative; top:-.55rem; }
+.rv .h6-antwlijn{ font-size:1.1rem; font-weight:800; margin:.3rem 0 .1rem; }
+
+/* foutenjager */
+.h6-schrift{ position:relative; background:#fffef7; border:1px solid #ece6c8; border-radius:.7rem; padding:.5rem 1rem .7rem 3rem; margin-bottom:.4rem;
+  background-image:linear-gradient(90deg, transparent 2.2rem, #f3b6b6 2.2rem, #f3b6b6 calc(2.2rem + 1.5px), transparent calc(2.2rem + 1.5px)); }
+.h6-snaam{ font-size:.82rem; color:var(--ink-soft); font-weight:700; margin-bottom:.3rem; }
+.h6-slijn{ font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:1.45rem; color:#3a3a3a; display:flex; align-items:center; gap:.3rem; flex-wrap:wrap; }
+.h6-slijn .h6-pw, .h6-slijn .h6-rt{ font-weight:400; }
+.h6-stempel{ position:absolute; right:.8rem; bottom:.5rem; width:2.6rem; height:2.6rem; border-radius:50%; border:3px solid var(--orange); color:var(--orange); font-size:1.5rem; font-weight:900; display:flex; align-items:center; justify-content:center; transform:rotate(-12deg); }
+.rv .keuzes .keuze{ padding:.3rem .55rem; font-size:.92rem; }
+.rv-lees .h6-schrift{ max-width:34rem; }
+
+@media (max-width:900px){
+  .rv .rv-werk.h6-smal, .rv .rv-werk.h6-bouwwerk, .rv .rv-werk.h6-wortelwerk, .rv .rv-werk.h6-vraagwerk{ grid-template-columns:minmax(0, 1fr); }
+  .rv .h6-tweeling{ grid-template-columns:1fr; }
+  .rv .h6-weetjes{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}

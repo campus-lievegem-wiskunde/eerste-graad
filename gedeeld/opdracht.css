@@ -33,3 +33,21 @@ div.ov-opt{ cursor:default; border-color:transparent; padding:.1rem .2rem; }
 .opdr-kaart h2{ margin:0 0 .4rem; font-size:1.15rem; color:var(--accent-dark); }
 .opdr-score{ font-size:1.6rem; font-weight:800; color:var(--accent-dark); }
 @media (max-width:560px){ .ov-antw, .ov-verb{ margin-left:0; } .ov{ padding:.7rem .75rem; } }
+.ov-codes{ font-size:.85rem; color:var(--ink-soft); }
+.ov-eigen .ov-antw{ display:block; }
+/* interactieve opdracht (rekenvaardigheden) in het dashboard, de pdf en het resultaat: opgave.toon() */
+.rv-lees{ display:flex; flex-direction:column; gap:.25rem; font-size:1rem; }
+.rv-lees .tl{ display:flex; gap:.6rem; align-items:baseline; flex-wrap:wrap; }
+.rv-lees .tl-l{ min-width:1.4rem; color:var(--ink-soft); font-weight:700; }
+.rv-lees .tl-r{ font-weight:700; color:var(--accent-dark); font-variant-numeric:tabular-nums; }
+.rv-lees .tl-leeg{ display:inline-block; min-width:5rem; border-bottom:1.5px dotted var(--ink); color:transparent; }
+.rv-lees .tl-vak{ display:inline-block; min-width:1.8rem; text-align:center; border:1.5px solid var(--ink); border-radius:.3rem; margin:0 .3rem; }
+.rv-lees .tl-opt{ display:flex; gap:.4rem; align-items:baseline; padding-left:.2rem; }
+.rv-lees .tl-hand{ font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; color:var(--ink); font-weight:400; }
+.rv-lees .rv-op{ padding:0 .1em; }
+.rv-lees svg{ max-width:100%; height:auto; }
+.rv-lees-fig{ flex-direction:row; flex-wrap:wrap; gap:1rem; align-items:flex-start; }
+.rv-lees-fig .tl-fig{ width:min(260px, 100%); }
+.schrift-lees .tl-r{ letter-spacing:.02em; }
+.rv-lees .nl-svg{ max-height:140px; }
+.tl-niet{ margin:0; color:var(--ink-soft); font-style:italic; }

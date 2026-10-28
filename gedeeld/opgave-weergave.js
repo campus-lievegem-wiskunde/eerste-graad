@@ -2,11 +2,14 @@
    afdrukpagina), blanco (papieren versie) of met de verbetersleutel. Gebruikt door gedeeld/opdracht.js en dashboard/afdruk.js.
    window.OPGAVE in opgave.js van de opdracht:
    { id, inleiding?:html, delen:[ { titel?:html, vragen:[ { id, type, punten, vraag:html, ... } ] } ] }
-   type getal (eenheid?) · tekst (eenheid?) · keuze (opties:[html]) · meer (opties:[html], meerdere juist) · open (regels?: aantal schrijflijnen) */
+   type getal (eenheid?) · tekst (eenheid?) · keuze (opties:[html]) · meer (opties:[html], meerdere juist) · open (regels?: aantal schrijflijnen)
+   · eigen (interactief, rekenvaardigheden): invullen via OPGAVE.invullen, lezen via OPGAVE.toon(q, antwoord, modus, sleutel) → html;
+   OPGAVE.codes = { CODE:{ label, uitleg } } geeft de foutcodes een naam; OPGAVE.css = stijlblad naast opgave.js; q.oefen = telt niet mee */
 import { juistTekst } from './opdrachten.js';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const letter = i => String.fromCharCode(65 + i);
-export const maxPunten = opg => opg.delen.reduce((t, d)=>t + d.vragen.reduce((u, q)=>u + (q.punten || 1), 0), 0);
+export const maxPunten = opg => Math.round(opg.delen.reduce((t, d)=>t + d.vragen.reduce((u, q)=>u + (q.oefen ? 0 : q.punten || 1), 0), 0) * 100) / 100;
+const komma = x => String(x).replace('.', ',');
 
 /* opts: { modus:'invullen'|'lezen'|'blanco'|'sleutel', antw, volgorde:[ids], verbetering:{ id:{ p, max, toon } }, sleutel, onInput(id, waarde) } */
 export function tekenOpgave(opg, opts = {}){
@@ -22,11 +25,13 @@ export function tekenOpgave(opg, opts = {}){
       nr++;
       const max = q.punten || 1, v = verb && verb[q.id], a = antw[q.id];
       const div = document.createElement('div'); div.className = 'ov'; div.dataset.id = q.id;
-      const pt = v && v.p != null ? `${String(v.p).replace('.', ',')}/${max}` : `${max}`;
-      div.innerHTML = `<div class="ov-kop"><span class="ov-nr">${nr}</span><div class="ov-vraag">${q.vraag}</div><span class="ov-pt">${pt} p</span></div><div class="ov-antw"></div>`;
+      const pt = q.oefen ? 'oefenvraag' : (v && v.p != null ? `${komma(v.p)}/${komma(max)}` : komma(max)) + ' p';
+      div.innerHTML = `<div class="ov-kop"><span class="ov-nr">${nr}</span><div class="ov-vraag">${q.vraag}</div><span class="ov-pt">${pt}</span></div><div class="ov-antw"></div>`;
+      if(q.type === 'eigen') div.classList.add('ov-eigen');
       const box = div.querySelector('.ov-antw');
       const geef = w => opts.onInput && opts.onInput(q.id, w);
-      if(modus === 'invullen'){
+      if(q.type === 'eigen') box.innerHTML = opg.toon ? opg.toon(q, a, modus, sl && sl[q.id]) : '';
+      else if(modus === 'invullen'){
         if(q.type === 'getal' || q.type === 'tekst'){
           box.innerHTML = `<input class="inp ov-inp" type="text" autocomplete="off" spellcheck="false"${q.type === 'getal' ? ' inputmode="decimal"' : ''} aria-label="Antwoord vraag ${nr}">${q.eenheid ? ` <span class="ov-eenheid">${q.eenheid}</span>` : ''}`;
           const i = box.querySelector('input'); i.value = a == null ? '' : a; i.oninput = ()=>geef(i.value);
@@ -58,7 +63,8 @@ export function tekenOpgave(opg, opts = {}){
         const r = document.createElement('div'); r.className = 'ov-verb ' + (!v ? '' : v.p == null ? 'nog' : ok ? 'ok' : half ? 'half' : 'fout');
         r.innerHTML = !v ? `<b>Richtlijn:</b> ${esc(sl[q.id].richtlijn)}`
           : v.p == null ? 'Nog niet verbeterd.'
-          : (ok ? '<b>✓ Juist</b>' : `<b>${half ? '½ Deels juist' : '✗ Niet juist'}</b>${v.toon ? ` · juist antwoord: <span class="ov-juist">${esc(v.toon)}</span>` : ''}`) + (v.opm ? `<br><i>${esc(v.opm)}</i>` : '');
+          : (ok ? '<b>✓ Juist</b>' : `<b>${half ? '½ Deels juist' : '✗ Niet juist'}</b>${v.toon ? ` · juist antwoord: <span class="ov-juist">${esc(v.toon)}</span>` : ''}`) + (v.opm ? `<br><i>${esc(v.opm)}</i>` : '')
+            + (v.codes && v.codes.length ? `<br><span class="ov-codes">Foutcodes: ${v.codes.map(c=>`<span title="${esc(((opg.codes || {})[c] || {}).uitleg || '')}">${esc(((opg.codes || {})[c] || {}).label || c)}</span>`).join(' · ')}</span>` : '');
         div.append(r);
       }
       deel.append(div);
@@ -73,7 +79,9 @@ const OPGAVEN = {};
 export function laadOpgave(url){
   if(!OPGAVEN[url]) OPGAVEN[url] = new Promise((ok, nok)=>{
     const s = document.createElement('script'); s.src = url;
-    s.onload = ()=>{ const o = window.OPGAVE; delete window.OPGAVE; o ? ok(o) : nok(new Error('geen OPGAVE in ' + url)); };
+    s.onload = ()=>{ const o = window.OPGAVE; delete window.OPGAVE; if(!o) return nok(new Error('geen OPGAVE in ' + url));
+      if(o.css){ const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL(o.css, url).href; document.head.append(l); }
+      ok(o); };
     s.onerror = ()=>nok(new Error('niet gevonden: ' + url)); document.head.append(s);
   });
   return OPGAVEN[url];

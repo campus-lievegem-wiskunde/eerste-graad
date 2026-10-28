@@ -4,7 +4,7 @@
    Punten: resultaten/{id}__{e-mail}. Verbetersleutel: sleutels/{id} (enkel leerkrachten lezen hem). */
 import { db, F } from '../gedeeld/aanmelden.js';
 import { SITES } from '../gedeeld/sites.js';
-import { OPDRACHTEN, RUBRIEKEN_OPDR, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, ontsleutel } from '../gedeeld/opdrachten.js';
+import { OPDRACHTEN, RUBRIEKEN_OPDR, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, telt, opSchaal, ontsleutel } from '../gedeeld/opdrachten.js';
 import { tekenOpgave, laadOpgave } from '../gedeeld/opgave-weergave.js';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
@@ -118,7 +118,7 @@ async function resultaten(pane, g, o){
 
   const I = new Map(inz.map(d=>[d.email, d])), R = new Map(res.map(d=>[d.email, d]));
   const lln = [...g.leerlingen].sort((a, b)=>H.naamVan(a).localeCompare(H.naamVan(b), 'nl'));
-  const vragen = alleVragen(opg), gewijzigd = new Set();
+  const vragen = alleVragen(opg).filter(telt), gewijzigd = new Set();
   const rec = e => { if(!R.has(e)) R.set(e, { opdr:o.id, email:e, groep:g.id, punten:{}, hand:[], vrij:false }); return R.get(e); };
   const ber = e => bereken(opg, (I.get(e) || {}).antw, sleutel, R.get(e));
   const vrij = lln.some(e=>R.get(e) && R.get(e).vrij);
@@ -145,19 +145,32 @@ async function resultaten(pane, g, o){
     return d.ingediend ? `ingediend ${tijd(d.ingediend)}${laat ? ' <b class="errmsg">te laat</b>' : ''}${d.poging > 1 ? ` · poging ${d.poging}` : ''}` : '<span class="mini">bezig, niet ingediend</span>';
   }
   function tabel(){
-    t.innerHTML = `<thead><tr><th>Leerling</th><th>Status</th>${vragen.map((q, i)=>`<th class="c" title="${esc(q.vraag.replace(/<[^>]+>/g, ' ').trim())}">${i + 1}<small class="mini"> /${q.punten || 1}</small></th>`).join('')}<th class="c">Totaal</th></tr></thead>`;
+    t.innerHTML = `<thead><tr><th>Leerling</th><th>Status</th>${vragen.map((q, i)=>`<th class="c" title="${esc(q.vraag.replace(/<[^>]+>/g, ' ').trim())}">${q.nr || i + 1}<small class="mini"> /${komma(q.punten || 1)}</small></th>`).join('')}<th class="c">Totaal</th>${o.op ? `<th class="c">Op ${o.op}</th>` : ''}</tr></thead>`;
     const tb = el('tbody');
     lln.forEach(e=>{
       const tr = el('tr'); const nb = el('button', 'naam-btn', esc(H.naamVan(e))); nb.type = 'button'; nb.onclick = ()=>detail(e);
       const td0 = el('td'); td0.append(nb); tr.append(td0, el('td', '', statusVan(e)));
       const b = I.get(e) ? ber(e) : null, hand = new Set((R.get(e) || {}).hand || []);
-      vragen.forEach(q=>{ const p = b && b.per[q.id].p, mx = q.punten || 1;
-        tr.append(el('td', 'sc ' + (!b ? 's0' : p == null ? 's2' : p >= mx ? 's4' : p > 0 ? 's3' : 's1') + (hand.has(q.id) ? ' hand' : ''), !b ? '·' : p == null ? '?' : komma(p))); });
-      tr.append(el('td', 'c', b ? `<b>${komma(b.totaal)}</b>/${b.max}${b.volledig ? '' : ' ?'}` : '–'));
+      vragen.forEach(q=>{ const v = b && b.per[q.id], p = v && v.p, mx = q.punten || 1;
+        const td = el('td', 'sc ' + (!b ? 's0' : p == null ? 's2' : p >= mx ? 's4' : p > 0 ? 's3' : 's1') + (hand.has(q.id) ? ' hand' : ''), !b ? '·' : p == null ? '?' : komma(p));
+        if(v && v.codes && v.codes.length) td.title = v.codes.map(c=>((opg.codes || {})[c] || {}).label || c).join(' · ');
+        tr.append(td); });
+      tr.append(el('td', 'c', b ? `<b>${komma(b.totaal)}</b>/${komma(b.max)}${b.volledig ? '' : ' ?'}` : '–'));
+      if(o.op) tr.append(el('td', 'c', b ? `<b>${komma(opSchaal(o, b.totaal, b.max))}</b>/${o.op}` : '–'));
       tb.append(tr);
     });
     t.append(tb);
     m.className = 'mini'; m.textContent = gewijzigd.size ? ` ${gewijzigd.size} leerling(en) met niet-bewaarde punten` : '';
+    if(opg.codes) fouten();
+  }
+  /* interactieve opdracht: hoe vaak elke foutcode voorkomt in de groep (wijs een code aan voor de uitleg) */
+  const foutVak = el('div', 'opdr-fouten'); if(opg.codes) card.append(foutVak);
+  function fouten(){
+    const tel = {}, wie = {};
+    lln.filter(e=>I.has(e)).forEach(e=>Object.values(ber(e).per).forEach(v=>(v.codes || []).forEach(c=>{ tel[c] = (tel[c] || 0) + 1; (wie[c] = wie[c] || new Set()).add(e); })));
+    const rij = Object.entries(tel).sort((a, b)=>b[1] - a[1]);
+    foutVak.innerHTML = `<h4>Typische fouten in deze groep</h4>` + (rij.length ? `<table class="dt"><thead><tr><th>Fout</th><th class="c">Keer</th><th class="c">Leerlingen</th></tr></thead><tbody>${rij.map(([c, n])=>{ const d = opg.codes[c] || {};
+      return `<tr><td title="${esc(d.uitleg || '')}">${esc(d.label || c)}${d.uitleg ? `<br><span class="mini">${esc(d.uitleg)}</span>` : ''}</td><td class="c">${n}</td><td class="c">${wie[c].size}</td></tr>`; }).join('')}</tbody></table>` : '<p class="mini">Nog geen foutcodes (of nog geen verbetersleutel).</p>');
   }
   function detail(e){
     detailVak.innerHTML = '';
@@ -176,8 +189,8 @@ async function resultaten(pane, g, o){
     const b = ber(e);
     const view = tekenOpgave(opg, { modus:'lezen', antw:d.antw || {}, volgorde:d.volgorde, verbetering:b.per });
     view.querySelectorAll('.ov').forEach(div=>{
-      const q = vragen.find(x=>x.id === div.dataset.id), v = b.per[q.id];
-      const rr = el('div', 'rij ov-punten', `<label>Punten <input type="number" min="0" max="${v.max}" step="0.5" value="${v.p == null ? '' : v.p}"> / ${v.max}</label>`);
+      const q = vragen.find(x=>x.id === div.dataset.id), v = q && b.per[q.id]; if(!v) return;
+      const rr = el('div', 'rij ov-punten', `<label>Punten <input type="number" min="0" max="${v.max}" step="${opg.verbeter ? 0.25 : 0.5}" value="${v.p == null ? '' : v.p}"> / ${komma(v.max)}</label>`);
       const inp = rr.querySelector('input');
       inp.onchange = ()=>{ const x = rec(e); const w = inp.value === '' ? null : Math.max(0, Math.min(v.max, +inp.value));
         x.punten = Object.assign({}, x.punten, { [q.id]:w }); x.hand = [...new Set([...(x.hand || []), q.id])];
@@ -195,7 +208,7 @@ async function resultaten(pane, g, o){
       lln.filter(e=>I.has(e)).forEach(e=>{
         const x = rec(e), b = ber(e);
         const doc = { opdr:o.id, email:e, groep:g.id, punten:Object.fromEntries(Object.entries(b.per).map(([id, v])=>[id, v.p])), hand:x.hand || [],
-          totaal:b.totaal, max:b.max, volledig:b.volledig, vrij:vrijNu, ziet:cfg.ziet, bijgewerkt:Date.now(), door:H.ST.me,
+          totaal:b.totaal, max:b.max, volledig:b.volledig, ...(o.op ? { op:o.op, opPunten:opSchaal(o, b.totaal, b.max) } : {}), vrij:vrijNu, ziet:cfg.ziet, bijgewerkt:Date.now(), door:H.ST.me,
           verbetering:vrijNu && cfg.ziet === 'verbetering' ? b.per : null };
         batch.set(F.doc(db, 'resultaten', docId(o, e)), doc); R.set(e, doc); n++;
       });
@@ -213,8 +226,8 @@ async function resultaten(pane, g, o){
     bewaarAlles(!nu);
   };
   kopie.onclick = async ()=>{
-    const rij = e=>{ const l = (H.ST.leerlingen && H.ST.leerlingen.get(e)) || {}; const b = I.has(e) ? ber(e) : null; return [l.familienaam || e, l.voornaam || '', l.klas || '', b ? komma(b.totaal) : '', b ? b.max : ''].join('\t'); };
-    const txt = ['Familienaam\tVoornaam\tKlas\tPunten\tMax', ...lln.map(rij)].join('\n');
+    const rij = e=>{ const l = (H.ST.leerlingen && H.ST.leerlingen.get(e)) || {}; const b = I.has(e) ? ber(e) : null; return [l.familienaam || e, l.voornaam || '', l.klas || '', b ? komma(b.totaal) : '', b ? komma(b.max) : '', ...(o.op ? [b ? komma(opSchaal(o, b.totaal, b.max)) : ''] : [])].join('\t'); };
+    const txt = ['Familienaam\tVoornaam\tKlas\tPunten\tMax' + (o.op ? `\tOp ${o.op}` : ''), ...lln.map(rij)].join('\n');
     try{ await navigator.clipboard.writeText(txt); m.className = 'okmsg'; m.textContent = ' gekopieerd: plak in een rekenblad'; }
     catch(e){ const ta = el('textarea'); ta.value = txt; ta.rows = 6; ta.style.width = '100%'; card.append(ta); ta.select(); }
   };

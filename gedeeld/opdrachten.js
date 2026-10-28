@@ -4,13 +4,23 @@
    Rubriek toetsen: standaard één poging. Huistaken en rekenvaardigheden: opnieuw mag, de laatste poging telt.
    Instellingen per groep staan in groepen/{groep}.opdr.{id}: { van, tot, pogingen, volgorde, ziet, dicht, extra } (tijden in ms). */
 export const OPDRACHTEN = [
-  /* { id:'1a-t-m1-getallen', titel:'Toets · Inzicht in getallen', kort:'Toets getallen', jaar:'1A', rubriek:'toetsen', pad:'1A/toetsen/m1-getallen/' } */
+  /* { id:'1a-t-m1-getallen', titel:'Toets · Inzicht in getallen', kort:'Toets getallen', jaar:'1A', rubriek:'toetsen', pad:'1A/toetsen/m1-getallen/' }
+     op:5 = de punten ook omrekenen naar punten op 5 (dat komt op het rapport) */
+  { id:'2a-rv-1-coordinaten', titel:'1. Coördinaten op het rooster', kort:'Coördinaten', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/1-coordinaten/', op:5 },
+  { id:'2a-rv-2-gehele-optellen', titel:'2. Optellen en aftrekken van gehele getallen', kort:'Optellen en aftrekken gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/2-gehele-optellen/', op:5 },
+  { id:'2a-rv-3-gehele-vermenigvuldigen', titel:'3. Vermenigvuldigen en delen van gehele getallen', kort:'Vermenigvuldigen en delen gehele getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/3-gehele-vermenigvuldigen/', op:5 },
+  { id:'2a-rv-4-rationale-optellen', titel:'4. Optellen en aftrekken van rationale getallen', kort:'Optellen en aftrekken rationale getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/4-rationale-optellen/', op:5 },
+  { id:'2a-rv-5-rationale-vermenigvuldigen', titel:'5. Vermenigvuldigen en delen van rationale getallen', kort:'Vermenigvuldigen en delen rationale getallen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/5-rationale-vermenigvuldigen/', op:5 },
+  { id:'2a-rv-6-machten-wortels', titel:'6. Machten en vierkantswortels', kort:'Machten en vierkantswortels', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/6-machten-wortels/', op:5 },
+  { id:'2a-rv-7-volgorde-bewerkingen', titel:'7. Volgorde van bewerkingen', kort:'Volgorde van bewerkingen', jaar:'2A', rubriek:'rekenvaardigheden', pad:'2A/rekenvaardigheden/7-volgorde-bewerkingen/', op:5 }
 ];
 /* Wie ziet de rubrieken toetsen, huistaken en rekenvaardigheden en het tabblad in het dashboard?
    'beheerder' = voorlopig enkel beheerders (keuze van Jeroen, 24 oktober 2026; geen toeschouwer, geen collega's, geen leerlingen);
    'iedereen' = alle leerkrachten, en leerlingen zodra iets voor hun groep openstaat. */
 export const OPDR_ZICHTBAAR = 'beheerder';
 export const opdrZichtbaar = (rol, toeschouwer) => OPDR_ZICHTBAAR === 'iedereen' || (rol === 'beheerder' && !toeschouwer);
+/* punten omrekenen naar de schaal van het rapport (o.op, bv. 5), op 0,1 afgerond */
+export const opSchaal = (o, totaal, max) => o.op && max ? Math.round(totaal / max * o.op * 10) / 10 : null;
 export const RUBRIEKEN_OPDR = [['toetsen', 'Toetsen'], ['huistaken', 'Huistaken'], ['rekenvaardigheden', 'Rekenvaardigheden']];
 export const rubriekNaam = id => (RUBRIEKEN_OPDR.find(r=>r[0] === id) || [id, id])[1];
 export const soortVan = o => o.rubriek === 'toetsen' ? 'toets' : 'taak';
@@ -99,16 +109,28 @@ export async function versleutel(obj, code, iter = 200000){
   return { v:1, iter, salt:b64.naar(salt), iv:b64.naar(iv), data:b64.naar(data) };
 }
 
+/* interactieve opdracht (type eigen, rekenvaardigheden): opgave.js verbetert zelf met OPGAVE.verbeter(q, waarde, sleutel)
+   → { pts, codes:[foutcodes], kruis:aantal rode kruisjes tijdens het maken }; het antwoord staat als JSON-tekst in antw */
+function verbeterEigen(opg, q, a, k){
+  let w = null; try{ w = a == null || a === '' ? null : typeof a === 'string' ? JSON.parse(a) : a; }catch(e){}
+  if(w == null || !opg.verbeter) return { p:k ? 0 : null, codes:[], kruis:0 };
+  let r = {}; try{ r = opg.verbeter(q, w, k || null) || {}; }catch(e){ console.warn(e); }
+  return { p:k ? Math.round(Math.min(q.punten || 1, Math.max(0, r.pts || 0)) * 100) / 100 : null, codes:r.codes || [], kruis:r.kruis || 0 };
+}
+/* oefenvragen (q.oefen) tellen niet mee */
+export const telt = q => !q.oefen;
+
 /* punten van één leerling: automatisch uit de sleutel, tenzij de leerkracht ze aanpaste (r.hand); open vragen enkel met de hand.
-   per[id] = { p (null = nog niet verbeterd), max, toon }; volledig = alle vragen hebben punten */
+   per[id] = { p (null = nog niet verbeterd), max, toon, codes?, kruis? }; volledig = alle vragen hebben punten */
 export function bereken(opg, antw, sleutel, r){
   const sl = (sleutel && sleutel.vragen) || {}, hand = new Set((r && r.hand) || []), punten = (r && r.punten) || {};
   const per = {}; let totaal = 0, max = 0, volledig = true;
-  alleVragen(opg).forEach(q=>{
-    const m = q.punten || 1, k = sl[q.id];
-    const p = hand.has(q.id) ? punten[q.id] : verbeter(q, (antw || {})[q.id], k);
-    per[q.id] = { p:p == null ? null : p, max:m, toon:juistTekst(q, k) };
+  alleVragen(opg).filter(telt).forEach(q=>{
+    const m = q.punten || 1, k = sl[q.id], a = (antw || {})[q.id];
+    const e = q.type === 'eigen' ? verbeterEigen(opg, q, a, k) : null;
+    const p = hand.has(q.id) ? punten[q.id] : e ? e.p : verbeter(q, a, k);
+    per[q.id] = Object.assign({ p:p == null ? null : p, max:m, toon:juistTekst(q, k) }, e && (e.codes.length || e.kruis) ? { codes:e.codes, kruis:e.kruis } : {});
     max += m; if(p == null) volledig = false; else totaal += p;
   });
-  return { per, totaal:Math.round(totaal * 100) / 100, max, volledig };
+  return { per, totaal:Math.round(totaal * 100) / 100, max:Math.round(max * 100) / 100, volledig };
 }

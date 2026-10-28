@@ -1,0 +1,22 @@
+/* 2A Rekenvaardigheden 1 · het coördinatenrooster (ook geladen in het dashboard en de pdf). */
+.co-svg{ display:block; width:100%; height:auto; user-select:none; }
+.co-lijn{ stroke:#dfe9ea; stroke-width:1; } .co-lijn.as{ stroke:#35545a; stroke-width:2; }
+.co-lab{ font-size:18px; fill:#4f6668; text-anchor:middle; font-weight:600; } .co-lab.nul{ font-weight:900; fill:#173436; }
+.co-as{ font-size:17px; font-weight:900; fill:#173436; text-anchor:middle; }
+.co-veelhoek{ fill:rgba(59,193,197,.14); stroke:#127a7f; stroke-width:3; stroke-linejoin:round; }
+.co-punt{ fill:#173436; } .co-punt.nieuw{ fill:#127a7f; }
+.co-letter{ font-size:22px; font-weight:900; fill:#173436; }
+.co-spook circle{ fill:none; stroke:#127a7f; stroke-width:3; stroke-dasharray:4 3; } .co-spook rect{ fill:#173436; } .co-spook text{ fill:#fff; font-size:15px; font-weight:800; text-anchor:middle; }
+.rv .co-svg{ max-height:335px; margin:0 auto; } .rv .co-svg.klik{ cursor:crosshair; touch-action:none; }
+.rv .rv-werk.rooster{ grid-template-columns:minmax(0, 360px) minmax(0, 1fr); }
+.rv .rv-werk.rooster .rv-vis{ padding:.3rem; background:#fbfdfd; }
+.rv .co-rij{ gap:.25rem; margin:.25rem 0; } .rv .co-rij .rv-lbl{ min-width:1.8rem; font-size:1.1rem; }
+.rv .co-haak{ font-size:1.5rem; font-weight:800; color:var(--ink); padding:0 .05rem; }
+.rv .rv-getal.co{ width:3.4rem; }
+.rv .co-gegeven{ margin:.3rem 0 .5rem; font-size:1.05rem; }
+.rv .co-terug{ font-size:.9rem; padding:.35rem .9rem; }
+.rv h3.co-kies{ margin-top:.7rem; }
+.rv .co-figuren{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.35rem; }
+.rv .co-figuren .keuze{ justify-content:center; padding:.45rem .3rem; font-size:.9rem; }
+.co-lees .tl-fig{ width:min(220px, 100%); }
+@media (max-width:900px){ .rv .rv-werk.rooster{ grid-template-columns:minmax(0, 1fr); } .rv .co-figuren{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
