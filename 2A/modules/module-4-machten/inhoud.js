@@ -528,7 +528,7 @@ function slimVak(host, o, save, onCh, cls, lab, focus){
   host.innerHTML = '';
   const redraw = f => slimVak(host, o, save, onCh, cls, lab, f);
   /* bij een uitkomst: één knopje 'breuk' (leerlingen typen niet graag een schuine streep); / of : typen werkt ook */
-  const fbtn = el('button', 'm4-brk', BRK_IC + `<span>${o.n==null ? 'breuk' : 'geen breuk'}</span>`); fbtn.type = 'button'; fbtn.dataset.tip = o.n==null ? 'maak er een breuk van' : 'geen breuk';
+  const fbtn = el('button', 'm4-brk', BRK_IC); fbtn.type = 'button'; fbtn.dataset.tip = o.n==null ? 'maak er een breuk van' : 'geen breuk';
   fbtn.setAttribute('aria-label', o.n==null ? 'maak er een breuk van' : 'maak er geen breuk van'); fbtn.setAttribute('aria-pressed', String(o.n!=null));
   fbtn.addEventListener('mousedown', e=>e.preventDefault());
   fbtn.addEventListener('click', ()=>{ if(o.n==null){ o.n = ''; save(); redraw((o.t||'').trim() ? 'n' : 't'); } else { o.n = null; save(); redraw('t'); } onCh(); });
@@ -833,10 +833,10 @@ const VGL = [['<', '&lt;'], ['=', '='], ['>', '&gt;']];
   .br.br-in > .br-t, .br.br-in > .br-n{font-size:1rem}
   .m4-w.ok .m4-in{border-color:var(--ok); background:var(--ok-bg)} .m4-w.bad .m4-in{border-color:var(--bad); background:var(--bad-bg)}
   .m4-w.ok .m4-teken{border-color:var(--ok)} .m4-w.bad .m4-teken{border-color:var(--bad)}
-  .m4-brk{border:1.5px solid var(--border); border-radius:999px; background:#fff; padding:.15rem .55rem .15rem .4rem; margin-left:.35rem; cursor:pointer; color:var(--accent-dark); display:inline-flex; align-items:center; gap:.3rem; font:inherit; font-size:.85rem; font-weight:600; line-height:1.2; align-self:center}
-  .m4-brk:hover{border-color:#FCAF17; background:#fff6e5}
+  .m4-brk{border:0; background:transparent; padding:.2rem; margin-left:.15rem; cursor:pointer; color:#9bb8ba; display:inline-flex; align-self:center; border-radius:.3rem}
+  .m4-brk:hover, .m4-brk:focus-visible{color:var(--accent-dark)}
   .m4-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
-  .m4-brk[aria-pressed="true"]{color:var(--ink-soft); font-weight:400}
+  .m4-brk[aria-pressed="true"]{color:var(--accent-dark)}
   .m4-teken{display:inline-flex; flex-direction:column; border:2px dashed var(--accent-dark); border-radius:.45rem; overflow:hidden; height:2.6rem; width:1.9rem; flex:none; background:var(--card)}
   .m4-teken.gekozen{border-style:solid; border-color:var(--border)}
   .m4-teken button{flex:1; border:0; margin:0; padding:0; background:transparent; color:var(--ink-soft); font:inherit; font-size:1.05rem; font-weight:900; line-height:1; cursor:pointer}
@@ -1087,7 +1087,7 @@ const negSteps = (b, e) => { const T = powQ(b, e), P = powQ(b, -e);
     {u:'Reken de macht in de noemer uit. Let op het teken.', line:`${mH(b, -e)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, P), show:`${mH(b, -e)} ${isq} ${qH(P)}`},
     [`Schrijf 1 gedeeld door ${qH(P)} als een breuk.${P.n<0 ? ' Een negatieve noemer: het minteken zet je in het tekenvak.' : ''}`, `${brH('1', qH(P))} ${isq} ${qH(T)}`]]; };
 NG.reken = { title:'Reken uit', lvl:2,
-  instr:'Reken de macht uit. Kies eerst het teken in het tekenvak (+ boven, − onder) en typ dan het getal. Wil je een breuk, klik dan op <b>breuk</b> naast het vak.',
+  instr:'Reken de macht uit. Kies eerst het teken in het tekenvak (+ boven, − onder) en typ dan het getal. Wil je een breuk, klik dan op het breukicoontje naast het vak.',
   build(b, st, save){
     stapUitleg(b, [[mH('-2', -3), 'Een negatieve exponent.'], [`${isq} ${brH('1', mH('-2', 3))}`, 'Neem het omgekeerde en maak de exponent positief.'],
       [`${isq} ${brH('1', MIN + '8')}`, `${mH('-2', 3)} = (−2) · (−2) · (−2) = −8: drie mintekens, dus negatief.`], [`${isq} ${qH(Q(-1, 8))}`, 'Het minteken zet je voor de breuk.']], {kop:'Voorbeeld'});
@@ -1181,7 +1181,7 @@ NG.grond = { title:'Welk grondtal?', lvl:3,
   } };
 
 SEC.neg = { id:'neg', ic:'m_neg', nav:'Negatieve exponent en exponent 0', title:'Negatieve exponent en exponent 0',
-  tip:'Staat er een tekenvak naast het antwoord, kies dan eerst het teken: <b>+</b> boven of <b>−</b> onder. Wil je een breuk, klik dan op <b>breuk</b> naast het vak: de teller en de noemer komen onder elkaar (met de pijltjestoetsen ga je van teller naar noemer).',
+  tip:'Staat er een tekenvak naast het antwoord, kies dan eerst het teken: <b>+</b> boven of <b>−</b> onder. Wil je een breuk, klik dan op het breukicoontje naast het vak: de teller en de noemer komen onder elkaar (met de pijltjestoetsen ga je van teller naar noemer).',
   cheat:CHEAT_NEG, cards:[NG.trap, NG.schimmel, NG.pos, NG.reken, NG.nul, NG.exp, NG.wn, NG.komma, NG.vgl, NG.grond] };
 
 /* ============================================================
