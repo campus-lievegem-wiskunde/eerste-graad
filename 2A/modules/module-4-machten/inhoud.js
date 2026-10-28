@@ -557,7 +557,7 @@ function mountW(root, V, save, onCh, onEnter){
   root.querySelectorAll('.m4-w').forEach(sp => {
     const k = sp.dataset.k, t = sp.dataset.t, o = (sp.dataset.o||'').split(',').filter(Boolean);
     const v = V[k] || (V[k] = {}); W[k] = {sp, t, o};
-    sp.classList.add('m4-' + t);
+    sp.classList.add('m4-w' + t);
     if(t==='u'){ sp.append(tekenvak(v, save, onCh)); const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'u', 'uitkomst'); }
     else if(t==='b'){ const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'b', 'grondtal'); }
     else if(t==='e' || t==='g'){ const i = m4inp(t==='e' ? 'ex' : 'g', v.t, t==='e' ? 'exponent' : 'antwoord'); i.addEventListener('input', ()=>{ v.t = i.value; save(); onCh(); }); sp.append(i); }
@@ -1210,9 +1210,9 @@ function tegelSvg(g, m, p, k, t){
     out += tile(x, y, 'b', gt, 1); }
   if(k<2){ out += lab(y1, m) + lab(y2, p); out += sT(x0 - 40, (y1+y2)/2 + s/2, '·', 'big');
     if(k===1){ for(let i=0; i<m-1; i++) out += dot(x0 + i*d + s + 3, y1 + s/2, txtOp); for(let j=0; j<p-1; j++) out += dot(x0 + j*d + s + 3, y2 + s/2, txtOp); } }
-  else { for(let i=0; i<n-1; i++) out += dot(x0 + i*d + s + 3, y1 + s/2, k===2 ? (i<m-1 ? 1 : t) : 1);
+  else { for(let i=0; i<n-1; i++) out += dot(x0 + i*d + s + 3, y1 + s/2, k===2 ? (i<m-1 ? 1 : (t>.9 ? (t-.9)*10 : 0)) : 1);
     if(k===3){ const xr = x0 + n*d - (d-s); out += `<path class="as" fill="none" d="M${x0} ${y1+s+10} v8 H${fx(xr)} v-8"/>` + `<text class="t big" x="${fx((x0+xr)/2)}" y="${y1+s+40}" text-anchor="middle" dominant-baseline="central">${let_ ? `<tspan font-style="italic">${g}</tspan>` : gt}<tspan class="sup" dy="-8">${n}</tspan></text>` + sT((x0+xr)/2, y1+s+70, `${m} + ${p} = ${n} factoren`, 't'); }
-    else out += lab(y1, '?').replace('>?<', '>…<'); }
+  }
   return out;
 }
 VM.tegels = { title:'Tegels schuiven samen', lvl:1,
