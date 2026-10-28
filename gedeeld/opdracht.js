@@ -7,7 +7,7 @@
    Een interactieve opdracht (rekenvaardigheden) zet zelf OPGAVE.invullen(opts) → element en OPGAVE.volledig(q, antwoord)
    (zie gedeeld/rv-kader.js); dan tekent die het invulscherm in plaats van gedeeld/opgave-weergave.js, altijd in de vaste volgorde. */
 import { klaar, db, F, C } from './aanmelden.js';
-import { OPDRACHTEN, groepVoor, docId, schud, soortVan, opdrZichtbaar } from './opdrachten.js';
+import { OPDRACHTEN, groepVoor, docId, schud, soortVan, opdrZichtbaar, uitDb } from './opdrachten.js';
 import { tekenOpgave, maxPunten } from './opgave-weergave.js';
 
 const B = document.body, app = document.getElementById('app'), OPG = window.OPGAVE;
@@ -34,7 +34,7 @@ async function voorbeeld(){
     const k = await F.getDoc(F.doc(db, 'sleutels', o.id));
     if(k.exists()){ const b = el('button', 'btn ghost', 'Toon de verbetersleutel'); b.type = 'button';
       b.onclick = ()=>{ const aan = b.dataset.aan !== '1'; b.dataset.aan = aan ? '1' : ''; b.textContent = aan ? 'Verberg de verbetersleutel' : 'Toon de verbetersleutel';
-        blok.innerHTML = ''; blok.append(aan ? tekenOpgave(OPG, { modus:'sleutel', sleutel:k.data() }) : invulScherm({})); };
+        blok.innerHTML = ''; blok.append(aan ? tekenOpgave(OPG, { modus:'sleutel', sleutel:uitDb(k.data()) }) : invulScherm({})); };
       tip.querySelector('div').append(' ', b); }
   }catch(e){}
 }

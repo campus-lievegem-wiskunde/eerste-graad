@@ -299,6 +299,10 @@ const REEKSEN = [
   const p = await H.pagina(ctx, start), db = ()=>H.fakedb(p);
   const zet = (sleutel, w)=>p.evaluate(([s, w])=>{ const d = JSON.parse(localStorage.getItem('__fakedb')); d[s] = w; localStorage.setItem('__fakedb', JSON.stringify(d)); }, [sleutel, w]);
   const alleen = process.argv[2];
+  /* de testsleutel gaat langs de echte weg: versleuteld als sleutel.enc.json, ontgrendeld met een code in het dashboard
+     (zo vangt de nep-Firestore ook een sleutel die Firestore zou weigeren, bv. een lijst in een lijst) */
+  const { versleutel } = await import('../gedeeld/opdrachten.js'); let enc = null;
+  await ctx.route(/sleutel\.enc\.json$/, r=>r.fulfill({ contentType:'application/json', body:JSON.stringify(enc) }));
 
   for(const R of REEKSEN.filter(r=>!alleen || r.id === alleen)){
     console.log('== ' + R.id);
@@ -337,10 +341,14 @@ const REEKSEN = [
     await p.click('.opdr-balk button:has-text("Indienen")'); await p.waitForTimeout(1500);
     check(!!(await db())[`inzendingen/${R.id}__${L1.email}`].ingediend, 'ingediend');
 
-    await zet(`sleutels/${R.id}`, { opdr:R.id, vragen:sl });
+    enc = await versleutel({ opdr:R.id, vragen:sl }, 'TEST-CODE', 1000);
     await als(p, 'dashboard/', LK);
     await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
     await p.locator('.opdr-blok', { hasText:R.blok }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
+    await p.fill('.sl-code', 'FOUT-CODE'); await p.click('button:has-text("Ontgrendel")'); await p.waitForTimeout(800);
+    check(/code klopt niet/.test(await p.locator('.tip .errmsg').textContent()), 'verkeerde code geweigerd');
+    await p.fill('.sl-code', 'TEST-CODE'); await p.click('button:has-text("Ontgrendel")'); await p.waitForTimeout(1500);
+    check(!!(await db())[`sleutels/${R.id}`], 'sleutel ontgrendeld en bewaard in Firestore' + ((await p.locator('.tip .errmsg').count()) ? ': ' + await p.locator('.tip .errmsg').textContent() : ''));
     const rij = p.locator('table.opdr-tabel tbody tr', { hasText:'Claes' }), cellen = rij.locator('td'), nc = await cellen.count();
     const tot = (await cellen.nth(nc - 2).textContent()).trim(), op5 = (await cellen.nth(nc - 1).textContent()).trim();
     check(tot.startsWith(`${R.max}/${R.max}`) && op5 === '5/5', `alles juist: ${tot} · op 5: ${op5}`);

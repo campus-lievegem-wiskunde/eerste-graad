@@ -4,7 +4,7 @@
    Punten: resultaten/{id}__{e-mail}. Verbetersleutel: sleutels/{id} (enkel leerkrachten lezen hem). */
 import { db, F } from '../gedeeld/aanmelden.js';
 import { SITES } from '../gedeeld/sites.js';
-import { OPDRACHTEN, RUBRIEKEN_OPDR, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, telt, opSchaal, ontsleutel } from '../gedeeld/opdrachten.js';
+import { OPDRACHTEN, RUBRIEKEN_OPDR, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, telt, opSchaal, ontsleutel, naarDb, uitDb } from '../gedeeld/opdrachten.js';
 import { tekenOpgave, laadOpgave } from '../gedeeld/opgave-weergave.js';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
@@ -111,7 +111,7 @@ async function resultaten(pane, g, o){
   try{
     if(!H.ST.leerlingen) await H.laadLeerlingen().catch(()=>{});
     [opg, inz, res] = await Promise.all([laadOpgave(opgUrl(o)), haal('inzendingen', o), haal('resultaten', o)]);
-    const k = await F.getDoc(F.doc(db, 'sleutels', o.id)); sleutel = k.exists() ? k.data() : null;
+    const k = await F.getDoc(F.doc(db, 'sleutels', o.id)); sleutel = k.exists() ? uitDb(k.data()) : null;
   }catch(e){ console.error(e); wacht.className = 'errmsg'; wacht.textContent = 'Ophalen lukte niet.'; return; }
   wacht.remove();
   if(!sleutel) card.append(sleutelVak(o, ()=>H.render()));
@@ -245,10 +245,12 @@ function sleutelVak(o, klaar){
     ok.disabled = true; m.className = 'mini'; m.textContent = ' bezig…';
     try{
       const r = await fetch(new URL(`../${o.pad}sleutel.enc.json`, location.href)); if(!r.ok) throw new Error('geen sleutelbestand');
-      const sl = await ontsleutel(await r.json(), code);
-      await F.setDoc(F.doc(db, 'sleutels', o.id), Object.assign({}, sl, { opdr:o.id, door:H.ST.me, op:Date.now() }));
+      const enc = await r.json(); let sl;
+      try{ sl = await ontsleutel(enc, code); }catch(e){ throw new Error('code'); }
+      await F.setDoc(F.doc(db, 'sleutels', o.id), naarDb(Object.assign({}, sl, { opdr:o.id, door:H.ST.me, op:Date.now() })));
       klaar();
-    }catch(e){ console.warn(e); ok.disabled = false; m.className = 'errmsg'; m.textContent = /sleutelbestand/.test(e.message) ? ' het sleutelbestand ontbreekt' : ' deze code klopt niet'; }
+    }catch(e){ console.warn(e); ok.disabled = false; m.className = 'errmsg';
+      m.textContent = /sleutelbestand/.test(e.message) ? ' het sleutelbestand ontbreekt' : e.message === 'code' ? ' deze code klopt niet' : ' de code klopt, maar bewaren lukte niet (' + (e.code || e.message) + ')'; }
   };
   return v;
 }
