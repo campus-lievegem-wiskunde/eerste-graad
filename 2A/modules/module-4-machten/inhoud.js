@@ -896,6 +896,7 @@ const VGL = [['<', '&lt;'], ['=', '='], ['>', '&gt;']];
   .mf .tegel.c{fill:var(--tq); fill-opacity:.4}
   .mf .schaal{fill:var(--card); stroke:var(--ink-soft); stroke-width:2}
   .mf .agar{fill:#f6efcf} .mf .kol{fill:#7fb069; stroke:#4f7d3c; stroke-width:1.2}
+  .mf .lab{font-size:17px; font-weight:700; fill:#1f3d14; stroke:#fff; stroke-width:3.5px; paint-order:stroke; stroke-linejoin:round} .mf .labl{stroke:#1f3d14; stroke-width:1.8}
   .mf .as{stroke:var(--ink-soft); stroke-width:1.6; fill:none} .mf .tik{stroke:var(--ink-soft); stroke-width:1.2}
   .mf .tiknu{fill:var(--orange)}
   .mf .muted{fill:var(--ink-soft)}
@@ -1000,44 +1001,51 @@ NG.trap = { title:'De machtentrap', lvl:1, keep:true,
 
 /* ---------- een groeiende schimmel: schuifknop in de tijd ---------- */
 NG.schimmel = { title:'Een groeiende schimmel', lvl:2,
-  instr:'Om 12 uur is een schimmel op een voedingsbodem 1 cm² groot. Elk uur wordt de oppervlakte een aantal keer groter. Verschuif de tijd en reken terug.',
+  instr:'Om 12 uur is een schimmel op een voedingsbodem 1 cm² groot. Elk uur wordt de oppervlakte een aantal keer groter. Schuif eerst naar 13 u en 14 u en kijk hoe de schimmel groeit. Reken dan terug naar vroeger.',
   build(b, st, save){
     const R = makeR(st); const f = R.pick([2, 3, 4]); if(!st.ok) st.ok = {};
     const wrap = el('div', 'm4-naast'); b.append(wrap);
     const vis = el('div', 'm4-vis'), rt = el('div'); wrap.append(vis, rt);
     const A = h => qPow(Q(f), h-12), Amax = Math.pow(f, 2);
     const rad = h => { const a = A(h); return Math.max(3, 86*Math.sqrt(a.n/a.d/Amax)); };
-    const svgBox = el('div'); const tijd = el('div', 'm4-tijd'); const sl = el('input', 'm4-schuif'); sl.type = 'range'; sl.min = 9; sl.max = 14; sl.step = 1; sl.value = st.h || 14; sl.setAttribute('aria-label', 'tijdstip');
-    const opp = el('div', 'm4-opp'); vis.append(svgBox, sl, tijd, opp);
+    const svgBox = el('div'); const tijd = el('div', 'm4-tijd'); const sl = el('input', 'm4-schuif'); sl.type = 'range'; sl.min = 9; sl.max = 14; sl.step = 1; sl.value = st.t || 12; sl.setAttribute('aria-label', 'tijdstip');
+    vis.append(svgBox, sl, tijd);
     let rNow = rad(+sl.value);
     const teken = (h, r) => { let s = `<circle class="schaal" cx="150" cy="104" r="98"/><circle class="agar" cx="150" cy="104" r="92"/>`;
       s += `<circle class="kol" cx="150" cy="104" r="${fx(r)}"/>`;
-      [0, 72, 144, 216, 288].forEach((a, i) => { const rr = r*.2, d = r*.86; if(r<14) return; s += `<circle class="kol" cx="${fx(150+d*Math.cos(a*D2R))}" cy="${fx(104+d*Math.sin(a*D2R))}" r="${fx(rr*(.8+.1*i))}"/>`; });
+      [45, 135, 225, 270, 315].forEach((a, i) => { const rr = r*.2, d = r*.86; if(r<14) return; s += `<circle class="kol" cx="${fx(150+d*Math.cos(a*D2R))}" cy="${fx(104+d*Math.sin(a*D2R))}" r="${fx(rr*(.8+.1*i))}"/>`; });
+      s += lab(h, r);
       s += `<line class="as" x1="25" y1="222" x2="275" y2="222"/>`;
       for(let k=9; k<=14; k++){ const x = 25 + (k-9)*50; s += `<line class="tik" x1="${x}" y1="216" x2="${x}" y2="228"/>` + (k===h ? `<circle class="tiknu" cx="${x}" cy="222" r="6"/>` : '') + sT(x, 241, k + ' u', 'k');
         if(k<14) s += sT(x+25, 210, '×' + f, 'op'); }
       svgBox.innerHTML = svgWrap(300, 250, s, {alt:'schimmel op een voedingsbodem', maxw:340}); };
-    const info = h => { tijd.innerHTML = `<span>om ${h} uur</span><span class="k">${h===12 ? 'begin' : h>12 ? (h-12) + ' uur later' : (12-h) + ' uur vroeger'}</span>`;
-      opp.innerHTML = (h>=12 || st.ok[h]) ? `oppervlakte: ${mH(f, h-12)} ${isq} ${qH(A(h))} cm²` : `oppervlakte: ? cm² <span class="txt" style="font-size:.95rem;font-weight:400">· reken het uit hiernaast</span>`; };
-    const zet = (h, anim) => { st.h = h; save(); const r1 = rad(h), r0 = rNow; rNow = r1; info(h);
+    /* de oppervlakte staat in de schimmel zelf: macht = getal cm², een breuk onder elkaar */
+    const lab = (h, r) => { const cx = 150, cy = r<55 ? 104 + r + 26 : 104; /* past het niet in een kleine schimmel, dan net eronder */
+      if(h<12 && !st.ok[h]) return `<text class="lab" x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central">? cm²</text>`;
+      const a = A(h), L = `<text class="lab" x="${cx-8}" y="${cy}" text-anchor="end" dominant-baseline="central">${sPow(f, h-12)}</text>` + `<text class="lab" x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central">=</text>`;
+      if(a.d===1) return L + `<text class="lab" x="${cx+9}" y="${cy}" dominant-baseline="central">${a.n} cm²</text>`;
+      const w = 10*Math.max(String(a.n).length, String(a.d).length) + 6, xm = cx+9+w/2;
+      return L + `<text class="lab" x="${fx(xm)}" y="${cy-12}" text-anchor="middle" dominant-baseline="central">${a.n}</text><line class="labl" x1="${cx+9}" y1="${cy}" x2="${fx(cx+9+w)}" y2="${cy}"/><text class="lab" x="${fx(xm)}" y="${cy+12}" text-anchor="middle" dominant-baseline="central">${a.d}</text><text class="lab" x="${fx(cx+14+w)}" y="${cy}" dominant-baseline="central">cm²</text>`; };
+    const info = h => { tijd.innerHTML = `<span>om ${h} uur</span><span class="k">${h===12 ? 'begin' : h>12 ? (h-12) + ' uur later' : (12-h) + ' uur vroeger' + (st.ok[h] ? '' : ' · reken het uit hiernaast')}</span>`; };
+    const zet = (h, anim) => { st.t = h; save(); const r1 = rad(h), r0 = rNow; rNow = r1; info(h);
       if(anim && !REDUCED_M) tween(420, t => teken(h, lerp(r0, r1, t))); else teken(h, r1); };
     sl.addEventListener('input', ()=>zet(+sl.value, true));
     zet(+sl.value, false);
-    rt.append(el('p', '', `Om 12 uur is de oppervlakte 1 cm². Elk uur wordt ze <b>× ${f}</b>. Schrijf de oppervlakte als een macht van ${f} en als een getal.`));
+    rt.append(el('p', '', `Om 12 uur is de oppervlakte 1 cm². Elk uur wordt ze <b>× ${f}</b>. Hoe groot is de schimmel vroeger dan 12 uur? Schrijf de oppervlakte als een macht van ${f} en als een getal (een breuk mag).`));
     const g = el('div', 'm4-items een'); rt.append(g);
-    [12, 11, 10, 9].forEach((h, i) => { const e = h-12, T = A(h);
+    [11, 10, 9].forEach((h, i) => { /* 12 u staat al in de figuur */ const e = h-12, T = A(h);
       mQ(g, st, save, 'h' + h, { nr:'abcd'[i] + ')', html:`<span class="txt">om ${h} u:</span> ${mE(f, 'a')} ${isq} {{u:b}} <span class="txt">cm²</span>`,
         check:V=>allOf([['a', chkE(V.a, e, [[12-h, 'Vóór 12 uur is de exponent negatief.'], [h, 'De exponent is het aantal uren na 12 uur.']])], ['b', chkU(V.b, T, negFout(String(f), e))]]),
         hint: e===0 ? [['Om 12 uur is er nog geen uur voorbij. Hoeveel keer werd er al met ' + f + ' vermenigvuldigd?'], ['Elke macht met exponent 0 is 1.', `${mH(f, 0)} ${isq} 1`]] :
           [{u:'Hoeveel uur na 12 uur is dat? Vroeger dan 12 uur geeft een negatief getal.', line:`${h} ${MIN} 12 ${isq} {{g:a}}`, check:V=>chkE(V.a, e), show:`${h} ${MIN} 12 ${isq} ${sg(e)}`},
            {u:'Een negatieve exponent: neem het omgekeerde.', line:`${mH(f, e)} ${isq} ${brH('1', mH(f, -e))} ${isq} {{u:a}}`, check:V=>chkU(V.a, T), show:`${mH(f, e)} ${isq} ${brH('1', mH(f, -e))} ${isq} ${qH(T)}`}],
         meer:`Een uur terug in de tijd betekent ÷ ${f}. Van 12 u naar ${h} u ga je ${12-h} ${12-h===1 ? 'uur' : 'uren'} terug: ${Array(Math.max(1, 12-h)).fill('÷ ' + f).join(' ')}.`,
-        onOk:()=>{ st.ok[h] = true; save(); if(+sl.value===h) info(h); } }); });
+        onOk:()=>{ st.ok[h] = true; save(); if(+sl.value===h){ info(h); teken(h, rNow); } } }); });
   } };
 
 /* ---------- schrijf met een positieve exponent ---------- */
-NG.pos = { title:'Schrijf met een positieve exponent', lvl:1,
-  instr:'Schrijf de macht als een breuk met een positieve exponent, of omgekeerd als één macht. Rond een negatief grondtal typ je zelf haakjes, bijvoorbeeld <b>(-2)</b>.',
+NG.pos = { title:'Van negatieve exponent naar breuk en terug', lvl:1,
+  instr:'Staat er een negatieve exponent, schrijf dan als een breuk met een positieve exponent. Staat er een breuk, schrijf ze dan als één macht: de exponent wordt negatief. Rond een negatief grondtal typ je zelf haakjes, bijvoorbeeld <b>(-2)</b>.',
   build(b, st, save){
     const R = makeR(st);
     const bases = R.shuffle(['2', '3', '5', '7', '10', '-3', '-2', 'a', 'x', 'b', 'y']);
