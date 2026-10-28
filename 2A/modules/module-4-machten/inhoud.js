@@ -507,7 +507,7 @@ const isq = '<span class="m4-is">=</span>';
 /* ============================================================
    INVOER: tekenvak, slim vak (wordt een breuk bij /), machtvak
    Tokens in een regel: {{u:k}} uitkomst (tekenvak + getal of breuk)
-   {{m:k,opts}} machtvak (opts: i = knop 1/…, t = tekenvak), {{e:k}} exponent,
+   {{m:k,opts}} machtvak (opts: i = "1/" typen maakt een breuk, t = tekenvak), {{e:k}} exponent,
    {{b:k}} grondtal, {{g:k}} gewoon vak
    ============================================================ */
 const tokens = html => html.replace(/\{\{(\w):(\w+)((?:,\w+)*)\}\}/g, (m, t, k, o) => `<span class="m4-w" data-t="${t}" data-k="${k}" data-o="${o.slice(1)}"></span>`);
@@ -548,7 +548,6 @@ function slimVak(host, o, save, onCh, cls, lab, focus){
     const br = el('span', 'br br-in'); const bt = el('span', 'br-t'), bn = el('span', 'br-n'); bt.append(t); bn.append(n); br.append(bt, bn); host.append(br);
     if(focus==='n'){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } else if(focus){ t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
   }
-  host.append(fbtn);
   return first;
 }
 /* alle widgets van een regel opbouwen; V = bewaarde waarden per sleutel */
@@ -562,23 +561,19 @@ function mountW(root, V, save, onCh, onEnter){
     else if(t==='b'){ const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'b', 'grondtal'); }
     else if(t==='e' || t==='g'){ const i = m4inp(t==='e' ? 'ex' : 'g', v.t, t==='e' ? 'exponent' : 'antwoord'); i.addEventListener('input', ()=>{ v.t = i.value; save(); onCh(); }); sp.append(i); }
     else if(t==='m'){
-      if(!v.b) v.b = {};
-      const draw = () => { sp.innerHTML = '';
-        if(o.includes('t')) sp.append(tekenvak(v, save, onCh));
-        const knop = el('span', 'm4-knop');
-        const mk = (lab, key, aria) => { const b = el('button', '', lab); b.type = 'button'; b.setAttribute('aria-label', aria); b.setAttribute('aria-pressed', String(!!v[key]));
-          b.addEventListener('mousedown', e=>e.preventDefault()); b.addEventListener('click', ()=>{ v[key] = !v[key]; save(); draw(); onCh(); }); knop.append(b); };
-        mk('( )', 'h', 'haakjes rond het grondtal');
-        if(o.includes('i')) mk(brH('1', '…', 'mini'), 'i', 'schrijf als 1 gedeeld door een macht');
-        sp.append(knop);
-        const pw = el('span', 'm4-mv' + (v.h ? ' haak' : ''));
-        if(v.h) pw.append(el('span', 'm4-hk', '('));
-        const bh = el('span', 'm4-slim'); pw.append(bh); slimVak(bh, v.b, save, onCh, 'b', 'grondtal');
-        if(v.h) pw.append(el('span', 'm4-hk', ')'));
-        const ex = m4inp('ex', v.e, 'exponent'); ex.addEventListener('input', ()=>{ v.e = ex.value; save(); onCh(); });
-        const sup = el('span', 'm4-exp'); sup.append(ex); pw.append(sup);
-        if(v.i){ const br = el('span', 'br m4-inv'); const bt = el('span', 'br-t', '1'), bn = el('span', 'br-n'); bn.append(pw); br.append(bt, bn); sp.append(br); }
+      /* machtvak: grondtal (haakjes typt de leerling zelf) en een oranje exponent; met ,i maakt "1/" er een breuk van */
+      const draw = focus => { sp.innerHTML = '';
+        const bi = m4inp('b', v.bt, 'grondtal'), ex = m4inp('ex', v.e, 'exponent');
+        bi.addEventListener('input', ()=>{ const x = bi.value;
+          if(o.includes('i') && !v.i && /^\s*1\s*\//.test(x)){ v.i = true; v.bt = x.replace(/^\s*1\s*\//, ''); save(); draw('b'); onCh(); return; }
+          v.bt = x; save(); onCh(); });
+        bi.addEventListener('keydown', e=>{ if(e.key==='Backspace' && v.i && bi.value===''){ e.preventDefault(); v.i = false; save(); draw('b'); onCh(); } });
+        ex.addEventListener('input', ()=>{ v.e = ex.value; save(); onCh(); });
+        const sup = el('span', 'm4-exp'); sup.append(ex);
+        const pw = el('span', 'm4-mv'); pw.append(bi, sup);
+        if(v.i){ const br = el('span', 'br m4-inv'); br.append(el('span', 'br-t', '1')); const bn = el('span', 'br-n'); bn.append(pw); br.append(bn); sp.append(br); }
         else sp.append(pw);
+        if(focus){ bi.focus(); bi.setSelectionRange(bi.value.length, bi.value.length); }
       };
       draw();
     }
@@ -592,7 +587,7 @@ function mountW(root, V, save, onCh, onEnter){
     empty(){ return Object.entries(W).some(([k, w]) => isEmptyW(w.t, V[k])); }
   };
 }
-const isEmptyW = (t, v) => !v || (t==='m' ? !(v.b && (v.b.t||'').trim()) : t==='u' ? !(v.t||'').trim() && !v.s : !(v.t||'').trim()) || (v.n!=null && !String(v.n).trim()) || (t==='m' && v.b && v.b.n!=null && !String(v.b.n).trim());
+const isEmptyW = (t, v) => !v || (t==='m' ? !(v.bt||'').trim() : t==='u' ? !(v.t||'').trim() && !v.s : !(v.t||'').trim()) || (v.n!=null && !String(v.n).trim());
 
 /* ---------- lezen ---------- */
 /* uitkomst: {q, simp} of {err, info} */
@@ -635,18 +630,20 @@ function chkU(v, T, fout){
 /* machtvak vergelijken met een doel {b, e, s, pos}. e mag een geheel getal of een lineaire uitdrukking zijn */
 function chkM(v, T){
   v = v || {};
-  const b = rdB(v.b);
+  const raw = nrm(v.bt||''); const pm = raw.match(/^\((.*)\)$/); const h = !!pm; const inner = pm ? pm[1] : raw;
+  if(/[()]/.test(inner)) return {ok:false, msg:'Kijk de haakjes na: één haakje openen voor het grondtal en één sluiten erna.'};
+  const b = rdB(inner.includes('/') ? {t:inner.split('/')[0], n:inner.split('/')[1]} : {t:inner});
   if(!b) return {info:true, msg:'Vul het grondtal in.'};
   if(b.bad) return {ok:false, msg:'Het grondtal kan ik niet lezen. Typ een getal, een breuk of een letter.'};
   const e0 = rdE(v.e); if(!e0) return {ok:false, msg:'De exponent kan ik niet lezen.'};
   if(b.minL) return {ok:false, msg:'Het minteken staat niet bij de letter.'};
   if(!sameB(b, T.b)){ if(T.keep!==false) return {ok:false, msg:`Behoud het grondtal: het grondtal blijft ${bH(T.b)}.`}; return {ok:false}; }
   const tb = B(T.b);
-  if((tb.kind==='q' || tb.neg) && !v.h) return {ok:false, msg: tb.kind==='q' ? 'Zet haakjes rond de breuk met de knop <b>( )</b>. Anders staat de exponent enkel bij de noemer.' : 'Zet haakjes rond het negatieve grondtal met de knop <b>( )</b>. Zonder haakjes hoort het minteken niet bij het grondtal.'};
+  if((tb.kind==='q' || tb.neg) && !h) return {ok:false, msg: tb.kind==='q' ? 'Typ haakjes rond de breuk. Anders staat de exponent enkel bij de noemer.' : `Typ haakjes rond het negatieve grondtal: ${bH(T.b)}. Zonder haakjes hoort het minteken niet bij het grondtal.`};
   const e = v.i ? {c:-e0.c, k:-e0.k, v:e0.v} : e0;
   if(T.s!=null && (v.s||'+')!==T.s) return {ok:false, msg:'Kijk nog eens naar het teken voor de macht.'};
   if(!linEq(e, linOf(T.e))){ for(const [F, m] of (T.fout||[])) if(linEq(e, linOf(F))) return {ok:false, msg:m}; return {ok:false}; }
-  if(T.pos && linNum(e0) && e0.k<0) return {ok:false, msg:'Schrijf met een <b>positieve</b> exponent. Gebruik de knop ' + brH('1', '…', 'mini') + '.'};
+  if(T.pos && linNum(e0) && e0.k<0) return {ok:false, msg:'Schrijf met een <b>positieve</b> exponent: typ eerst <b>1/</b>, dan komt de macht in de noemer.'};
   if(v.i && linNum(e0) && e0.k===0) return {ok:false, msg:'Dat kan eenvoudiger.'};
   return {ok:true};
 }
@@ -857,6 +854,7 @@ const VGL = [['<', '&lt;'], ['=', '='], ['>', '&gt;']];
   .m4-m > .m4-sup:has(.m4-w){top:0; transform:translateY(-.5rem)}
   .m4-sup .m4-in.ex{height:1.5rem; font-size:.88rem; --w:2rem}
   .m4-inv > .br-t{font-size:1.15rem} .m4-inv > .br-n{font-size:1rem}
+  .br-n:has(.m4-mv){padding-top:.6rem}
   .m4-naast{display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:1rem; align-items:start}
   .m4-naast.breed-l{grid-template-columns:minmax(0, 1.2fr) minmax(0, 1fr)}
   @media (max-width:820px){ .m4-naast, .m4-naast.breed-l{grid-template-columns:1fr} }
@@ -1039,7 +1037,7 @@ NG.schimmel = { title:'Een groeiende schimmel', lvl:2,
 
 /* ---------- schrijf met een positieve exponent ---------- */
 NG.pos = { title:'Schrijf met een positieve exponent', lvl:1,
-  instr:'Schrijf de macht als een breuk met een positieve exponent, of omgekeerd als één macht. Gebruik de knop <b>( )</b> voor haakjes rond een negatief grondtal.',
+  instr:'Schrijf de macht als een breuk met een positieve exponent, of omgekeerd als één macht. Rond een negatief grondtal typ je zelf haakjes, bijvoorbeeld <b>(-2)</b>.',
   build(b, st, save){
     const R = makeR(st);
     const bases = R.shuffle(['2', '3', '5', '7', '10', '-3', '-2', 'a', 'x', 'b', 'y']);
@@ -1050,7 +1048,7 @@ NG.pos = { title:'Schrijf met een positieve exponent', lvl:1,
     reeks(b, lijst.length, (g, i, nr) => { const it = lijst[i];
       if(it.fw) mQ(g, st, save, 'p' + i, { nr, html:`${mH(it.g, -it.n)} ${isq} ${brH('1', '{{m:a}}')}`,
         check:V=>chkM(V.a, {b:it.g, e:it.n, fout:[[-it.n, 'In de noemer staat de exponent positief.']]}),
-        hint:[['Neem het omgekeerde en maak de exponent positief.', `${mH('a', '-n')} ${isq} ${brH('1', mH('a', 'n'))}`]].concat(B(it.g).neg ? [['Het grondtal is negatief: zet er haakjes rond met de knop <b>( )</b>.']] : []),
+        hint:[['Neem het omgekeerde en maak de exponent positief.', `${mH('a', '-n')} ${isq} ${brH('1', mH('a', 'n'))}`]].concat(B(it.g).neg ? [['Het grondtal is negatief: typ er haakjes rond, bijvoorbeeld (-2).']] : []),
         sol:`${mH(it.g, -it.n)} ${isq} ${brH('1', mH(it.g, it.n))}` });
       else mQ(g, st, save, 'p' + i, { nr, html:`${brH('1', it.n===1 ? bH(it.g) : mH(it.g, it.n))} ${isq} ${mE(it.g, 'a')}`,
         check:V=>chkE(V.a, -it.n, [[it.n, 'Een macht in de noemer krijgt een negatieve exponent als je ze naar boven brengt.']]),
@@ -1188,10 +1186,10 @@ const linSum = es => es.reduce((a, e) => linAdd(a, e), {c:0, k:0, v:null});
 const prodE = (b, es) => es.map(e => e===1 ? bH(b) : mH(b, e)).join(' · ');
 /* hints bij "schrijf als één macht" */
 function vermSteps(b, es, o={}){ const S = linSum(es); const tb = B(b);
-  const st = [{u:'Welk grondtal blijft staan?', line:'grondtal: {{b:a}}', check:V=>sameB(rdB(V.a), b), show:`grondtal: ${bH(b)}`},
+  const st = [{u:'Welk grondtal blijft staan?', line:'grondtal: {{b:a}}', check:V=>sameB(rdB({t:nrm((V.a||{}).t||'').replace(/^\((.*)\)$/, '$1'), n:(V.a||{}).n}), b), show:`grondtal: ${bH(b)}`},
     {u:'Tel de exponenten op.' + (es.includes(1) ? ` Let op: ${bH(b)} = ${mH(b, 1)}.` : ''), line:`${ePlus(es)} ${isq} {{g:a}}`, check:V=>chkE(V.a, S), show:`${ePlus(es)} ${isq} ${linT(S)}`}];
-  if(o.pos && linNum(S) && S.k<0) st.push([`De exponent is negatief. Schrijf met een positieve exponent: klik op de knop ${brH('1', '…', 'mini')}.`, `${mH(b, S)} ${isq} ${brH('1', mH(b, -S.k))}`]);
-  else st.push(['Schrijf de macht met dat grondtal en die exponent.' + ((tb.kind==='q' || tb.neg) ? ' Zet haakjes rond het grondtal met de knop <b>( )</b>.' : '')]);
+  if(o.pos && linNum(S) && S.k<0) st.push([`De exponent is negatief. Schrijf met een positieve exponent: typ eerst <b>1/</b>, dan komt de macht in de noemer.`, `${mH(b, S)} ${isq} ${brH('1', mH(b, -S.k))}`]);
+  else st.push(['Schrijf de macht met dat grondtal en die exponent.' + ((tb.kind==='q' || tb.neg) ? ' Typ haakjes rond het grondtal.' : '')]);
   return st; }
 const VM_MEER = `<div class="m4-line">${mH('a', 3)} · ${mH('a', 4)} ${isq} (<i>a</i> · <i>a</i> · <i>a</i>) · (<i>a</i> · <i>a</i> · <i>a</i> · <i>a</i>) ${isq} ${mH('a', 7)}</div>Je telt het aantal factoren <i>a</i>: 3 + 4 = 7.`;
 const VM = {};
@@ -1277,7 +1275,7 @@ function vermPool(R){
 }
 const prodFout = es => es.length===2 ? [[es[0]*es[1], 'Je vermenigvuldigde de exponenten. Bij vermenigvuldigen van machten tel je ze op.']] : [];
 VM.een = { title:'Schrijf als één macht', lvl:2,
-  instr:'Schrijf als één macht. Typ het grondtal en de exponent. Bij een negatief grondtal klik je op <b>( )</b>.',
+  instr:'Schrijf als één macht. Typ het grondtal en de exponent. Rond een negatief grondtal typ je zelf haakjes, bijvoorbeeld <b>(-2)</b>.',
   build(b, st, save){
     stapUitleg(b, [[`${mH('10', -3)} · ${mH('10', 5)}`, 'Hetzelfde grondtal: 10.'], [`${isq} ${mH('10', '-3+5')}`, 'Behoud het grondtal en tel de exponenten op.'], [`${isq} ${mH('10', 2)}`, '−3 + 5 = 2']], {kop:'Voorbeeld'});
     const R = makeR(st); const L = vermPool(R);
@@ -1288,7 +1286,7 @@ VM.een = { title:'Schrijf als één macht', lvl:2,
 
 /* ---------- met letters, positieve exponent ---------- */
 VM.letters = { title:'Met letters: schrijf met een positieve exponent', lvl:2,
-  instr:`Schrijf als één macht met een <b>positieve</b> exponent. Is de exponent negatief? Klik dan op de knop ${brH('1', '…', 'mini')}.`,
+  instr:`Schrijf als één macht met een <b>positieve</b> exponent. Is de exponent negatief? Typ dan eerst <b>1/</b>: er komt een breukstreep en je schrijft de macht in de noemer.`,
   build(b, st, save){
     const R = makeR(st); const lets = R.shuffle(['a', 'b', 'p', 'x', 'y', 't']);
     const L = [[R.int(2, 4), -R.int(5, 8)], [-R.int(1, 4), -R.int(2, 4)], [R.int(4, 7), -R.int(1, 3)], [-R.int(3, 5), R.int(4, 6), 1], [-R.int(4, 7), 0], [R.int(1, 3), -R.int(2, 4), -R.int(2, 4)]];
@@ -1301,13 +1299,13 @@ VM.letters = { title:'Met letters: schrijf met een positieve exponent', lvl:2,
 
 /* ---------- breuken en kommagetallen als grondtal ---------- */
 VM.breuk = { title:'Breuken en kommagetallen als grondtal', lvl:2,
-  instr:'Schrijf als één macht. Een breuk als grondtal maak je door <b>/</b> te typen, en vergeet de haakjes niet.',
+  instr:'Het grondtal blijft hetzelfde. Welke exponent hoort in het oranje vakje?',
   build(b, st, save){
     const R = makeR(st);
     const pos = R.shuffle(['2/3', '3/4', '1/2', '5/2', '4/7', '3/5']), neg = R.shuffle(['-3/4', '-2/5', '-1/3', '-5/2']), dc = R.shuffle(['0,5', '1,2', '0,3', '2,5']);
     const L = [[pos[0], [R.int(2, 4), R.int(2, 5)]], [dc[0], [R.int(3, 6), -R.int(1, 2)]], [neg[0], [-R.int(2, 3), R.int(4, 6)]], [pos[1], [R.int(3, 5), 1]], [dc[1], [-R.int(2, 4), -R.int(1, 3)]], [neg[1], [R.int(2, 3), -R.int(1, 2), R.int(3, 4)]]];
     reeks(b, L.length, (g, i, nr) => { const [bb, es] = L[i]; const S = linSum(es);
-      mQ(g, st, save, 'b' + i, { nr, html:`${prodE(bb, es)} ${isq} {{m:a}}`, check:V=>chkM(V.a, {b:bb, e:S, fout:prodFout(es)}), hint:vermSteps(bb, es), meer:VM_MEER,
+      mQ(g, st, save, 'b' + i, { nr, html:`${prodE(bb, es)} ${isq} ${mE(bb, 'a')}`, check:V=>chkE(V.a, S, prodFout(es)), hint:vermSteps(bb, es).slice(1, 2), meer:VM_MEER,
         sol:`${prodE(bb, es)} ${isq} ${mH(bb, S)}` }); });
   } };
 
@@ -1388,7 +1386,7 @@ VM.verkl = { title:'Verklaar de rekenregel', lvl:3, keep:true,
   } };
 
 SEC.verm = { id:'verm', ic:'m_verm', nav:'Machten vermenigvuldigen', title:'Machten met hetzelfde grondtal vermenigvuldigen',
-  tip:'Het oranje vakje is de exponent. Laat je het leeg, dan is de exponent 1. Met de knop <b>( )</b> zet je haakjes rond het grondtal.',
+  tip:'Het oranje vakje is de exponent. Laat je het leeg, dan is de exponent 1. Haakjes rond een negatief grondtal typ je zelf: <b>(-2)</b>.',
   cheat:CHEAT_VERM, cards:[VM.tegels, VM.som, VM.woorden, VM.een, VM.letters, VM.breuk, VM.reken, VM.lexp, VM.lexp2, VM.ontbr, VM.verkl] };
 const ORDER = ['neg','verm'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
