@@ -31,7 +31,6 @@ function groepVolgorde(a, b){ return (String(a.jaar).localeCompare(String(b.jaar
 async function laadLeerkrachten(){ if(ST.rol === 'beheerder'){ const b = await F.getDocs(F.collection(db, 'beheerders')).catch(()=>null); ST.beheerders = new Set(b ? b.docs.map(d=>d.id) : []); }
   const s = await F.getDocs(F.collection(db, 'leerkrachten')); ST.leerkrachten = s.docs.map(d=>Object.assign({ id:d.id }, d.data())).sort((a,b)=>(a.naam||'').localeCompare(b.naam||'')); }
 async function laadLeerlingen(){ const s = await F.getDocs(F.collection(db, 'leerlingen')); ST.leerlingen = new Map(s.docs.map(d=>[d.id, d.data()])); }
-async function updGroep(g, data){ await F.updateDoc(F.doc(db, 'groepen', g.id), data); Object.entries(data).forEach(([k, v])=>{ if(!k.includes('.')) g[k] = v; }); }
 
 /* ---------- bovenbalk ---------- */
 function render(){
@@ -301,12 +300,12 @@ async function paneLeerlingen(pane, g){
       const tr = el('tr', '', `<td>${esc(naamVan(e))}</td><td>${esc(l.klas || '')}</td>`);
       const s = el('select', '', '<option value="">…</option>' + andere.map(x=>`<option value="${esc(x.id)}">${esc(x.naam)}</option>`).join(''));
       s.onchange = async ()=>{ const doel = andere.find(x=>x.id === s.value); if(!doel) return;
-        await updGroep(g, { leerlingen: F.arrayRemove(e) }); g.leerlingen = g.leerlingen.filter(x=>x !== e);
+        await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen: F.arrayRemove(e) }); g.leerlingen = g.leerlingen.filter(x=>x !== e);
         await F.updateDoc(F.doc(db, 'groepen', doel.id), { leerlingen: F.arrayUnion(e) }); doel.leerlingen = [...new Set([...doel.leerlingen, e])];
         render(); };
       const td = el('td'); td.append(s);
       const rm = el('button', 'btn gevaar klein', 'Uit groep'); rm.type = 'button';
-      rm.onclick = async ()=>{ await updGroep(g, { leerlingen: F.arrayRemove(e) }); g.leerlingen = g.leerlingen.filter(x=>x !== e); render(); };
+      rm.onclick = async ()=>{ await F.updateDoc(F.doc(db, 'groepen', g.id), { leerlingen: F.arrayRemove(e) }); g.leerlingen = g.leerlingen.filter(x=>x !== e); render(); };
       const td2 = el('td'); td2.append(rm); tr.append(td, td2); tb.append(tr);
     });
     t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); card.append(w);
