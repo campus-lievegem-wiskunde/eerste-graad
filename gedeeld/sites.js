@@ -791,16 +791,64 @@ export const SITES = [
   "prefix": "2a_m4_machten_v1_",
   "onderdelen": [
    {
+    "id": "herh",
+    "naam": "Machten: herhaling",
+    "toets": false,
+    "vragen": 54
+   },
+   {
     "id": "neg",
     "naam": "Negatieve exponent en exponent 0",
     "toets": false,
     "vragen": 58
    },
    {
+    "id": "brk",
+    "naam": "Breuk tot een negatieve macht",
+    "toets": false,
+    "vragen": 44
+   },
+   {
+    "id": "teken",
+    "naam": "Positief of negatief?",
+    "toets": false,
+    "vragen": 41
+   },
+   {
     "id": "verm",
     "naam": "Machten vermenigvuldigen",
     "toets": false,
     "vragen": 52
+   },
+   {
+    "id": "del",
+    "naam": "Machten delen",
+    "toets": false,
+    "vragen": 47
+   },
+   {
+    "id": "mm",
+    "naam": "Macht van een macht",
+    "toets": false,
+    "vragen": 53
+   },
+   {
+    "id": "prod",
+    "naam": "Macht van een product",
+    "toets": false,
+    "vragen": 40
+   },
+   {
+    "id": "quot",
+    "naam": "Macht van een quotiënt",
+    "toets": false,
+    "vragen": 41
+   },
+   {
+    "id": "door",
+    "naam": "Rekenregels door elkaar",
+    "toets": false,
+    "vragen": 53
    }
   ]
  },
