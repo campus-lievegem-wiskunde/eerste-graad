@@ -1,11 +1,13 @@
 /* Dashboard, tabblad Toetsen en taken (per groep): openzetten met datum en uur, instellingen per toets of taak,
    eigen opening per leerling, resultaten verbeteren, vrijgeven, afdrukken en punten kopiëren.
    Instellingen: groepen/{groep}.opdr.{id} (zie gedeeld/opdrachten.js). Antwoorden: inzendingen/{id}__{e-mail}.
-   Punten: resultaten/{id}__{e-mail}. Verbetersleutel: sleutels/{id} (enkel leerkrachten lezen hem). */
+   Punten: resultaten/{id}__{e-mail}. Verbetersleutel: sleutels/{id} (enkel leerkrachten lezen hem).
+   Classroom (classroom.js): groepen/{groep}.classroom = gekoppelde klas, groepen/{groep}.cr.{id} = opdracht in Classroom. */
 import { db, F } from '../gedeeld/aanmelden.js';
 import { SITES } from '../gedeeld/sites.js';
 import { OPDRACHTEN, RUBRIEKEN_OPDR, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, telt, opSchaal, ontsleutel, naarDb, uitDb } from '../gedeeld/opdrachten.js';
 import { tekenOpgave, laadOpgave } from '../gedeeld/opgave-weergave.js';
+import * as CR from './classroom.js';
 
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -28,6 +30,7 @@ export function paneOpdrachten(pane, g, hulp){
   const lijst = OPDRACHTEN.filter(o=>o.jaar === H.jaarcode(g));
   if(H.ST.opdrRes && lijst.includes(H.ST.opdrRes)) return resultaten(pane, g, H.ST.opdrRes);
   const card = el('div', 'dash-card', `<h3>Toetsen en taken voor ${esc(g.naam)}</h3><p class="mini">Een toets of taak die je nog niet opende, zien de leerlingen niet. Kies wanneer ze opent en sluit, of gebruik <b>Nu openen</b> en <b>Nu sluiten</b> tijdens de les. Wijzigingen worden meteen bewaard. Standaard zien de leerlingen hun resultaat niet: dat kies je per toets bij Instellingen, en je geeft het vrij bij Resultaten.</p>`);
+  pane.append(crKader(g, lijst));
   if(!lijst.length){ card.append(el('p', 'mini', `Er zijn nog geen toetsen of taken voor ${esc(H.jaarcode(g))}. Zodra er een klaarstaat, verschijnt ze hier.`)); pane.append(card); return; }
   RUBRIEKEN_OPDR.forEach(([rid, rnaam])=>{
     const os = lijst.filter(o=>o.rubriek === rid); if(!os.length) return;
@@ -35,6 +38,7 @@ export function paneOpdrachten(pane, g, hulp){
     os.forEach(o=>d.append(blok(g, o))); card.append(d);
   });
   pane.append(card);
+  crAlleOpdrachten(g, lijst);
 }
 
 /* ---------- één toets of taak: openen, sluiten, instellingen ---------- */
@@ -50,7 +54,8 @@ function blok(g, o){
   const toon = ()=>{ const s = staat(cfg, null); st.textContent = ' · ' + staatTekst(cfg); st.dataset.staat = s; open.hidden = s === 'open'; sluit.hidden = s !== 'open'; };
   async function bewaar(nieuw){
     msg.className = 'mini'; msg.textContent = ' bewaren…';
-    try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`opdr.${o.id}`]: nieuw }); g.opdr = g.opdr || {}; g.opdr[o.id] = nieuw; cfg = instelling(g, o); msg.className = 'okmsg'; msg.textContent = ' bewaard'; toon(); vul(); }
+    try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { [`opdr.${o.id}`]: nieuw }); g.opdr = g.opdr || {}; g.opdr[o.id] = nieuw; cfg = instelling(g, o); msg.className = 'okmsg'; msg.textContent = ' bewaard'; toon(); vul();
+      if(g.classroom && cfg.van) crDoe(`${g.id}|${o.id}`, o.titel, ()=>crOpdracht(g, o)); }
     catch(e){ console.error(e); msg.className = 'errmsg'; msg.textContent = ' bewaren lukte niet'; }
   }
   open.onclick = ()=>{ const nu = Date.now(); bewaar(Object.assign({}, cfg, { van:nu, tot:cfg.tot && cfg.tot > nu ? cfg.tot : null })); };
@@ -105,7 +110,7 @@ async function resultaten(pane, g, o){
   const terug = knop('← Terug naar de lijst'); terug.onclick = ()=>{ H.ST.opdrRes = null; H.render(); };
   const cfg = instelling(g, o);
   const card = el('div', 'dash-card', `<h3>${esc(o.titel)} · ${esc(g.naam)}</h3><p class="mini">${staatTekst(cfg)} · na het vrijgeven ziet de leerling: ${esc(ZIET[cfg.ziet] || cfg.ziet)}</p>`);
-  pane.append(el('div', 'rij'), card); pane.firstChild.append(terug);
+  pane.append(el('div', 'rij'), crKader(g, [o]), card); pane.firstChild.append(terug);
   const wacht = el('p', 'mini', 'Antwoorden ophalen…'); card.append(wacht);
   let opg, sleutel = null, inz, res;
   try{
@@ -133,7 +138,8 @@ async function resultaten(pane, g, o){
   const m = el('span', 'mini');
   if(cfg.ziet === 'niets'){ vg.disabled = !vrij; vg.title = 'Kies eerst bij Instellingen wat de leerling ziet.'; }
   r.append(bew, vg, pdf, blanco, slk, kopie, m); card.append(r);
-  card.append(el('p', 'mini', 'Punten naar Classroom: volgt zodra de koppeling met Classroom klaar is. Intussen kan je met <b>Kopieer de punten</b> de lijst in een rekenblad plakken.'));
+  card.append(el('p', 'mini', g.classroom ? 'Punten naar Classroom gaan vanzelf: als conceptpunt zodra een ingediende opdracht volledig verbeterd is, definitief en teruggegeven als je de resultaten vrijgeeft.'
+    : 'Koppel deze groep bovenaan aan een Classroom-klas, dan gaan de punten vanzelf naar Classroom. Of plak ze met <b>Kopieer de punten</b> in een rekenblad.'));
 
   /* tabel leerlingen × vragen */
   const wrap = el('div', 'tbl-wrap'); const t = el('table', 'dt opdr-tabel'); wrap.append(t); card.append(wrap);
@@ -212,7 +218,7 @@ async function resultaten(pane, g, o){
           verbetering:vrijNu && cfg.ziet === 'verbetering' ? b.per : null };
         batch.set(F.doc(db, 'resultaten', docId(o, e)), doc); R.set(e, doc); n++;
       });
-      await batch.commit(); gewijzigd.clear(); tabel();
+      await batch.commit(); gewijzigd.clear(); tabel(); naarClassroom();
       m.className = 'okmsg'; m.textContent = ` ${n} resultaten bewaard${vrijNu ? ' en vrijgegeven' : ''}`;
       vg.textContent = vrijNu ? 'Vrijgave intrekken' : 'Resultaten vrijgeven'; return true;
     }catch(e){ console.error(e); m.className = 'errmsg'; m.textContent = ' bewaren lukte niet'; return false; }
@@ -232,7 +238,111 @@ async function resultaten(pane, g, o){
     catch(e){ const ta = el('textarea'); ta.value = txt; ta.rows = 6; ta.style.width = '100%'; card.append(ta); ta.select(); }
   };
   addEventListener('beforeunload', ev=>{ if(gewijzigd.size){ ev.preventDefault(); ev.returnValue = ''; } });
-  tabel();
+  /* punten naar Classroom: enkel ingediende en volledig verbeterde opdrachten, niet-bewaarde wijzigingen wachten op Punten bewaren */
+  function naarClassroom(){
+    if(!g.classroom || !sleutel) return;
+    crDoe(`${g.id}|${o.id}|punten`, `punten van ${o.kort || o.titel}`, async ()=>{
+      let cr = (g.cr || {})[o.id];
+      if(!cr || cr.course !== g.classroom.id){ await crOpdracht(g, o); cr = (g.cr || {})[o.id]; }
+      if(!cr) return 'Open eerst de opdracht voor deze groep, dan komt ze in Classroom.';
+      const klaar = lln.filter(e=>I.get(e) && I.get(e).ingediend && !gewijzigd.has(e)), lijst = [];
+      klaar.forEach(e=>{ const b = ber(e); if(b.volledig) lijst.push({ email:e, p:o.op ? opSchaal(o, b.totaal, b.max) : b.totaal, def:!!(R.get(e) && R.get(e).vrij) }); });
+      const u = await CR.zetPunten({ course:cr.course, cw:cr.cw, lijst, groep:lln });
+      const delen = [];
+      if(u.concept) delen.push(`${u.concept} conceptpunt${u.concept > 1 ? 'en' : ''} gezet`);
+      if(u.def) delen.push(`${u.def} definitief`);
+      if(u.terug) delen.push(`${u.terug} teruggegeven`);
+      let t = !lijst.length ? 'Classroom: nog geen ingediende opdracht die volledig verbeterd is.'
+        : `Classroom: ${delen.length ? delen.join(', ') : 'alle punten zijn al bijgewerkt'} (${lijst.length} van ${lln.length} leerlingen ingediend en verbeterd).`;
+      if(u.nietInKlas.length) t += ` Niet in de Classroom-klas: ${u.nietInKlas.map(H.naamVan).join(', ')}.`;
+      if(u.nietInGroep.length) t += ` In Classroom maar niet in deze groep: ${u.nietInGroep.join(', ')}.`;
+      return t;
+    });
+  }
+  tabel(); naarClassroom();
+}
+
+/* ---------- Google Classroom ----------
+   Alles wat Classroom nodig heeft, loopt via crDoe: met een geldige toegang meteen, anders wacht het tot de leerkracht
+   op Verbind met Classroom klikt (Google laat het aanmeldvenster enkel bij een klik open). */
+const crWacht = new Map(), crBezig = new Set();
+let crVak = null, crG = null, crMelding = '', crKies = null;
+function crKader(g, lijst){
+  if(crG !== g){ crWacht.clear(); crMelding = ''; crKies = null; }
+  crG = g; crVak = el('div', 'dash-card cr-balk'); crTeken();
+  CR.laadGoogle(H.ST.me).catch(e=>{ crMelding = 'Google is niet bereikbaar: ' + e.message; crTeken(); });
+  return crVak;
+}
+function crTeken(){
+  if(!crVak) return; const g = crG; crVak.innerHTML = '';
+  const k = g.classroom;
+  const r = el('div', 'rij', `<b>Google Classroom</b> <span class="mini">${k ? `gekoppeld aan <a href="${esc(k.link || '#')}" target="_blank" rel="noopener">${esc(k.naam)}</a>` : 'deze groep is nog niet gekoppeld aan een Classroom-klas'}</span>`);
+  const kies = knop(k ? 'Andere klas' : 'Kies een Classroom-klas', k ? 'btn ghost klein' : 'btn klein'); kies.onclick = crKiesKlas; r.append(kies);
+  if(k){ const los = knop('Ontkoppelen'); los.onclick = async ()=>{ if(!confirm(`${g.naam} loskoppelen van ${k.naam}? Wat al in Classroom staat, blijft daar staan.`)) return;
+    await F.updateDoc(F.doc(db, 'groepen', g.id), { classroom:F.deleteField() }); delete g.classroom; crWacht.clear(); crMelding = 'Ontkoppeld.'; crTeken(); }; r.append(los); }
+  crVak.append(r);
+  if(crWacht.size && !CR.verbonden()){
+    const w = el('div', 'rij'); const b = knop('Verbind met Classroom', 'btn klein');
+    b.onclick = async ()=>{ try{ await CR.verbind(); }catch(e){ crMelding = 'Verbinden lukte niet: ' + e.message + '.'; return crTeken(); } crVoerUit(); };
+    w.append(b, el('span', 'mini', `Nog bij te werken in Classroom: ${[...crWacht.values()].map(x=>esc(x.label)).join(', ')}. Eén klik volstaat voor het komende uur.`)); crVak.append(w);
+  }
+  if(crKies) crVak.append(crKies);
+  if(crMelding) crVak.append(el('p', 'mini cr-melding', esc(crMelding)));
+}
+async function crKiesKlas(){
+  const g = crG;
+  try{ if(!CR.verbonden()) await CR.verbind(); }catch(e){ crMelding = 'Verbinden lukte niet: ' + e.message + '.'; return crTeken(); }
+  crMelding = 'Klassen ophalen…'; crTeken();
+  let klassen;
+  try{ klassen = await CR.mijnKlassen(); }catch(e){ crMelding = 'Je klassen ophalen lukte niet: ' + e.message; return crTeken(); }
+  crMelding = '';
+  if(!klassen.length){ crMelding = 'Je geeft in Classroom les in geen enkele actieve klas.'; return crTeken(); }
+  const best = CR.besteKlas(klassen, g.naam) || (g.classroom && klassen.find(x=>x.id === g.classroom.id)) || klassen[0];
+  crKies = el('div', 'rij');
+  const sel = el('select', 'cr-klas', klassen.map(x=>`<option value="${esc(x.id)}"${x === best ? ' selected' : ''}>${esc(x.name)}${x.section ? ' · ' + esc(x.section) : ''}</option>`).join(''));
+  const ok = knop('Koppelen', 'btn klein'), weg = knop('Annuleren');
+  weg.onclick = ()=>{ crKies = null; crTeken(); };
+  ok.onclick = async ()=>{
+    const x = klassen.find(k=>k.id === sel.value); const w = { id:x.id, naam:x.name + (x.section ? ' · ' + x.section : ''), link:x.alternateLink || '', door:H.ST.me, op:Date.now() };
+    try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { classroom:w }); }catch(e){ crMelding = 'Bewaren lukte niet.'; return crTeken(); }
+    g.classroom = w; crKies = null; crMelding = `Gekoppeld aan ${w.naam}.`; crTeken();
+    crAlleOpdrachten(g, OPDRACHTEN.filter(o=>o.jaar === H.jaarcode(g)));
+  };
+  crKies.append(el('span', 'mini', `Klas voor ${esc(g.naam)}:`), sel, ok, weg); crTeken();
+}
+/* geopende opdrachten van de groep die nog niet (of in een andere klas) in Classroom staan */
+function crAlleOpdrachten(g, lijst){
+  if(!g.classroom) return;
+  lijst.forEach(o=>{ const c = (g.cr || {})[o.id]; if(instelling(g, o).van && (!c || c.course !== g.classroom.id)) crDoe(`${g.id}|${o.id}`, o.titel, ()=>crOpdracht(g, o)); });
+}
+async function crDoe(sleutel, label, taak){
+  if(crBezig.has(sleutel)) return;
+  crWacht.set(sleutel, { label, taak });
+  if(CR.verbonden()) return crVoerUit();
+  crTeken();
+}
+async function crVoerUit(){
+  for(const [s, { label, taak }] of [...crWacht]){
+    if(crBezig.has(s)) continue;
+    crWacht.delete(s); crBezig.add(s); crMelding = `Classroom: ${label} bijwerken…`; crTeken();
+    try{ crMelding = (await taak()) || ''; }
+    catch(e){ console.warn(e); if(e.code === 'token'){ crWacht.set(s, { label, taak }); crMelding = ''; } else crMelding = `Classroom (${label}): ${e.message}`; }
+    finally{ crBezig.delete(s); }
+    crTeken();
+  }
+}
+async function crOpdracht(g, o){
+  const cfg = instelling(g, o); if(!g.classroom || !cfg.van) return '';
+  const opg = await laadOpgave(opgUrl(o));
+  const max = o.op || bereken(opg, {}, null, null).max;
+  const cr = (g.cr || {})[o.id] || null;
+  const n = await CR.zetOpdracht({ course:g.classroom.id, cr, o, cfg, max, link:new URL(`../${o.pad}`, location.href).href,
+    uitleg:`Maak deze ${soortVan(o)} op het oefenplatform wiskunde: klik op de link en meld je aan met je schoolaccount. Je dient in op het platform; in Classroom hoef je niets te doen. De punten verschijnen hier na de verbetering.` });
+  if(!cr || cr.cw !== n.cw || cr.course !== n.course || (n.link && cr.link !== n.link)){
+    const w = { course:n.course, cw:n.cw, link:n.link };
+    await F.updateDoc(F.doc(db, 'groepen', g.id), { [`cr.${o.id}`]:w }); g.cr = Object.assign({}, g.cr, { [o.id]:w });
+  }
+  return n.nieuw ? `Classroom: ${o.titel} staat in ${g.classroom.naam}.` : `Classroom: ${o.titel} is bijgewerkt.`;
 }
 
 /* sleutelcode intikken: de sleutel uit sleutel.enc.json ontsleutelen en in Firestore zetten (één keer per opdracht) */
