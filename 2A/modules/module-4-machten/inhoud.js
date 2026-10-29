@@ -1245,10 +1245,22 @@ Object.assign(ICONS, {
   m_neg:'<text x="3" y="18" font-size="13" font-weight="700" fill="currentColor" stroke="none">a</text><text x="11" y="11" font-size="9" font-weight="700" fill="currentColor" stroke="none">−n</text>',
   m_verm:'<text x="1.5" y="18" font-size="11" font-weight="700" fill="currentColor" stroke="none">a·a</text><text x="17" y="9" font-size="7.5" font-weight="700" fill="currentColor" stroke="none">m</text>'
 });
+/* waarom a^0 = 1: machtentrap van 2 met telkens : 2 per trede naar beneden */
+const NUL_SVG = (() => { const W = 470, H = 196, sw = 86, dy = 24, x0 = 12, y0 = 52, bot = 192; let o = '';
+  const T = [[3, '8'], [2, '4'], [1, '2'], [0, '1'], [-1, '½']];
+  T.forEach(([e, v], i) => { const x = x0 + i*(sw + 4), y = y0 + i*dy; const nul = e===0;
+    o += `<rect x="${x}" y="${y}" width="${sw}" height="${bot - y}" rx="6" style="fill:${nul ? 'var(--or-soft)' : 'var(--accent-soft)'};stroke:${nul ? 'var(--orange)' : 'var(--tq)'};stroke-width:${nul ? 3 : 2}"/>`;
+    o += `<text class="t big" x="${x + sw/2}" y="${y + 24}" text-anchor="middle" dominant-baseline="central">2<tspan class="sup" dy="-9">${sg(e)}</tspan><tspan dy="9"> = ${v}</tspan></text>`;
+    if(i){ const xa = x0 + (i-1)*(sw + 4) + sw/2 + 16, xb = x + sw/2 - 16, ya = y0 + (i-1)*dy - 8;
+      o += `<path class="pijl" d="M${xa} ${ya} Q${(xa + xb)/2} ${ya - 30} ${xb} ${y - 8}"/><text class="t" x="${(xa + xb)/2}" y="${ya - 26}" text-anchor="middle" style="fill:var(--accent-dark);font-weight:700">: 2</text>`; } });
+  return svgWrap(W, H, o, {alt:'machtentrap: 2 tot de derde is 8, dan telkens delen door 2: 4, 2, 1, een half', maxw:470}); })();
+const NUL_UITLEG = `<div class="m4-line">${mH('a', 0)} ${isq} 1 &nbsp; en &nbsp; ${mH('a', 1)} ${isq} <i>a</i> &nbsp;<span class="txt">(a ≠ 0)</span></div>
+  ${NUL_SVG}
+  <div>Eén trede lager: de exponent wordt 1 kleiner en je deelt door het grondtal. Van ${mH('2', 1)} = 2 naar ${mH('2', 0)}: 2 : 2 = <b>1</b>.</div>
+  <div class="m4-line">${mH('a', 3)} : ${mH('a', 3)} ${isq} <span class="m4-m"><i>a</i><sup class="m4-sup">3−3</sup></span> ${isq} ${mH('a', 0)} &nbsp; en ook &nbsp; ${brH('<i>a</i> · <i>a</i> · <i>a</i>', '<i>a</i> · <i>a</i> · <i>a</i>')} ${isq} 1</div>`;
 const CHEAT_NEG = `<h3>Spiekbriefje · negatieve exponent en exponent 0</h3><table>
   <tr><td>negatieve exponent</td><td><div class="m4-line">${mH('a', '-n')} ${isq} ${brH('1', mH('a', 'n'))}</div>omgekeerde nemen en de exponent positief maken</td></tr>
-  <tr><td>exponent 0</td><td><div class="m4-line">${mH('a', 0)} ${isq} 1</div>als a ≠ 0</td></tr>
-  <tr><td>exponent 1</td><td><div class="m4-line">${mH('a', 1)} ${isq} <i>a</i></div></td></tr>
+  <tr><td>exponent 0 en 1</td><td>${NUL_UITLEG}</td></tr>
   <tr><td>haakjes</td><td><div class="m4-line">${mH('-3', 2)} ${isq} 9 &nbsp; maar &nbsp; ${minH(mH('3', 2))} ${isq} ${MIN}9</div>zonder haakjes hoort het minteken niet bij het grondtal</td></tr>
   <tr><td>teken</td><td>negatief grondtal: even exponent geeft een positief getal, oneven exponent een negatief getal</td></tr></table>`;
 
@@ -1420,7 +1432,7 @@ NG.reken = { title:'Reken uit', lvl:2,
 NG.nul = { title:'Exponent 0 en exponent 1', lvl:1,
   instr:'Reken uit. Kijk goed of het minteken bij het grondtal hoort.',
   build(b, st, save){
-    b.append(el('div', 'm4-regel', `<div class="m4-line">${mH('a', 0)} ${isq} 1 &nbsp; en &nbsp; ${mH('a', 1)} ${isq} <i>a</i></div>Waarom is ${mH('a', 0)} = 1? Kijk naar de machtentrap: één trede onder ${mH('a', 1)} = <i>a</i> deel je door <i>a</i>, en <i>a</i> : <i>a</i> = 1.`));
+    b.append(el('div', 'm4-regel', NUL_UITLEG));
     const R = makeR(st); const gs = R.shuffle([2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13]);
     const [p, q] = R.pick([[2, 3], [3, 4], [2, 5], [4, 7], [5, 8]]);
     const L = [
