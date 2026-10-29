@@ -1,0 +1,92 @@
+/* Vrij oefenen (gedeeld/vrij-oefenen.js): keuze van getallen en bewerking, een reeks van 10 met één oefening per scherm. */
+.vo-kies{ display:grid; gap:.7rem; margin:.2rem 0 1rem; }
+.vo-rij{ display:grid; grid-template-columns:9.5rem minmax(0, 1fr); gap:.4rem .8rem; align-items:center; }
+.vo-rij > b{ font-size:.95rem; }
+.vo-chips{ display:flex; flex-wrap:wrap; gap:.4rem; }
+.vo-chip{ font-family:inherit; font-size:.92rem; font-weight:700; color:var(--ink); background:var(--card); border:2px solid var(--tq); border-radius:999px; padding:.3rem .85rem; cursor:pointer; }
+.vo-chip:hover{ border-color:var(--orange); background:var(--or-soft); }
+.vo-chip.aan{ border-color:var(--orange); background:var(--or-soft); box-shadow:inset 0 0 0 1px var(--orange); }
+.vo-start-rij{ margin:.2rem 0 1.1rem; }
+.vo-bezig{ align-items:center; }
+.vo-bezig .btn{ margin-left:.6rem; }
+.vo-mixuitleg{ margin:.2rem 0 1rem; color:var(--ink-soft); }
+.vo-h3{ font-size:1rem; margin:.4rem 0 .5rem; }
+.vo-scores{ border-collapse:separate; border-spacing:4px; font-size:.86rem; }
+.vo-scores th{ font-weight:700; color:var(--ink-soft); text-align:left; padding:.1rem .4rem; }
+.vo-scores thead th{ text-align:center; font-size:.8rem; max-width:8rem; }
+.vo-scores td{ padding:0; }
+.vo-cel{ width:7.2rem; min-height:2.6rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; font-family:inherit; color:var(--ink); background:var(--card);
+  border:1.5px solid var(--border); border-radius:.5rem; cursor:pointer; padding:.2rem .3rem; font-variant-numeric:tabular-nums; }
+.vo-cel b{ font-size:.95rem; } .vo-cel small{ font-size:.72rem; color:var(--ink-soft); }
+.vo-cel:hover{ border-color:var(--orange); }
+.vo-cel.nu{ border:2px solid var(--orange); }
+.vo-cel.s1{ background:var(--bad-bg); } .vo-cel.s2{ background:var(--or-soft); } .vo-cel.s3{ background:var(--tq-soft); } .vo-cel.s4{ background:var(--ok-bg); }
+.vo-legende{ margin-top:.4rem; color:var(--ink-soft); font-size:.8rem; }
+.vo-mixscore{ font-size:.95rem; }
+
+/* de reeks */
+.vo-kaart{ border:2px solid var(--tq); border-radius:1rem; background:var(--card); color:var(--ink); max-width:56rem; }
+.vo-balk{ display:flex; align-items:center; gap:1rem; padding:.6rem 1rem; border-bottom:1.5px solid var(--border); }
+.vo-dots{ display:flex; gap:7px; flex-wrap:wrap; align-items:center; flex:1; }
+.vo-dot{ width:15px; height:15px; border-radius:50%; background:var(--border); border:0; padding:0; cursor:pointer; flex:none; }
+.vo-dot:hover{ outline:2px solid var(--orange); outline-offset:1px; }
+.vo-dot.af{ background:var(--tq); }
+.vo-dot.ok{ background:var(--ok); } .vo-dot.nok{ background:var(--bad); }
+.vo-dot.nu{ box-shadow:0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.vo-dot.nu:not(.af):not(.ok):not(.nok){ background:var(--ink); }
+.vo-tel{ font-size:.9rem; font-weight:700; color:var(--ink-soft); white-space:nowrap; }
+.vo-tel b{ color:var(--ink); }
+.vo-kop{ display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.7rem 1.1rem 0; flex-wrap:wrap; }
+.vo-badge{ background:var(--tq-soft); color:var(--accent-dark); border-radius:999px; padding:.15rem .75rem; font-size:.85rem; font-weight:800; }
+.vo-nr{ font-size:.88rem; color:var(--ink-soft); font-weight:700; }
+.vo-score{ display:flex; align-items:center; gap:.6rem 1.1rem; flex-wrap:wrap; margin:.7rem 1.1rem 0; padding:.6rem .9rem; border-radius:.8rem; background:var(--zone-bg); border:1.5px solid var(--border); }
+.vo-score-g{ font-size:2rem; font-weight:800; color:var(--accent-dark); font-variant-numeric:tabular-nums; line-height:1; }
+.vo-score-g small{ font-size:1.1rem; color:var(--ink-soft); }
+.vo-score-k{ display:flex; gap:.5rem; margin-left:auto; flex-wrap:wrap; }
+.vo-opgave{ display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.4rem .7rem; padding:2.2rem 1.1rem 1.6rem; font-size:2rem; font-variant-numeric:tabular-nums; min-height:9rem; }
+.vo-uitdr{ display:inline; line-height:2.3; }
+.vo-uitdr .vo-br, .vo-uitdr .wrt, .vo-uitdr .vo-g{ white-space:nowrap; }
+.vo-op{ color:var(--ink); padding:0 .3em; }
+.vo-hk{ font-weight:400; }
+.vo-is{ font-weight:700; }
+.vo-e{ font-size:.6em; vertical-align:.85em; line-height:0; margin-left:.04em; }
+/* haakjes rond een breuk iets groter */
+.vo-hk{ display:inline-block; transform:scaleY(1.25); }
+.vo-br{ display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; font-size:.8em; line-height:1.1; margin:0 .08em; }
+.vo-br > span:first-child, .vo-br > input:first-child{ border-bottom:2px solid currentColor; padding:0 .15em .05em; }
+.vo-br > span:last-child{ padding:.05em .15em 0; }
+.vo-g{ display:inline; }
+/* vierkantswortel: V en streep zijn één lijn; de V raakt de schrijflijn (bij een breuk die van de noemer) */
+.wrt{ position:relative; display:inline-block; white-space:nowrap; padding-left:.55em; }
+.wrt-v{ position:absolute; left:0; top:0; width:.55em; height:calc(100% - var(--wrt-onder, .2em)); overflow:visible; }
+.wrt-in{ display:inline-block; border-top:2px solid currentColor; padding:.05em .12em 0 .06em; line-height:1.15; }
+.wrt-br{ --wrt-onder:0em; }
+.wrt-br .wrt-in .vo-br{ margin-top:.12em; }
+/* invulvakken */
+.vo-in, .vo-brin input{ font:inherit; font-size:.95em; width:4.6em; text-align:center; color:var(--ink); background:var(--card); border:2px solid var(--tq); border-radius:.45rem; padding:.05em .2em; }
+.vo-in:focus, .vo-brin input:focus{ border-color:var(--orange); outline:none; box-shadow:0 0 0 3px var(--or-soft); }
+.vo-bv{ display:inline-flex; align-items:center; gap:.2em; }
+.vo-brin{ font-size:.8em; gap:.25em; }
+.vo-brin input{ width:3.2em; font-size:1em; border-radius:.35rem; }
+.vo-brin > input:first-child{ border-bottom:2px solid var(--tq); padding:.05em .2em; }
+.vo-brin::after{ content:''; order:1; display:block; width:100%; border-top:2px solid var(--ink); }
+.vo-brin > input:last-child{ order:2; }
+.vo-mt{ font:inherit; font-size:.8em; width:1.4em; height:1.4em; line-height:1; border:2px dashed var(--border); border-radius:.35rem; background:var(--card); color:var(--ink-soft); cursor:pointer; padding:0; }
+.vo-mt.aan{ border:2px solid var(--orange); color:var(--ink); background:var(--or-soft); font-weight:800; }
+.vo-mt:hover{ border-color:var(--orange); }
+input:disabled{ opacity:1; color:var(--ink); }
+.vo-res{ font-size:.9em; font-weight:800; margin-left:.2em; }
+.vo-res.ok{ color:var(--ok); } .vo-res.nok{ color:var(--bad); }
+.vo-kaart.klaar .vo-in, .vo-kaart.klaar .vo-brin input{ border-style:dashed; }
+.vo-vorm{ text-align:center; color:var(--ink-soft); font-size:.88rem; margin:-.6rem 1.1rem .8rem; }
+.vo-bevestig{ margin:0 1.1rem .8rem; background:var(--or-soft); }
+.vo-bev-k{ display:inline-flex; gap:.5rem; margin-left:.6rem; flex-wrap:wrap; }
+.vo-nav{ display:flex; justify-content:space-between; align-items:center; gap:.6rem; padding:0 1.1rem .9rem; flex-wrap:wrap; }
+.vo-nav .btn, .vo-score .btn{ font-size:.95rem; padding:.45rem 1.1rem; }
+.vo-nav .btn:disabled{ opacity:.45; cursor:not-allowed; }
+.vo-stop{ margin:0 1.1rem .8rem; font-size:.82rem; color:var(--ink-soft); }
+@media (max-width:640px){
+  .vo-rij{ grid-template-columns:1fr; }
+  .vo-opgave{ font-size:1.5rem; padding:1.4rem .6rem 1.2rem; min-height:7rem; }
+  .vo-cel{ width:5.4rem; }
+}

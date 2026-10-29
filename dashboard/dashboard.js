@@ -12,7 +12,7 @@ const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], lee
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
 /* rubrieken in vaste volgorde; een site zonder (gekende) rubriek komt achteraan bij Andere */
-const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen']];
+const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['vrij-oefenen', 'Vrij oefenen'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen']];
 function perRubriek(sites){
   const groepen = RUBRIEKEN.map(([id, naam])=>({ id, naam, sites:sites.filter(s=>s.rubriek === id) }));
   const rest = sites.filter(s=>!RUBRIEKEN.some(([id])=>id === s.rubriek)); if(rest.length) groepen.push({ id:'andere', naam:'Andere', sites:rest });
@@ -118,6 +118,10 @@ function sectieVan(site, vraagId){ let best = null; site.onderdelen.forEach(o=>{
 const NIV_UITLEG = { A:'niveau A (hoogste)', B:'niveau B', C:'niveau C', D:'niveau D', E:'E: D nog niet beheerst' };
 function nivBol(nv, extra){ if(!nv) return ''; if(!nv.n) return nv.t ? `<b class="niv-l niv-leeg" title="nog te weinig gegevens (${nv.j}/${nv.t} juist): minstens 3 antwoorden per niveau nodig">?</b>` : ''; return `<b class="niv-l${nv.n === 'E' ? ' niv-e' : ''}" title="${esc(NIV_UITLEG[nv.n] || 'niveau ' + nv.n)}${nv.t ? ` · ${nv.j}/${nv.t} juist` : ''}${extra ? ' · ' + esc(extra) : ''}">${esc(nv.n)}</b>`; }
 function deelLetters(site, nv){ if(!nv || !nv.delen) return ''; return Object.entries(nv.delen).map(([k, x])=>{ const o = site.onderdelen.find(y=>y.id === k); return x && x.n ? `${esc(o ? o.naam.split(' ')[0] : k)} ${nivBol(x)}` : ''; }).filter(Boolean).join(' '); }
+/* namen van de keuzes in Vrij oefenen (zoals in 1A/vrij-oefenen/inhoud.js en 2A/vrij-oefenen/inhoud.js) */
+const VRIJ_NAMEN = { z:'gehele getallen', n:'natuurlijke getallen', q:'breuken', d:'kommagetallen', alle:'alles door elkaar', plus:'optellen', min:'aftrekken', som:'gedurige som',
+  maal:'vermenigvuldigen', deel:'delen', fact:'meer factoren', macht:'macht', mmin:'macht met minteken', wortel:'vierkantswortel', zh:'zonder haakjes', mh:'met haakjes', mw:'met machten en wortels' };
+const vrijNaam = k => VRIJ_NAMEN[k] || k;
 function minuten(s){ if(!s) return '–'; const m = Math.round(s / 60); return m < 1 ? '<1 min' : `${m} min`; }
 async function haalVoortgang(site, emails){
   const out = new Map();
@@ -129,7 +133,7 @@ async function haalVoortgang(site, emails){
 }
 function verwerk(site, d){
   const per = {}; site.onderdelen.forEach(o=>per[o.id] = { juist:0, fout:0, tijd:0 });
-  if(!d) return { per, totaal:0, toets:{}, niv:{}, dg:{} };
+  if(!d) return { per, totaal:0, toets:{}, niv:{}, dg:{}, vrij:{} };
   let res = {}, toets = {};
   try{ res = JSON.parse((d.data || {})._res || '{}'); }catch(e){}
   try{ toets = JSON.parse((d.data || {})._toets || '{}'); }catch(e){}
@@ -142,7 +146,16 @@ function verwerk(site, d){
   Object.entries(res).forEach(([id, ok])=>{ const o = sectieVan(site, id); if(o) per[o.id][ok ? 'juist' : 'fout']++; });
   let totaal = 0; Object.entries(d.tijd || {}).forEach(([k, s])=>{ totaal += s; if(per[k]) per[k].tijd = s; });
   const tScore = {}; Object.entries(toets).forEach(([key, t])=>{ const o = site.onderdelen.find(x=>key.startsWith(x.id + '_')); if(o) tScore[o.id] = t; });
-  return { per, totaal, toets:tScore, niv, dg, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
+  return { per, totaal, toets:tScore, niv, dg, vrij:site.vrij ? vrijScores(d) : {}, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
+}
+/* Vrij oefenen (gedeeld/vrij-oefenen.js): data.scores = { "hoofdstuk|getallen|bewerking": { n, l, b, d } } → per hoofdstuk
+   het aantal reeksen, de laatste score (van de meest recente reeks) en de beste score, plus de keuzes zelf */
+function vrijScores(d){
+  let sc = {}; try{ sc = JSON.parse((d.data || {}).scores || '{}') || {}; }catch(e){}
+  const per = {};
+  Object.entries(sc).forEach(([k, s])=>{ const [h, g, b] = k.split('|'), o = per[h] = per[h] || { n:0, l:null, b:0, d:0, keuzes:[] };
+    o.n += s.n || 0; o.b = Math.max(o.b, s.b || 0); if((s.d || 0) >= o.d){ o.d = s.d || 0; o.l = s.l; } o.keuzes.push({ g, b, n:s.n, l:s.l, best:s.b, d:s.d }); });
+  return per;
 }
 /* knop "Bekijk": opent de module in een nieuw tabblad (leerkrachten zien er altijd alle onderdelen) */
 const IC_FOUT = '<svg class="ic-fout" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 2.6 19.6a1 1 0 0 0 .9 1.5h17a1 1 0 0 0 .9-1.5L12 3.2z"/><path d="M12 9.5v5"/><circle cx="12" cy="17.6" r=".4"/></svg>';
@@ -186,6 +199,12 @@ async function paneVoortgang(pane, g){
     ond.forEach(o=>{
       const p = v.per[o.id], tt = v.toets[o.id];
       let txt = '', cls = 's0';
+      if(site.vrij){ const z = v.vrij[o.id];
+        if(z && z.n){ const r_ = z.l / 10; cls = r_ >= .8 ? 's4' : r_ >= .6 ? 's3' : r_ >= .4 ? 's2' : 's1';
+          const td = el('td', 'sc ' + cls, `${z.l}/10<small>beste ${z.b} · ${z.n}×</small>` + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : ''));
+          td.title = `${o.naam}: laatste reeks ${z.l}/10, beste ${z.b}/10, ${z.n} ${z.n === 1 ? 'reeks' : 'reeksen'}, ${minuten(p.tijd)}`; tr.append(td); }
+        else tr.append(el('td', 'sc s0', '·' + (p.tijd ? `<small>${minuten(p.tijd)}</small>` : '')));
+        return; }
       if(o.toets){ if(tt){ const r_ = tt.score / tt.n; txt = `${tt.score}/${tt.n}`; cls = r_ >= .8 ? 's4' : r_ >= .6 ? 's3' : r_ >= .4 ? 's2' : 's1'; } }
       else if(p.juist + p.fout){ const r_ = o.vragen ? p.juist / o.vragen : 0; txt = `${p.juist}${o.vragen ? '/' + o.vragen : ''}`; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
       const nv = v.niv[o.id];
@@ -198,12 +217,14 @@ async function paneVoortgang(pane, g){
     tb.append(tr);
   });
   t.append(tb); wrap.append(t); pane.append(wrap);
-  pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score · testje: score van het laatste testje binnen het onderdeel'));
+  if(site.vrij) pane.append(el('div', 'legend-s', '<b>Cel:</b> score van de laatste reeks op 10, de beste score en het aantal reeksen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · klik op een naam voor de scores per keuze'));
+  else pane.append(el('div', 'legend-s', '<b>Cel:</b> aantal vragen juist / aantal vragen, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · proeftoets: score · testje: score van het laatste testje binnen het onderdeel'));
   if(data && [...data.values()].some(d=>d && d.data && d.data.niv)) pane.append(el('p', 'mini', '<b class="niv-l">B</b> = niveau per onderdeel volgens de leeswijzer bij de vaardigheidsniveaus: A hoogste, D laagste, <b class="niv-l niv-e">E</b> = D nog niet beheerst, <b class="niv-l niv-leeg">?</b> = nog te weinig gegevens. Bij een proeftoets: het niveau per deel. Klik op een naam voor de doelen per letter.'));
 }
 /* overzicht: leerlingen × sites, per site het deel van de vragen juist en de werktijd; klik op een site voor de tabel per onderdeel */
 function samenvatting(site, v){
   let juist = 0, vragen = 0, ts = 0, tn = 0;
+  if(site.vrij){ Object.values(v.vrij).forEach(z=>{ if(z.n){ ts += z.l; tn += 10; } }); return { juist, vragen, r:0, toets:tn ? ts / tn : null, vrij:true }; }
   site.onderdelen.forEach(o=>{ if(o.toets){ const t = v.toets[o.id]; if(t){ ts += t.score; tn += t.n; } } else { juist += v.per[o.id].juist; vragen += o.vragen || 0; } });
   return { juist, vragen, r:vragen ? juist / vragen : 0, toets:tn ? ts / tn : null };
 }
@@ -227,7 +248,8 @@ async function overzicht(pane, g, sites){
       let txt = '·', cls = 's0';
       if(z.juist || z.toets != null){ txt = z.vragen ? `${Math.round(z.r * 100)} %` : `${Math.round(z.toets * 100)} %`; const r_ = z.vragen ? z.r : z.toets; cls = r_ >= .8 ? 's4' : r_ >= .5 ? 's3' : r_ >= .2 ? 's2' : 's1'; }
       const td = el('td', 'sc ' + cls, txt + (v.totaal ? `<small>${minuten(v.totaal)}</small>` : ''));
-      td.title = `${s.titel}: ${z.juist}${z.vragen ? ' van ' + z.vragen : ''} vragen juist${z.toets != null ? `, proeftoetsen gemiddeld ${Math.round(z.toets * 100)} %` : ''}, ${minuten(v.totaal)}`;
+      td.title = z.vrij ? `${s.titel}: gemiddelde van de laatste reeks per hoofdstuk${z.toets != null ? ` ${Math.round(z.toets * 100)} %` : ': nog geen reeks'}, ${minuten(v.totaal)}`
+        : `${s.titel}: ${z.juist}${z.vragen ? ' van ' + z.vragen : ''} vragen juist${z.toets != null ? `, proeftoetsen gemiddeld ${Math.round(z.toets * 100)} %` : ''}, ${minuten(v.totaal)}`;
       cellen.push(td);
     });
     tr.append(el('td', '', esc(naamVan(e))), el('td', '', minuten(totaal)), ...cellen); tb.append(tr);
@@ -249,9 +271,13 @@ function diagRegel(v){
 function detail(pane, site, e, v){
   const old = pane.querySelector('.detail'); if(old) old.remove();
   const d = el('div', 'detail', `<h3>${esc(naamVan(e))} · ${esc(site.kort)}</h3><p class="mini">${esc(e)} · totale werktijd ${minuten(v.totaal)}${v.bijgewerkt && v.bijgewerkt.toDate ? ' · laatst actief ' + v.bijgewerkt.toDate().toLocaleString('nl-BE') : ''}</p>`);
-  const t = el('table', 'dt'); t.innerHTML = '<thead><tr><th>Onderdeel</th><th>Juist</th><th>Fout</th><th>Niet gemaakt</th><th>Werktijd</th></tr></thead>';
+  const t = el('table', 'dt'); t.innerHTML = site.vrij ? '<thead><tr><th>Hoofdstuk</th><th>Reeksen</th><th>Laatste</th><th>Beste</th><th>Werktijd</th></tr></thead>'
+    : '<thead><tr><th>Onderdeel</th><th>Juist</th><th>Fout</th><th>Niet gemaakt</th><th>Werktijd</th></tr></thead>';
   const tb = el('tbody');
-  site.onderdelen.forEach(o=>{ const p = v.per[o.id], tt = v.toets[o.id];
+  if(site.vrij) site.onderdelen.forEach(o=>{ const z = v.vrij[o.id], p = v.per[o.id];
+    const keuzes = z ? z.keuzes.sort((a, b)=>(b.d || 0) - (a.d || 0)).map(k=>`${esc(vrijNaam(k.g))} · ${esc(vrijNaam(k.b))}: ${k.l}/10 (beste ${k.best}, ${k.n}×)`).join('<br>') : '';
+    tb.append(el('tr', '', `<td>${esc(o.naam)}${keuzes ? `<br><small class="mini">${keuzes}</small>` : ''}</td><td class="c">${z ? z.n : 0}</td><td class="c">${z && z.n ? z.l + '/10' : '–'}</td><td class="c">${z && z.n ? z.b + '/10' : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
+  else site.onderdelen.forEach(o=>{ const p = v.per[o.id], tt = v.toets[o.id];
     const nv = v.niv && v.niv[o.id], nm = esc(o.naam) + (nv ? ' ' + (o.toets ? deelLetters(site, nv) : nivBol(nv)) : '');
     tb.append(el('tr', '', o.toets ? `<td>${nm}</td><td colspan="3">${tt ? `score ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}` : 'nog niet gemaakt'}</td><td>${minuten(p.tijd)}</td>`
       : `<td>${nm}${tt ? `<br><small class="mini">testje: ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}</small>` : ''}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });

@@ -2,7 +2,7 @@
 
 Stand van 17 oktober 2026 · de beheerder
 
-Aangevuld op 23 oktober 2026 door de collega-bouwer: taakverdeling en 2A Wiskundige problemen. Aangevuld op 24 oktober 2026: automatische tests en goedkeuring op GitHub. Aangevuld op 29 oktober 2026: vrij antwoordvak met tussenstappen, en bijgewerkt met alles wat op main staat tot PR 47 (ook het werk van de collega-bouwer: 1A heuristieken, 2B modules, kleuren van bouwsels).
+Aangevuld op 23 oktober 2026 door de collega-bouwer: taakverdeling en 2A Wiskundige problemen. Aangevuld op 24 oktober 2026: automatische tests en goedkeuring op GitHub. Aangevuld op 29 oktober 2026: Vrij oefenen (1A en 2A) en vrij antwoordvak met tussenstappen, en bijgewerkt met alles wat op main staat tot PR 47 (ook het werk van de collega-bouwer: 1A heuristieken, 2B modules, kleuren van bouwsels).
 
 > Openbare versie van het overdrachtsdocument (zonder namen en mailadressen). De volledige versie staat in de projectbestanden van het Claude-project (projectkennis/). Wijzig beide samen.
 
@@ -120,7 +120,7 @@ eerste-graad/
 ### Naamafspraken
 
 - **Jaar en stroom:** 1A en 2A (A-stroom), 1B en 2B (B-stroom).
-- **Rubrieken:** modules, rekenvaardigheden, basisgeletterdheid, heuristieken, wiskundige-problemen (kleine letters, koppelteken). Gepland (24 oktober 2026): toetsen en huistaken.
+- **Rubrieken:** modules, rekenvaardigheden, vrij-oefenen (sinds 29 oktober 2026), basisgeletterdheid, heuristieken, wiskundige-problemen (kleine letters, koppelteken). Gepland (24 oktober 2026): toetsen en huistaken.
 - **Modulemap:** module-<nummer>-<kernwoord>, bv. module-3-transformaties. Het nummer volgt het werkboek.
 - **Site-id** (in data-site en sites.js): kort en uniek over het hele platform: m1, m2 voor 1A; voor de andere jaren met voorvoegsel, bv. 2a-m1, 1b-m1, 2b-m3 (vastgelegd op 17 oktober 2026 bij 2A Module 1). Rubrieken buiten modules (23 oktober 2026): heur voor heuristieken, wp voor wiskundige problemen, bg voor basisgeletterdheid, bv. 1a-heur1, 1a-wp1, 1a-bg1, 2a-heur1.
 - **Vraag-id's:** elk vraag-id begint met de kaartsleutel (onderdeel-id_kaartnummer_…). De motor zet dat er zelf voor via CURKEY en QID, zodat het dashboard per onderdeel telt. Sleep-, kleur- en tekenoefeningen tellen mee.
@@ -959,6 +959,19 @@ De beheerder leverde zeven Oefening.html-bestanden met hun code.gs (Apps Script)
 - Dashboard: stap 0,25 bij punten met de hand, foutcodes en rode kruisjes per cel (aanwijzen), tabel Typische fouten in deze groep. Oefenvragen (q.oefen) tellen niet mee.
 - Test: test/rekenvaardigheden.js (zet een eigen testsleutel; met RV_CODE=<code> ook de echte). Firestore-regels: geen wijziging.
 - Stand (28 oktober 2026): alle zeven taken staan op main in 2A/rekenvaardigheden/ (1-coordinaten, 2-gehele-optellen, 3-gehele-vermenigvuldigen, 4-rationale-optellen, 5-rationale-vermenigvuldigen, 6-machten-wortels, 7-volgorde-bewerkingen). Dubbele tekens klik je aan in de opgave en een + vooraan verdwijnt. Rode kruisjes zijn er enkel voor de leerling, niet in het dashboard, het detail of de pdf. De verbetersleutel bewaart een lijst in een lijst correct in Firestore (PR 44). CI installeert het lettertype Carlito.
+
+### Vrij oefenen 1A en 2A (29 oktober 2026, branch claude/project-thread-pgp2c4)
+
+Een eigen tegel **Vrij oefenen** op de jaarpagina (na Rekenvaardigheden), naast de modules en rekenvaardigheden: enkel bewerkingen, telkens nieuwe opgaven, automatisch verbeterd (enkel juist of fout), een score op 10, geen huistaak en geen koppeling met Classroom. Keuzes van de beheerder (vragenpagina in twee versies): /mnt/project-files/vrij-oefenen/Keuzes.md.
+
+- **Sites:** 1a-vrij (prefix 1a_vrij_v1_, map 1A/vrij-oefenen/) en 2a-vrij (prefix 2a_vrij_v1_, map 2A/vrij-oefenen/), rubriek vrij-oefenen, in sites.js met `vrij:true`. Openzetten per groep zoals een module, met een vinkje per hoofdstuk. Geen rekentoestel, geen tijd.
+- **Hoofdstukken (onderdelen):** 2A: Optellen en aftrekken (optel), Vermenigvuldigen en delen (maal), Machten en vierkantswortels (macht), Volgorde van bewerkingen (volg), Alles door elkaar (mix). 1A: dezelfde zonder machten (1A kent nog geen machten), volgorde enkel zonder en met haakjes. Id's van hoofdstukken, getallen en bewerkingen nooit wijzigen (ze zitten in de scores); nieuwe achteraan, Alles door elkaar blijft laatst.
+- **Kiezen in een hoofdstuk:** welke getallen (2A: gehele getallen, breuken, kommagetallen, alles door elkaar; 1A: natuurlijke getallen, kommagetallen, breuken, alles door elkaar) en welke bewerking (optellen, aftrekken, gedurige som; vermenigvuldigen, delen, meer factoren; macht, macht met minteken, vierkantswortel; zonder haakjes, met haakjes, met machten en wortels; telkens ook alles door elkaar). Alles door elkaar bij de getallen mengt ook breuken en kommagetallen in één oefening. Het hoofdstuk Alles door elkaar neemt oefeningen uit alle hoofdstukken die voor de groep openstaan.
+- **Reeks:** 10 oefeningen, één per scherm met bolletjes en Vorige/Volgende, één niveau. Antwoord in één vak; bij breuken een breukvak (teller boven noemer, knop minteken; een - intikken in de teller zet het minteken). Juist = zelfde waarde; een breuk moet vereenvoudigd zijn, een geheel getal schrijf je zonder noemer (noemer 1 is fout); bij een opgave met breuken én kommagetallen mag ook een kommagetal. Verbeter mijn reeks: lege oefeningen vragen eerst een bevestiging en tellen als fout. Daarna enkel ✓ of ✗ per oefening (geen juist antwoord, geen uitleg, geen hints) en de score, dan Nieuwe reeks. Een begonnen reeks blijft bewaard (per hoofdstuk), ook op een ander toestel.
+- **Scores:** <prefix>scores = { "hoofdstuk|getallen|bewerking": { n, l (laatste), b (beste), d } }; de leerling ziet ze per keuze in een tabel onder de knoppen (klik op een vakje kiest die combinatie). Daarnaast CL.toets met sleutel <hoofdstuk>_<getallen>-<bewerking> (laatste reeks, samengevoegd in Firestore).
+- **Dashboard:** rubriek Vrij oefenen in Openzetten en Voortgang. Cel per hoofdstuk: laatste score op 10, beste score, aantal reeksen en werktijd; overzicht: gemiddelde van de laatste score per hoofdstuk; detail per leerling: scores per keuze.
+- **Motor:** gedeeld/vrij-oefenen.js en vrij-oefenen.css (exact rekenen met breuken, sjablonen per hoofdstuk en bewerking, nagekeken tussenuitkomsten: gehele getallen blijven geheel, kommagetallen breken af, breuken met kleine noemers, 1A nooit negatief). Wortelteken zoals afgesproken (V op de schrijflijn, één lijn met de streep, rond de hele breuk). Een jaar toevoegen: <jaar>/vrij-oefenen/index.html en inhoud.js met VRIJ.start({ jaar, teken, geheel, noemers, getallen, modes, hoofdstukken }), element in sites.js, tegel op de jaarpagina.
+- **Test:** node test/vrijoefenen.js (motor 2A en 1A: elke keuze, eigen juist antwoord aanvaard, fout en niet vereenvoudigd geweigerd; reeks, breukvak, lege oefeningen, herladen, gsm, dashboard). Firestore-regels: geen wijziging.
 
 ### Google Classroom (28 oktober 2026, op main: PR 45, merge a8c1db6)
 

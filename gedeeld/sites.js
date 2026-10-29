@@ -1342,5 +1342,83 @@ export const SITES = [
     "vragen": 0
    }
   ]
+ },
+ {
+  "id": "1a-vrij",
+  "titel": "Vrij oefenen · 1ste jaar",
+  "kort": "Vrij oefenen",
+  "jaar": "1A",
+  "rubriek": "vrij-oefenen",
+  "vrij": true,
+  "pad": "1A/vrij-oefenen/",
+  "prefix": "1a_vrij_v1_",
+  "onderdelen": [
+   {
+    "id": "optel",
+    "naam": "Optellen en aftrekken",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "maal",
+    "naam": "Vermenigvuldigen en delen",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "volg",
+    "naam": "Volgorde van bewerkingen",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "mix",
+    "naam": "Alles door elkaar",
+    "toets": false,
+    "vragen": 0
+   }
+  ]
+ },
+ {
+  "id": "2a-vrij",
+  "titel": "Vrij oefenen · 2de jaar",
+  "kort": "Vrij oefenen",
+  "jaar": "2A",
+  "rubriek": "vrij-oefenen",
+  "vrij": true,
+  "pad": "2A/vrij-oefenen/",
+  "prefix": "2a_vrij_v1_",
+  "onderdelen": [
+   {
+    "id": "optel",
+    "naam": "Optellen en aftrekken",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "maal",
+    "naam": "Vermenigvuldigen en delen",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "macht",
+    "naam": "Machten en vierkantswortels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "volg",
+    "naam": "Volgorde van bewerkingen",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "mix",
+    "naam": "Alles door elkaar",
+    "toets": false,
+    "vragen": 0
+   }
+  ]
  }
 ];
