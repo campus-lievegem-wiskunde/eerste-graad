@@ -806,7 +806,7 @@ export const SITES = [
     "id": "neg",
     "naam": "Negatieve exponent en exponent 0",
     "toets": false,
-    "vragen": 58
+    "vragen": 61
    },
    {
     "id": "brk",
@@ -818,7 +818,7 @@ export const SITES = [
     "id": "verm",
     "naam": "Machten vermenigvuldigen",
     "toets": false,
-    "vragen": 52
+    "vragen": 56
    },
    {
     "id": "del",
@@ -830,19 +830,19 @@ export const SITES = [
     "id": "mm",
     "naam": "Macht van een macht",
     "toets": false,
-    "vragen": 53
+    "vragen": 58
    },
    {
     "id": "prod",
     "naam": "Macht van een product",
     "toets": false,
-    "vragen": 40
+    "vragen": 44
    },
    {
     "id": "quot",
     "naam": "Macht van een quotiënt",
     "toets": false,
-    "vragen": 41
+    "vragen": 45
    },
    {
     "id": "door",

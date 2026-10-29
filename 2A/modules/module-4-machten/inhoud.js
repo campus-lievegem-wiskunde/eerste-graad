@@ -3482,6 +3482,180 @@ SEC.fout = { id:'fout', ic:'m_fout', nav:'Zoek de fout', title:'Zoek de fout',
   tip:'Lees elke stap en vraag je af: welke rekenregel staat hier, en klopt hij? De eerste stap die fout is, telt.',
   cheat:CHEAT_DOOR, cards:[FT.verm, FT.teken, FT.neg, FT.prod, FT.mm, FT.wet] };
 /* ============================================================
+   VRAAGSTUKKEN (29 oktober 2026, kleine set van Jeroen): telkens een kaart achteraan
+   het onderdeel waar de rekenregel hoort, zodat bewaarde antwoorden niet verschuiven.
+   bacteriën (verm, animatie) · medicijn halveert (neg) · oppervlakte en volume (prod)
+   eenheden omzetten (mm) · maquette op schaal (quot)
+   ============================================================ */
+/* een geheel getal in een gewoon vak {{g:k}} */
+function chkG(v, n, fout=[]){ const t = nrm((v||{}).t||''); if(!t) return {info:true, msg:'Vul een getal in.'};
+  const x = rdG(t); if(!x) return {info:true, msg:'Typ een getal.'}; if(qEq(x, Q(n))) return {ok:true};
+  for(const [F, m] of fout) if(qEq(x, Q(F))) return {ok:false, msg:m}; return {ok:false}; }
+/* vraag met een vrij antwoordvak: de vraagzin staat erboven, zodat het rekenmachientje naast de korte antwoordregels blijft */
+function mQv(g, st, save, id, nr, tekst, q){ const r = mQ(g, st, save, id, q); r.row.prepend(el('p', 'vq-v', `<span class="q-num">${nr}</span> ${tekst}`)); return r; }
+document.head.append(el('style', '', '.m4-q > .vq-v{max-width:26rem; margin:0 0 .2rem} .m4-q > .vq-v + .m4-line{padding-left:1.6rem}'));
+const txt = s => `<span class="txt">${s}</span>`;
+const tijdAs = (u0, n, h, op, y=222) => { let s = `<line class="as" x1="25" y1="${y}" x2="275" y2="${y}"/>`; const d = 250/n;
+  for(let k=0; k<=n; k++){ const x = 25 + k*d; s += `<line class="tik" x1="${fx(x)}" y1="${y-6}" x2="${fx(x)}" y2="${y+6}"/>` + (k===h ? `<circle class="tiknu" cx="${fx(x)}" cy="${y}" r="6"/>` : '') + sT(x, y+19, (u0+k) + ' u', 'k');
+    if(k<n) s += sT(x+d/2, y-12, op, 'op'); } return s; };
+
+/* ---------- bacteriën in een schaaltje: schuifknop in de tijd ---------- */
+const VQ_BACT = { title:'Vraagstuk: bacteriën in een schaaltje', lvl:2,
+  instr:'Bacteriën verdubbelen elk uur. Schuif eerst in de tijd en kijk hoe het schaaltje voller wordt. Beantwoord dan de vragen.',
+  build(b, st, save){
+    const R = makeR(st); const k = R.pick([3, 4, 5]), u0 = R.pick([8, 9, 10]); const h1 = R.int(3, 6), h2 = R.int(2, 7), vol = R.int(7, 10);
+    const wrap = el('div', 'm4-naast'); b.append(wrap);
+    const vis = el('div', 'm4-vis'), rt = el('div'); wrap.append(vis, rt);
+    const svgBox = el('div'), tijd = el('div', 'm4-tijd'), sl = el('input', 'm4-schuif');
+    sl.type = 'range'; sl.min = 0; sl.max = 5; sl.step = 1; sl.value = st.t || 0; sl.setAttribute('aria-label', 'aantal uren later');
+    vis.append(svgBox, sl, tijd);
+    /* 4 · 2^h stipjes op een zonnebloempatroon: de nieuwe stipjes ploppen erbij */
+    const P = Array.from({length:128}, (_, i) => { const r = 84*Math.sqrt((i+.5)/128), a = i*137.508*D2R; return [150 + r*Math.cos(a), 104 + r*Math.sin(a)]; });
+    let nu = +sl.value;
+    const teken = (h, oud) => { const n = 4*2**h; let s = `<circle class="schaal" cx="150" cy="104" r="98"/><circle class="agar" cx="150" cy="104" r="92"/>`;
+      P.slice(0, n).forEach(([x, y], i) => { s += `<circle class="kol${i >= oud ? ' pop' : ''}" cx="${fx(x)}" cy="${fx(y)}" r="4.6"/>`; });
+      s += tijdAs(u0, 5, h, '×2');
+      svgBox.innerHTML = svgWrap(300, 250, s, {alt:'bacteriën in een schaaltje', maxw:340}); };
+    const info = h => { tijd.innerHTML = `<span>om ${u0+h} uur</span><span class="k">${h===0 ? `begin: ${mH(2, k)} bacteriën` : h + (h===1 ? ' uur' : ' uren') + ' later'}</span>`; };
+    const zet = h => { st.t = h; save(); const oud = 4*2**Math.min(nu, h); nu = h; info(h); teken(h, REDUCED_M ? 999 : oud); };
+    sl.addEventListener('input', ()=>zet(+sl.value)); zet(nu);
+    rt.append(el('p', '', `Om ${u0} uur zitten er ${mH(2, k)} bacteriën in het schaaltje. Elk uur verdubbelt het aantal.`));
+    const g = el('div', 'm4-items een'); rt.append(g);
+    mQ(g, st, save, 'a', { nr:'a)', html:`${txt(`Hoeveel bacteriën zijn er om ${u0+h1} u? Schrijf als één macht van 2.`)}<br>{{m:a}} ${txt('bacteriën')}`,
+      check:V=>chkM(V.a, {b:'2', e:k+h1, fout:[[k*h1, 'Je vermenigvuldigde de exponenten. Bij elk uur komt er één factor 2 bij: tel de exponenten op.'], [h1, `Vergeet de ${mH(2, k)} bacteriën van het begin niet.`], [k+h1+1, `Tel de uren nog eens: van ${u0} u tot ${u0+h1} u is ${h1} uur.`]]}),
+      hint:[[`Van ${u0} u tot ${u0+h1} u is ${h1} uur. Elk uur vermenigvuldig je met 2.`, `${mH(2, k)} · ${Array(h1).fill('2').join(' · ')}`],
+        {u:'Schrijf als één macht.', line:`${mH(2, k)} · ${mH(2, h1)} ${isq} ${mE(2, 'a')}`, check:V=>chkE(V.a, k+h1), show:`${mH(2, k)} · ${mH(2, h1)} ${isq} ${mH(2, k+h1)}`}],
+      sol:`${mH(2, k)} · ${mH(2, h1)} ${isq} ${mH(2, k+h1)} bacteriën` });
+    mQ(g, st, save, 'b', { nr:'b)', html:`${txt(`Om hoe laat zijn er ${mH(2, k+h2)} bacteriën?`)} ${txt('om')} {{g:a}} ${txt('u')}`,
+      check:V=>chkG(V.a, u0+h2, [[h2, `Na ${h2} uur, dat klopt. Maar om hoe laat is dat? Je begon om ${u0} u.`], [u0+k+h2, `${mH(2, k)} bacteriën waren er al om ${u0} u. Hoeveel uur moet je nog verdubbelen?`]]),
+      hint:[[`Om ${u0} u zijn er ${mH(2, k)}. Hoeveel keer moet je nog met 2 vermenigvuldigen?`, `${mH(2, k)} · ${mH(2, '?')} ${isq} ${mH(2, k+h2)}`],
+        {u:'Hoeveel uur is dat?', line:`${mH(2, k)} · ${mE(2, 'a')} ${isq} ${mH(2, k+h2)}`, check:V=>chkE(V.a, h2), show:`${mH(2, k)} · ${mH(2, h2)} ${isq} ${mH(2, k+h2)}, dus ${h2} uur later`}],
+      sol:`${h2} uur na ${u0} u, dus om ${u0+h2} u.` });
+    rt.append(el('p', '', `Een ander schaaltje is om <b>${u0+vol} u</b> helemaal vol. Ook daar verdubbelen de bacteriën elk uur.`));
+    const g2 = el('div', 'm4-items een'); rt.append(g2);
+    mQ(g2, st, save, 'c', { nr:'c)', html:`${txt('Om hoe laat was het schaaltje half vol?')} ${txt('om')} {{g:a}} ${txt('u')}`,
+      check:V=>chkG(V.a, u0+vol-1, [[u0+Math.round(vol/2), 'Het aantal verdubbelt elk uur. Hoeveel bacteriën waren er één uur vóór het volle schaaltje?']]),
+      hint:[['Elk uur verdubbelt het aantal. Ga één uur terug in de tijd: dan deel je door 2.', `vol : 2 ${isq} half vol`]],
+      sol:`Eén uur vroeger, want vol : 2 = half vol: om ${u0+vol-1} u.` });
+    mQ(g2, st, save, 'd', { nr:'d)', html:`${txt('En om hoe laat was het voor een kwart vol?')} ${txt('om')} {{g:a}} ${txt('u')}`,
+      check:V=>chkG(V.a, u0+vol-2, [[u0+vol-4, 'Een kwart is de helft van de helft. Hoeveel keer deel je door 2?'], [u0+vol-1, 'Dat is half vol. Een kwart is de helft van de helft.']]),
+      hint:[['Een kwart is de helft van de helft: twee keer delen door 2, dus twee uur terug.', `vol : 2 : 2 ${isq} vol : ${mH(2, 2)} ${isq} een kwart`]],
+      sol:`Twee uur vroeger: om ${u0+vol-2} u.` });
+  } };
+
+/* ---------- een medicijn in je bloed halveert ---------- */
+const VQ_MEDI = { title:'Vraagstuk: een medicijn in je bloed', lvl:2,
+  instr:'Je lichaam breekt een medicijn af: na een vaste tijd is er nog maar de helft over. Schrijf met een macht van 2 en als breuk.',
+  build(b, st, save){
+    const R = makeR(st); const H = R.pick([4, 6, 8]), per = 24/H; const n1 = R.int(2, per-1), n3 = R.int(per+1, per+3);
+    const wrap = el('div', 'm4-naast'); b.append(wrap);
+    const vis = el('div', 'm4-vis'), rt = el('div'); wrap.append(vis, rt);
+    /* staafjes: elke H uur de helft */
+    let s = ''; const bw = 250/(per+1);
+    for(let i=0; i<=per; i++){ const x = 25 + i*bw, hgt = 170/2**i;
+      s += `<rect class="tegel${i===0 ? ' b' : ''}" x="${fx(x+bw*.18)}" y="${fx(200-hgt)}" width="${fx(bw*.64)}" height="${fx(Math.max(1.5, hgt))}" rx="2"/>`;
+      s += sT(x+bw/2, 216, i*H + ' u', 'k'); if(i<per) s += sT(x+bw, 200-170/2**i/2 - 8, '÷2', 'op'); }
+    s += `<line class="as" x1="20" y1="200" x2="280" y2="200"/>` + sT(25+bw/2, 200-170-10, '1 dosis', 'k');
+    vis.append(el('div', '', svgWrap(300, 230, s, {alt:'staafjes die elke keer half zo hoog worden', maxw:340})));
+    rt.append(el('p', '', `Je neemt één pil. Na elke <b>${H} uur</b> zit er nog maar <b>de helft</b> van het medicijn in je bloed.`));
+    const g = el('div', 'm4-items een'); rt.append(g);
+    const vraag = (id, nr, t, n) => mQv(g, st, save, id, nr, `Welk deel zit er na ${t} uur nog in je bloed? Schrijf als macht van 2 en als breuk.`, { html:`{{m:a}} ${isq} {{u:b}}`,
+      check:V=>allOf([['a', chkM(V.a, {b:'2', e:-n, fout:[[n, 'Er komt niets bij, het wordt minder: elke halvering is ÷ 2. De exponent is dus negatief.'], [-t, `De exponent is het aantal halveringen, niet het aantal uren. Eén halvering duurt ${H} uur.`]]})], ['b', chkU(V.b, qPow(Q(2), -n), [[Q(1, 2*n), `Je deelde door 2 · ${n}. Je deelt ${n} keer na elkaar door 2.`]])]]),
+      hint:[[`Eén halvering duurt ${H} uur. Hoeveel halveringen zijn er in ${t} uur?`, `${t} : ${H} ${isq} ${n}`],
+        [`${n} keer delen door 2 is vermenigvuldigen met ${brH(1, mH(2, n))}.`, `1 ${Array(n).fill(': 2').join(' ')} ${isq} ${brH(1, mH(2, n))} ${isq} ${mH(2, -n)}`]],
+      sol:`${t} : ${H} = ${n} halveringen: ${mH(2, -n)} ${isq} ${brH(1, mH(2, n))} ${isq} ${qH(qPow(Q(2), -n))} van de dosis` });
+    vraag('a', 'a)', n1*H, n1); vraag('b', 'b)', 24, per);
+    mQ(g, st, save, 'c', { nr:'c)', html:`${txt(`Na hoeveel uur zit er nog ${qH(qPow(Q(2), -n3))} van het medicijn in je bloed?`)} {{g:a}} ${txt('uur')}`,
+      check:V=>chkG(V.a, n3*H, [[n3, `${n3} is het aantal halveringen. Eén halvering duurt ${H} uur.`]]),
+      hint:[[`Schrijf ${qH(qPow(Q(2), -n3))} als een macht van 2. Hoeveel keer werd er gehalveerd?`, `${qH(qPow(Q(2), -n3))} ${isq} ${brH(1, mH(2, n3))} ${isq} ${mH(2, -n3)}`],
+        [`Elke halvering duurt ${H} uur.`, `${n3} · ${H} ${isq} ?`]],
+      sol:`${qH(qPow(Q(2), -n3))} ${isq} ${mH(2, -n3)}: ${n3} halveringen van ${H} uur, dus ${n3*H} uur.` });
+  } };
+
+/* ---------- oppervlakte en volume met letters (macht van een product) ---------- */
+const VQ_OPP = { title:'Vraagstuk: oppervlakte en volume', lvl:2,
+  instr:'Schrijf eerst de formule met haakjes en werk dan uit. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
+  build(b, st, save){
+    const R = makeR(st); const c = R.pick([2, 3, 4, 5]), x = R.pick(['a', 'x', 'p']), d = R.pick([2, 3, 4].filter(v => v!==c)), y = R.pick(['b', 'y', 'r']);
+    const wrap = el('div', 'm4-naast'); b.append(wrap);
+    const vis = el('div', 'm4-vis'), rt = el('div'); wrap.append(vis, rt);
+    /* vierkant links, kubus rechts; de vragen eronder over de volle breedte (het rekenmachientje heeft plaats nodig) */
+    const it = s => `<tspan font-style="italic">${s}</tspan>`;
+    let s = `<rect class="tegel" x="44" y="40" width="110" height="110"/>` + sT(99, 166, `${c}${it(x)}`, 't') + sT(38, 95, `${c}${it(x)}`, 't', 'end');
+    const X = 190, Y = 62, a = 80, o = 28;
+    s += `<polygon class="tegel c" points="${X},${Y} ${X+o},${Y-o} ${X+a+o},${Y-o} ${X+a},${Y}"/><polygon class="tegel b" points="${X+a},${Y} ${X+a+o},${Y-o} ${X+a+o},${Y+a-o} ${X+a},${Y+a}"/><rect class="tegel" x="${X}" y="${Y}" width="${a}" height="${a}"/>`;
+    s += sT(X+a/2, Y+a+16, `${d}${it(y)}`, 't');
+    vis.append(el('div', '', svgWrap(310, 180, s, {alt:'een vierkant en een kubus', maxw:300})));
+    rt.append(el('p', '', `Het vierkant heeft een zijde van <b>${c}<i>${x}</i></b>. De kubus heeft een ribbe van <b>${d}<i>${y}</i></b>.`));
+    const g = el('div', 'm4-items een'); b.append(g);
+    mQv(g, st, save, 'a', 'a)', 'Wat is de oppervlakte van het vierkant?', { html:`${txt('<i>A</i>')} {{x:a}}`,
+      check:V=>chkX(V.a, xm(c*c, {[x]:2}), [[xm(c, {[x]:2}), `Ook het getal ${c} gaat tot de tweede macht: de zijde is ${c}<i>${x}</i>, dus heel de zijde in het kwadraat.`], [xm(4*c, {[x]:1}), 'Dat is de omtrek. De oppervlakte is zijde · zijde.'], [xm(2*c, {[x]:1}), 'Je vermenigvuldigde met 2. De oppervlakte is zijde · zijde.']]),
+      hint:[['De oppervlakte van een vierkant is zijde · zijde: de zijde in het kwadraat. Zet haakjes rond de hele zijde.', `<i>A</i> ${isq} ${c}<i>${x}</i> · ${c}<i>${x}</i> ${isq} ${pPH(c, [[x, 1]], 2)}`],
+        ['Verhef elke factor tot de tweede macht.', `${pPH(c, [[x, 1]], 2)} ${isq} ${mH(String(c), 2)} · ${mH(x, 2)}`]],
+      sol:`<i>A</i> ${isq} ${pPH(c, [[x, 1]], 2)} ${isq} ${c*c}${mH(x, 2)}` });
+    mQv(g, st, save, 'b', 'b)', 'Wat is het volume van de kubus?', { html:`${txt('<i>V</i>')} {{x:a}}`,
+      check:V=>chkX(V.a, xm(d**3, {[y]:3}), [[xm(d, {[y]:3}), `Ook het getal ${d} gaat tot de derde macht.`], [xm(3*d, {[y]:1}), 'Je vermenigvuldigde met 3. Het volume is ribbe · ribbe · ribbe.'], [xm(d*d, {[y]:2}), 'Dat is de oppervlakte van één zijvlak. Het volume is ribbe · ribbe · ribbe.']]),
+      hint:[['Het volume van een kubus is ribbe · ribbe · ribbe: de ribbe tot de derde macht.', `<i>V</i> ${isq} ${pPH(d, [[y, 1]], 3)}`],
+        ['Verhef elke factor tot de derde macht.', `${pPH(d, [[y, 1]], 3)} ${isq} ${mH(String(d), 3)} · ${mH(y, 3)}`]],
+      sol:`<i>V</i> ${isq} ${pPH(d, [[y, 1]], 3)} ${isq} ${d**3}${mH(y, 3)}` });
+    mQ(g, st, save, 'c', { nr:'c)', html:`${txt('De zijde van het vierkant wordt 2 keer zo lang. Hoeveel keer zo groot wordt de oppervlakte?')} {{g:a}} ${txt('keer')}`,
+      check:V=>chkG(V.a, 4, [[2, `Reken de nieuwe oppervlakte uit: de zijde is nu 2 · ${c}<i>${x}</i> ${isq} ${2*c}<i>${x}</i>.`]]),
+      hint:[['De nieuwe zijde is 2 keer zo lang. Verhef ze in het kwadraat.', `${pPH(2*c, [[x, 1]], 2)} ${isq} ${4*c*c}${mH(x, 2)}`], [`Vergelijk met ${c*c}${mH(x, 2)}.`, `${4*c*c}${mH(x, 2)} : ${c*c}${mH(x, 2)} ${isq} ?`]],
+      sol:`(2 · ${c}<i>${x}</i>)² ${isq} ${mH('2', 2)} · ${pPH(c, [[x, 1]], 2)}: 2² ${isq} 4 keer zo groot.` });
+    mQ(g, st, save, 'd', { nr:'d)', html:`${txt('De ribbe van de kubus wordt 2 keer zo lang. Hoeveel keer zo groot wordt het volume?')} {{g:a}} ${txt('keer')}`,
+      check:V=>chkG(V.a, 8, [[2, 'Reken het nieuwe volume uit: de ribbe gaat tot de derde macht.'], [6, 'Je vermenigvuldigde 2 met 3. Het is 2 · 2 · 2.'], [4, 'Dat is bij een oppervlakte. Een volume heeft drie afmetingen.']]),
+      hint:[['De nieuwe ribbe is 2 keer zo lang. Verhef ze tot de derde macht.', `${pPH(2*d, [[y, 1]], 3)} ${isq} ${8*d**3}${mH(y, 3)}`], [`Vergelijk met ${d**3}${mH(y, 3)}.`, `${8*d**3}${mH(y, 3)} : ${d**3}${mH(y, 3)} ${isq} ?`]],
+      sol:`(2 · ${d}<i>${y}</i>)³ ${isq} ${mH('2', 3)} · ${pPH(d, [[y, 1]], 3)}: 2³ ${isq} 8 keer zo groot.` });
+  } };
+
+/* ---------- eenheden omzetten (macht van een macht) ---------- */
+const VQ_EENH = { title:'Vraagstuk: eenheden omzetten', lvl:2,
+  instr:'Schrijf als een macht van 10. Denk eerst aan de lengte-eenheid, dan aan het kwadraat of de derde macht.',
+  build(b, st, save){
+    regelTop(b, `<div class="m4-line">km · hm · dam · m · dm · cm · mm</div>Elke stap naar rechts is × 10, dus 1 km ${isq} ${mH('10', 3)} m en 1 m ${isq} ${mH('10', 2)} cm. Een vierkante kilometer (km²) is een vierkant van 1 km op 1 km.`);
+    const R = makeR(st);
+    const P = [['km', 'm', 3, 2], ['m', 'cm', 2, 2], ['m', 'mm', 3, 2], ['hm', 'm', 2, 2], ['km', 'm', 3, 3], ['m', 'cm', 2, 3], ['dm', 'mm', 2, 3], ['m', 'dm', 1, 3]];
+    const N = [['cm', 'm', -2, 2], ['mm', 'm', -3, 3], ['cm', 'm', -2, 3]];
+    const L = R.shuffle(R.shuffle(P).slice(0, 4).concat([R.pick(N)]));
+    const E = p => p===2 ? '²' : '³', W = p => p===2 ? 'oppervlakte: vierkante' : 'volume: kubieke';
+    reeks(b, L.length, (g, i, nr) => { const [a, u, f, p] = L[i];
+      mQ(g, st, save, 'e' + i, { nr, html:`1 ${a}${E(p)} ${isq} {{m:a}} ${u}${E(p)}`,
+        check:V=>chkM(V.a, {b:'10', e:f*p, fout:[[f+p, 'Je telde de exponenten op. Een macht van een macht: vermenigvuldig ze.'], [f, `Dat is 1 ${a} ${isq} ${mH('10', f)} ${u}. Het gaat hier om ${a}${E(p)}: ${p===2 ? 'een vierkant' : 'een kubus'}.`], [-f*p, 'Kijk naar het teken: is de nieuwe eenheid groter of kleiner?']]}),
+        hint:[{u:`Hoeveel ${u} is 1 ${a}? Schrijf als een macht van 10.`, line:`1 ${a} ${isq} ${mE('10', 'a')} ${u}`, check:V=>chkE(V.a, f), show:`1 ${a} ${isq} ${mH('10', f)} ${u}`},
+          [`${a}${E(p)} is een ${W(p)} ${a}: ${p} keer die lengte.`, `1 ${a}${E(p)} ${isq} ${mmH('10', f, p)} ${u}${E(p)}`],
+          'Een macht van een macht: vermenigvuldig de exponenten.'],
+        sol:`1 ${a}${E(p)} ${isq} ${mmH('10', f, p)} ${u}${E(p)} ${isq} ${mH('10', f*p)} ${u}${E(p)}` }); });
+  } };
+
+/* ---------- maquette op schaal (macht van een quotiënt) ---------- */
+const VQ_MAQ = { title:'Vraagstuk: een maquette op schaal', lvl:2,
+  instr:'Op een maquette is elke lengte kleiner. Hoeveel kleiner worden de oppervlakte en het volume? Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
+  build(b, st, save){
+    const R = makeR(st); const k = R.pick([10, 20, 50]), n = R.pick(['n', 'k', 's']);
+    const wrap = el('div', 'm4-naast'); b.append(wrap);
+    const vis = el('div', 'm4-vis'), rt = el('div'); wrap.append(vis, rt);
+    const huis = (x, y, w, cls) => `<rect class="tegel${cls}" x="${x}" y="${y}" width="${w}" height="${w*.8}"/><polygon class="tegel${cls}" points="${x-w*.08},${y} ${x+w/2},${fx(y-w*.55)} ${x+w*1.08},${y}"/><rect class="tegel c" x="${fx(x+w*.4)}" y="${fx(y+w*.4)}" width="${fx(w*.2)}" height="${fx(w*.4)}"/>`;
+    let s = huis(30, 80, 120, '') + huis(215, 156, 30, ' b') + `<path class="pijl" d="M 160 150 Q 190 120 210 150"/>` + sT(190, 112, `× 1/${k}`, 'op') + sT(90, 196, 'echt huis', 'k') + sT(230, 196, 'maquette', 'k');
+    vis.append(el('div', '', svgWrap(300, 210, `<defs><marker id="m4pijl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="pijlk" d="M0,0 L10,5 L0,10 z"/></marker></defs>` + s, {alt:'een huis en een kleine maquette ervan', maxw:280})));
+    rt.append(el('p', '', `Een maquette staat op schaal <b>1 : ${k}</b>: elke lengte is ${brH(1, k)} van de echte lengte.`));
+    const g = el('div', 'm4-items een'); b.append(g);
+    const kw = p => p===2 ? 'de oppervlakte (lengte · breedte)' : 'het volume (lengte · breedte · hoogte)';
+    [2, 3].forEach((p, i) => mQv(g, st, save, 'f' + p, 'ab'[i] + ')', `Met welk getal vermenigvuldig je ${kw(p)}?`, { html:`${txt('factor')} {{x:a}}`,
+      check:V=>chkX(V.a, xm(Q(1, k**p)), [[xm(Q(p, k)), `Je vermenigvuldigde met ${p}. Een ${p===2 ? 'oppervlakte' : 'volume'} heeft ${p} afmetingen: ${Array(p).fill(`${brH(1, k)}`).join(' · ')}.`], [xm(Q(1, k)), `Dat is de factor voor een lengte. Een ${p===2 ? 'oppervlakte' : 'volume'} heeft ${p} afmetingen.`], [xm(Q(1, p*k)), 'Je vermenigvuldigde de noemer met de exponent. Verhef de noemer tot de macht.']]),
+      hint:[[`Elke afmeting wordt × ${brH(1, k)}. ${p===2 ? 'Twee' : 'Drie'} afmetingen: ${p} keer die factor.`, `${Array(p).fill(brH(1, k)).join(' · ')} ${isq} ${mH('1/' + k, p)}`],
+        {u:'Een breuk tot een macht: teller en noemer elk tot de macht.', line:`${mH('1/' + k, p)} ${isq} {{u:a}}`, check:V=>chkU(V.a, Q(1, k**p)), show:`${mH('1/' + k, p)} ${isq} ${brH(1, mH(String(k), p))} ${isq} ${qH(Q(1, k**p))}`}],
+      sol:`${mH('1/' + k, p)} ${isq} ${brH(1, mH(String(k), p))} ${isq} ${qH(Q(1, k**p))}` }));
+    mQ(g, st, save, 'c', { nr:'c)', html:`${txt('Hoeveel keer kleiner is het volume van de maquette dan dat van het echte huis?')} {{g:a}} ${txt('keer')}`,
+      check:V=>chkG(V.a, k**3, [[k, 'Dat is bij een lengte. Een volume heeft drie afmetingen.'], [3*k, `Je vermenigvuldigde ${k} met 3. Het is ${k} · ${k} · ${k}.`], [k*k, 'Dat is bij een oppervlakte. Een volume heeft drie afmetingen.']]),
+      hint:[['Kijk naar de noemer van je antwoord bij b).', `${brH(1, mH(String(k), 3))} ${isq} ${qH(Q(1, k**3))}`]],
+      sol:`${mH(String(k), 3)} ${isq} ${k**3} keer kleiner.` });
+    mQv(g, st, save, 'd', 'd)', `Een andere maquette staat op schaal 1 : <i>${n}</i>. Met welke breuk vermenigvuldig je het volume?`, { html:`${txt('factor')} {{x:a}}`,
+      check:V=>chkX(V.a, xm(1, {[n]:-3}), [[xm(Q(3), {[n]:-1}), 'Je vermenigvuldigde met 3. Verhef de breuk tot de derde macht.'], [xm(1, {[n]:-1}), 'Dat is de factor voor een lengte. Een volume heeft drie afmetingen.'], [xm(1, {[n]:-2}), 'Dat is de factor voor een oppervlakte. Een volume heeft drie afmetingen.']]),
+      sol:`${par(brH(1, `<i>${n}</i>`))}<sup>3</sup> ${isq} ${brH(1, mH(n, 3))}` });
+  } };
+
+SEC.verm.cards.push(VQ_BACT); SEC.neg.cards.push(VQ_MEDI); SEC.prod.cards.push(VQ_OPP); SEC.mm.cards.push(VQ_EENH); SEC.quot.cards.push(VQ_MAQ);
+/* ============================================================
    ONDERDEEL 13 · SNELLE QUIZ: 10 vragen in 3 minuten, telt niet mee
    ============================================================ */
 Object.assign(ICONS, {
