@@ -62,7 +62,8 @@ const digitsIs = expected => v => {
 };
 function factorize(n){ const f=[]; let m=n; for(let p=2;m>1;p++){ while(m%p===0){ f.push(p); m/=p; } } return f; }
 const SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
-function powerForm(n){ const f=factorize(n), c={}; f.forEach(p=>c[p]=(c[p]||0)+1); return Object.keys(c).map(p=>c[p]>1? p+String(c[p]).split('').map(d=>SUP[d]).join('') : p).join(' · '); }
+/* priemfactoren als herhaald product (2 · 2 · 3 · 5): machten kennen de leerlingen nog niet */
+function powerForm(n){ return factorize(n).join(' · '); }
 const factorIs = n => v => {
   let s = nrm(v[0]); if(s.includes('=')) s = s.split('=').pop();
   s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, m=>'^'+m.split('').map(ch=>Object.keys(SUP).find(k=>SUP[k]===ch)).join(''));
@@ -725,7 +726,7 @@ function ladderHint(n){
     extra:`<p><b>Past een priemgetal?</b> Door 2: het getal is even. Door 3: de som van de cijfers is deelbaar door 3. Door 5: het getal eindigt op 0 of 5. Past geen van die, probeer dan 7, 11, 13, …</p>
       <p><b>Voorbeeld met 60.</b> 60 is even: 60 : 2 = 30. 30 is even: 30 : 2 = 15. 15 is oneven, 1 + 5 = 6 is deelbaar door 3: 15 : 3 = 5. 5 is zelf een priemgetal: 5 : 5 = 1.</p>
       <table class="ladder"><tr><td>60</td><td>2</td></tr><tr><td>30</td><td>2</td></tr><tr><td>15</td><td>3</td></tr><tr><td>5</td><td>5</td></tr><tr><td>1</td><td></td></tr></table>
-      <p>Dus 60 = 2 · 2 · 3 · 5 = 2² · 3 · 5.</p>` };
+      <p>Dus 60 = 2 · 2 · 3 · 5.</p>` };
 }
 /* ggd: delers van het kleinste getal, welke delen ook de andere */
 function ggdHint(nums){
@@ -881,7 +882,7 @@ const PQ = {
 
 const TOETSEN = [
   [ PQ.roos([['6','N'],['-9','Z'],['7/4','Q'],['30/6','N'],['-1,2','Q'],['-16/8','Z']]),
-    PQ.input('Getallen vormen', {html:'Het kleinste getal van 3 verschillende cijfers dat deelbaar is door 4. [[0]]', mode:'numeric', check:numIs(104)}, '104'),
+    PQ.input('Getallen vormen', {html:'Het kleinste natuurlijk getal van 3 verschillende cijfers dat deelbaar is door 4. [[0]]', mode:'numeric', check:numIs(104)}, '104'),
     PQ.input('Verwissel cijfers', posQ('4 827,3','Verwissel het cijfer van de <b>honderdtallen</b> met het cijfer van de <b>tienden</b>.', 4327.8, 'kleiner', ''), '4 327,8 · het getal wordt kleiner'),
     PQ.bank([['8 · 15 = 120','120 is','het product'],['93 − 38 = 55','38 is','de aftrekker'],['84 : 7 = 12','84 is','het deeltal']]),
     PQ.table([{D:47,d:6,q:7,r:5,hide:'q'},{D:72,d:8,q:9,r:0,hide:'D'}]),
@@ -891,7 +892,7 @@ const TOETSEN = [
     PQ.kleur(3, '(A ∪ C) \\ B', (a,b,c)=>(a||c)&&!b, 'alles van A en C samen, zonder het deel dat in B ligt'),
     PQ.choices('Waar of niet waar','Waar of niet waar?', [['39 is een priemgetal','n'],['−2 < 0','w'],['5 ∣ 135','w']], WN),
     PQ.input('Vervang x', {html:'<span class="stmt">2x5</span> is deelbaar door 9. Geef alle oplossingen. &nbsp;x = [[0]]', check:digitsIs([2])}, 'x = 2'),
-    PQ.input('Priemfactoren', {html:'Ontbind in priemfactoren. <span class="stmt">72 =</span> [[0]]', size:'wide', check:factorIs(72)}, '72 = 2³ · 3²'),
+    PQ.input('Priemfactoren', {html:'Ontbind in priemfactoren. <span class="stmt">72 =</span> [[0]]', size:'wide', check:factorIs(72)}, '72 = 2 · 2 · 2 · 3 · 3'),
     PQ.ggdkgv([24,40],[4,9]),
     PQ.input('Vraagstukken', probQ({text:'Een bloemist heeft 30 rozen en 45 tulpen. Hij maakt zo veel mogelijk boeketten met in elk boeket evenveel rozen en evenveel tulpen, zonder dat er bloemen overblijven. <b>Hoeveel boeketten maakt hij?</b>', ans:'ggd', nums:[30,45], si:[0], ai:[1], ansHtml:'[[1:xs]]', ansCheck:numIs(15), unit:'boeketten', mode:'numeric', why:'', sol:''}), 'GGD · ggd(30, 45) = 15 · 15 boeketten'),
     PQ.input('Gelijkwaardige breuken', missingQ(`${fr(7,35)} = ${frIn('[[0]]',5)} = [[1]] %`, [1,20], ''), fr(1,5)+' = 20%', 'Vul de ontbrekende getallen in.'),
@@ -911,7 +912,7 @@ const TOETSEN = [
     PQ.kleur(3, '(B ∩ C) \\ A', (a,b,c)=>b&&c&&!a, 'het stuk dat in B én in C ligt, maar niet in A'),
     PQ.choices('Waar of niet waar','Waar of niet waar?', [['0 ∈ ℕ','w'],['7/2 ∈ ℤ','n'],['2 358 is deelbaar door 3','w']], WN),
     PQ.input('Vervang x', {html:'<span class="stmt">47x</span> is deelbaar door 4. Geef alle oplossingen. &nbsp;x = [[0]]', check:digitsIs([2,6])}, 'x ∈ {2, 6}'),
-    PQ.input('Priemfactoren', {html:'Ontbind in priemfactoren. <span class="stmt">150 =</span> [[0]]', size:'wide', check:factorIs(150)}, '150 = 2 · 3 · 5²'),
+    PQ.input('Priemfactoren', {html:'Ontbind in priemfactoren. <span class="stmt">150 =</span> [[0]]', size:'wide', check:factorIs(150)}, '150 = 2 · 3 · 5 · 5'),
     PQ.ggdkgv([21,35],[10,15]),
     PQ.input('Vraagstukken', probQ({text:'Mila gaat om de 4 dagen zwemmen, Jonas om de 6 dagen. Vandaag zwemmen ze samen. <b>Na hoeveel dagen zwemmen ze opnieuw samen?</b>', ans:'kgv', nums:[4,6], si:[0], ai:[1], ansHtml:'[[1:xs]]', ansCheck:numIs(12), unit:'dagen', mode:'numeric', why:'', sol:''}), 'KGV · kgv(4, 6) = 12 · na 12 dagen'),
     PQ.input('Gelijkwaardige breuken', missingQ(`${fr(18,27)} = ${frIn('[[0]]',3)} = ${frIn(8,'[[1]]')}`, [2,12], ''), fr(2,3)+' = '+fr(8,12), 'Vul de ontbrekende getallen in.'),
@@ -931,7 +932,7 @@ const TOETSEN = [
     PQ.kleur(3, 'B \\ (A ∪ C)', (a,b,c)=>b&&!a&&!c, 'het deel van B dat niet in A en niet in C ligt'),
     PQ.choices('Waar of niet waar','Waar of niet waar?', [['−7 > −10','w'],['91 is een priemgetal','n'],['4 ∣ 1 314','n']], WN),
     PQ.input('Vervang x', {html:'<span class="stmt">1x3</span> is deelbaar door 3. Geef alle oplossingen. &nbsp;x = [[0]]', check:digitsIs([2,5,8])}, 'x ∈ {2, 5, 8}'),
-    PQ.input('Priemfactoren', {html:'Ontbind in priemfactoren. <span class="stmt">200 =</span> [[0]]', size:'wide', check:factorIs(200)}, '200 = 2³ · 5²'),
+    PQ.input('Priemfactoren', {html:'Ontbind in priemfactoren. <span class="stmt">200 =</span> [[0]]', size:'wide', check:factorIs(200)}, '200 = 2 · 2 · 2 · 5 · 5'),
     PQ.ggdkgv([32,48],[5,6,10]),
     PQ.input('Vraagstukken', probQ({text:'Lars krijgt 60 euro voor zijn verjaardag. Hij spaart '+fr(2,5)+' van dat geld. <b>Hoeveel euro spaart hij?</b>', ans:'geen', stepHtml:'60 : 5 = [[0:xs]]', stepCheck:numIs(12), si:[0], ai:[1], ansHtml:'[[1:xs]]', ansCheck:numIs(24), unit:'euro', mode:'numeric', why:'', sol:''}), 'geen van beide · 60 : 5 = 12 en 12 · 2 = 24 euro'),
     PQ.input('Gelijkwaardige breuken', missingQ(`${fr(6,24)} = ${frIn('[[0]]',4)} = [[1]] %`, [1,25], ''), fr(1,4)+' = 25%', 'Vul de ontbrekende getallen in.'),
@@ -991,7 +992,7 @@ const SECTIONS = [
         {html:'Het grootste getal van 3 verschillende cijfers dat deelbaar is door 25. [[0]]', mode:'numeric', check:numIs(975), sol:'Deelbaar door 25: eindigen op 00, 25, 50 of 75. Met verschillende cijfers is het grootste <b>975</b>.'}
       ], {letters:true}) },
       { title:'Reeks B', build:list([
-        {html:'Het kleinste getal van 4 verschillende cijfers dat deelbaar is door 9. [[0]]', mode:'numeric', check:numIs(1026), sol:'Begin zo klein mogelijk: 1, 0, 2 en dan nog één cijfer. De som van de cijfers moet een veelvoud van 9 zijn: 1 + 0 + 2 + 6 = 9 → <b>1026</b>.'},
+        {html:'Het kleinste natuurlijk getal van 4 verschillende cijfers dat deelbaar is door 9. [[0]]', mode:'numeric', check:numIs(1026), sol:'Begin zo klein mogelijk: 1, 0, 2 en dan nog één cijfer. De som van de cijfers moet een veelvoud van 9 zijn: 1 + 0 + 2 + 6 = 9 → <b>1026</b>.'},
         {html:'Het getal dat precies in het midden ligt tussen 2,4 en 2,5. [[0]]', check:numIs(2.45), sol:'2,4 = 2,40 en 2,5 = 2,50. Het midden is <b>2,45</b>.'},
         {html:`De grootste stambreuk (teller 1) die kleiner is dan ${fr(1,5)}. ${FIN(0,1)}`, mode:'numeric', check:fracExact(1,6), sol:`Hoe groter de noemer, hoe kleiner de stambreuk. De eerste stambreuk na ${fr(1,5)} is <b>${fr(1,6)}</b>.`},
         {html:'Het grootste getal met twee cijfers na de komma dat kleiner is dan 5. [[0]]', check:numIs(4.99), sol:'Net onder 5,00 ligt <b>4,99</b>.'}
@@ -1000,7 +1001,7 @@ const SECTIONS = [
         {html:'Het getal dat 1 tiende groter is dan 3,95. [[0]]', check:numIs(4.05), sol:'3,95 + 0,1 = <b>4,05</b>.'},
         {html:`De kleinste breuk met noemer 9 die groter is dan 1. ${FIN(0,1)}`, mode:'numeric', check:fracExact(10,9), sol:`1 = ${fr(9,9)}. De eerstvolgende breuk met noemer 9 is <b>${fr(10,9)}</b>.`},
         {html:'Het grootste even getal met 3 verschillende cijfers. [[0]]', mode:'numeric', check:numIs(986), sol:'987 is oneven. Het grootste even getal met verschillende cijfers is <b>986</b>.'},
-        {html:'Het kleinste getal van 3 cijfers dat deelbaar is door 3 én door 5. [[0]]', mode:'numeric', check:numIs(105), sol:'Deelbaar door 3 én 5 = deelbaar door 15. Het kleinste veelvoud van 15 met 3 cijfers is 15 · 7 = <b>105</b>.'}
+        {html:'Het kleinste natuurlijk getal van 3 cijfers dat deelbaar is door 3 én door 5. [[0]]', mode:'numeric', check:numIs(105), sol:'Deelbaar door 3 én 5 = deelbaar door 15. Het kleinste veelvoud van 15 met 3 cijfers is 15 · 7 = <b>105</b>.'}
       ], {letters:true}) }
     ]},
 
@@ -1225,7 +1226,7 @@ const SECTIONS = [
     ]},
 
   { id:'priem', ic:'priem', nav:'Priemfactoren', title:'Ontbind in priemfactoren',
-    tip:'Deel telkens door het kleinste priemgetal dat past, tot je 1 overhoudt. Noteer je antwoord als product: zet een punt tussen de factoren. Een macht mag je noteren met ^.',
+    tip:'Deel telkens door het kleinste priemgetal dat past, tot je 1 overhoudt. Noteer je antwoord als product: zet een punt tussen de factoren, bv. 2 · 2 · 3 · 5.',
     cards:[
       { title:'Ontbind', build:list([84,180,126,250,96,315].map((n,idx)=>{
         const f=factorize(n); let m=n, rows='';
@@ -1327,7 +1328,7 @@ const SECTIONS = [
       { title:'Foute oplossingen', build:(b,st,save,key)=>{
         const E = [
           {task:'Ontbind 180 in priemfactoren.', lines:['180 : 2 = 90','90 : 2 = 45','45 : 3 = 15','15 : 3 = 5','5 : 5 = 1','180 = 2 · 2 · 3 · 5'], wrong:5,
-            why:'In de ladder staan de delers 2, 2, 3, 3 en 5, maar in het product ontbreekt een factor 3.', fix:'180 = [[0:wide]]', fixCheck:factorIs(180), fixSol:'180 = 2 · 2 · 3 · 3 · 5 = 2² · 3² · 5'},
+            why:'In de ladder staan de delers 2, 2, 3, 3 en 5, maar in het product ontbreekt een factor 3.', fix:'180 = [[0:wide]]', fixCheck:factorIs(180), fixSol:'180 = 2 · 2 · 3 · 3 · 5'},
           {task:'Bereken kgv(8, 12).', lines:['Veelvouden van 8: 8, 16, 24, 32, 40, 48, …','Veelvouden van 12: 12, 24, 36, 48, …','Gemeenschappelijke veelvouden: 24, 48, …','kgv(8, 12) = 48'], wrong:3,
             why:'Het kgv is het kleinste gemeenschappelijke veelvoud.', fix:'kgv(8, 12) = [[0:xs]]', mode:'numeric', fixCheck:numIs(24), fixSol:'kgv(8, 12) = 24'},
           {task:'Bereken '+fr(3,4)+' − '+fr(1,6)+'.', lines:['kgv(4, 6) = 12', fr(3,4)+' = '+fr(9,12), fr(1,6)+' = '+fr(3,12), fr(9,12)+' − '+fr(3,12)+' = '+fr(6,12)+' = '+fr(1,2)], wrong:2,
@@ -1336,8 +1337,8 @@ const SECTIONS = [
             why:'9 is geen deler van 30.', fix:`Gemeenschappelijke delers: ${BR('[[0:wide]]')}`, fixCheck:setIs([1,2,3,6]), fixSol:'Gemeenschappelijke delers: {1, 2, 3, 6}, dus ggd(18, 30) = 6.'},
           {task:'Is 7 452 deelbaar door 6?', lines:['7 452 is even, dus deelbaar door 2.','7 + 4 + 5 + 2 = 17','17 is niet deelbaar door 3, dus 7 452 is niet deelbaar door 3.','Besluit: 7 452 is niet deelbaar door 6.'], wrong:1,
             why:'De som van de cijfers is fout berekend.', fix:'7 + 4 + 5 + 2 = [[0:xs]]', mode:'numeric', fixCheck:numIs(18), fixSol:'7 + 4 + 5 + 2 = 18. 18 is deelbaar door 3, dus 7 452 is wél deelbaar door 6.'},
-          {task:'Vorm het kleinste getal van 4 verschillende cijfers.', lines:['De vier kleinste cijfers zijn 0, 1, 2 en 3.','Van klein naar groot: 0, 1, 2, 3.','Het kleinste getal is 0123 = 123.'], wrong:2,
-            why:'Met 0 vooraan heb je maar een getal van 3 cijfers.', fix:'Het kleinste getal is [[0]]', mode:'numeric', fixCheck:numIs(1023), fixSol:'Zet het kleinste cijfer dat geen 0 is vooraan: 1023.'},
+          {task:'Vorm het kleinste natuurlijk getal van 4 verschillende cijfers.', lines:['De vier kleinste cijfers zijn 0, 1, 2 en 3.','Van klein naar groot: 0, 1, 2, 3.','Het kleinste getal is 0123 = 123.'], wrong:2,
+            why:'Met 0 vooraan heb je maar een getal van 3 cijfers.', fix:'Het kleinste natuurlijk getal is [[0]]', mode:'numeric', fixCheck:numIs(1023), fixSol:'Zet het kleinste cijfer dat geen 0 is vooraan: 1023.'},
           {task:'D = 59 en d = 7. Bereken q en r.', lines:['7 · 8 = 56','59 − 56 = 3','q = 8 en r = 3','Controle: 7 · 8 + 3 = 58'], wrong:3,
             why:'De controle is fout uitgerekend.', fix:'7 · 8 + 3 = [[0:xs]]', mode:'numeric', fixCheck:numIs(59), fixSol:'7 · 8 + 3 = 56 + 3 = 59 = D. De deling klopt dus.'},
           {task:'Is de implicatie x ∈ 2ℕ ⇒ x ∈ 4ℕ juist?', lines:['Neem x = 8: 8 ∈ 2ℕ en 8 ∈ 4ℕ.','Neem x = 12: 12 ∈ 2ℕ en 12 ∈ 4ℕ.','Besluit: de implicatie is juist.'], wrong:2,
@@ -1421,7 +1422,7 @@ const romSol = n => { const parts=[]; let m=n; ROM.forEach(([v,r])=>{ while(m>=v
 function pfSol(nums, kind){
   const lines = nums.map(n=>`${n} = ${powerForm(n)}`).join('<br>');
   const r = kind==='ggd' ? nums.reduce(gcd) : nums.reduce(lcm);
-  const how = kind==='ggd' ? 'Neem de gemeenschappelijke priemfactoren, elk met de kleinste exponent.' : 'Neem alle priemfactoren die voorkomen, elk met de grootste exponent.';
+  const how = kind==='ggd' ? 'Neem de priemfactoren die in elk getal voorkomen, zo vaak als ze in elk getal minstens voorkomen.' : 'Neem elke priemfactor die voorkomt, zo vaak als hij hoogstens in één getal voorkomt.';
   return `${lines}<br>${how}<br>${kind}(${nums.join(', ')}) = ${r>1?powerForm(r)+' = ':''}<b>${r}</b>`;
 }
 const pfQ = (nums, kind) => ({html:`${kind}(${nums.join(', ')}) = [[0]]`, mode:'numeric', size:'sm', check:numIs(kind==='ggd'?nums.reduce(gcd):nums.reduce(lcm)), sol:pfSol(nums, kind)});
@@ -1462,7 +1463,7 @@ const NEW = {
   vEven: { title:'Getallen vormen met voorwaarden', lvl:3, build:list([
     {html:'Het kleinste even natuurlijk getal van 5 cijfers. [[0:md]]', mode:'numeric', check:numIs(10000), sol:'Het kleinste getal van 5 cijfers is 10 000, en dat is even → <b>10 000</b>.'},
     {html:'Het grootste oneven natuurlijk getal van vier verschillende cijfers. [[0:md]]', mode:'numeric', check:numIs(9875), sol:'Begin met 9, 8, 7. Het laatste cijfer moet oneven zijn en mag nog niet gebruikt zijn: 5 → <b>9 875</b>.'},
-    {html:'Het kleinste even getal met de cijfers 3, 4, 5 en 7 (elk precies één keer). [[0:md]]', mode:'numeric', check:numIs(3574), sol:'Even: het laatste cijfer moet 4 zijn. Zet de andere cijfers van klein naar groot vooraan → <b>3 574</b>.'},
+    {html:'Het kleinste even natuurlijk getal met de cijfers 3, 4, 5 en 7 (elk precies één keer). [[0:md]]', mode:'numeric', check:numIs(3574), sol:'Even: het laatste cijfer moet 4 zijn. Zet de andere cijfers van klein naar groot vooraan → <b>3 574</b>.'},
     {html:'Het grootste oneven getal met de cijfers 2, 5, 6 en 8 (elk precies één keer). [[0:md]]', mode:'numeric', check:numIs(8625), sol:'Oneven: het laatste cijfer moet 5 zijn. Zet de andere cijfers van groot naar klein vooraan → <b>8 625</b>.'},
     {html:'Het grootste getal van 3 cijfers met de cijfers 1, 4 en 6 (elk één keer) dat deelbaar is door 4. [[0:md]]', mode:'numeric', check:numIs(416), sol:'Mogelijke getallen: 146, 164, 416, 461, 614, 641. Deelbaar door 4 (laatste twee cijfers): 164 en 416. Het grootste is <b>416</b>.'}
   ], {letters:true}) },
