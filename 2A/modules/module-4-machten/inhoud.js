@@ -1217,7 +1217,10 @@ const HK_IC = '(&#8239;)<sup style="color:var(--orange)">n</sup>';
 function vrijVak(sp, v, save, onCh){
   if(!VX.ok(v) || !v.r.length) v.r = [{b:VX.R()}];
   let P = new Map(), IN = new Map(), foc = null;
-  const ch = () => { save(); onCh(); };
+  /* ongedaan maken: na elke wijziging een momentopname */
+  const hist = [JSON.stringify(v.r)]; let undoB = null;
+  const ch = () => { const t = JSON.stringify(v.r); if(t!==hist[hist.length-1]){ hist.push(t); if(hist.length>200) hist.shift(); } if(undoB) undoB.disabled = hist.length<2; save(); onCh(); };
+  const terug = () => { if(hist.length<2) return; hist.pop(); v.r = JSON.parse(hist[hist.length-1]); save(); onCh(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); };
   /* ouders opzoeken: P.get(knoop) = {o, key, i} */
   const index = () => { P = new Map();
     const walk = (n, o, key, i) => { P.set(n, {o, key, i});
@@ -1266,6 +1269,7 @@ function vrijVak(sp, v, save, onCh){
     knop(XP_IC, 'exponent', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
     knop(HK_IC, 'haakjes met een exponent', n => { const leeg = n.k==='a' && !nrm(n.s||''); const g = haakjes(n); ch(); draw(); if(leeg) focus(n); else focus(g, 'e'); });
     knop(BRK_IC, 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
+    undoB = knop('↶', 'ongedaan maken', terug, 'vx-terug'); undoB.disabled = hist.length<2;
     if(li) knop('✕', 'deze regel weghalen', () => { v.r.pop(); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }, 'vx-weg');
     return ctl; }
   /* typen: ^ exponent · ( haakjes · ) uit de haakjes naar hun exponent · / breuk · * nieuwe factor · 3a wordt 3 · a */
@@ -1322,6 +1326,7 @@ function vrijVak(sp, v, save, onCh){
   .vx-hok{display:inline-block; width:.7rem; height:.85rem; border:1.5px solid currentColor; border-radius:.2rem; margin-left:.15rem}
   .vx-k.vx-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
   .vx-k.vx-weg{color:var(--ink-soft)}
+  .vx-k.vx-terug{font-size:1.15rem} .vx-k:disabled{opacity:.4; cursor:default}
   .vx-plus{font-size:.9rem}
   .vx-regel.ok .m4-in{border-color:var(--ok); background:var(--ok-bg)}
   .vx-regel.bad .m4-in{border-color:var(--bad); background:var(--bad-bg)}
