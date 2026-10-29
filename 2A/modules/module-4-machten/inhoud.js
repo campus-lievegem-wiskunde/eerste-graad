@@ -1281,7 +1281,7 @@ function vrijVak(sp, v, save, onCh){
   function balk(){
     if(!bar){ bar = el('div', 'vx-balk'); const q = sp.closest('.m4-q'), act = q && q.querySelector(':scope > .q-act'); if(act) q.insertBefore(bar, act); else sp.after(bar); }
     bar.innerHTML = ''; const tools = el('div', 'vx-tools'); bar.append(tools);
-    const knop = (ic, lab, tip, fn, cls='') => { const b = el('button', 'vx-k ' + cls, `<span class="vx-ic">${ic}</span><span class="vx-lab">${lab}</span>`); b.type = 'button'; b.dataset.tip = tip; b.setAttribute('aria-label', tip);
+    const knop = (ic, lab, tip, fn, cls='') => { const b = el('button', 'vx-k ' + cls, `<span class="vx-ic">${ic}</span>`); b.type = 'button'; b.dataset.tip = lab; b.setAttribute('aria-label', tip);
       b.addEventListener('mousedown', e=>e.preventDefault()); b.addEventListener('click', ()=>{ index(); const n = foc && P.has(foc.n) ? foc.n : laatsteA(v.r[v.r.length-1].b); fn(n); }); tools.append(b); return b; };
     knop('<span class="vx-dot">·</span><span class="vx-hok"></span>', 'maal', 'nog een factor erbij (maal)', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
     knop(XP_IC, 'macht', 'exponent bij het actieve vakje', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
@@ -1355,10 +1355,12 @@ function vrijVak(sp, v, save, onCh){
   .vx-par.groot{font-size:3.6rem; transform:scaleX(.55); margin:0 -.3rem}
   .vx-balk{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .8rem; margin:.4rem 0 .2rem 2.8rem}
   .vx-tools{display:flex; flex-wrap:wrap; gap:.3rem}
-  .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:3.1rem; min-height:2.9rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
+  .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:2.75rem; min-height:2.75rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
   .vx-ic{font-size:1rem; line-height:1.1; display:inline-flex; align-items:center; min-height:1.15rem}
-  .vx-lab{font-size:.68rem; font-weight:600; color:var(--ink-soft); line-height:1}
-  .vx-plus{min-height:2.9rem}
+  .vx-k{position:relative}
+  .vx-k::after{content:attr(data-tip); position:absolute; left:50%; top:calc(100% + 5px); transform:translateX(-50%); white-space:nowrap; background:var(--ink); color:var(--bg, #fff); font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.35rem; opacity:0; pointer-events:none; transition:opacity .15s; z-index:20}
+  .vx-k:hover::after{opacity:1; transition-delay:1s}
+  .vx-plus{min-height:2.75rem}
   .vx-snel{flex-basis:100%; font-size:.78rem; color:var(--ink-soft)}
   .vx-snel kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; background:var(--zone-bg, #f6fbfb); color:var(--accent-dark)}
   .vx-regel{position:relative}
@@ -1371,7 +1373,7 @@ function vrijVak(sp, v, save, onCh){
   .vx-uit-dicht{position:absolute; right:.3rem; top:.15rem; border:0; background:transparent; font-size:1.2rem; cursor:pointer; color:var(--ink-soft)}
   .vx-f .m4-in.vx-actief{border-color:var(--orange); border-width:2.5px; box-shadow:0 0 0 3px var(--or-soft)}
   .vx-k:hover, .vx-k:focus-visible{border-color:var(--accent-dark)}
-  .vx-k sup{font-size:.7em}
+  .vx-k sup{font-size:.7em; align-self:flex-start; line-height:1; margin-top:-.15em; margin-left:.05em}
   .vx-dot{font-size:1.6em; line-height:0}
   .vx-hok{display:inline-block; width:.7rem; height:.85rem; border:1.5px solid currentColor; border-radius:.2rem; margin-left:.15rem}
   .vx-k.vx-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
