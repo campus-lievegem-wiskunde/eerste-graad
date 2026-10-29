@@ -1218,11 +1218,18 @@ VX.uitleg = (body, val, doel, fout) => {
   if(qEq(val.c, doel.c)) return 'Het getal klopt, maar de exponent van een letter niet. Kijk de exponenten nog eens na.';
   return 'Deze regel is niet meer gelijk aan de opgave. Vergelijk hem met de regel erboven.';
 };
+/* −2³ zonder haakjes, terwijl de uitkomst toevallig klopt (oneven exponent): toch haakjes vragen */
+VX.minHaak = body => {
+  const as = []; const walk = n => { if(n.k==='row') n.f.forEach(walk); else if(n.k==='frac'){ walk(n.t); walk(n.n); } else if(n.k==='g') walk(n.b); else if(n.e!=null && /^-\d+$/.test(nrm(n.s)) && /^\d+$/.test(nrm(n.e||''))) as.push(n); };
+  walk(body); if(!as.length) return null; const x = +nrm(as[0].s).slice(1), e = +nrm(as[0].e);
+  return {fix:as, tekst:`Zet haakjes rond een negatief getal met een exponent. Zonder haakjes hoort de exponent enkel bij het getal, niet bij het minteken.<br>${MIN}${x}<sup>${e}</sup> ${isq} ${MIN}(${Array(e).fill(x).join(' · ')})<br>(${MIN}${x})<sup>${e}</sup> ${isq} ${Array(e).fill(`(${MIN}${x})`).join(' · ')}` + (e%2 ? `<br>Hier is de uitkomst toevallig dezelfde omdat de exponent oneven is, maar je bedoelt (${MIN}${x})<sup>${e}</sup>.` : '')};
+};
 /* controle: doel is een eentermvorm; fout = [[eentermvorm, boodschap], ...] */
 function chkX(v, doel, fout=[]){
   if(window.__M4TEST) window.__VXDOEL = doel;
   const lines = VX.ok(v) ? v.r.filter(L => !VX.leeg(L.b)) : [];
   const res = lines.map(L => { const val = VX.val(L.b); if(val.err) return val; const eq = VX.eq(val, doel);
+    const mh = eq && VX.minHaak(L.b); if(mh) return {val, eq:false, why:'', uitleg:mh};
     return {val, eq, why:VX.waarom(L.b), uitleg: eq ? '' : VX.uitleg(L.b, val, doel, fout)}; });
   Object.defineProperty(v, '_res', {value:VX.ok(v) ? v.r.map(L => res[lines.indexOf(L)] || null) : [], configurable:true, enumerable:false});
   if(!res.length) return {info:true, msg:'Vul eerst je antwoord in.'};
