@@ -1027,6 +1027,12 @@ const REDENOPTS = ['os','nh','ov','vb','vu','bz','uz'].map(k=>[k, REDEN[k]]);
   .dyn.hf-dyn .dyn-ctl .btn.ghost{background:var(--card); color:var(--ink)}
   .hf-two{display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:1rem; align-items:start}
   @media (max-width:760px){ .hf-two{grid-template-columns:1fr} }
+  /* één oefening op één scherm: figuur links, vragen rechts; .mee loopt mee, .plak blijft bovenaan */
+  .naast{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:1.4rem; align-items:start}
+  .naast>div{min-width:0}
+  .naast>.mee{position:sticky; top:calc(env(safe-area-inset-top, 0px) + .5rem); align-self:start; z-index:4}
+  .plak{position:sticky; top:calc(env(safe-area-inset-top, 0px) + .3rem); z-index:4; background:var(--card); box-shadow:0 6px 8px -6px rgba(0,0,0,.25); padding-bottom:.3rem}
+  @media (max-width:760px){ .naast{grid-template-columns:1fr} .naast>.mee, .plak{position:static; box-shadow:none} }
   .npar{position:relative; display:inline-block}
   .npar::after{content:''; position:absolute; left:15%; right:15%; top:50%; border-top:1.5px solid currentColor; transform:rotate(-55deg)}
   .def{border-left:4px solid var(--bad); padding:.35rem .7rem; margin:.5rem 0; background:var(--bad-bg); border-radius:0 8px 8px 0}
@@ -1497,7 +1503,10 @@ CP.los = { title:'Ook losse hoeken kunnen complementair zijn', lvl:1,
       const d1 = R.int(-20, 40), d2 = R.int(120, 230);
       const fig = hfWrap(340, 170, losHoek(P(80, 120), d1, x, x+'°', 'tq') + losHoek(P(250, 95), d2, y, y+'°', 'or'), {maxw:380, alt:'twee losse hoeken'});
       qChoice(b, st, save, 'l'+i, {nr:LET[i]+')', html:'Deze twee hoeken zijn …', fig, opts:[['c','complementair'],['s','supplementair'],['n','geen van beide']], ans:k,
-        why:`${x}° + ${y}° = ${x+y}°.`, whyBad:`Tel op: ${x}° + ${y}° = ${x+y}°. Ze hoeven niet tegen elkaar te liggen.`}); });
+        why:`${x}° + ${y}° = ${x+y}°.`, whyBad:`Tel op: ${x}° + ${y}° = ${x+y}°. Ze hoeven niet tegen elkaar te liggen.`});
+      const V = P(120, 104), samen = hfWrap(240, 120, losHoek(V, 0, x, x+'°', 'tq', 34) + losHoek(V, x, y, y+'°', 'or', 46), {maxw:240, alt:'de twee hoeken tegen elkaar gelegd'});
+      stepHints(b, [{u:'Tel de twee hoeken op.', line:`${x}° + ${y}° = [[]]°`, ans:[x+y]},
+        ['Leg ze in gedachten tegen elkaar:' + samen, 'Samen 90°: complementair. Samen 180°: supplementair. Anders: geen van beide.']], {first:'💡 Hint: stap voor stap'}); });
   }};
 CP.waar = { title:'Waar of niet waar?', lvl:2,
   build(b, st, save){ const R = makeR(st);
@@ -1649,6 +1658,9 @@ OS.vier = { title:'Noteer de grootte van de andere hoeken', lvl:1,
     b.append(el('div','', crossSvg(c, {name:'P', vals})));
     qBlock(b, st, save, 'a', {html:`<span class="q-num">a)</span> ${rest.map((j,i)=>`${hA('P',j)} = [[${i}]]`).join(' &nbsp; ')}`, size:'sm', mode:'decimal',
       check:chkDegs(rest.map(j=>Math.round(crossVal(c,j)))), sol:`${hA('P',(k+1)%4+1)} = ${Math.round(v)}° (overstaande hoeken). De twee andere zijn nevenhoeken van ${hA('P',k)}: 180° − ${Math.round(v)}° = ${180-Math.round(v)}°.`});
+    { const op = (k+1)%4+1, nb = rest.filter(j=>j!==op), g = Math.round(v);
+      stepHints(b, [{u:`${hA('P',op)} ligt tegenover de gegeven hoek: overstaande hoeken zijn even groot.` + crossSvg(c, {name:'P', vals, fill:{[k]:'or', [op]:'or'}, maxw:240}), line:`${hA('P',op)} = [[]]°`, ans:[g]},
+        {u:`${hA('P',nb[0])} en ${hA('P',nb[1])} liggen naast de gegeven hoek: nevenhoeken zijn samen 180°.`, line:`${hA('P',nb[0])} = ${hA('P',nb[1])} = 180° − ${g}° = [[]]°`, ans:[180-g]}], {first:'💡 Hint: stap voor stap'}); }
     /* b) diagonalen van een parallellogram */
     const W = 320, H = 190; const sk = R.int(40, 80), wd = R.int(150, 190), hg = R.int(90, 120);
     const A = P(60, 150), Bp = P(60+wd, 150), Dp = P(60+wd*0.0+ (hg/Math.tan(sk*D2R)), 150-hg), Cp = P(Dp.x+wd, Dp.y);
@@ -1664,6 +1676,8 @@ OS.vier = { title:'Noteer de grootte van de andere hoeken', lvl:1,
     const others = [0,1,2,3].filter(i=>i!==given);
     qBlock(b, st, save, 'b', {html:`<span class="q-num">b)</span> In het parallellogram snijden de diagonalen elkaar in M. ${others.map((i,j)=>`hoek ${['①','②','③','④'][i]} = [[${j}]]`).join(' &nbsp; ')}`, size:'sm', mode:'decimal',
       check:chkDegs(others.map(i=>xs[i])), sol:`De overstaande hoek is even groot: ${xs[given]}°. De hoeken ernaast zijn nevenhoeken: 180° − ${xs[given]}° = ${180-xs[given]}°.`});
+    stepHints(b, [{u:`Hoek ${['①','②','③','④'][(given+2)%4]} ligt tegenover de gegeven hoek: overstaande hoeken.`, line:`hoek ${['①','②','③','④'][(given+2)%4]} = [[]]°`, ans:[xs[given]]},
+      {u:'De twee andere hoeken liggen ernaast: nevenhoeken.', line:`180° − ${xs[given]}° = [[]]°`, ans:[180-xs[given]]}], {first:'💡 Hint: stap voor stap'});
   }};
 function osXRows(b, st, save, R, kinds){
     kinds.forEach((kind, i)=>{ const c = crossMake(R, {W:300, H:180}); const pair = R.pick([[1,3],[2,4]]);
@@ -2180,7 +2194,7 @@ NM.binnen = { title:'Binnenhoeken en buitenhoeken', lvl:1,
     pickSet(b, st, save, 'bi', m, '<span class="q-num">a)</span> Klik alle <b>binnenhoeken</b> aan (de hoeken tussen a en b).', ['A3','A4','B1','B2'], {hint:'Binnenhoeken liggen in de strook tussen a en b.'});
     pickSet(b, st, save, 'bu', m2, '<span class="q-num">b)</span> Klik alle <b>buitenhoeken</b> aan.', ['A1','A2','B3','B4'], {hint:'Buitenhoeken liggen buiten de strook tussen a en b.'});
   }};
-NM.naam = { title:'Hoe noem je deze hoeken?', lvl:1,
+NM.naam = { title:'Hoe noem je deze hoeken?', lvl:1, plak:1,
   build(b, st, save){ const R = makeR(st);
     const m = psRandom(R, {n:psNames(R)}); if(R.f()<.4) m.db = m.da + R.pick([-7,7]);
     b.append(el('div','', psFig(m, {maxw:460})));
@@ -2243,7 +2257,7 @@ NM.figuur = { title:'Hoeken in vlakke figuren', lvl:2,
         sol:`${angName(pk.g)} en ${angName(pk.h)} zijn <b>${PAIRTYPE[pk.r.t].naam}</b> bij <b>${parAns}</b> en snijlijn <b>${sn}</b>.`,
         hint:'Zoek eerst de rechte die door beide hoekpunten gaat: dat is de snijlijn. De andere benen liggen op de evenwijdige rechten.'}); });
   }};
-NM.twee = { title:'Twee evenwijdigen en twee snijlijnen', lvl:3,
+NM.twee = { title:'Twee evenwijdigen en twee snijlijnen', lvl:3, naast:2, mee:true,
   build(b, st, save){ const R = makeR(st); const m = ps2Make(R);
     b.append(el('p','instructions', 'Gegeven: a // b. De rechten s en t snijden a en b.'));
     b.append(el('div','', ps2Svg(m)));
@@ -2295,6 +2309,10 @@ EG.acht = { title:'Bepaal de grootte van alle hoeken', lvl:1,
     const ks = ['A1','A2','A3','A4','B1','B2','B3','B4'].filter(k=>k!==g);
     qBlock(b, st, save, 'a', {html:ks.map((k,i)=>`<span style="white-space:nowrap">${kH(m,k)} = [[${i}]]</span>`).join(' &nbsp; '), block:true, size:'sm', mode:'decimal', check:chkDegs(ks.map(k=>Math.round(v[k]))),
       sol:`Er zijn maar twee groottes: ${Math.round(v.A1)}° en ${Math.round(v.A2)}°. ${kH(m,g)} = ${Math.round(v[g])}°. Overstaande hoeken en overeenkomstige hoeken zijn even groot, nevenhoeken zijn samen 180°.`});
+    { const gv = Math.round(v[g]), i = +g[1], op = (i+1)%4+1, kl = {}; ['A','B'].forEach(L=>[1,2,3,4].forEach(j=>kl[L+j] = (j%2)===(i%2) ? 'or' : 'tq'));
+      stepHints(b, [{u:`Overeenkomstige hoeken zijn even groot: ${kH(m,'B'+i)} ligt bij B op dezelfde plaats als ${kH(m,g)}.` + psFig(m, {fill:kl, vals:{[g]:gv+'°'}, maxw:300}) + '<div class="hint-regel">Er zijn maar twee groottes: de oranje hoeken zijn even groot, de turkooise ook.</div>', line:`${kH(m,'B'+i)} = [[]]°`, ans:[gv]},
+        {u:'Overstaande hoeken zijn even groot.', line:`${kH(m,'A'+op)} = ${kH(m,'B'+op)} = [[]]°`, ans:[gv]},
+        {u:'Nevenhoeken zijn samen 180°: de turkooise hoeken.', line:`180° − ${gv}° = [[]]°`, ans:[180-gv]}], {first:'💡 Hint: stap voor stap'}); }
   }};
 EG.reden = { title:'Bepaal de hoek en geef de reden', lvl:2,
   instr:'Bij elke stap noteer je waarop je je steunt. Zo schrijf je het ook op een toets.',
@@ -2395,7 +2413,7 @@ EG.verschil = { title:'Een stelsel met hoeken', lvl:3,
       sol: kind==='som' ? `${hA('A',2)} + ${hA('B',3)} = 180° (buitenhoeken aan dezelfde kant van de snijlijn)<br>${hA('B',3)} + ${d}° + ${hA('B',3)} = 180°<br>2${hA('B',3)} = ${180-d}° dus ${hA('B',3)} = ${x}°<br>${hA('B',1)} = ${x}°, ${hA('B',2)} = ${hA('B',4)} = ${180-x}°`
         : `${hA('A',1)} + ${hA('A',2)} = 180° (nevenhoeken)<br>${hA('A',1)} + ${hA('A',1)} + ${d}° = 180°<br>2${hA('A',1)} = ${180-d}° dus ${hA('A',1)} = ${x}°<br>${hA('B',1)} = ${hA('B',3)} = ${x}° (overeenkomstige en overstaande hoeken), ${hA('B',2)} = ${hA('B',4)} = ${180-x}°`});
   }};
-EG.trans = { title:'Bewijs met een translatie', lvl:3,
+EG.trans = { title:'Bewijs met een translatie', lvl:3, naast:1, mee:true,
   build(b, st, save){
     const m = psMake({W:340, H:220, ds:60, da:6, n:{a:'a', b:'b', s:'s', A:'A', B:'B'}});
     const v = psAllVals(m);
@@ -2479,7 +2497,10 @@ OM.ja = { title:'Zijn a en b evenwijdig?', lvl:1,
       const sum = vA + vB;
       selQ(cell, st, save, 'j'+i, {html:`${psFig(m, {vals:{[p[0]]:vA+'°', [p[1]]:vB+'°'}, arcs:[p[0],p[1]], nums:false, maxw:380})}<span class="q-num">${LET[i]})</span> Deze hoeken zijn {0}. Is a // b? {1}`,
         opts:[TYPEOPTS, [['j','ja'],['n','neen']]], ans:[t, par?'j':'n'],
-        sol: PAIRTYPE[t].rel==='gelijk' ? `${PAIRTYPE[t].naam}: ${vA}° ${vA===vB?'=':'≠'} ${vB}°, dus ${par?'a // b (omgekeerde eigenschap)':'a ∦ b'}.` : `${PAIRTYPE[t].naam}: ${vA}° + ${vB}° = ${sum}° ${sum===180?'':'≠ 180°'}, dus ${par?'a // b (omgekeerde eigenschap)':'a ∦ b'}.`}); }
+        sol: PAIRTYPE[t].rel==='gelijk' ? `${PAIRTYPE[t].naam}: ${vA}° ${vA===vB?'=':'≠'} ${vB}°, dus ${par?'a // b (omgekeerde eigenschap)':'a ∦ b'}.` : `${PAIRTYPE[t].naam}: ${vA}° + ${vB}° = ${sum}° ${sum===180?'':'≠ 180°'}, dus ${par?'a // b (omgekeerde eigenschap)':'a ∦ b'}.`});
+      stepHints(cell, [['Welke soort hoeken? Kijk of ze binnen of buiten de strook tussen a en b liggen, en aan welke kant van de snijlijn.', 'Overeenkomstige, verwisselende binnen- en verwisselende buitenhoeken moeten even groot zijn. Binnen- en buitenhoeken aan dezelfde kant moeten samen 180° zijn.'],
+        PAIRTYPE[t].rel==='gelijk' ? {u:'Zijn ze even groot? Bereken het verschil.', line:`${vA}° − ${vB}° = [[]]°`, ans:[vA-vB]} : {u:'Zijn ze samen 180°? Bereken de som.', line:`${vA}° + ${vB}° = [[]]°`, ans:[sum]},
+        ['Omgekeerde eigenschap:', PAIRTYPE[t].rel==='gelijk' ? 'is het verschil 0°, dan zijn de hoeken even groot en is a // b. Anders is a ∦ b.' : 'is de som 180°, dan is a // b. Anders is a ∦ b.']], {first:'💡 Hint: stap voor stap'}); }
   }};
 OM.waarom = { title:'Verklaar waarom a // b', lvl:2,
   instr:'Soms moet je eerst een andere hoek berekenen met nevenhoeken of overstaande hoeken.',
@@ -2593,6 +2614,10 @@ CT.ladder = { title:'De fietsoversteek', lvl:1,
     degRedQ(b, st, save, 'a', `<span class="q-num">a)</span> α = [[0]] want {R}`, g, [iA===1?'ov':'vb'],
       {sol: iA===1 ? `De hoek van ${g}° en α liggen op dezelfde plaats: het zijn <b>overeenkomstige hoeken</b>. Dus α = ${g}°.` : `α en de hoek van ${g}° liggen tussen de stoepranden, aan verschillende kanten van het fietspad: het zijn <b>verwisselende binnenhoeken</b>. Dus α = ${g}°.`});
     degRedQ(b, st, save, 'b', `<span class="q-num">b)</span> β = [[0]] want {R}`, 180-g, ['nh','bz'], {sol:`β is de nevenhoek van α: β = 180° − ${g}° = ${180-g}°. Of: β en de hoek van ${g}° zijn binnenhoeken aan dezelfde kant van het fietspad, dus supplementair.`});
+    const schets = hfWrap(260, 120, lnSvg(P(10,30), P(250,30)) + lnSvg(P(10,92), P(250,92)) + lnSvg(P(92,116), P(168,6), 'ln') + tx(46,22,'stoeprand','ptn') + tx(46,84,'stoeprand','ptn') + tx(186,62,'fietspad','ptn'), {maxw:260, alt:'twee evenwijdige rechten en een snijlijn'});
+    stepHints(b, [['Bekijk de straat als twee evenwijdige rechten met een snijlijn:' + schets, 'De stoepranden zijn de evenwijdige rechten, het fietspad is de snijlijn.'],
+      {u: iA===1 ? `α en ${g}° liggen op dezelfde plaats bij de twee stoepranden: overeenkomstige hoeken zijn even groot.` : `α en ${g}° liggen tussen de stoepranden, aan verschillende kanten van het fietspad: verwisselende binnenhoeken zijn even groot.`, line:'α = [[]]°', ans:[g]},
+      {u:'β ligt naast α: nevenhoeken zijn samen 180°.', line:`β = 180° − ${g}° = [[]]°`, ans:[180-g]}], {first:'💡 Hint: stap voor stap'});
   }};
 /* één vraag: wordt de straat naar rechts breder, smaller of blijft ze even breed? out = 'b' | 's' | 'e' */
 function straatQ(b, st, save, id, R, out, nr){
@@ -2649,6 +2674,10 @@ CT.spoor = { title:'De overweg', lvl:1,
     const ks = ['B1','B2','B3','B4'];
     qBlock(b, st, save, 'q', {html:ks.map((k,i)=>`<span style="white-space:nowrap">${kH(m,k)} = [[${i}]]</span>`).join(' &nbsp; '), block:true, size:'sm', mode:'decimal', check:chkDegs(ks.map(k=>Math.round(v[k]))),
       sol:`${kH(m,g)} = ${Math.round(v[g])}°. Bij B is ${kH(m,'B'+g[1])} een overeenkomstige hoek, dus ook ${Math.round(v[g])}°. De overstaande hoek is even groot, de nevenhoeken zijn 180° − ${Math.round(v[g])}° = ${180-Math.round(v[g])}°.`});
+    { const gv = Math.round(v[g]), i = +g[1], op = (i+1)%4+1, kl = {}; ['A','B'].forEach(L=>[1,2,3,4].forEach(j=>kl[L+j] = (j%2)===(i%2) ? 'or' : 'tq'));
+      stepHints(b, [{u:`De rails zijn evenwijdige rechten, de weg is de snijlijn. ${kH(m,'B'+i)} ligt bij B op dezelfde plaats als ${kH(m,g)}: overeenkomstige hoeken.` + psFig(m, {fill:kl, vals:{[g]:gv+'°'}, maxw:300}), line:`${kH(m,'B'+i)} = [[]]°`, ans:[gv]},
+        {u:`${kH(m,'B'+op)} ligt tegenover ${kH(m,'B'+i)}: overstaande hoeken.`, line:`${kH(m,'B'+op)} = [[]]°`, ans:[gv]},
+        {u:'De twee andere hoeken bij B zijn nevenhoeken: samen 180°.', line:`180° − ${gv}° = [[]]°`, ans:[180-gv]}], {first:'💡 Hint: stap voor stap'}); }
   }};
 
 /* ---------- trapleuning: de spijlen zijn evenwijdig, de leuning is een snijlijn ---------- */
@@ -2986,7 +3015,7 @@ DR.reden = { title:'Sleep de juiste reden bij elke stap', lvl:2,
     ], R.shuffle([w1, w2, 'gestrekte hoek', 'overeenkomstige hoeken', 'overstaande hoeken', 'nevenhoeken']));
   }};
 /* ---------- gaten invullen ---------- */
-DR.gaten = { title:'Vul het bewijs aan', lvl:2,
+DR.gaten = { title:'Vul het bewijs aan', lvl:2, naast:1, mee:true,
   instr:'Een paar regels staan er al. Schrijf de andere regels zelf. Gebruik de knop <b>Â dakje</b> voor het dakje.',
   build(b, st, save){ const R = makeR(st); const S = proofSetup(R); const L = proofLines(S); const {X, Y, Z} = S;
     b.append(el('div','', proofFig(S)));
@@ -2997,14 +3026,14 @@ DR.gaten = { title:'Vul het bewijs aan', lvl:2,
     proofWriter(b, st, save, 'pw', {rows, sol:proofModelHTML(S)});
   }};
 /* ---------- volledig schrijven met hulp ---------- */
-DR.schrijf = { title:'Schrijf het volledige bewijs', lvl:2,
+DR.schrijf = { title:'Schrijf het volledige bewijs', lvl:2, naast:1, mee:true,
   instr:'Andere letters, hetzelfde bewijs. Schrijf elke regel. Bij elke stap hoort een reden.',
   build(b, st, save){ const R = makeR(st); const S = proofSetup(R, {names:R.pick(TRI_N.slice(1))});
     b.append(el('div','', proofFig(S)));
     proofWriter(b, st, save, 'pw', {rows:proofRows(S), sol:proofModelHTML(S)});
   }};
 /* ---------- uit het hoofd ---------- */
-DR.blind = { title:'Uit het hoofd: zoals op de toets', lvl:2,
+DR.blind = { title:'Uit het hoofd: zoals op de toets', lvl:2, naast:2, mee:true,
   instr:'Nu zonder hulp. Je krijgt alleen de figuur. Schrijf het bewijs regel per regel, in de juiste volgorde: gegeven, te bewijzen, hulplijn, stap 1 en reden, stap 2 en reden, stap 3 en reden, besluit.',
   build(b, st, save){ const R = makeR(st); const S = proofSetup(R, {names:R.pick(TRI_N)});
     b.append(el('div','', proofFig(S, {par:false})));
@@ -3048,6 +3077,12 @@ DR.reken = { title:'Bereken de derde hoek', lvl:1,
       const ans = Math.round(triVal(T, ask)); const nk = {A:nm[0], B:nm[1], C:nm[2]}[ask];
       degQ(cell, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ${hA(nk)} = [[0]]`, ans, {hint: i===2 ? 'De driehoek is gelijkbenig: de basishoeken zijn even groot.' : 'De drie hoeken zijn samen 180°.',
         sol: i===2 ? `In een gelijkbenige driehoek zijn de basishoeken even groot. ${hA(nk)} = ${ans}°.` : `${hA(nk)} = 180° − de twee andere hoeken = ${ans}°.`});
+      if(i!==2){ const kend = ['A','B','C'].filter(k=>k!==ask).map(k=>Math.round(triVal(T,k)));
+        stepHints(cell, [{u:'De drie hoeken van een driehoek zijn samen 180°. Tel eerst de twee gegeven hoeken op.', line:`${kend[0]}° + ${kend[1]}° = [[]]°`, ans:[kend[0]+kend[1]]},
+          {u:'Trek dat af van 180°.', line:`${hA(nk)} = 180° − ${kend[0]+kend[1]}° = [[]]°`, ans:[ans]}], {first:'💡 Hint: stap voor stap'}); }
+      else { const top = Math.round(triVal(T,'C')), bas = Math.round(triVal(T,'A'));
+        stepHints(cell, [['De streepjes tonen twee even lange zijden: de driehoek is gelijkbenig.', 'De hoeken tegenover de gelijke zijden (de basishoeken) zijn even groot.'],
+          ask==='C' ? {u:'De twee basishoeken zijn even groot.', line:`${hA(nk)} = 180° − 2 · ${bas}° = [[]]°`, ans:[top]} : {u:'Trek de tophoek af van 180° en deel door 2.', line:`${hA(nk)} = (180° − ${top}°) : 2 = [[]]°`, ans:[bas]}], {first:'💡 Hint: stap voor stap'}); }
     }
   }};
 /* ---------- kan dat? (soorten driehoeken) ---------- */
@@ -3189,20 +3224,31 @@ VR.buitenReken = { title:'Rekenen met een buitenhoek', lvl:1,
       const ans = kind===0 ? ext : kind===1 ? al : be;
       degQ(b, st, save, 'r'+i, `<span class="q-num">${LET[i]})</span> ? = [[0]]`, ans, {hint:'Buitenhoek = som van de twee niet-aanliggende binnenhoeken. De buitenhoek en de binnenhoek bij hetzelfde hoekpunt zijn samen 180°.',
         sol: kind===0 ? `${al}° + ${ga}° = ${ext}°` : kind===1 ? `${ext}° − ${ga}° = ${al}°` : `180° − ${ext}° = ${be}° (nevenhoeken)`});
+      { const kl = {A:{txt:kind===1 ? '?' : al+'°', fill:'or'}, C:{txt:ga+'°', fill:'or'}, B:null};
+        const fig = hfWrap(320, 190, lnSvg(T.B, D, 'ln help') + triSvg(T, {mk:kl}) + angSvg(T.B, dirAng(T.A,T.B), dirAng(T.B, T.C), {r:26, fillCls:'vi', txt: kind===0 ? '?' : ext+'°', tr:42}), {maxw:260, alt:'buitenhoek en de twee niet-aanliggende binnenhoeken'});
+        stepHints(b, [['De buitenhoek (paars) is even groot als de twee binnenhoeken die er niet aan liggen (oranje) samen:' + fig, 'buitenhoek = oranje + oranje'],
+          kind===0 ? {u:'Tel de twee oranje hoeken op.', line:`? = ${al}° + ${ga}° = [[]]°`, ans:[ext]} : kind===1 ? {u:'Eén oranje hoek is gevraagd: trek de andere af van de buitenhoek.', line:`? = ${ext}° − ${ga}° = [[]]°`, ans:[al]} : {u:'De gevraagde hoek ligt naast de buitenhoek: nevenhoeken zijn samen 180°.', line:`? = 180° − ${ext}° = [[]]°`, ans:[be]}], {first:'💡 Hint: stap voor stap'}); }
     }
   }};
 /* ---------- gelijkbenig en gelijkzijdig ---------- */
+/* gelijkbenige driehoek met de twee gelijke basishoeken in dezelfde kleur (voor de hint) */
+function gelijkbeenFig(){ const T = triPts(50, 50, {W:240, H:140, pad:24}); return 'De streepjes tonen twee even lange zijden: de driehoek is gelijkbenig.' + hfWrap(240, 140, triSvg(T, {mk:{A:{fill:'or', txt:''}, B:{fill:'or', txt:''}, C:{txt:'top'}}, ticks:[['A','C',1],['B','C',1]]}), {maxw:220, alt:'gelijkbenige driehoek met twee gelijke basishoeken'}); }
 VR.gelijk = { title:'Gelijkbenige en gelijkzijdige driehoeken', lvl:1,
   build(b, st, save){ const R = makeR(st);
     const tasks = [
-      ()=>{ const top = R.pick([30, 36, 40, 44, 50, 70, 80, 100, 110, 120]); const base = (180-top)/2; return {al:base, be:base, mk:{C:{txt:top+'°'}, A:{txt:'?', fill:'tq'}}, ticks:[['A','C',1],['B','C',1]], ans:base, q:'basishoek', sol:`(180° − ${top}°) : 2 = ${base}°`}; },
-      ()=>{ const base = R.int(25, 75); return {al:base, be:base, mk:{A:{txt:base+'°'}, C:{txt:'?', fill:'tq'}}, ticks:[['A','C',1],['B','C',1]], ans:180-2*base, q:'tophoek', sol:`180° − 2 · ${base}° = ${180-2*base}°`}; },
-      ()=>({al:60, be:60, mk:{B:{txt:'?', fill:'tq'}}, ticks:[['A','C',1],['B','C',1],['A','B',1]], ans:60, q:'hoek', sol:'In een gelijkzijdige driehoek zijn alle hoeken even groot: 180° : 3 = 60°.'}),
-      ()=>({al:45, be:90, mk:{B:{right:true}, A:{txt:'?', fill:'tq'}}, ticks:[['A','B',1],['B','C',1]], ans:45, q:'hoek', sol:'Gelijkbenig en rechthoekig: (180° − 90°) : 2 = 45°.'})
+      ()=>{ const top = R.pick([30, 36, 40, 44, 50, 70, 80, 100, 110, 120]); const base = (180-top)/2; return {al:base, be:base, mk:{C:{txt:top+'°'}, A:{txt:'?', fill:'tq'}}, ticks:[['A','C',1],['B','C',1]], ans:base, q:'basishoek', sol:`(180° − ${top}°) : 2 = ${base}°`,
+        stappen:[[gelijkbeenFig(), 'De twee basishoeken zijn even groot.'], {u:'Trek de tophoek af van 180°: dat is voor de twee basishoeken samen.', line:`180° − ${top}° = [[]]°`, ans:[180-top]}, {u:'Deel door 2.', line:`${180-top}° : 2 = [[]]°`, ans:[base]}]}; },
+      ()=>{ const base = R.int(25, 75); return {al:base, be:base, mk:{A:{txt:base+'°'}, C:{txt:'?', fill:'tq'}}, ticks:[['A','C',1],['B','C',1]], ans:180-2*base, q:'tophoek', sol:`180° − 2 · ${base}° = ${180-2*base}°`,
+        stappen:[[gelijkbeenFig(), 'De twee basishoeken zijn even groot.'], {u:'De twee basishoeken samen:', line:`2 · ${base}° = [[]]°`, ans:[2*base]}, {u:'Trek dat af van 180°.', line:`180° − ${2*base}° = [[]]°`, ans:[180-2*base]}]}; },
+      ()=>({al:60, be:60, mk:{B:{txt:'?', fill:'tq'}}, ticks:[['A','C',1],['B','C',1],['A','B',1]], ans:60, q:'hoek', sol:'In een gelijkzijdige driehoek zijn alle hoeken even groot: 180° : 3 = 60°.',
+        stappen:[['Drie gelijke zijden: de driehoek is gelijkzijdig.', 'Alle drie de hoeken zijn even groot.'], {u:'Verdeel 180° over drie even grote hoeken.', line:'180° : 3 = [[]]°', ans:[60]}]}),
+      ()=>({al:45, be:90, mk:{B:{right:true}, A:{txt:'?', fill:'tq'}}, ticks:[['A','B',1],['B','C',1]], ans:45, q:'hoek', sol:'Gelijkbenig en rechthoekig: (180° − 90°) : 2 = 45°.',
+        stappen:[['Twee gelijke zijden en een rechte hoek: de twee andere hoeken zijn even groot.', 'Ze liggen tegenover de gelijke zijden.'], {u:'Trek de rechte hoek af van 180°.', line:'180° − 90° = [[]]°', ans:[90]}, {u:'Deel door 2.', line:'90° : 2 = [[]]°', ans:[45]}]})
     ];
     R.shuffle(tasks).slice(0,3).forEach((f,i)=>{ const d = f(); const T = triPts(d.al, d.be, {W:300, H:190, pad:34});
       b.append(el('div','', hfWrap(300, 190, triSvg(T, {mk:d.mk, ticks:d.ticks}), {maxw:360})));
-      degQ(b, st, save, 'g'+i, `<span class="q-num">${LET[i]})</span> ? = [[0]]`, d.ans, {hint:'Gelijke zijden ⟹ gelijke hoeken ertegenover. De som is 180°.', sol:d.sol}); });
+      degQ(b, st, save, 'g'+i, `<span class="q-num">${LET[i]})</span> ? = [[0]]`, d.ans, {hint:'Gelijke zijden ⟹ gelijke hoeken ertegenover. De som is 180°.', sol:d.sol});
+      stepHints(b, d.stappen, {first:'💡 Hint: stap voor stap'}); });
   }};
 /* ---------- driehoek en evenwijdige samen ---------- */
 VR.combi = { title:'Driehoek en evenwijdige samen', lvl:2,
@@ -3263,6 +3309,9 @@ VR.vierReken = { title:'Bereken de vierde hoek', lvl:1,
       const v = [a, bb, c, d]; const mk = v.map((x,k)=> k===ask ? {txt:'?', fill:'tq'} : x===90 ? {right:true} : {txt:x+'°'});
       const cell = el('div'); grid.append(cell); cell.append(el('div','', hfWrap(300, 190, polySvg(pts, {names:nm, mk}), {maxw:340})));
       degQ(cell, st, save, 'v'+i, `<span class="q-num">${LET[i]})</span> ${hA(nm[ask])} = [[0]]`, v[ask], {hint:'De vier hoeken van een vierhoek zijn samen 360°.', sol:`360° − ${v.filter((_,k)=>k!==ask).join('° − ')}° = ${v[ask]}°`});
+      { const kend = v.filter((_,k)=>k!==ask), som = kend[0]+kend[1]+kend[2];
+        stepHints(cell, [{u:'De vier hoeken van een vierhoek zijn samen 360°. Tel eerst de drie gegeven hoeken op.', line:`${kend.join('° + ')}° = [[]]°`, ans:[som]},
+          {u:'Trek dat af van 360°.', line:`${hA(nm[ask])} = 360° − ${som}° = [[]]°`, ans:[v[ask]]}], {first:'💡 Hint: stap voor stap'}); }
       i++; }
   }};
 VR.vierAlg = { title:'Vierhoek met een letter', lvl:2,
@@ -3559,12 +3608,26 @@ function buildSection(sec, num){
     if(!card.noReset) ch.append(rb); c.append(ch);
     if(card.instr) c.append(el('p','instructions', card.instr));
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
-    renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
-      try{ card.build(body, st, save, key); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
+    renderers[key] = ()=>{ if(body._obs) body._obs.disconnect(); body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
+      try{ card.build(body, st, save, key); schik(body, card); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
       save(); };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
   });
+}
+
+/* één oefening op één scherm (werkwijze A en E):
+   card.naast = n: de eerste n blokken (figuur, woordenbank …) links, de vragen rechts; card.mee: de linkerkant loopt mee
+   card.plak = n: de eerste n blokken (de figuur) blijven bovenaan in beeld als de vragen te breed zijn om ernaast te staan */
+function schik(body, card){
+  if(card.plak) [...body.children].slice(0, card.plak).forEach(x=>x.classList.add('plak'));
+  if(!card.naast) return;
+  const ch = [...body.children]; if(ch.length <= card.naast) return;
+  const w = el('div','naast'), L = el('div', card.mee ? 'mee' : ''), R = el('div');
+  ch[0].before(w); ch.slice(0, card.naast).forEach(x=>L.append(x)); ch.slice(card.naast).forEach(x=>R.append(x)); w.append(L, R);
+  /* wat de oefening later nog aan body toevoegt, komt rechts bij de vragen */
+  body._obs = new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n !== w && n.parentNode === body) R.append(n); })));
+  body._obs.observe(body, {childList:true});
 }
 
 SECTIONS.forEach((sec, si)=>{

@@ -143,6 +143,7 @@ function qBlock(parent, st, save, id, q){
   });
   optBtns.forEach(b=> b.addEventListener('click', ()=>{ if(b.disabled) return; s.c=b.dataset.val; save(); paintChoice(); fb.textContent=''; }));
   paintChoice();
+  if(q.hint && !quiz) hintBox(row, act, s, save, id, q.hint);
 
   function evaluate(){
     const vals = inputs.map(i=>i.value.trim());
@@ -187,6 +188,98 @@ function qBlock(parent, st, save, id, q){
   } else if(s.checked) run(true);
   return {row, B, fb};
 }
+
+/* ============================================================
+   INVULBARE HINTS (afspraak: elke basisoefening met meer dan één stap krijgt een hint
+   met invulvakjes voor de tussenstappen, eventueel met "Meer uitleg"; niet in verdieping)
+   Gebruik in een vraag: hint:{ stappen:['12 + 18 = [[0]]', ...], ans:[30, ...], extra:'uitleg', titel:'...', sets:[[1,2,3]] }
+   sets: groepen vakjes waarvan de volgorde niet uitmaakt. Een stap zonder vakjes is een tussentitel of uitleg.
+   De hint telt niet mee in het dashboard en verschijnt niet in een proeftoets.
+   ============================================================ */
+(function(){
+  const css = `
+  .q-act .hint-knop{ border-style:dashed; }
+  .q-act .hint-knop.on{ border-style:solid; border-color:var(--orange); background:var(--or-soft); }
+  .hintbox{ margin:.5rem 0 .3rem; padding:.7rem .9rem; border:2px dashed var(--or-line); border-radius:12px; background:var(--or-soft); }
+  .hintbox h4{ margin:0 0 .35rem; font-size:.98rem; }
+  /* stappen genummerd; een tussentitel (Manier 1, Manier 2) begint opnieuw bij 1, een uitleg telt niet mee */
+  .hintbox ol{ margin:.2rem 0 .5rem; padding:0; list-style:none; display:grid; gap:.45rem; }
+  .hintbox li{ line-height:1.9; }
+  .hintbox li.hb-stap{ padding-left:1.6rem; position:relative; }
+  .hintbox .hb-nr{ position:absolute; left:0; font-weight:700; }
+  .hintbox li.hb-kop{ font-weight:800; color:var(--accent-dark); margin-top:.3rem; }
+  .hintbox li.hb-uitleg{ line-height:1.5; }
+  .hintbox .inp{ min-width:3.2rem; width:4.2rem; margin:0 .25rem; }
+  .hintbox .ladder{ margin:.3rem 0 .2rem; }
+  .hintbox .ladder td{ padding:.15rem .5rem; }
+  .hintbox .ladder .inp{ margin:0; width:3.6rem; }
+  .hintbox .hb-figs{ display:flex; flex-wrap:wrap; gap:.6rem 1rem; align-items:flex-end; margin:.35rem 0; }
+  .hintbox .hb-figs figure{ margin:0; text-align:center; font-size:.85rem; line-height:1.35; max-width:100%; }
+  .hintbox .hb-figs svg{ display:block; margin:0 auto .2rem; max-width:100%; height:auto; }
+  .fig-row > .fig-card.hint-open{ grid-column:1 / -1; }
+  .fig-card.hint-open > div:first-child{ align-self:flex-start; max-width:260px; }
+  .hintbox .hb-bar{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .hintbox .hb-extra{ margin-top:.5rem; padding:.55rem .75rem; border-left:4px solid var(--accent); background:var(--card); border-radius:8px; line-height:1.55; }
+  .hintbox .hb-extra p{ margin:.3rem 0; }
+  .hintbox .fb{ margin-top:.35rem; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.append(s);
+})();
+
+/* vergelijk één hintvakje met het verwachte antwoord (getal, woord of lijst van mogelijkheden) */
+function hintJuist(v, a){
+  if(Array.isArray(a)) return a.some(x=>hintJuist(v, x));
+  if(typeof a === 'number'){ const x = parseDeg(String(v).trim().replace(/^\+\s*/,'')); return !isNaN(x) && Math.abs(x - a) < 1e-6; }
+  return String(v).trim().toLowerCase().replace(/\s+/g,' ') === String(a).toLowerCase();
+}
+
+function hintBox(row, act, s, save, id, h){
+  const hs = s.h || (s.h = {v:[]});
+  const knop = el('button','btn ghost hint-knop','💡 Hint'); knop.type = 'button'; act.append(knop);
+  const box = el('div','hintbox'); box.hidden = true;
+  box.append(el('h4','', '💡 ' + (h.titel || 'Hint: vul de tussenstappen in')));
+  const ol = el('ol'); box.append(ol);
+  let nr = 0;
+  h.stappen.forEach(st=>{ const t = typeof st === 'string' ? st : st.t;
+    if(st.kop){ nr = 0; ol.append(el('li','hb-kop', t)); return; }
+    if(st.uitleg){ ol.append(el('li','hb-uitleg', fillInputs(t, id+'-h', 'xs', 'decimal'))); return; }
+    ol.append(el('li','hb-stap', `<span class="hb-nr">${++nr}.</span>` + fillInputs(t, id+'-h', 'xs', 'decimal'))); });
+  const bar = el('div','hb-bar'); box.append(bar);
+  const ctl = el('button','btn ghost','Controleer de hint'); ctl.type = 'button'; bar.append(ctl);
+  let extra = null;
+  if(h.extra){ const xk = el('button','btn ghost','🔍 Meer uitleg'); xk.type = 'button'; bar.append(xk);
+    extra = el('div','hb-extra', h.extra); extra.hidden = !hs.x; box.append(extra);
+    xk.addEventListener('click', ()=>{ extra.hidden = !extra.hidden; hs.x = !extra.hidden; save(); }); }
+  const fb = el('div','fb'); box.append(fb);
+  row.append(box);
+  const inps = [...box.querySelectorAll('.inp')].sort((a,b)=>a.dataset.f-b.dataset.f);
+  inps.forEach((inp,i)=>{ if(typeof h.ans[i] === 'string' || (Array.isArray(h.ans[i]) && typeof h.ans[i][0] === 'string')) inp.inputMode = 'text'; });
+  inps.forEach((inp,i)=>{ if(hs.v[i]!=null) inp.value = hs.v[i];
+    inp.addEventListener('input', ()=>{ hs.v[i] = inp.value; save(); inp.classList.remove('ok','bad'); });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); controle(); } }); });
+  function oordeel(vals){
+    const ok = vals.map((v,i)=>v==='' ? null : hintJuist(v, h.ans[i]));
+    (h.sets||[]).forEach(g=>{ const nodig = g.map(i=>h.ans[i]), gezien = [];
+      g.forEach(i=>{ if(vals[i]==='') return; const x = parseDeg(vals[i]); const hit = nodig.some(a=>hintJuist(vals[i], a)) && !gezien.includes(x); ok[i] = hit; if(hit) gezien.push(x); }); });
+    return ok;
+  }
+  function controle(){
+    const vals = inps.map(i=>i.value.trim());
+    if(vals.every(v=>v==='')){ fb.className = 'fb info'; fb.textContent = 'Vul eerst de vakjes van de hint in.'; return; }
+    const ok = oordeel(vals); let goed = 0;
+    inps.forEach((inp,i)=>{ inp.classList.remove('ok','bad'); if(ok[i]==null) return; inp.classList.add(ok[i]?'ok':'bad'); if(ok[i]) goed++; });
+    const leeg = vals.filter(v=>v==='').length;
+    if(goed === inps.length){ fb.className = 'fb ok'; fb.innerHTML = '✅ Alle tussenstappen kloppen. Gebruik ze nu voor je antwoord.'; }
+    else { fb.className = 'fb bad'; fb.innerHTML = (goed < inps.length - leeg ? 'De rode vakjes kloppen nog niet. ' : '') + (leeg ? 'Vul ook de lege vakjes in.' : '') + (h.extra && extra.hidden ? ' Kijk eens bij 🔍 Meer uitleg.' : ''); }
+  }
+  ctl.addEventListener('click', controle);
+  /* in een smal figuurkaartje krijgt een open hint de volle breedte van de rij */
+  const kaartje = row.parentElement && row.parentElement.classList.contains('fig-card') ? row.parentElement : null;
+  const open = o => { box.hidden = !o; knop.classList.toggle('on', o); knop.textContent = o ? '💡 Verberg hint' : '💡 Hint'; if(kaartje) kaartje.classList.toggle('hint-open', o); };
+  open(!!hs.o);
+  knop.addEventListener('click', ()=>{ hs.o = box.hidden; save(); open(hs.o); });
+}
+
 
 function qChoice(parent, st, save, id, q){
   const row = el('div','q'); const qid = QID(id); if(!QZ) CLvraag(qid);
@@ -649,6 +742,11 @@ function tween(ms, fn, done){ const t0 = performance.now(); const tick = now=>{ 
   .cf-pick .opt.on{border-color:var(--orange); background:var(--or-soft)}
   .cf-two{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; align-items:start}
   @media (max-width:760px){ .cf-two{grid-template-columns:1fr} }
+  /* één oefening op één scherm: figuur links, vragen rechts; .mee laat de linkerkant meelopen */
+  .naast{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:1.4rem; align-items:start}
+  .naast>div{min-width:0}
+  .naast>.mee, .cf-two>.mee{position:sticky; top:calc(env(safe-area-inset-top, 0px) + .5rem); align-self:start; z-index:4}
+  @media (max-width:760px){ .naast{grid-template-columns:1fr} .naast>.mee, .cf-two>.mee{position:static} }
   .stp{border-left:3px solid var(--accent); padding:.35rem 0 .35rem .7rem; margin:.5rem 0}
   .stp.done{border-left-color:var(--ok)}
   .stp .stp-h{font-weight:700; color:var(--accent-dark); margin-bottom:.15rem}
@@ -1174,6 +1272,7 @@ function oefenBeeld(kinds, title, n=3){
         const cap = el('div','cf-cap'); box.append(cap);
         qBlock(box, st, save, 'q'+i, { nr:LET[i]+'.', block:true, html:`${ptN(Pn,P[0],P[1])}<br>${T.kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`,
           help: k==='sx' ? 'Spiegelen om de x-as: x blijft, y verandert van teken.' : k==='sy' ? 'Spiegelen om de y-as: x verandert van teken, y blijft.' : 'Spiegelen om O: x en y veranderen allebei van teken.',
+          hint:spiegelHint(k, P, Pn),
           check:v=>{ const r = chkPt(v, Q, Pn+PR); if(r.ok){ F.base = []; animTrans(F, k, P, Pn, {}, cap); } return r; },
           sol:`${ptN(Pn,P[0],P[1])} → ${T.naam} → <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` });
       }
@@ -1224,6 +1323,7 @@ CO.zonder = { title:'Zonder tekening: spiegelen', lvl:2, instr:'Er is geen teken
   rows.forEach((r,i)=>{
     const host = el('div'); b.append(host);
     const res = qBlock(host, st, save, 'z'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN(r.Pn, r.P[0], r.P[1])}    ${r.T.kort}(${r.Pn}) = ${r.Pn}${PR}([[0:xs]], [[1:xs]])`),
+      hint:spiegelHint(r.k, r.P, r.Pn),
       check:v=>{ const c = chkPt(v, r.Q, r.Pn+PR, 'Welke coördinaat blijft en welke verandert van teken?'); return c; },
       sol:`${r.T.naam}: ` + (r.k==='sx' ? `x blijft ${neg(r.P[0])}, y wordt ${neg(r.Q[1])}` : r.k==='sy' ? `x wordt ${neg(r.Q[0])}, y blijft ${neg(r.P[1])}` : `x wordt ${neg(r.Q[0])} en y wordt ${neg(r.Q[1])}`) + `. Dus <b>${ptN(r.Pn+PR, r.Q[0], r.Q[1])}</b>.` });
   });
@@ -1250,9 +1350,9 @@ CO.mix = { title:'Alles door elkaar', lvl:2, instr:'Spiegelen en verschuiven doo
     if(k==='t'){ let A,B,P; do{ A=[R.int(-6,6),R.int(-6,6)]; B=[A[0]+nz(R,1,6), A[1]+nz(R,1,6)]; P=[R.int(-7,7),R.int(-7,7)]; }while(Math.abs(B[0])>8||Math.abs(B[1])>8);
       const Q = [P[0]+B[0]-A[0], P[1]+B[1]-A[1]];
       qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN('A',A[0],A[1])}, ${ptN('B',B[0],B[1])}, ${ptN(Pn,P[0],P[1])}:   t<sub>${vecN('A','B')}</sub>(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`),
-        check:v=>chkPt(v, Q, Pn+PR, 'Kijk eerst wat er gebeurt van A naar B.'), sol:`Van A naar B: x ${sgnTxt(B[0]-A[0])}, y ${sgnTxt(B[1]-A[1])}. Dus <b>${ptN(Pn+PR,Q[0],Q[1])}</b>.` });
+        hint:verschuifHint(A, B, P, Pn), check:v=>chkPt(v, Q, Pn+PR, 'Kijk eerst wat er gebeurt van A naar B.'), sol:`Van A naar B: x ${sgnTxt(B[0]-A[0])}, y ${sgnTxt(B[1]-A[1])}. Dus <b>${ptN(Pn+PR,Q[0],Q[1])}</b>.` });
     } else { const P = genP(R,k,{max:8}); const T = TRN[k]; const Q = T.f(P[0],P[1]);
-      qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN(Pn,P[0],P[1])}:   ${T.kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`), check:v=>chkPt(v, Q, Pn+PR), sol:`${T.naam}: <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` }); }
+      qBlock(b, st, save, 'm'+i, { nr:LET[i]+'.', html:keepTxt(`${ptN(Pn,P[0],P[1])}:   ${T.kort}(${Pn}) = ${Pn}${PR}([[0:xs]], [[1:xs]])`), hint:spiegelHint(k, P, Pn), check:v=>chkPt(v, Q, Pn+PR), sol:`${T.naam}: <b>${ptN(Pn+PR,Q[0],Q[1])}</b>` }); }
   });
 }};
 
@@ -1545,6 +1645,89 @@ function svgMat(m){ const [a,b,c,d,e,f] = m; return `matrix(${f2(a)} ${f2(-c)} $
 const opName = op => op.t==='s' ? 'spiegeling om een as' : op.t==='t' ? 'translatie over een vector' : op.t==='r' ? 'rotatie rond een centrum' : 'spiegeling om een punt';
 const degTxt = d => (d<0 ? '−'+(-d) : d) + '°';
 const zinTxt = d => d>0 ? 'tegenwijzerzin' : 'wijzerzin';
+/* ---------- invulbare hints bij de coördinaten, de cirkel en het rooster (met voorbeeldfiguur) ---------- */
+const HUIT = t => ({t, uitleg:true});
+const HFIG = (svg, cap) => HUIT(`<div class="hb-figs"><figure>${svg}${cap?`<figcaption>${cap}</figcaption>`:''}</figure></div>`);
+/* klein assenstelsel met een voorbeeldpunt P(2, 3) en zijn beeld */
+function hintAssen(k){
+  const u = 14, c = 70, X = x => c + 28 + x*u, Y = y => c - y*u, P = [2,3];
+  const Q = k==='t' ? [P[0]+2, P[1]-3] : TRN[k].f(P[0], P[1]);
+  let h = `<line x1="${X(-4.6)}" y1="${Y(0)}" x2="${X(4.6)}" y2="${Y(0)}" style="stroke:var(--ink-soft)" stroke-width="1.2"/><line x1="${X(0)}" y1="${Y(-4.6)}" x2="${X(0)}" y2="${Y(4.6)}" style="stroke:var(--ink-soft)" stroke-width="1.2"/>`;
+  h += `<text x="${X(4.6)}" y="${Y(0)-5}" font-size="10" text-anchor="end" style="fill:var(--ink-soft)">x</text><text x="${X(0)+5}" y="${Y(4.6)+8}" font-size="10" style="fill:var(--ink-soft)">y</text>`;
+  if(k==='t') h += `<line x1="${X(P[0])}" y1="${Y(P[1])}" x2="${X(Q[0])}" y2="${Y(P[1])}" style="stroke:var(--orange)" stroke-width="1.6" stroke-dasharray="3 2"/><line x1="${X(Q[0])}" y1="${Y(P[1])}" x2="${X(Q[0])}" y2="${Y(Q[1])}" style="stroke:var(--orange)" stroke-width="1.6" stroke-dasharray="3 2"/>`;
+  else h += `<line x1="${X(P[0])}" y1="${Y(P[1])}" x2="${X(Q[0])}" y2="${Y(Q[1])}" style="stroke:var(--orange)" stroke-width="1.4" stroke-dasharray="3 2"/>`;
+  h += `<circle cx="${X(P[0])}" cy="${Y(P[1])}" r="3.6" style="fill:var(--accent-dark)"/><text x="${X(P[0])+5}" y="${Y(P[1])-4}" font-size="10" font-weight="700" style="fill:var(--accent-dark)">P(2, 3)</text>`;
+  h += `<circle cx="${X(Q[0])}" cy="${Y(Q[1])}" r="3.6" style="fill:var(--orange)"/><text x="${X(Q[0])+(Q[0]<0?-5:5)}" y="${Y(Q[1])+(Q[1]<0?12:-4)}" font-size="10" font-weight="700" text-anchor="${Q[0]<0?'end':'start'}" style="fill:var(--ink)">P′(${neg(Q[0])}, ${neg(Q[1])})</text>`;
+  return `<svg viewBox="0 0 196 140" width="252" height="180" role="img" aria-label="voorbeeld">${h}</svg>`;
+}
+const SPIEGELREGEL = {
+  sx:{blijft:'x', teken:'y', uitleg:'Bij een spiegeling om de x-as blijft het punt even ver van de x-as, maar aan de andere kant. De x-coördinaat blijft, de y-coördinaat krijgt het andere teken.'},
+  sy:{blijft:'y', teken:'x', uitleg:'Bij een spiegeling om de y-as blijft het punt even ver van de y-as, maar aan de andere kant. De y-coördinaat blijft, de x-coördinaat krijgt het andere teken.'},
+  sO:{uitleg:'Bij een spiegeling om de oorsprong O ligt O in het midden tussen het punt en zijn beeld. Daarom krijgen de x- en de y-coördinaat allebei het andere teken.'}
+};
+/* spiegelen om de x-as, de y-as of O: coördinaat, wat blijft, wat verandert, beeld */
+function spiegelHint(k, P, Pn){
+  const r = SPIEGELREGEL[k], Q = TRN[k].f(P[0], P[1]);
+  const stappen = [`Coördinaat van ${Pn} = ([[0]], [[1]])`];
+  const ans = [P[0], P[1]];
+  if(r.blijft){ stappen.push(`Welke coördinaat blijft hetzelfde? [[2]]`, `Welke coördinaat krijgt het andere teken? [[3]]`); ans.push(r.blijft, r.teken); }
+  else stappen.push(HUIT('Om O krijgen de x- en de y-coördinaat allebei het andere teken.'));
+  const n = ans.length; stappen.push(`Beeld: ${Pn}${PR}([[${n}]], [[${n+1}]])`); ans.push(Q[0], Q[1]);
+  stappen.push(HFIG(hintAssen(k), `Voorbeeld: ${TRN[k].naam}`));
+  return {stappen, ans, extra:r.uitleg};
+}
+/* verschuiven over AB: wat gebeurt er van A naar B, doe hetzelfde met het punt */
+function verschuifHint(A, B, P, Pn){
+  const dx = B[0]-A[0], dy = B[1]-A[1];
+  return { stappen:[`Van A naar B: x verandert met [[0]] en y met [[1]] (typ bijvoorbeeld 3 of −2)`,
+    `Doe hetzelfde met ${ptN(Pn, P[0], P[1])}. Beeld: ${Pn}${PR}([[2]], [[3]])`, HFIG(hintAssen('t'), 'Voorbeeld: van P naar P′ gaat x 2 naar rechts en y 3 naar beneden')],
+    ans:[dx, dy, P[0]+dx, P[1]+dy],
+    extra:'Een translatie verschuift elk punt op dezelfde manier. Kijk hoeveel er bij x en bij y bijkomt of afgaat van A naar B, en doe precies hetzelfde met het punt.' };
+}
+/* twaalf punten op een cirkel: hoeveel stappen, welke zin, tel */
+const CIRKELFIG = (()=>{ const c = 60, r = 40; let h = `<circle cx="${c}" cy="${c}" r="${r}" fill="none" style="stroke:var(--accent-dark)" stroke-width="1.4"/>`;
+  for(let i=0;i<12;i++){ const a = Math.PI/2 - i*Math.PI/6; h += `<circle cx="${(c+r*Math.cos(a)).toFixed(1)}" cy="${(c-r*Math.sin(a)).toFixed(1)}" r="2.6" style="fill:var(--accent-dark)"/>`; }
+  const boog = (a0, a1, rr) => { const p = a => [(c+rr*Math.cos(a)).toFixed(1), (c-rr*Math.sin(a)).toFixed(1)]; const [x0,y0] = p(a0), [x1,y1] = p(a1); return `M${x0} ${y0} A${rr} ${rr} 0 0 ${a1>a0?0:1} ${x1} ${y1}`; };
+  h += `<defs><marker id="hpijl" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--orange)"/></marker></defs>`;
+  h += `<path d="${boog(Math.PI*0.62, Math.PI*0.95, 50)}" fill="none" style="stroke:var(--orange)" stroke-width="2" marker-end="url(#hpijl)"/><text x="8" y="22" font-size="11" font-weight="700" style="fill:var(--ink)">+</text>`;
+  h += `<path d="${boog(Math.PI*0.38, Math.PI*0.05, 50)}" fill="none" style="stroke:var(--orange)" stroke-width="2" marker-end="url(#hpijl)"/><text x="106" y="22" font-size="11" font-weight="700" style="fill:var(--ink)">−</text>`;
+  h += `<circle cx="${c}" cy="${c}" r="2.4" style="fill:var(--ink)"/><text x="${c+4}" y="${c+12}" font-size="10" style="fill:var(--ink)">O</text>`;
+  return `<svg viewBox="0 0 120 120" width="140" height="140" role="img" aria-label="draaizin op de cirkel">${h}</svg>`; })();
+function cirkelHint(type, deg, step, a, bL, k2){
+  const fig = HFIG(CIRKELFIG, '+ is tegenwijzerzin, − is wijzerzin');
+  const extra = `Tussen twee buren is de hoek ${step}°. Een positieve hoek draait in tegenwijzerzin, een negatieve hoek in wijzerzin. Deel de hoek door ${step}° en tel zoveel plaatsen verder.`;
+  const m = Math.abs(Math.round(deg/step));
+  if(type==='img') return {stappen:[`Hoeveel stappen? ${Math.abs(deg)}° : ${step}° = [[0]]`, `In welke zin draai je? [[1]]`, `Tel ${m} plaatsen vanaf ${a}. Het beeld is [[2]]`, fig], ans:[m, zinTxt(deg), bL], extra};
+  if(type==='pre') return {stappen:[`Hoeveel stappen? ${Math.abs(deg)}° : ${step}° = [[0]]`, `Draai terug: in welke zin tel je vanaf ${bL}? [[1]]`, `Tel ${m} plaatsen terug vanaf ${bL}. Het origineel is [[2]]`, fig], ans:[m, zinTxt(-deg), a], extra};
+  return {stappen:[`Tel de plaatsen van ${a} naar ${bL} in tegenwijzerzin: [[0]]`, `Hoek: [[1]] · ${step}° = [[2]]°`, HUIT(`In wijzerzin tellen mag ook: dan is de hoek negatief, ${r6(k2*step - 360)}°.`), fig], ans:[k2, k2, r6(k2*step)], extra};
+}
+/* puntspiegeling op een rooster: van het punt naar het centrum, en nog eens even ver */
+const ROOSTERFIG = (()=>{ let h = '';
+  for(let x=0;x<5;x++) h += `<line x1="${12+x*26}" y1="6" x2="${12+x*26}" y2="66" style="stroke:var(--border)" stroke-width="1"/>`;
+  for(let y=0;y<3;y++) h += `<line x1="6" y1="${10+y*26}" x2="122" y2="${10+y*26}" style="stroke:var(--border)" stroke-width="1"/>`;
+  h += `<defs><marker id="hpijl2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--orange)"/></marker></defs>`;
+  h += `<line x1="12" y1="62" x2="61" y2="38" style="stroke:var(--orange)" stroke-width="2" marker-end="url(#hpijl2)"/><line x1="64" y1="36" x2="113" y2="12" style="stroke:var(--orange)" stroke-width="2" marker-end="url(#hpijl2)"/>`;
+  [[12,62,'A'],[64,36,'M'],[116,10,'A′']].forEach(([x,y,n],i)=>{ h += `<circle cx="${x}" cy="${y}" r="3.6" style="fill:${i===1?'var(--ink)':i?'var(--orange)':'var(--accent-dark)'}"/><text x="${x+(i===2?-4:5)}" y="${y+(i===2?14:-5)}" font-size="10" font-weight="700" text-anchor="${i===2?'end':'start'}" style="fill:var(--ink)">${n}</text>`; });
+  return `<svg viewBox="0 0 128 72" width="190" height="107" role="img" aria-label="puntspiegeling: twee even lange pijlen">${h}</svg>`; })();
+function roosterHint(ask, pts, S, a, c, img, cands){
+  const d = (p, q) => [(pts[q][0]-pts[p][0])/S, (pts[q][1]-pts[p][1])/S];
+  const fig = HFIG(ROOSTERFIG, 'Het centrum M ligt in het midden: de twee pijlen zijn even lang');
+  const zin = 'naar rechts (naar links is negatief)', zin2 = 'omhoog (omlaag is negatief)';
+  const extra = 'Bij een spiegeling om een punt ligt het centrum precies in het midden tussen het punt en zijn beeld. Ga van het punt naar het centrum en daarna nog eens even ver in dezelfde richting.';
+  if(ask==='img'){ const [dx,dy] = d(a,c); return {stappen:[`Van ${a} naar het centrum ${c}: [[0]] stappen ${zin} en [[1]] stappen ${zin2}`, `Ga vanaf ${c} nog eens evenveel stappen verder. Het beeld is [[2]]`, fig], ans:[dx, dy, img], extra}; }
+  if(ask==='pre'){ const [dx,dy] = d(img,c); return {stappen:[`Van ${img} naar het centrum ${c}: [[0]] stappen ${zin} en [[1]] stappen ${zin2}`, `Ga vanaf ${c} nog eens evenveel stappen verder. Het origineel is [[2]]`, fig], ans:[dx, dy, a], extra}; }
+  const [dx,dy] = d(a,img);
+  return {stappen:[`Van ${a} naar ${img}: [[0]] stappen ${zin} en [[1]] stappen ${zin2}`, `De helft: [[2]] stappen naar rechts en [[3]] stappen omhoog`, `Ga vanaf ${a} de helft van de weg. Het centrum is [[4]]`, fig], ans:[dx, dy, dx/2, dy/2, cands], extra};
+}
+/* beeldpunten in een assenstelsel: coördinaat, regel, welk punt */
+const ASSENREGEL = { sy:'x krijgt het andere teken, y blijft', sx:'x blijft, y krijgt het andere teken', sO:'x en y krijgen allebei het andere teken',
+  r90:'(x, y) wordt (−y, x)', rm90:'(x, y) wordt (y, −x)' };
+function assenHint(op, pre, An, A, Bn, B){
+  const regel = op.key==='t' ? `schuif zoals van V naar W: x ${sgnTxt(op.v[0])}, y ${sgnTxt(op.v[1])}` : ASSENREGEL[op.key];
+  const fig = op.key==='t' || TRN[op.key] && /^s/.test(op.key) ? [HFIG(hintAssen(op.key), 'Voorbeeld: ' + (op.key==='t' ? 'een translatie' : TRN[op.key].naam))] : [];
+  if(!pre) return {stappen:[`Coördinaat van ${An} = ([[0]], [[1]])`, `Regel: ${regel}. Beeld = ([[2]], [[3]])`, `Welk punt ligt daar? [[4]]`, ...fig], ans:[A[0], A[1], B[0], B[1], Bn]};
+  return {stappen:[`Coördinaat van ${Bn} = ([[0]], [[1]])`, `Regel: ${regel}. Zoek het punt waarvan dit het beeld is: ([[2]], [[3]])`, `Welk punt ligt daar? [[4]]`, ...fig], ans:[B[0], B[1], A[0], A[1], An]};
+}
 const angN = d => ((d%360)+360)%360;          /* 0..360 */
 const angEq = (a,b) => Math.abs(((a-b)%360+540)%360-180) < 1e-6;
 function parseAng(s){ const t = String(s).replace(/\s+/g,'').replace(/[−–]/g,'-').replace(/°$/,'').replace(',', '.'); if(!/^[+-]?\d+(\.\d+)?$/.test(t)) return NaN; return Number(t); }
@@ -1975,7 +2158,7 @@ function letterQ(parent, st, save, id, q){
       if(!t) return {ok:false, msg:'Typ een letter.'};
       const ok = q.ans.map(a=>q.kind==='as'?a.toLowerCase():a.toUpperCase()).includes(t);
       return {ok, msg: ok ? (q.why||'') : (q.bad||'')}; },
-    sol:q.sol });
+    sol:q.sol, hint:q.hint });
 }
 
 /* ============================================================
@@ -2411,7 +2594,7 @@ function wordBank(parent, words){
   parent.append(bank);
   return { focus:row=>{ target = row; } };
 }
-HK.zinnen = { title:'Wiskundetaal: zinnen aanvullen', lvl:2, instr:'Bekijk de tekening en vul aan met de juiste begrippen.', build:(b,st,save)=>{
+HK.zinnen = { title:'Wiskundetaal: zinnen aanvullen', lvl:2, naast:2, mee:true, instr:'Bekijk de tekening en vul aan met de juiste begrippen.', build:(b,st,save)=>{
   const g = [-1,19,-1,13];
   const A = [8,5], B = [11,5], C = [9,8];
   const T = [A,B,C];
@@ -2669,7 +2852,7 @@ TR.kijk = { title:'Bekijk hoe je verschuift', lvl:1, keep:true, noReset:true,
     const up = ()=>{ drag = null; }; F.svg.addEventListener('pointerup', up); F.svg.addEventListener('pointercancel', up); F.svg.style.cursor = 'grab';
     reset();
   }};
-TR.waar = { title:'Vectoren: waar of niet waar?', lvl:1, instr:'ΔA′B′C′ is het beeld van ΔABC door de translatie over de vector XY. Waar of niet waar?', build:(b,st,save)=>{
+TR.waar = { title:'Vectoren: waar of niet waar?', lvl:1, naast:1, instr:'ΔA′B′C′ is het beeld van ΔABC door de translatie over de vector XY. Waar of niet waar?', build:(b,st,save)=>{
   const g = [0,12,0,8]; const op = {t:'t', v:[5,-2], from:[6,7], name:['X','Y']}; const fig = {pts:[[1,4],[4,5],[2,7]], names:['A','B','C']};
   const F = gridFig(b, {g, maxw:440}); F.base = opBase(op); F.draw(finalFig(fig, op));
   const R = makeR(st);
@@ -2726,7 +2909,7 @@ TR.welke = { title:'Welke vector hoort bij de verschuiving?', lvl:2, build:(b,st
   qChoice(b, st, save, 'w', { html:'De oranje vierhoek is het beeld van de blauwe door een verschuiving. Welke vector hoort bij deze verschuiving?', sym:true, opts:labels.map((l,i)=>[String(i), vecN(l[0],l[1])]), ans:String(ansI),
     why:'Die vector heeft dezelfde richting, zin en grootte als de verschuiving.', whyBad:'Tel bij een hoekpunt hoeveel hokjes het naar rechts of links en naar boven of beneden verschuift. Let ook op de zin van de pijl.' });
 }};
-TR.gelijk = { title:'Gelijke en tegengestelde vectoren', lvl:3, instr:'Gelijke vectoren hebben dezelfde richting, zin en grootte. Tegengestelde vectoren hebben dezelfde richting en grootte, maar een andere zin.', build:(b,st,save)=>{
+TR.gelijk = { title:'Gelijke en tegengestelde vectoren', lvl:3, naast:1, instr:'Gelijke vectoren hebben dezelfde richting, zin en grootte. Tegengestelde vectoren hebben dezelfde richting en grootte, maar een andere zin.', build:(b,st,save)=>{
   const R = makeR(st); const g = [0,14,0,8];
   let v; do{ v = [R.int(-4,4), R.int(-3,3)]; }while(Math.hypot(...v)<2.5);
   const list = R.shuffle([['eq',v],['eq',v],['op',[-v[0],-v[1]]],['other',[v[0],v[1]+(v[1]>0?-1:1)]],['other',[-v[1],v[0]]],['op',[-v[0],-v[1]]]]);
@@ -2799,9 +2982,9 @@ function circleRows(R, n, names, k){
     const type = i<k-2 ? 'img' : i===k-2 ? 'ang' : 'pre';
     const m = R.int(1, n-1); const sgn = R.pick([1,-1]); let deg = sgn*m*step; if(Math.abs(deg)>180 && R.f()<.6) deg = deg - Math.sign(deg)*360;
     const a = R.pick(names); const ai = idx(a); const bi = ((ai - Math.round(deg/step)) % n + n) % n; const bL = names[bi]; /* namen lopen in wijzerzin */
-    if(type==='img') rows.push({html:`r(O, ${degTxt(deg)})(${a}) = [[0]]`, ans:[bL], kind:'pt', sol:`${a} draait ${Math.abs(Math.round(deg/step))} plaatsen in ${zinTxt(deg)}: <b>${bL}</b>`});
-    else if(type==='pre') rows.push({html:`r(O, ${degTxt(deg)})([[0]]) = ${bL}`, ans:[a], kind:'pt', sol:`Draai terug: <b>${a}</b>`});
-    else { const k2 = ((ai - bi) % n + n) % n; const d1 = r6(k2*step), d2 = r6(k2*step - 360); rows.push({html:`r(O, [[0]]°)(${a}) = ${bL}`, ans:[d1,d2], kind:'ang', mod:true, sol:`${degTxt(d1)} of ${degTxt(d2)}`}); }
+    if(type==='img') rows.push({html:`r(O, ${degTxt(deg)})(${a}) = [[0]]`, ans:[bL], kind:'pt', sol:`${a} draait ${Math.abs(Math.round(deg/step))} plaatsen in ${zinTxt(deg)}: <b>${bL}</b>`, hint:cirkelHint('img', deg, step, a, bL)});
+    else if(type==='pre') rows.push({html:`r(O, ${degTxt(deg)})([[0]]) = ${bL}`, ans:[a], kind:'pt', sol:`Draai terug: <b>${a}</b>`, hint:cirkelHint('pre', deg, step, a, bL)});
+    else { const k2 = ((ai - bi) % n + n) % n; const d1 = r6(k2*step), d2 = r6(k2*step - 360); rows.push({html:`r(O, [[0]]°)(${a}) = ${bL}`, ans:[d1,d2], kind:'ang', mod:true, sol:`${degTxt(d1)} of ${degTxt(d2)}`, hint:cirkelHint('ang', deg, step, a, bL, k2)}); }
   }
   return rows;
 }
@@ -2816,11 +2999,11 @@ function circleCard(title, lvl, n, instr){
     names.forEach(L=>objs.push({t:'pt', p:P[L], n:L, c:'orig', away:[0,0]}));
     F.draw(objs);
     Rt.append(el('p','mini-note', `De ${n} punten liggen op gelijke afstanden op een cirkel met middelpunt O. Tussen twee buren is de hoek ${360/n}°. Typ een letter of een hoek (met teken).`));
-    circleRows(R, n, names, 6).forEach((r,i)=>letterQ(Rt, st, save, 'c'+i, {nr:LET[i]+'.', html:r.html, ans:r.ans, kind:r.kind, mod:r.mod, sol:r.sol, bad: r.kind==='ang' ? 'Tel de plaatsen en vermenigvuldig met de hoek tussen twee buren. Tegenwijzerzin is positief.' : 'Positieve hoek: draai in tegenwijzerzin. Negatieve hoek: in wijzerzin.'}));
+    circleRows(R, n, names, 6).forEach((r,i)=>letterQ(Rt, st, save, 'c'+i, {nr:LET[i]+'.', html:r.html, ans:r.ans, kind:r.kind, mod:r.mod, sol:r.sol, hint: lvl<3 ? r.hint : null, bad: r.kind==='ang' ? 'Tel de plaatsen en vermenigvuldig met de hoek tussen twee buren. Tegenwijzerzin is positief.' : 'Positieve hoek: draai in tegenwijzerzin. Negatieve hoek: in wijzerzin.'}));
   }};
 }
-RT.klok = circleCard('Twaalf punten op een cirkel', 2, 12, 'Vul aan.');
-RT.tien = circleCard('Tien punten op een cirkel', 3, 10, 'Vul aan. Een draaihoek van −90° is hetzelfde als een draaihoek van 270°: beide antwoorden zijn juist.');
+RT.klok = Object.assign(circleCard('Twaalf punten op een cirkel', 2, 12, 'Vul aan.'), {meeIn:'.cf-two>div:first-child'});
+RT.tien = Object.assign(circleCard('Tien punten op een cirkel', 3, 10, 'Vul aan. Een draaihoek van −90° is hetzelfde als een draaihoek van 270°: beide antwoorden zijn juist.'), {meeIn:'.cf-two>div:first-child'});
 /* draaihoek op een afbeelding */
 const DRAAI = [['bloem6',6,90,.5,.5],['molentje4',4,15,.49,.49],['reuzenrad8',8,0,.5,.40],['ventilator3',3,80,.5,.42],['wieldop5',5,90,.5,.5],['wieldop8',8,22.5,.5,.5],['windmolen4',4,45,.5,.39],['windroos8',4,0,.5,.5],['zeester5',5,90,.5,.5]];
 const DRAAI_NM = {bloem6:'bloem met 6 blaadjes', molentje4:'molentje met 4 wieken', reuzenrad8:'reuzenrad met 8 bakjes', ventilator3:'ventilator met 3 bladen', wieldop5:'wieldop met 5 spaken', wieldop8:'wieldop met 8 spaken', windmolen4:'windmolen met 4 wieken', windroos8:'windroos met 4 grote punten', zeester5:'zeester met 5 armen'};
@@ -2924,19 +3107,20 @@ PT.centrum = { title:'Waar ligt het centrum?', lvl:2, instr:'De oranje figuur is
 /* puntspiegelingen op een rooster van punten */
 function latticeRows(R, pts, k, kinds){
   const names = Object.keys(pts); const rows = []; const find = p => names.find(n=>ptEq(pts[n],p));
+  const S = Math.min(...names.map(n=>pts[n][0]).filter(x=>x>0));  /* afstand tussen twee buren op het rooster */
   for(let t=0; rows.length<k && t<500; t++){
     const kind = kinds[rows.length % kinds.length];
     const c = R.pick(names), a = R.pick(names); if(c===a) continue;
     const img = find(applyOp(pts[a], {t:'p', c:pts[c]})); if(!img) continue;
     const ask = R.pick(['img','img','pre','cen']);
     if(rows.some(r=>r.key===c+a)) continue;
-    if(ask==='img') rows.push({key:c+a, html:`s<sub>${c}</sub>(${a}) = [[0]]`, ans:[img], sol:`${c} is het midden van [${a}${img}]: <b>${img}</b>`});
-    else if(ask==='pre') rows.push({key:c+a, html:`s<sub>${c}</sub>([[0]]) = ${img}`, ans:[a], sol:`<b>${a}</b>, want ${c} is het midden van [${a}${img}]`});
-    else { const cands = names.filter(z=>find(applyOp(pts[a], {t:'p', c:pts[z]}))===img); rows.push({key:c+a, html:`s<sub>[[0]]</sub>(${a}) = ${img}`, ans:cands, sol:`Het midden van [${a}${img}]: <b>${cands.join(' of ')}</b>`}); }
+    if(ask==='img') rows.push({key:c+a, html:`s<sub>${c}</sub>(${a}) = [[0]]`, ans:[img], sol:`${c} is het midden van [${a}${img}]: <b>${img}</b>`, hint:roosterHint('img', pts, S, a, c, img)});
+    else if(ask==='pre') rows.push({key:c+a, html:`s<sub>${c}</sub>([[0]]) = ${img}`, ans:[a], sol:`<b>${a}</b>, want ${c} is het midden van [${a}${img}]`, hint:roosterHint('pre', pts, S, a, c, img)});
+    else { const cands = names.filter(z=>find(applyOp(pts[a], {t:'p', c:pts[z]}))===img); rows.push({key:c+a, html:`s<sub>[[0]]</sub>(${a}) = ${img}`, ans:cands, sol:`Het midden van [${a}${img}]: <b>${cands.join(' of ')}</b>`, hint:roosterHint('cen', pts, S, a, c, img, cands)}); }
   }
   return rows;
 }
-PT.rooster = { title:'Punten op een rooster', lvl:2, instr:'De punten liggen op een rooster. Typ telkens de juiste letter.', build:(b,st,save)=>{
+PT.rooster = { title:'Punten op een rooster', lvl:2, meeIn:'.cf-two>div:first-child', instr:'De punten liggen op een rooster. Typ telkens de juiste letter.', build:(b,st,save)=>{
   const R = makeR(st); const L = 'ABCDEFGHIJKLMN'.split(''); L.push('P'); const pts = {}; let i = 0;
   /* zoals bij 'Alle transformaties door elkaar': punten 2 eenheden uit elkaar op lijnen, zodat de letters niet overlappen */
   const S = 2, W = S*4, H = S*2;
@@ -2947,7 +3131,7 @@ PT.rooster = { title:'Punten op een rooster', lvl:2, instr:'De punten liggen op 
   for(let y=0;y<3;y++) o.push({t:'line', a:[-.8,S*y], b:[W+.8,S*y], c:'latline'});
   Object.entries(pts).forEach(([n,p])=>o.push({t:'pt', p, n, c:'orig', r:1, away:[p[0]-1, p[1]-1.4]}));
   F.draw(o);
-  latticeRows(R, pts, 6, ['img']).forEach((r,j)=>letterQ(Rt, st, save, 'r'+j, {nr:LET[j]+'.', html:r.html, ans:r.ans, kind:'pt', sol:r.sol, bad:'Het centrum is het midden tussen het punt en zijn beeld.'}));
+  latticeRows(R, pts, 6, ['img']).forEach((r,j)=>letterQ(Rt, st, save, 'r'+j, {nr:LET[j]+'.', html:r.html, ans:r.ans, kind:'pt', sol:r.sol, hint:r.hint, bad:'Het centrum is het midden tussen het punt en zijn beeld.'}));
 }};
 /* ============================================================
    KAARTEN 6: NOTATIE
@@ -3084,7 +3268,8 @@ function assenScene(R){
     plan.forEach((op,i)=>{ if(fail) return; let ok = false;
       for(let u=0;u<60 && !ok;u++){ const A = [R.int(-5,5), R.int(-5,5)]; if(!A[0] || !A[1]) continue; const B = applyOp(A, op); if(!inG(B,[-5,5,-5,5]) || ptEq(A,B) || all.some(q=>ptEq(q,A)||ptEq(q,B))) continue;
         const na = add(A), nb = add(B); const pre = i===3 || i===5;
-        rows.push(pre ? {html:`${opNot(op)}([[0]]) = ${nb}`, ans:[na], kind:'pt', sol:`<b>${na}</b>`} : {html:`${opNot(op)}(${na}) = [[0]]`, ans:[nb], kind:'pt', sol:`<b>${nb}</b>`}); ok = true; }
+        const hint = assenHint(op, pre, na, A, nb, B);
+        rows.push(pre ? {html:`${opNot(op)}([[0]]) = ${nb}`, ans:[na], kind:'pt', sol:`<b>${na}</b>`, hint} : {html:`${opNot(op)}(${na}) = [[0]]`, ans:[nb], kind:'pt', sol:`<b>${nb}</b>`, hint}); ok = true; }
       if(!ok) fail = true; });
     if(fail) continue;
     for(let d=0; d<3; d++){ for(let u=0;u<40;u++){ const p = [R.int(-5,5), R.int(-5,5)]; if(add(p)) break; } }
@@ -3092,12 +3277,12 @@ function assenScene(R){
   }
   return null;
 }
-NT.assen = { title:'Beeldpunten in een assenstelsel', lvl:2, instr:'Bekijk de punten in het assenstelsel. De vector VW is getekend. Typ telkens de juiste letter.', build:(b,st,save)=>{
+NT.assen = { title:'Beeldpunten in een assenstelsel', lvl:2, meeIn:'.cf-two>div:first-child', instr:'Bekijk de punten in het assenstelsel. De vector VW is getekend. Typ telkens de juiste letter.', build:(b,st,save)=>{
   const R = makeR(st); const S = assenScene(R); if(!S){ b.append(el('p','','Klik op Nieuwe opgave.')); return; }
   const two = el('div','cf-two'); b.append(two); const L = el('div'), Rt = el('div'); two.append(L, Rt);
   const F = gridFig(L, {g:[-6,6,-6,6], axes:true, maxw:420});
   F.draw([{t:'arrow', a:S.V, b:S.W}, {t:'pt', p:S.V, n:'V', c:'orig', r:.9, away:S.W}, {t:'pt', p:S.W, n:'W', c:'orig', r:.9, away:S.V}].concat(Object.entries(S.pts).map(([n,p])=>({t:'pt', p, n, c:'orig', r:1.1, away:[p[0]-.7, p[1]-.7]}))));
-  S.rows.forEach((r,j)=>letterQ(Rt, st, save, 'a'+j, {nr:LET[j]+'.', html:r.html, ans:r.ans, kind:'pt', sol:r.sol, bad:'Bij s<sub>y</sub> verandert x van teken, bij s<sub>x</sub> verandert y van teken, bij s<sub>O</sub> allebei. Bij een translatie schuif je zoals van V naar W.'}));
+  S.rows.forEach((r,j)=>letterQ(Rt, st, save, 'a'+j, {nr:LET[j]+'.', html:r.html, ans:r.ans, kind:'pt', sol:r.sol, hint:r.hint, bad:'Bij s<sub>y</sub> verandert x van teken, bij s<sub>x</sub> verandert y van teken, bij s<sub>O</sub> allebei. Bij een translatie schuif je zoals van V naar W.'}));
 }};
 
 /* --- verdieping: alles door elkaar op een rooster van punten --- */
@@ -3135,7 +3320,7 @@ function triScene(){
   for(let j=2;j>=-2;j--){ const n = 5 - Math.abs(j); const x0 = -(n-1)/2; for(let k=0;k<n;k++) pts[L[i++]] = [r6(2*(x0+k)), r6(2*j*h)]; }
   return pts;
 }
-NT.vlak = { title:'Een vlakvulling met driehoeken', lvl:3, instr:'De figuur bestaat uit gelijkzijdige driehoeken. Elke hoek van zo’n driehoek is 60°. Typ een letter of een hoek met teken.', build:(b,st,save)=>{
+NT.vlak = { title:'Een vlakvulling met driehoeken', lvl:3, meeIn:'.cf-two>div:first-child', instr:'De figuur bestaat uit gelijkzijdige driehoeken. Elke hoek van zo’n driehoek is 60°. Typ een letter of een hoek met teken.', build:(b,st,save)=>{
   const R = makeR(st); const pts = triScene(); const names = Object.keys(pts);
   const mid = names.find(n=>ptEq(pts[n],[0,0]));
   const ops = [];
@@ -3365,7 +3550,7 @@ EG.reken = { title:'Rekenen met eigenschappen', lvl:2, build:(b,st,save)=>{
 }};
 
 /* --- waar of niet waar bij een parallellogram gespiegeld om O --- */
-EG.wn = { title:'Een parallellogram gespiegeld om een punt', lvl:2, instr:'KLMN is het beeld van het parallellogram ABCD door de spiegeling om het punt O. Waar of niet waar?', build:(b,st,save)=>{
+EG.wn = { title:'Een parallellogram gespiegeld om een punt', lvl:2, naast:1, instr:'KLMN is het beeld van het parallellogram ABCD door de spiegeling om het punt O. Waar of niet waar?', build:(b,st,save)=>{
   const R = makeR(st); const g = [0,14,0,9];
   let P, O; for(let t=0;t<500;t++){ const A = [R.int(0,5), R.int(0,4)], w = R.int(3,4), sx = R.int(1,2), hh = R.int(2,3); P = [A, [A[0]+w, A[1]], [A[0]+w+sx, A[1]+hh], [A[0]+sx, A[1]+hh]]; O = [R.int(5,9), R.int(3,6)];
     const Q = P.map(p=>applyOp(p, {t:'p', c:O})); const bb = P.concat(Q), bx = bb.map(p=>p[0]), by = bb.map(p=>p[1]); if(Math.max(...bx)-Math.min(...bx)<=g[1]-g[0]-2 && Math.max(...by)-Math.min(...by)<=g[3]-g[2]-2 && Math.hypot(centroid(P)[0]-O[0], centroid(P)[1]-O[1])>=3.2 && !P.some(p=>Math.hypot(p[0]-O[0],p[1]-O[1])<1.5) && !Q.some(q=>inPoly(q,P) || P.some(p=>ptEq(p,q))) && !P.some(p=>inPoly(p,Q))) break; }
@@ -3997,7 +4182,7 @@ SV.letters = { title:'Symmetrie van letters', lvl:1, instr:'Sleep elke letter na
   const WHY = ['Er is een symmetrieas, maar na een halve draai staat de letter op zijn kop.','Na een halve draai valt de letter op zichzelf, maar er is geen symmetrieas.','Er is een symmetrieas én na een halve draai valt de letter op zichzelf.','Geen symmetrieas en geen symmetriemiddelpunt.'];
   sortEx(b, st, save, key, ['enkel spiegelsymmetrisch om een as','enkel spiegelsymmetrisch om een punt','allebei','geen van beide'], pick.map(L=>({t:`<span class="let-chip">${L}</span>`, ans:LETSYM[L], why:WHY[LETSYM[L]]})));
 }};
-SV.para = { title:'Heeft een parallellogram een symmetrieas?', lvl:2, instr:'Klik op de knoppen: een lichte kopie van het parallellogram wordt gespiegeld. Valt het beeld samen met de figuur? Beantwoord daarna de vragen.', build:(b,st,save)=>{
+SV.para = { title:'Heeft een parallellogram een symmetrieas?', lvl:2, naast:3, instr:'Klik op de knoppen: een lichte kopie van het parallellogram wordt gespiegeld. Valt het beeld samen met de figuur? Beantwoord daarna de vragen.', build:(b,st,save)=>{
   const P = [[0,0],[5,0],[7,3],[2,3]]; const M = [3.5,1.5]; const mAD = [1,1.5], mBC = [6,1.5];
   const host = el('div'); b.append(host); const B = polyBox(host, P, 320); const cap = el('div','cf-cap'); b.append(cap);
   const lab = (p, n, away) => { const L = lblAt(p, away); return `<circle class="orig" cx="${X(p[0])}" cy="${Y(p[1])}" r="1"/><text class="lbl orig" x="${f2(L.lx)}" y="${f2(L.ly)}" text-anchor="${L.anchor}">${n}</text>`; };
@@ -4057,7 +4242,7 @@ SV.tabel = { title:'Symmetrie van alle vierhoeken', lvl:3, instr:'Typ het aantal
       sol:`${k} symmetrieas${k===1?'':'sen'}, ${m==='j'?'wel':'geen'} symmetriemiddelpunt` }); });
 }};
 /* verdieping: oppervlakte met spiegelingen */
-SV.opp = { title:'Oppervlakte met spiegelingen', lvl:3, build:(b,st,save)=>{
+SV.opp = { title:'Oppervlakte met spiegelingen', lvl:3, naast:2, build:(b,st,save)=>{
   const R = makeR(st); const z = R.int(3,8);
   const S = [[0,0],[4,0],[4,4],[0,4]], M = [2,2];
   const tri = [[[0,0],[4,0],[2,-2]],[[4,0],[4,4],[6,2]],[[4,4],[0,4],[2,6]],[[0,4],[0,0],[-2,2]]];
@@ -4707,12 +4892,26 @@ function buildSection(sec, num){
     if(!card.noReset) ch.append(rb); c.append(ch);
     if(card.instr) c.append(el('p','instructions', card.instr));
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
-    renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
-      try{ card.build(body, st, save, key); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
+    renderers[key] = ()=>{ if(body._obs) body._obs.disconnect(); body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
+      try{ card.build(body, st, save, key); schik(body, card); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
       save(); };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
   });
+}
+
+/* één oefening op één scherm (werkwijze A en E):
+   card.naast = n: de eerste n blokken (figuur, woordenbank …) links, de vragen rechts; card.mee: de linkerkant loopt mee
+   card.meeIn = selector: in een bestaande .cf-two loopt de linkerkolom mee */
+function schik(body, card){
+  if(card.meeIn){ const l = body.querySelector(card.meeIn); if(l) l.classList.add('mee'); }
+  if(!card.naast) return;
+  const ch = [...body.children]; if(ch.length <= card.naast) return;
+  const w = el('div','naast'), L = el('div', card.mee ? 'mee' : ''), R = el('div');
+  ch[0].before(w); ch.slice(0, card.naast).forEach(x=>L.append(x)); ch.slice(card.naast).forEach(x=>R.append(x)); w.append(L, R);
+  /* wat de oefening later nog aan body toevoegt, komt rechts bij de vragen */
+  body._obs = new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{ if(n !== w && n.parentNode === body) R.append(n); })));
+  body._obs.observe(body, {childList:true});
 }
 
 SECTIONS.forEach((sec, si)=>{

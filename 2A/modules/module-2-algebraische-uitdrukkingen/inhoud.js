@@ -136,6 +136,34 @@ function glossify(text){
     return '<span class="gloss" title="'+esc(GLOSSARY[key])+'">'+esc(part)+'</span>';
   }).join('');
 }
+/* invulbare hint: de leerling vult de tussenstappen in; de uitleg in woorden staat onder "Meer uitleg" */
+function hintGelijk(v, a){ const n = t => String(t).replace(/\s+/g,'').replace(/[−–]/g,'-').replace(/[·⋅*]/g,'').toLowerCase(); return [].concat(a).some(x => n(v) === n(x)); }
+function hintStappen(box, h, uitleg){
+  const hs = ui.hs || (ui.hs = {v:[], x:false});
+  let k = 0;
+  box.innerHTML = '<b class="hk">Hint: vul de tussenstappen in</b>' + (h.fig ? '<div class="hs-fig">' + h.fig + '</div>' : '') +
+    '<ol class="hs-stap">' + h.stappen.map(t => '<li>' + rich(t).replace(/\[\[\]\]/g, () => '<input type="text" class="hs-inp" data-k="' + (k++) + '" autocomplete="off" spellcheck="false">') + '</li>').join('') + '</ol>' +
+    '<div class="hs-bar"><button type="button" class="btn ghost" data-hs="ok">Controleer de hint</button><button type="button" class="btn ghost" data-hs="x">Meer uitleg</button></div>' +
+    '<div class="hs-fb" role="status"></div><div class="hs-extra"' + (hs.x ? '' : ' hidden') + '>' + rich(uitleg) + '</div>';
+  const ins = [...box.querySelectorAll('.hs-inp')], fb = box.querySelector('.hs-fb');
+  ins.forEach((x, i) => { if(hs.v[i] != null) x.value = hs.v[i]; x.addEventListener('input', () => { hs.v[i] = x.value; x.classList.remove('ok', 'bad'); }); x.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); chk(); } }); });
+  const chk = () => { let goed = 0;
+    ins.forEach((x, i) => { x.classList.remove('ok', 'bad'); if(!x.value.trim()) return; const ok = hintGelijk(x.value, h.ans[i]); x.classList.add(ok ? 'ok' : 'bad'); if(ok) goed++; });
+    fb.textContent = goed === ins.length ? 'Alle tussenstappen kloppen. Kies nu je antwoord.' : ins.some(x => !x.value.trim()) ? 'Vul ook de lege vakjes in.' : 'De rode vakjes kloppen nog niet. Kijk eens bij Meer uitleg.';
+    fb.className = 'hs-fb ' + (goed === ins.length ? 'ok' : 'bad'); };
+  box.querySelector('[data-hs="ok"]').addEventListener('click', chk);
+  box.querySelector('[data-hs="x"]').addEventListener('click', () => { hs.x = !hs.x; box.querySelector('.hs-extra').hidden = !hs.x; });
+}
+/* twee stapeltjes met x bonnetjes, Kobe geeft er 3 af */
+const BONFIG = (() => { let h = '';
+  [[18, 'Nora'], [118, 'Kobe']].forEach(([x0, n]) => { for(let i = 0; i < 5; i++) h += '<rect x="' + x0 + '" y="' + (58 - i*7) + '" width="54" height="16" rx="3" style="fill:var(--tq-soft, #e8f8f8); stroke:var(--accent-dark, #127a7f)" stroke-width="1.2"/>';
+    h += '<text x="' + (x0 + 27) + '" y="94" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--text, #173436)">' + n + ': <tspan font-style="italic">x</tspan></text>'; });
+  for(let i = 0; i < 3; i++) h += '<rect x="' + (196 + i*20) + '" y="' + (40 + i*6) + '" width="16" height="22" rx="2" style="fill:var(--or-soft, #fff3d6); stroke:var(--orange, #fcaf17)" stroke-width="1.2"/>';
+  h += '<text x="222" y="94" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--text, #173436)">− 3</text><path d="M178 50 L194 50" style="stroke:var(--orange, #fcaf17)" stroke-width="2"/><path d="M190 46 L196 50 L190 54" fill="none" style="stroke:var(--orange, #fcaf17)" stroke-width="2"/>';
+  return '<svg viewBox="0 0 260 100" width="260" height="100" role="img" aria-label="twee stapeltjes met x bonnetjes, Kobe geeft er 3 af">' + h + '</svg>'; })();
+const HINTSTAP = {
+  ex01:{ fig:BONFIG, stappen:['Samen vóór Kobe iets afgeeft: `x + x` = [[]]', 'Kobe geeft 3 bonnetjes af: samen nog [[]]'], ans:['2x', ['2x-3', '-3+2x']] }
+};
 function hintText(q){ return q.hint || (q.type === 'pat' ? (PATHINT[q.fig] || '') : (HINTS[q.id] || '')); }
 
 /* ---------- tekenen ---------- */
@@ -144,7 +172,7 @@ const RENDER = () => ({ kies:renderKies, fout:renderFout, sorteer:renderSorteer,
   rows:renderRows, herlrows:renderHerlrows, herl:renderHerl, hw:renderHw, gw:renderGw, gwtabel:renderGwtabel, mono:renderMono,
   prodtab:renderProdtab, distr:renderDistr, opp:renderOpp, omtrek:renderOmtrek, pat:renderPat, pira:renderPira, ctx:renderCtx });
 const SIDE_TYPES = { kies:true, fout:true, ctx:true };
-function isSide(q){ return !!SIDE_TYPES[q.type] && !!(q.img || q.svg || q.type === 'fout'); }
+function isSide(q){ return !!SIDE_TYPES[q.type] && !!(q.img || q.svg || q.seg || q.type === 'fout'); }   /* seg: lijnstuk links, vragen rechts */
 function render(){ if(CUR) renderCard(CUR); }
 function renderCard(c){
   withCard(c, () => {
@@ -152,7 +180,7 @@ function renderCard(c){
     const instr = $R('instruction'); instr.innerHTML = rich(q.instr || INSTR[q.type] || '');
     const hint = hintText(q), hb = $R('hintBtn'), hbox = $R('hintBox');
     if(hb){ hb.hidden = !hint; hb.classList.toggle('on', !!ui.hintOn); hb.innerHTML = icon('bulb') + (ui.hintOn ? 'Verberg de hint' : 'Hint'); }
-    if(hbox){ hbox.hidden = !(ui.hintOn && hint); hbox.innerHTML = hint ? '<b class="hk">Hint:</b> ' + rich(hint) : ''; }
+    if(hbox){ hbox.hidden = !(ui.hintOn && hint); hbox.innerHTML = hint ? '<b class="hk">Hint:</b> ' + rich(hint) : ''; if(hint && HINTSTAP[q.id]) hintStappen(hbox, HINTSTAP[q.id], hint); }
     $R('workspace').classList.toggle('stack', !isSide(q) || c.root.clientWidth < 640);
     if(ui.curQ !== q.id){ ui.curQ = q.id; ui.tsel = null; ui.klsel = null; ui.dsel = null; ui.dhint = false; ui.patHi = false; ui.afterDraw = null; ui.rdsel = null; ui.rdhint = null; ui.sgOpen = null; ui.freshSg = null; }
     if(c.mode === 'toets' && q.type === 'pat') ui.patHi = false;
@@ -2531,6 +2559,7 @@ const HINTS = {
   "ex56":"De omtrek is de som van de lengtes van alle zijden. Tel alles op en neem daarna de gelijksoortige eentermen samen.",
   "ex67":"Zijden met evenveel streepjes zijn even lang. In een parallellogram zijn de overstaande zijden even lang. Tel alle vier de zijden op en herleid.",
   "ex68":"Alle zijden met een streepje zijn even lang. Tel de vier zijden op en herleid.",
+  "no1":"Alle zijden met een streepje zijn even lang: een ruit heeft vier even lange zijden. Tel de vier zijden op en herleid.",
   "ex58":"Als je gelijksoortige eentermen optelt, tel je de coëfficiënten op. Het lettergedeelte blijft hetzelfde: de exponent verandert niet.",
   "sv01":"Staat er een + voor de haakjes, dan laat je de haakjes gewoon weg: elke term houdt zijn teken. Neem daarna de termen met `x` samen en de getallen zonder letter samen.",
   "sv02":"Een + voor de haakjes: elke term houdt zijn teken, ook de min van `−2a^2`. Er zijn drie soorten termen: met `a^2`, met `a` en zonder letter.",
