@@ -1546,7 +1546,7 @@ function omdraaiSvg(p, q, n, k, t){
   s += `<text class="t big" x="${fx(bx + (k===1 ? Math.sin(Math.PI*xs)*16 : 0))}" y="${fx(yN)}" text-anchor="middle" dominant-baseline="central" style="fill:#b46f00">${q}</text>`;
   const e = k===0 ? -n : n;
   s += `<text class="t big" x="${bx + 44}" y="${by - 30}" text-anchor="start" dominant-baseline="central"${k===1 ? ` opacity="${fx(Math.abs(1-2*t))}"` : ''}>${sg(k===1 && t<.5 ? -n : e)}</text>`;
-  if(k===1){ s += `<path class="pijl" d="M${bx - 40} ${by - 30} Q${bx - 62} ${by} ${bx - 40} ${by + 30}"/><path class="pijl" d="M${bx + 26} ${by + 32} Q${bx + 2} ${by + 58} ${bx - 14} ${by + 42}"/>`; }
+  if(k===1){ s += `<defs><marker id="m4pijl2" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="pijlk" d="M0 0L8 4L0 8z"/></marker></defs><path class="pijl" style="marker-start:url(#m4pijl2);marker-end:url(#m4pijl2)" d="M${bx - 40} ${by - 30} Q${bx - 62} ${by} ${bx - 40} ${by + 30}"/>`; }
   if(k>=2){ const x2 = 200; s += sT(x2 - 26, by, '=', 'big');
     s += `<text class="t big" x="${x2 + 14}" y="${by - 20}" text-anchor="middle" dominant-baseline="central">${q}<tspan class="sup" dy="-9">${n}</tspan></text><line class="brl" x1="${x2 - 8}" y1="${by}" x2="${x2 + 36}" y2="${by}"/><text class="t big" x="${x2 + 14}" y="${by + 22}" text-anchor="middle" dominant-baseline="central">${p}<tspan class="sup" dy="-9">${n}</tspan></text>`; }
   if(k>=3){ const x3 = 300, T = qPow(Q(q, p), n); s += sT(x3 - 26, by, '=', 'big') + `<g class="pop">${sQ(x3 + 10, by, T, 'big')}</g>`; }
