@@ -1340,6 +1340,23 @@ function vrijVak(sp, v, save, onCh){
     lock(){ if(bar) bar.remove(); sp.querySelectorAll('.vx-actief').forEach(x => x.classList.remove('vx-actief')); }
   });
 }
+/* ---------- knop rechtsboven op de kaart: hoe werken de knoppen? ---------- */
+const VX_HULP = () => `<h3>Spiekbriefje · zo bouw je je antwoord</h3><table>
+  <tr><td><span class="vx-k vx-demo"><span class="vx-ic"><span class="vx-dot">·</span><span class="vx-hok"></span></span></span></td><td><b>maal</b>: zet er nog een factor bij, met een maalteken ertussen. Typ je <b>8a</b>, dan wordt dat vanzelf 8 · <i>a</i>.</td><td><kbd>*</kbd></td></tr>
+  <tr><td><span class="vx-k vx-demo"><span class="vx-ic">${XP_IC}</span></span></td><td><b>macht</b>: geeft het actieve vakje een exponent. Nog eens klikken haalt de exponent weg.</td><td><kbd>^</kbd></td></tr>
+  <tr><td><span class="vx-k vx-demo"><span class="vx-ic">${HK_IC}</span></span></td><td><b>haakjes</b>: zet haakjes met een exponent rond het actieve vakje, bijvoorbeeld (${MIN}3)<sup>2</sup>. Is het vakje leeg, dan bouw je tussen de haakjes verder, ook een breuk: <span class="m4-line" style="display:inline-flex">${abH('2', '3', '2')}</span>.</td><td><kbd>(</kbd> <kbd>)</kbd></td></tr>
+  <tr><td><span class="vx-k vx-brk vx-demo"><span class="vx-ic">${BRK_IC}</span></span></td><td><b>breuk</b>: wat er staat wordt de teller, eronder komt een noemer. Met de pijltjes ↑ en ↓ spring je tussen teller en noemer.</td><td><kbd>/</kbd></td></tr>
+  <tr><td><span class="vx-k vx-demo"><span class="vx-ic">↶</span></span></td><td><b>terug</b>: maakt je laatste wijziging ongedaan. Ook handig: in een leeg vakje haalt de wistoets dat vakje weg.</td><td><kbd>⌫</kbd></td></tr>
+  <tr><td><span class="vx-k vx-demo"><span class="vx-ic">✕</span></span></td><td><b>regel weg</b>: haalt de laatste regel weg.</td><td></td></tr>
+  <tr><td><span class="btn ghost vx-plus vx-demo">=</span></td><td><b>volgende tussenstap</b>: begint een nieuwe regel. Schrijf elke stap op een eigen regel, zoals op papier.</td><td></td></tr></table>
+  <p><b>Het oranje vakje</b> is actief: daar werken de knoppen op. <b>Bijna juist</b> betekent: je stap klopt, maar je bent nog niet klaar. Een <b class="vx-rood">✕</b> naast een regel betekent dat daar iets fout ging: klik erop voor uitleg.</p>`;
+function vxHulp(card){
+  const head = card.querySelector('.card-head'); if(!head || head.querySelector('.vx-hulp-btn')) return;
+  const b = el('button', 'cheat-btn vx-hulp-btn', '<span aria-hidden="true">?</span>'); b.type = 'button'; b.dataset.tip = 'hoe werken de knoppen?'; b.setAttribute('aria-label', 'hoe werken de knoppen?'); b.setAttribute('aria-expanded', 'false');
+  const panel = el("div", "cheat vx-hulp", VX_HULP()); panel.hidden = true;
+  b.addEventListener('click', ()=>{ panel.hidden = !panel.hidden; b.setAttribute('aria-expanded', String(!panel.hidden)); });
+  const rb = head.querySelector('.refresh-btn'); head.insertBefore(b, rb || null); head.after(panel);
+}
 (function(){ const css = `
   .m4-line:has(> .m4-wx){flex-wrap:wrap; row-gap:.5rem}
   .m4-wx{flex-basis:100%; flex-direction:column; align-items:flex-start; gap:.5rem; padding-left:1.4rem}
@@ -1355,15 +1372,21 @@ function vrijVak(sp, v, save, onCh){
   .vx-par.groot{font-size:3.6rem; transform:scaleX(.55); margin:0 -.3rem}
   .vx-balk{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .8rem; margin:.4rem 0 .2rem 2.8rem}
   .vx-tools{display:flex; flex-wrap:wrap; gap:.3rem}
-  .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:2.75rem; min-height:2.75rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
-  .vx-ic{font-size:1rem; line-height:1.1; display:inline-flex; align-items:center; min-height:1.15rem}
+  .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:2.15rem; min-height:2.15rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
+  .vx-ic{font-size:.9rem; line-height:1.1; display:inline-flex; align-items:center; min-height:1.15rem}
   .vx-k{position:relative}
   .vx-k::after{content:attr(data-tip); position:absolute; left:50%; top:calc(100% + 5px); transform:translateX(-50%); white-space:nowrap; background:var(--ink); color:var(--bg, #fff); font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.35rem; opacity:0; pointer-events:none; transition:opacity .15s; z-index:20}
   .vx-k:hover::after{opacity:1; transition-delay:1s}
-  .vx-plus{min-height:2.75rem}
+  .vx-plus{min-height:2.15rem; padding:.2rem .8rem; font-size:.9rem}
   .vx-snel{flex-basis:100%; font-size:.78rem; color:var(--ink-soft)}
   .vx-snel kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; background:var(--zone-bg, #f6fbfb); color:var(--accent-dark)}
   .vx-regel{position:relative}
+  .card-head .vx-hulp-btn{margin-left:auto; margin-right:.5rem; font-weight:700; font-size:1.1rem; width:32px; height:32px; border:2px solid var(--accent); color:var(--accent-dark); background:var(--accent-soft)}
+  .card-head:has(.vx-hulp-btn) .refresh-btn{margin-left:0}
+  .vx-hulp td:first-child{width:3.2rem; text-align:center} .vx-hulp td:last-child{white-space:nowrap}
+  .vx-hulp kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; color:var(--accent-dark)}
+  .vx-demo{cursor:default; pointer-events:none} .vx-demo::after{display:none}
+  .vx-hulp p{margin:.6rem 0 0; font-size:.88rem} .vx-rood{color:var(--bad)}
   .vx-x{border:0; background:transparent; color:var(--bad); font-weight:700; font-size:1.05rem; cursor:pointer; padding:.1rem .35rem; border-radius:50%; line-height:1}
   .vx-x:hover, .vx-x:focus-visible, .vx-x[aria-expanded="true"]{background:var(--bad-bg)}
   .vx-uit{position:absolute; left:2rem; top:calc(100% + .2rem); z-index:5; width:min(26rem, 85vw); font-weight:400; color:var(--ink); background:var(--card, #fff); border:2px solid var(--bad); border-radius:.6rem; padding:.55rem 2rem .55rem .75rem; box-shadow:0 6px 18px rgba(0,0,0,.14); font-size:.92rem; line-height:1.5}
@@ -3671,7 +3694,7 @@ function buildSection(sec, num){
     if(card.instr) c.append(el('p','instructions', card.instr));
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
     renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
-      try{ card.build(body, st, save, key); hintsSamen(body, key); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
+      try{ card.build(body, st, save, key); hintsSamen(body, key); if(body.querySelector('.m4-wx')) vxHulp(c); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
       save(); };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
