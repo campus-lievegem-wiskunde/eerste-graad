@@ -1151,7 +1151,7 @@ HR.uit = { title:'Schrijf uit en reken uit', lvl:1,
   build(b, st, save){
     const R = makeR(st);
     const L = R.shuffle([['2', R.int(4, 7)], ['3', R.int(3, 4)], ['-2', R.int(3, 6)], ['-3', R.int(2, 3)], ['5', 3], ['-1', R.int(5, 9)], ['-10', R.int(2, 4)], ['4', 3]]).slice(0, 6);
-    stapUitleg(b, [[`${mH('-2', 3)}`, 'Het grondtal is −2, de exponent is 3.'], [`${isq} (−2) · (−2) · (−2)`, 'Schrijf uit: 3 factoren −2.'], [`${isq} 4 · (−2)`, '(−2) · (−2) = 4'], [`${isq} −8`, 'Drie mintekens: er blijft er één over.']], {kop:'Voorbeeld'});
+    stapUitleg(b, [[`${mH('-2', 3)}`, 'Het grondtal is −2, de exponent is 3.'], [`${isq} (−2) · (−2) · (−2)`, 'Schrijf uit: 3 factoren −2.'], [`${isq} −8`, 'Drie mintekens: er blijft er één over, dus negatief. 2 · 2 · 2 = 8.']], {kop:'Voorbeeld'});
     reeks(b, L.length, (g, i, nr) => { const [bb, n] = L[i]; const T = powQ(bb, n); const f = Array(n).fill(bH(bb)).join(' · ');
       mQ(g, st, save, 'u' + i, { nr, html:`${mH(bb, n)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T, [[Q(bVal(bb).n*n), 'Je vermenigvuldigde het grondtal met de exponent. Schrijf de macht uit als een product.']]),
         hint:[{u:'Schrijf de macht uit als een product en reken uit.', line:`${f} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), show:`${f} ${isq} ${qH(T)}`}],
@@ -3068,8 +3068,8 @@ FT.verm = foutKaart('Vermenigvuldigen en delen', 2, R => { const x = R.pick(['a'
 FT.teken = foutKaart('Het minteken', 2, R => { const g = R.pick([3, 4, 5]);
   return [{task:`Bereken ${minH(mH(String(g), 2))}.`, lines:[ln(`${minH(mH(String(g), 2))} ${isq} (${MIN}${g}) · (${MIN}${g})`), ln(`${isq} ${g*g}`)], wrong:0, cons:[1],
       why:`De exponent hoort enkel bij ${g}: ${minH(mH(String(g), 2))} ${isq} ${MIN}(${g} · ${g}).`, fixMQ:{html:`${minH(mH(String(g), 2))} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, Q(-g*g)), sol:sg(-g*g)}},
-    {task:`Bereken ${mH('-2', 3)}.`, lines:[ln(`${mH('-2', 3)} ${isq} (${MIN}2) · (${MIN}2) · (${MIN}2)`), ln(`${isq} 4 · (${MIN}2)`), ln(`${isq} 8`)], wrong:2,
-      why:'Drie mintekens: er blijft er één over, dus het resultaat is negatief.', fixMQ:{html:`4 · (${MIN}2) ${isq} {{u:a,t}}`, check:V=>chkU(V.a, Q(-8)), sol:sg(-8)}}]; });
+    {task:`Bereken ${mH('-2', 3)}.`, lines:[ln(`${mH('-2', 3)} ${isq} (${MIN}2) · (${MIN}2) · (${MIN}2)`), ln(`${isq} 8`)], wrong:1,
+      why:'Drie mintekens: er blijft er één over, dus het resultaat is negatief.', fixMQ:{html:`(${MIN}2) · (${MIN}2) · (${MIN}2) ${isq} {{u:a,t}}`, check:V=>chkU(V.a, Q(-8)), sol:sg(-8)}}]; });
 
 FT.neg = foutKaart('Negatieve exponent', 2, R => { const n = R.pick([2, 3]); const [p, q] = R.pick([[2, 3], [3, 4], [2, 5]]);
   return [{task:`Bereken ${mH('2', -n)}.`, lines:[ln(`${mH('2', -n)} ${isq} ${minH(mH('2', n))}`), ln(`${isq} ${MIN}${2**n}`)], wrong:0, cons:[1],
