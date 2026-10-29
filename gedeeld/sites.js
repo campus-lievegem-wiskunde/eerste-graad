@@ -782,6 +782,113 @@ export const SITES = [
   ]
  },
  {
+  "id": "2a-m4",
+  "titel": "Module 4 · Machten",
+  "kort": "Module 4",
+  "jaar": "2A",
+  "rubriek": "modules",
+  "pad": "2A/modules/module-4-machten/",
+  "prefix": "2a_m4_machten_v1_",
+  "onderdelen": [
+   {
+    "id": "herh",
+    "naam": "Machten: herhaling",
+    "toets": false,
+    "vragen": 54
+   },
+   {
+    "id": "teken",
+    "naam": "Positief of negatief?",
+    "toets": false,
+    "vragen": 41
+   },
+   {
+    "id": "neg",
+    "naam": "Negatieve exponent en exponent 0",
+    "toets": false,
+    "vragen": 61
+   },
+   {
+    "id": "brk",
+    "naam": "Breuk tot een negatieve macht",
+    "toets": false,
+    "vragen": 44
+   },
+   {
+    "id": "verm",
+    "naam": "Machten vermenigvuldigen",
+    "toets": false,
+    "vragen": 56
+   },
+   {
+    "id": "del",
+    "naam": "Machten delen",
+    "toets": false,
+    "vragen": 47
+   },
+   {
+    "id": "mm",
+    "naam": "Macht van een macht",
+    "toets": false,
+    "vragen": 58
+   },
+   {
+    "id": "prod",
+    "naam": "Macht van een product",
+    "toets": false,
+    "vragen": 44
+   },
+   {
+    "id": "quot",
+    "naam": "Macht van een quotiënt",
+    "toets": false,
+    "vragen": 45
+   },
+   {
+    "id": "door",
+    "naam": "Rekenregels door elkaar",
+    "toets": false,
+    "vragen": 53
+   },
+   {
+    "id": "wet",
+    "naam": "Wetenschappelijke schrijfwijze",
+    "toets": false,
+    "vragen": 57
+   },
+   {
+    "id": "fout",
+    "naam": "Zoek de fout",
+    "toets": false,
+    "vragen": 12
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
   "id": "2a-wp",
   "titel": "Wiskundige problemen · 2de jaar",
   "kort": "Wiskundige problemen",
