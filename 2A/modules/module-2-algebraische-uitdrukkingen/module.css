@@ -1598,3 +1598,17 @@ to{ opacity:1; transform:none; }
 .vf-tab{ border-collapse:collapse; width:100%; max-width:560px; }
 .vf-tab th, .vf-tab td{ border-bottom:1px solid var(--border, #cbdadb); padding:.3rem .5rem; text-align:left; }
 .vf-tab th{ font-size:.8rem; text-transform:uppercase; color:var(--accent-dark, #127a7f); }
+
+/* invulbare hint (tussenstappen) */
+.aq .hintbox .hs-fig{ margin:6px 0 2px; }
+.aq .hintbox .hs-fig svg{ max-width:100%; height:auto; }
+.aq .hintbox .hs-stap{ margin:6px 0 8px; padding-left:22px; display:grid; gap:6px; }
+.aq .hintbox .hs-inp{ font:inherit; width:7.5em; margin:0 4px; padding:3px 8px; border:1.5px solid var(--accent, #3bc1c5); border-radius:8px; background:var(--card, #fff); color:var(--text); }
+.aq .hintbox .hs-inp.ok{ border-color:#2e9e5b; background:#eaf7ef; }
+.aq .hintbox .hs-inp.bad{ border-color:#d64545; background:#fdeeee; }
+.aq .hintbox .hs-bar{ display:flex; flex-wrap:wrap; gap:6px; }
+.aq .hintbox .hs-fb{ margin-top:6px; font-weight:700; }
+.aq .hintbox .hs-fb.ok{ color:#1f7a45; } .aq .hintbox .hs-fb.bad{ color:#b23434; }
+.aq .hintbox .hs-extra{ margin-top:8px; padding:8px 10px; border-left:4px solid var(--accent, #3bc1c5); background:var(--card, #fff); border-radius:8px; }
+/* figuur naast de vragen: de figuur loopt mee bij het scrollen */
+@media(min-width:901px){ .aq .workspace:not(.stack) > .visual{ position:sticky; top:8px; } }
