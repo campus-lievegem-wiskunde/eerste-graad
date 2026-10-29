@@ -1208,7 +1208,7 @@ function chkX(v, doel, fout=[]){
   const fk = res.findIndex(r => !r.eq);
   if(fk >= 0){ const g = fout.find(([w]) => VX.eq(res[fk].val, w)); return {ok:false, msg:(nr ? `Regel ${fk+1} klopt niet. ` : '') + (g ? g[1] : '')}; }
   const last = res[res.length-1];
-  if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>＋ tussenstap</b> en reken verder op een nieuwe regel.`};
+  if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>= volgende stap</b> en reken verder op een nieuwe regel.`};
   return {ok:true};
 }
 /* ---------- tekenen en bewerken ---------- */
@@ -1242,7 +1242,7 @@ function vrijVak(sp, v, save, onCh){
       row.append(rend(L.b, actief));
       if(actief) row.append(knoppen(li));
       sp.append(row); });
-    const plus = el('button', 'linkbtn vx-plus', '＋ tussenstap'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
+    const plus = el('button', 'linkbtn vx-plus', '= volgende stap'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
     plus.addEventListener('click', ()=>{ v.r.push({b:VX.R()}); ch(); draw(); focus(v.r[v.r.length-1].b.f[0]); });
     sp.append(plus); }
   function rend(n, actief){
@@ -1262,7 +1262,7 @@ function vrijVak(sp, v, save, onCh){
   function knoppen(li){ const ctl = el('span', 'vx-ctl');
     const knop = (html, tip, fn, cls='') => { const b = el('button', 'vx-k ' + cls, html); b.type = 'button'; b.dataset.tip = tip; b.setAttribute('aria-label', tip);
       b.addEventListener('mousedown', e=>e.preventDefault()); b.addEventListener('click', ()=>{ index(); const n = foc && P.has(foc.n) ? foc.n : laatsteA(v.r[li].b); fn(n); }); ctl.append(b); return b; };
-    knop('＋', 'factor toevoegen', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
+    knop('<span class="vx-dot">·</span><span class="vx-hok"></span>', 'factor erbij (maal)', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
     knop(XP_IC, 'exponent', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
     knop(HK_IC, 'haakjes met een exponent', n => { const leeg = n.k==='a' && !nrm(n.s||''); const g = haakjes(n); ch(); draw(); if(leeg) focus(n); else focus(g, 'e'); });
     knop(BRK_IC, 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
@@ -1318,6 +1318,8 @@ function vrijVak(sp, v, save, onCh){
   .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.4rem; min-width:1.9rem; height:1.9rem; padding:0 .3rem; cursor:pointer; font:inherit; font-size:.95rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center}
   .vx-k:hover, .vx-k:focus-visible{border-color:var(--accent-dark)}
   .vx-k sup{font-size:.7em}
+  .vx-dot{font-size:1.6em; line-height:0}
+  .vx-hok{display:inline-block; width:.7rem; height:.85rem; border:1.5px solid currentColor; border-radius:.2rem; margin-left:.15rem}
   .vx-k.vx-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
   .vx-k.vx-weg{color:var(--ink-soft)}
   .vx-plus{font-size:.9rem}
@@ -2913,7 +2915,7 @@ QT.slim = { title:'Slim rekenen: zelfde exponent', lvl:2,
 
 /* ---------- negatieve exponent ---------- */
 QT.neg = { title:'Met een negatieve exponent', lvl:2,
-  instr:'Werk uit en schrijf met positieve exponenten. Bouw je antwoord zelf op, zoals op papier: <b>＋</b> een factor, <b><i>x</i><sup>n</sup></b> een exponent, <b>( )<sup>n</sup></b> haakjes met een exponent, het breukicoontje een breuk. Typen kan ook: ( ) / ^. Schrijf elke tussenstap op een nieuwe regel met <b>＋ tussenstap</b>.',
+  instr:'Werk uit en schrijf met positieve exponenten. Bouw je antwoord zelf op, zoals op papier: <b>·▢</b> nog een factor (maal), <b><i>x</i><sup>n</sup></b> een exponent, <b>( )<sup>n</sup></b> haakjes met een exponent, het breukicoontje een breuk. Typen kan ook: ( ) / ^. Schrijf elke tussenstap op een nieuwe regel met <b>= volgende stap</b>.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     /* [getal, getal boven?, exponent] : (2/a)^-3 of (a/3)^-2 */
