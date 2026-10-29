@@ -3,7 +3,8 @@
    Motor: elke keuze maakt 10 oefeningen, het eigen juiste antwoord wordt aanvaard, een fout of een niet-vereenvoudigde breuk niet.
    Leerling 2A: tegel, verborgen hoofdstuk weg, reeks gehele getallen (9/10), breuken met het breukvak (minteken, vereenvoudigen),
    lege oefeningen (bevestiging), reeks bewaard bij herladen, nieuwe reeks = nieuwe opgaven, één oefening past op het scherm, scores in Firestore.
-   Leerling 1A: natuurlijke getallen, geen machten. Leerkracht: dashboard toont laatste en beste score per hoofdstuk. */
+   Meerkeuze: meer soorten getallen en bewerkingen samen (Andere combinaties). Kommagetallen ×/: enkel met de vaste factoren.
+   Leerling 1A: natuurlijke en gehele getallen (−20 tot 20), machten tot 20². Leerkracht: dashboard toont laatste en beste score per hoofdstuk. */
 const H = require('./helpers'); const fs = require('fs'); const path = require('path');
 const SCH = process.env.SCHERMEN || null;
 (async()=>{
@@ -35,6 +36,13 @@ const SCH = process.env.SCHERMEN || null;
           else if(it.s === 'q' && V.beoordeel(it, { m:c.m, t:c.t, n:'1' })) fout.push('noemer 1 aanvaard'); }); } })); });
     return { n, fout:fout.slice(0, 5) }; });
   check(motor.n >= 2000 && !motor.fout.length, `motor 2A: ${motor.n} oefeningen, juist antwoord aanvaard, fout en niet vereenvoudigd geweigerd ${motor.fout.join(' | ')}`);
+
+  /* kommagetallen bij vermenigvuldigen en delen: enkel met 0,1 0,2 0,5 0,01 0,001 0,25 0,125 */
+  const kf = await p.evaluate(()=>{ const V = window.VRIJ, J = V.J, fout = []; let n = 0;
+    ['maal', 'deel', 'fact'].forEach(b=>{ for(let k = 0; k < 10; k++) V.maakReeks(J, 'maal', 'd', b).forEach(it=>{ n++; const t = it.html.replace(/<[^>]+>/g, ' ');
+      const komma = (t.match(/\d+,\d+/g) || []); if(!komma.some(x=>J.komma.includes(x))) fout.push(t); }); });
+    return { n, fout:fout.slice(0, 5) }; });
+  check(kf.n === 300 && !kf.fout.length, 'kommagetallen: vermenigvuldigen en delen telkens met 0,1 0,2 0,5 0,01 0,001 0,25 of 0,125 ' + kf.fout.join(' | '));
 
   /* reeks: gehele getallen, optellen */
   await p.click('.vo-chip[data-g="z"]'); await p.click('.vo-chip[data-b="plus"]'); await p.waitForTimeout(100);
@@ -85,6 +93,29 @@ const SCH = process.env.SCHERMEN || null;
   await p.click('.vo-verbeter'); await p.waitForTimeout(200);
   check(new RegExp(`Score ${verwacht} / 10`).test(await p.locator('.vo-tel').innerText()), `breuken: ${verwacht}/10 (minteken in de teller getikt telt, niet vereenvoudigd is fout)`);
 
+  /* meerkeuze: gehele getallen + breuken, optellen + aftrekken */
+  await p.click('nav.side button:has-text("Optellen en aftrekken")'); await p.waitForTimeout(150);
+  if(await p.locator('.vo-terug').count()) await p.locator('.vo-terug').first().click(); await p.waitForTimeout(150);
+  await p.click('.vo-chip[data-g="q"]'); await p.click('.vo-chip[data-b="min"]'); await p.waitForTimeout(100);
+  const aanG = await p.locator('.vo-chip.aan[data-g]').evaluateAll(l=>l.map(b=>b.dataset.g)), aanB = await p.locator('.vo-chip.aan[data-b]').evaluateAll(l=>l.map(b=>b.dataset.b));
+  check(aanG.join() === 'z,q' && aanB.join() === 'plus,min', 'meerkeuze: twee soorten getallen en twee bewerkingen aan: ' + aanG + ' / ' + aanB);
+  await shot(p, '1b_meerkeuze');
+  await p.click('.vo-start'); await p.waitForTimeout(200);
+  const rc = await p.evaluate(k=>JSON.parse(localStorage.getItem(k)), P + 'reeks_optel');
+  check(rc.g === 'z+q' && rc.b === 'plus+min' && rc.items.every(x=>['z', 'q'].includes(x.s) && ['plus', 'min'].includes(x.b)) && new Set(rc.items.map(x=>x.s)).size === 2 && new Set(rc.items.map(x=>x.b)).size === 2,
+    'meerkeuze: reeks met enkel gehele getallen en breuken, enkel optellen en aftrekken: ' + rc.items.map(x=>x.s + x.b).join(' '));
+  for(let k = 0; k < 10; k++){
+    const it = rc.items[k], c = await p.evaluate(it=>VRIJ.canoniek(it), it);
+    await p.locator('.vo-dot').nth(k).click(); await p.waitForTimeout(50);
+    if(c.a != null) await p.fill('.vo-in', c.a); else { if(c.m) await p.click('.vo-mt'); await p.fill('.vo-t', c.t); await p.fill('.vo-n', c.n); }
+  }
+  await p.click('.vo-verbeter'); await p.waitForTimeout(200);
+  check(/Score 10 \/ 10/.test(await p.locator('.vo-tel').innerText()), 'meerkeuze: alles juist, 10/10');
+  await p.click('nav.side button:has-text("Optellen en aftrekken")'); await p.waitForTimeout(150);
+  check(/gehele getallen \+ breuken · optellen \+ aftrekken/i.test(await p.locator('.vo-andere').innerText().catch(()=>'')), 'meerkeuze: score bij Andere combinaties');
+  await p.click('.vo-chip[data-g="alle"]'); await p.waitForTimeout(100);
+  check(await p.locator('.vo-chip.aan[data-g]').count() === 4, 'Alles door elkaar zet alle soorten getallen aan');
+
   /* alles door elkaar met lege oefeningen */
   await p.click('nav.side button:has-text("Alles door elkaar")'); await p.waitForTimeout(150);
   await p.click('.vo-start'); await p.waitForTimeout(200);
@@ -95,7 +126,7 @@ const SCH = process.env.SCHERMEN || null;
   await p.click('.vo-toch'); await p.waitForTimeout(150);
   check(/Score 0 \/ 10/.test(await p.locator('.vo-tel').innerText()), 'toch verbeteren: lege oefeningen tellen als fout');
   const sc = await p.evaluate(k=>JSON.parse(localStorage.getItem(k)), P + 'scores');
-  check(sc['optel|z|plus'].l === 9 && sc['maal|q|deel'].n === 1 && sc['mix|alle|alle'].l === 0, 'scores per keuze bewaard: ' + JSON.stringify(sc));
+  check(sc['optel|z|plus'].l === 9 && sc['optel|z+q|plus+min'].l === 10 && sc['maal|q|deel'].n === 1 && sc['mix|alle|alle'].l === 0, 'scores per keuze bewaard: ' + JSON.stringify(sc));
   check(!p.fouten.length, 'leerling 2A: geen JavaScript-fouten ' + p.fouten.join(' | '));
   await p.goto(H.B); await p.waitForTimeout(1200);
   const db = await H.fakedb(p), doc = db['voortgang/ll2_2a-vrij'];
@@ -105,6 +136,7 @@ const SCH = process.env.SCHERMEN || null;
   await p.setViewportSize({ width:400, height:800 });
   await p.goto(H.B + '2A/vrij-oefenen/#optel'); await p.waitForTimeout(1500);
   const breed = await p.evaluate(()=>document.documentElement.scrollWidth);
+  if(breed > 400) console.log(await p.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right > 401 && e.parentElement.getBoundingClientRect().right <= 401).slice(0, 8).map(e=>e.tagName + '.' + e.className + ' ' + Math.round(e.getBoundingClientRect().right)).join('\n')));
   check(breed <= 400, 'gsm: geen horizontale scroll (' + breed + ' px)');
   await shot(p, '5_gsm');
   await p.setViewportSize({ width:1366, height:657 });
@@ -115,15 +147,23 @@ const SCH = process.env.SCHERMEN || null;
   check(await q.locator('a.tegel[data-site="1a-vrij"]:visible').count() === 1, '1A: tegel Vrij oefenen staat open');
   await q.goto(H.B + '1A/vrij-oefenen/'); await q.waitForTimeout(1500);
   const nav1 = await q.locator('nav.side .lbl').allTextContents();
-  check(nav1.join('|') === 'Optellen en aftrekken|Vermenigvuldigen en delen|Volgorde van bewerkingen|Alles door elkaar', '1A: hoofdstukken zonder machten: ' + nav1.join(', '));
+  check(nav1.join('|') === 'Optellen en aftrekken|Vermenigvuldigen en delen|Volgorde van bewerkingen|Machten en vierkantswortels|Alles door elkaar', '1A: hoofdstukken, Machten en vierkantswortels achteraan: ' + nav1.join(', '));
   const m1 = await q.evaluate(()=>{ const V = window.VRIJ, J = V.J; let n = 0, fout = [];
     J.hoofdstukken.forEach(h=>{ (h.bew ? J.getallen.map(x=>x[0]) : ['alle']).forEach(g=>(h.bew ? h.bew.map(x=>x[0]).concat('alle') : ['alle']).forEach(bw=>{ for(let k = 0; k < 4; k++) V.maakReeks(J, h.id, g, bw).forEach(it=>{ n++;
-      if(!V.beoordeel(it, V.canoniek(it))) fout.push(it.html); if(/class="vo-g">−/.test(it.html) || it.w[0] < 0) fout.push('negatief ' + it.html); }); })); });
+      if(!V.beoordeel(it, V.canoniek(it))) fout.push(it.html);
+      const neg = /class="vo-g">−/.test(it.html) || it.w[0] < 0, getallen = (it.html.replace(/<[^>]+>/g, ' ').match(/\d+(,\d+)?/g) || []).map(x=>+x.replace(',', '.'));
+      if(g !== 'z' && g !== 'alle' && neg) fout.push('negatief ' + it.html);
+      if(g === 'z' && !/wrt|vo-e/.test(it.html) && getallen.some(x=>x > 20)) fout.push('groter dan 20 ' + it.html); }); })); });
     return { n, fout:fout.slice(0, 5) }; });
-  check(m1.n >= 1500 && !m1.fout.length, `motor 1A: ${m1.n} oefeningen, enkel positieve getallen, juist antwoord aanvaard ${m1.fout.join(' | ')}`);
+  check(m1.n >= 1500 && !m1.fout.length, `motor 1A: ${m1.n} oefeningen, negatief enkel bij gehele getallen (van −20 tot 20), juist antwoord aanvaard ${m1.fout.join(' | ')}`);
   await q.click('.vo-chip[data-g="n"]'); await q.click('.vo-chip[data-b="alle"]'); await q.click('.vo-start'); await q.waitForTimeout(200);
   await shot(q, '6_1A_reeks');
   check(await q.locator('.vo-dot').count() === 10 && !q.fouten.length, '1A: reeks natuurlijke getallen gestart, geen JavaScript-fouten ' + q.fouten.join(' | '));
+  await q.locator('.vo-terug').first().click(); await q.waitForTimeout(150);
+  await q.click('.vo-chip[data-g="alle"]'); await q.click('.vo-chip[data-g="z"]'); await q.click('.vo-start'); await q.waitForTimeout(200);
+  const rz = await q.evaluate(k=>JSON.parse(localStorage.getItem(k)), '1a_vrij_v1_reeks_optel');
+  check(rz.g === 'z' && rz.items.every(x=>x.s === 'z') && rz.items.some(x=>/−/.test(x.html)), '1A: reeks gehele getallen met negatieve getallen');
+  await shot(q, '6b_1A_gehele_getallen');
 
   /* leerkracht: dashboard */
   const r = await H.pagina(ctx, await H.fakedb(p));
@@ -134,7 +174,7 @@ const SCH = process.env.SCHERMEN || null;
   check(/Vrij oefenen/.test(ov), 'dashboard: overzicht met de rubriek Vrij oefenen');
   await r.locator('#siteSel').selectOption('2a-vrij'); await r.waitForTimeout(800);
   const txt = await r.locator('table.dt').innerText();
-  check(/9\/10/.test(txt) && /beste 9 · 1×/.test(txt) && /0\/10/.test(txt), 'dashboard: per hoofdstuk laatste score, beste score en aantal reeksen');
+  check(/10\/10/.test(txt) && /beste 10 · 2×/.test(txt) && /0\/10/.test(txt), 'dashboard: per hoofdstuk laatste score, beste score en aantal reeksen');
   await shot(r, '7_dashboard');
   await r.click('.naam-btn'); await r.waitForTimeout(300);
   check(/gehele getallen · optellen: 9\/10/.test(await r.locator('.detail').innerText()), 'dashboard: detail per leerling met de scores per keuze');

@@ -121,7 +121,7 @@ function deelLetters(site, nv){ if(!nv || !nv.delen) return ''; return Object.en
 /* namen van de keuzes in Vrij oefenen (zoals in 1A/vrij-oefenen/inhoud.js en 2A/vrij-oefenen/inhoud.js) */
 const VRIJ_NAMEN = { z:'gehele getallen', n:'natuurlijke getallen', q:'breuken', d:'kommagetallen', alle:'alles door elkaar', plus:'optellen', min:'aftrekken', som:'gedurige som',
   maal:'vermenigvuldigen', deel:'delen', fact:'meer factoren', macht:'macht', mmin:'macht met minteken', wortel:'vierkantswortel', zh:'zonder haakjes', mh:'met haakjes', mw:'met machten en wortels' };
-const vrijNaam = k => VRIJ_NAMEN[k] || k;
+const vrijNaam = k => String(k).split('+').map(x=>VRIJ_NAMEN[x] || x).join(' + ');
 function minuten(s){ if(!s) return '–'; const m = Math.round(s / 60); return m < 1 ? '<1 min' : `${m} min`; }
 async function haalVoortgang(site, emails){
   const out = new Map();
