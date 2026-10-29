@@ -797,6 +797,12 @@ export const SITES = [
     "vragen": 54
    },
    {
+    "id": "teken",
+    "naam": "Positief of negatief?",
+    "toets": false,
+    "vragen": 41
+   },
+   {
     "id": "neg",
     "naam": "Negatieve exponent en exponent 0",
     "toets": false,
@@ -807,12 +813,6 @@ export const SITES = [
     "naam": "Breuk tot een negatieve macht",
     "toets": false,
     "vragen": 44
-   },
-   {
-    "id": "teken",
-    "naam": "Positief of negatief?",
-    "toets": false,
-    "vragen": 41
    },
    {
     "id": "verm",

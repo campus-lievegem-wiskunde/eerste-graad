@@ -1693,7 +1693,7 @@ const CHEAT_TEKEN = `<h3>Spiekbriefje · het teken van een macht</h3><table>
   <tr><td>negatief grondtal, even exponent</td><td>positief: ${mH('-2', 4)} ${isq} 16 (de minnen vallen per twee weg)</td></tr>
   <tr><td>negatief grondtal, oneven exponent</td><td>negatief: ${mH('-2', 3)} ${isq} −8 (er blijft één minteken over)</td></tr>
   <tr><td>minteken vóór de macht</td><td>${minH(mH('2', 4))} ${isq} −16: eerst de macht, dan het minteken</td></tr>
-  <tr><td>negatieve exponent</td><td>verandert het teken niet: ${mH('-2', -3)} ${isq} ${qH(Q(-1, 8))}</td></tr></table>`;
+</table>`;
 const TK = {};
 const PN = [['+', 'positief'], ['-', 'negatief']];
 /* teken van een uitdrukking: [html, waarde] */
@@ -1721,7 +1721,7 @@ TK.zonder = { title:'Positief of negatief? Reken niet uit.', lvl:1,
   build(b, st, save){
     regelTop(b, `Negatief grondtal: <b>even</b> exponent geeft een positief getal, <b>oneven</b> exponent een negatief getal.<div class="m4-line">${mH('-2', 4)} ${isq} 16 &nbsp; ${mH('-2', 3)} ${isq} −8</div>`);
     const R = makeR(st);
-    const L = R.shuffle([tkV('-3', R.int(3, 9) | 1), tkV('-2', 2*R.int(3, 6)), tkV('-7', 0), tkV('5', 3, true), tkV('-1', 100 + 2*R.int(0, 9) + 1), tkV('-4', 2*R.int(1, 4), true),
+    const L = R.shuffle([tkV('-3', R.int(3, 9) | 1), tkV('-2', 2*R.int(3, 6)), tkV('-7', 5), tkV('5', 3, true), tkV('-1', 100 + 2*R.int(0, 9) + 1), tkV('-4', 2*R.int(1, 4), true),
       tkV('-10', 2*R.int(2, 4)+1), tkV('6', R.int(2, 9))]).slice(0, 6);
     const g = el('div', 'm4-items'); b.append(g);
     L.forEach(([h, v], i) => { const row = el('div', 'm4-wn'); g.append(row);
@@ -1734,7 +1734,7 @@ TK.sort = { title:'Sorteer: positief of negatief?', lvl:2,
   instr:'Tik een kaartje aan en tik dan op het juiste vak.',
   build(b, st, save){
     const R = makeR(st);
-    const L = R.shuffle([tkV('-2', 6), tkV('-2', 5), tkV('2', 5, true), tkV('-5', 2, true), tkV('-1', 11), tkV('-3', 0), tkV('-6', -3), tkV('-4', -2), tkV('3', -4), tkV('-1', 0, true)]).slice(0, 8);
+    const L = R.shuffle([tkV('-2', 6), tkV('-2', 5), tkV('2', 5, true), tkV('-5', 2, true), tkV('-1', 11), tkV('-3', 4), tkV('-6', 3), tkV('-4', 2), tkV('3', 7), tkV('-1', 6, true)]).slice(0, 8);
     sorteer(b, st, save, 's', { items:L.map(([h, v]) => [h, v.n>0 ? '+' : '-']), bins:[['+', 'positief'], ['-', 'negatief']],
       why:'Een negatieve exponent verandert het teken niet. Een minteken vóór de macht wel.', whyBad:'Kijk naar de haakjes en naar de exponent: even of oneven?' });
   } };
@@ -1744,7 +1744,7 @@ TK.reken = { title:'Reken uit: eerst het teken', lvl:2,
   instr:'Bepaal eerst het teken in het tekenvak, reken dan de macht uit.',
   build(b, st, save){
     const R = makeR(st); const a = R.pick([2, 3]);
-    const L = R.shuffle([tkV(String(-a), 4), tkV(String(a), 4, true), tkV(String(-a), 3, true), tkV('-1', R.int(7, 15)), tkV('-5', 2, true), tkV('-2', 5), tkV('-10', 3), tkV('-3', -3)]).slice(0, 6);
+    const L = R.shuffle([tkV(String(-a), 4), tkV(String(a), 4, true), tkV(String(-a), 3, true), tkV('-1', R.int(7, 15)), tkV('-5', 2, true), tkV('-2', 5), tkV('-10', 3), tkV('-3', 3)]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [h, T] = L[i];
       mQ(g, st, save, 'r' + i, { nr, html:`${h} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), sol:`${h} ${isq} ${qH(T)}` }); });
   } };
@@ -1767,7 +1767,7 @@ TK.prod = { title:'Het teken van een product', lvl:2,
   build(b, st, save){
     const R = makeR(st);
     const mk = (a, c) => { const [h1, v1] = a, [h2, v2] = c; return [`${h1} · ${h2}`, qMul(v1, v2)]; };
-    const L = R.shuffle([mk(tkV('-2', 3), tkV('-3', 2)), mk(tkV('-1', 5), tkV('-1', 8)), mk(tkV('-4', 3), tkV('-5', 3)), mk(tkV('2', 4, true), tkV('-3', 3)), mk(tkV('-7', 2), tkV('-2', -3)), mk(tkV('-1', 0), tkV('-6', 5))]).slice(0, 6);
+    const L = R.shuffle([mk(tkV('-2', 3), tkV('-3', 2)), mk(tkV('-1', 5), tkV('-1', 8)), mk(tkV('-4', 3), tkV('-5', 3)), mk(tkV('2', 4, true), tkV('-3', 3)), mk(tkV('-7', 2), tkV('-2', 7)), mk(tkV('-1', 6), tkV('-6', 5))]).slice(0, 6);
     const g = el('div', 'm4-items'); b.append(g);
     L.forEach(([h, v], i) => { const row = el('div', 'm4-wn'); g.append(row);
       qChoice(row, st, save, 'p' + i, { nr:'abcdef'[i] + ')', html:`<span class="m4-line" style="display:inline-flex">${h}</span>`, opts:PN, ans: v.n>0 ? '+' : '-',
@@ -1779,7 +1779,7 @@ TK.letters = { title:'Het teken met letters', lvl:3,
   instr:'Het getal <i>a</i> is negatief en het getal <i>b</i> is positief. Is de uitdrukking positief of negatief?',
   build(b, st, save){
     const R = makeR(st);
-    const L = R.shuffle([[mH('a', 3), '-'], [mH('a', 4), '+'], [minH(mH('a', 2)), '-'], [`<span class="m4-m">(${MIN}<i>a</i>)<sup class="m4-sup">3</sup></span>`, '+'], [`${mH('a', 2)} · ${mH('b', 3)}`, '+'], [`${mH('a', 5)} · <i>b</i>`, '-'], [mH('a', -3), '-'], [`${minH(mH('b', 4))} · ${mH('a', 3)}`, '+']]).slice(0, 6);
+    const L = R.shuffle([[mH('a', 3), '-'], [mH('a', 4), '+'], [minH(mH('a', 2)), '-'], [`<span class="m4-m">(${MIN}<i>a</i>)<sup class="m4-sup">3</sup></span>`, '+'], [`${mH('a', 2)} · ${mH('b', 3)}`, '+'], [`${mH('a', 5)} · <i>b</i>`, '-'], [mH('a', 7), '-'], [`${minH(mH('b', 4))} · ${mH('a', 3)}`, '+']]).slice(0, 6);
     const g = el('div', 'm4-items'); b.append(g);
     L.forEach(([h, ans], i) => { const row = el('div', 'm4-wn'); g.append(row);
       qChoice(row, st, save, 'l' + i, { nr:'abcdef'[i] + ')', html:`<span class="m4-line" style="display:inline-flex">${h}</span>`, opts:PN, ans, why:'', whyBad:'Kies een voorbeeld: neem <i>a</i> = −2 en <i>b</i> = 3 en reken het teken uit.' }); });
@@ -3331,7 +3331,7 @@ function bigToets(i){ return [
 ]; }
 [0, 1, 2].forEach(i => { SEC['toets' + (i+1)] = { id:'toets' + (i+1), ic:'toets', nav:'Proeftoets ' + (i+1), title:'Proeftoets ' + (i+1), tip:TOETS_TIP,
   cards:[ { title:'Proeftoets ' + (i+1), noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, bigToets(i)) } ] }; });
-const ORDER = ['herh','neg','brk','teken','verm','del','mm','prod','quot','door','wet','fout','quiz','toets1','toets2','toets3'];
+const ORDER = ['herh','teken','neg','brk','verm','del','mm','prod','quot','door','wet','fout','quiz','toets1','toets2','toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
