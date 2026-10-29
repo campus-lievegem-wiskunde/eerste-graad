@@ -1201,11 +1201,11 @@ const emptyX = v => !VX.ok(v) || !v.r.length || VX.leeg(v.r[v.r.length-1].b);
 /* uitleg bij een foute regel: wat ging er (waarschijnlijk) mis? */
 VX.uitleg = (body, val, doel, fout) => {
   const g = fout.find(([w]) => VX.eq(val, w)); if(g) return g[1];
-  let minA = null; const walk = n => { if(n.k==='row') n.f.forEach(walk); else if(n.k==='frac'){ walk(n.t); walk(n.n); } else if(n.k==='g') walk(n.b); else if(!minA && n.e!=null && /^-\d+$/.test(nrm(n.s)) && /^\d+$/.test(nrm(n.e||''))) minA = n; };
-  walk(body);
+  const minAs = []; const walk = n => { if(n.k==='row') n.f.forEach(walk); else if(n.k==='frac'){ walk(n.t); walk(n.n); } else if(n.k==='g') walk(n.b); else if(n.e!=null && /^-\d+$/.test(nrm(n.s)) && /^\d+$/.test(nrm(n.e||''))) minAs.push(n); };
+  walk(body); const minA = minAs[0];
   const tegen = VX.eq(VX.mul(VX.mono(Q(-1)), val), doel);
   if(tegen && minA){ const x = +nrm(minA.s).slice(1), e = +nrm(minA.e);
-    return `Het teken klopt niet. Vergeet je haakjes rond een negatief getal? Zonder haakjes hoort de exponent enkel bij het getal, niet bij het minteken.<br>${MIN}${x}<sup>${e}</sup> ${isq} ${MIN}(${Array(e).fill(x).join(' · ')}) ${isq} ${sg(-(x**e))}<br>(${MIN}${x})<sup>${e}</sup> ${isq} ${Array(e).fill(`(${MIN}${x})`).join(' · ')} ${isq} ${sg((-x)**e)}.`; }
+    return {fix:minAs, tekst:`Het teken klopt niet. Vergeet je haakjes rond een negatief getal? Zonder haakjes hoort de exponent enkel bij het getal, niet bij het minteken.<br>${MIN}${x}<sup>${e}</sup> ${isq} ${MIN}(${Array(e).fill(x).join(' · ')}) ${isq} ${sg(-(x**e))}<br>(${MIN}${x})<sup>${e}</sup> ${isq} ${Array(e).fill(`(${MIN}${x})`).join(' · ')} ${isq} ${sg((-x)**e)}.`}; }
   if(tegen) return 'Het teken klopt niet. Tel de mintekens nog eens: een negatief getal tot een even macht is positief, tot een oneven macht negatief.';
   if(VX.eq(VX.inv(val), doel)) return 'Teller en noemer zijn verwisseld. Moest je de breuk omdraaien, of heb je ze twee keer omgedraaid?';
   const zelfdeL = VX.eq(VX.mono(Q(1), val.v), VX.mono(Q(1), doel.v));
@@ -1223,7 +1223,7 @@ function chkX(v, doel, fout=[]){
   const nr = res.length > 1;
   const ek = res.findIndex(r => r.err); if(ek >= 0) return {info:true, msg:(nr ? `Regel ${ek+1}: ` : '') + res[ek].err};
   const fk = res.findIndex(r => !r.eq);
-  if(fk >= 0) return {ok:false, msg:(nr ? `Regel ${fk+1} klopt niet. Klik op het rode kruisje voor uitleg.` : res[fk].uitleg)};
+  if(fk >= 0) return {ok:false, msg:(nr ? `Regel ${fk+1} klopt niet. Klik op het rode kruisje voor uitleg.` : (u => typeof u==='string' ? u : u.tekst)(res[fk].uitleg))};
   const last = res[res.length-1];
   if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>= (volgende tussenstap)</b> en reken verder op een nieuwe regel.`};
   return {ok:true};
@@ -1267,12 +1267,15 @@ function vrijVak(sp, v, save, onCh){
     if(!api.check) return; try{ api.check(); }catch(e){ return; }
     const res = v._res || [];
     sp.querySelectorAll('.vx-regel').forEach((row, li) => { row.querySelectorAll('.vx-x, .vx-uit').forEach(x => x.remove());
-      const r = res[li]; if(!r || (!alle && li===v.r.length-1)) return; const tekst = r.err || (r.eq===false ? r.uitleg : ''); if(!tekst) return;
+      const r = res[li]; if(!r || (!alle && li===v.r.length-1)) return; const U = r.err || (r.eq===false ? r.uitleg : ''); if(!U) return; const tekst = typeof U==='string' ? U : U.tekst, fix = typeof U==='string' ? null : U.fix;
       const x = el('button', 'vx-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'hier is iets fout: toon uitleg'); x.dataset.tip = 'iets fout? klik voor uitleg';
       const box = el('div', 'vx-uit', `<button type="button" class="vx-uit-dicht" aria-label="sluit">×</button>${tekst}`); box.hidden = true;
       x.addEventListener('mousedown', e=>e.preventDefault());
       x.addEventListener('click', ()=>{ box.hidden = !box.hidden; x.setAttribute('aria-expanded', String(!box.hidden)); });
       box.querySelector('.vx-uit-dicht').addEventListener('click', ()=>{ box.hidden = true; });
+      if(fix){ const vb = el('button', 'btn vx-verbeter', 'Verbeter deze stap'); vb.type = 'button'; box.append(el('div', 'vx-uit-knop'));
+        box.lastChild.append(vb);
+        vb.addEventListener('click', ()=>{ index(); fix.forEach(a => { if(!P.has(a)) return; const g = {k:'g', b:VX.R(a), e:a.e, rood:true}; a.e = null; zet(a, g); index(); }); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }); }
       row.append(x, box); }); }
   /* de knoppenbalk staat op een vaste plek: onder het antwoord, boven Controleer */
   function balk(){
@@ -1296,7 +1299,7 @@ function vrijVak(sp, v, save, onCh){
     const fe = el('span', 'vx-f' + (n.k==='g' ? ' vx-g' : '')); const x = {};
     if(n.k==='a'){ const bi = m4inp('b vx-b', n.s, 'getal of letter'); x.b = bi; fe.append(bi);
       if(actief){ bi.addEventListener('focus', ()=>{ foc = {n, w:'b'}; actiefVak(bi); }); bi.addEventListener('input', ()=>typ(n, bi)); bi.addEventListener('keydown', e=>toets(e, n, bi)); } else bi.readOnly = true; }
-    else { const groot = n.b.k==='frac' ? ' groot' : ''; fe.append(el('span', 'vx-par' + groot, '('), rend(n.b, actief), el('span', 'vx-par' + groot, ')')); }
+    else { const groot = (n.b.k==='frac' ? ' groot' : '') + (n.rood ? ' rood' : ''); fe.append(el('span', 'vx-par' + groot, '('), rend(n.b, actief), el('span', 'vx-par' + groot, ')')); }
     if(n.e!=null){ const ex = m4inp('ex', n.e, 'exponent'); x.e = ex; const sup = el('span', 'm4-exp'); sup.append(ex); fe.append(sup);
       if(actief){ ex.addEventListener('focus', ()=>{ foc = {n, w:'e'}; actiefVak(ex); });
         ex.addEventListener('input', ()=>{ const t = ex.value.replace(/[−–]/g, '-').replace(/[^-\d]/g, ''); n.e = t; if(ex.value!==t) ex.value = t; ch(); });
@@ -1363,6 +1366,8 @@ function vrijVak(sp, v, save, onCh){
   .vx-x:hover, .vx-x:focus-visible, .vx-x[aria-expanded="true"]{background:var(--bad-bg)}
   .vx-uit{position:absolute; left:2rem; top:calc(100% + .2rem); z-index:5; width:min(26rem, 85vw); font-weight:400; color:var(--ink); background:var(--card, #fff); border:2px solid var(--bad); border-radius:.6rem; padding:.55rem 2rem .55rem .75rem; box-shadow:0 6px 18px rgba(0,0,0,.14); font-size:.92rem; line-height:1.5}
   .vx-uit[hidden]{display:none}
+  .vx-uit-knop{margin-top:.5rem} .vx-verbeter{font-size:.85rem; padding:.3rem .8rem}
+  .vx-par.rood{color:var(--bad); font-weight:500}
   .vx-uit-dicht{position:absolute; right:.3rem; top:.15rem; border:0; background:transparent; font-size:1.2rem; cursor:pointer; color:var(--ink-soft)}
   .vx-f .m4-in.vx-actief{border-color:var(--orange); border-width:2.5px; box-shadow:0 0 0 3px var(--or-soft)}
   .vx-k:hover, .vx-k:focus-visible{border-color:var(--accent-dark)}
