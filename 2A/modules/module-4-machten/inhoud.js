@@ -2046,31 +2046,46 @@ function delSteps(b, m, p){ const S = linSub(m, p);
     {u:'Trek de exponenten af: exponent van het deeltal min exponent van de deler.' + (typeof p==='number' && p<0 ? ' Aftrekken van een negatief getal is optellen.' : ''), line:`${eMin(m, p)} ${isq} {{g:a}}`, check:V=>chkE(V.a, S), show:`${eMin(m, p)} ${isq} ${linT(S)}`}]; }
 const DL = {};
 
-/* ---------- tegels schrappen ---------- */
+/* ---------- tegels schrappen ----------
+   links de breuk met exponenten, rechts dezelfde breuk met factoren (elk een eigen breukstreep).
+   k=0 beide breuken · k=1 paren tonen (g/g = 1) · k=2 schrappen, enkel op de tegels · k=3 resultaat */
 function schrapSvg(g, m, p, k, t){
-  const W = 480, H = 210, s = 36, d = 42, x0 = 70, yT = 30, yN = 120; let out = ''; const let_ = B(g).kind==='l'; const gt = let_ ? g : sg(g);
+  const s = 34, d = 40, yT = 34, yN = 124, yM = (yT + s + yN)/2, xL = 42, xE = 98, x0 = 128; let out = '';
+  const let_ = B(g).kind==='l'; const gt = let_ ? g : sg(g); const gs = let_ ? `<tspan font-style="italic">${g}</tspan>` : gt;
   const tile = (x, y, cls, op=1) => `<g opacity="${fx(op)}"><rect class="tegel ${cls}" x="${fx(x)}" y="${fx(y)}" width="${s}" height="${s}" rx="5"/><text class="t" x="${fx(x+s/2)}" y="${fx(y+s/2)}" text-anchor="middle" dominant-baseline="central"${let_ ? ' font-style="italic"' : ''}>${gt}</text></g>`;
-  const lab = (y, e) => `<text class="t big" x="${x0-14}" y="${y+s/2}" text-anchor="end" dominant-baseline="central">${let_ ? `<tspan font-style="italic">${g}</tspan>` : gt}<tspan class="sup" dy="-9">${e}</tspan></text>`;
-  out += `<line class="brl" x1="${x0 - 50}" y1="${(yT + s + yN)/2}" x2="${x0 + m*d + 6}" y2="${(yT + s + yN)/2}" style="stroke-width:2.5"/>`;
-  out += lab(yT, m) + lab(yN, p);
-  for(let i=0; i<m; i++){ const x = x0 + i*d; const weg = i < p && k>=1; out += tile(x, yT, '', weg && k>=2 ? .35 : 1); }
-  for(let j=0; j<p; j++){ const x = x0 + j*d; out += tile(x, yN, 'b', k>=2 ? .35 : 1); }
-  if(k>=1){ for(let j=0; j<p; j++){ const x = x0 + j*d + s/2; const tt = k===1 ? Math.min(1, Math.max(0, t*p - j)) : 1;
-    if(tt>0) out += `<line x1="${x - s*.45}" y1="${fx(yT + s + 6)}" x2="${fx(x - s*.45 + s*.9*tt)}" y2="${fx(yT + s + 6 + (yN - yT - s - 12)*tt)}" style="stroke:var(--bad);stroke-width:3"/>`; } }
-  if(k>=1) for(let j=0; j<p; j++){ const x = x0 + j*d; const tt = k===1 ? Math.min(1, Math.max(0, t*p - j)) : 1; if(tt>.6) out += `<path d="M${x+4} ${yT+4} L${x+s-4} ${yT+s-4} M${x+4} ${yN+4} L${x+s-4} ${yN+s-4}" style="stroke:var(--bad);stroke-width:2.5;opacity:${fx((tt-.6)/.4)}"/>`; }
-  if(k>=3){ const xr = x0 + m*d + 40; out += sT(xr, (yT + s + yN)/2, '=', 'big') + `<text class="t big" x="${xr + 40}" y="${(yT + s + yN)/2}" text-anchor="middle" dominant-baseline="central">${let_ ? `<tspan font-style="italic">${g}</tspan>` : gt}<tspan class="sup" dy="-9">${m-p}</tspan></text>` + sT(xr + 40, (yT + s + yN)/2 + 36, `${m} − ${p} = ${m-p}`, 'k'); }
+  const macht = (x, y, e) => `<text class="t big" x="${fx(x)}" y="${fx(y)}" text-anchor="middle" dominant-baseline="central">${gs}<tspan class="sup" dy="-9">${e}</tspan></text>`;
+  const bl = (x1, x2) => `<line class="brl" x1="${fx(x1)}" y1="${fx(yM)}" x2="${fx(x2)}" y2="${fx(yM)}" style="stroke-width:2.5"/>`;
+  /* breuk met exponenten */
+  out += macht(xL, yT + s/2, m) + bl(xL - 30, xL + 30) + macht(xL, yN + s/2, p);
+  out += sT(xE, yM, '=', 't big');
+  /* breuk met factoren */
+  out += bl(x0 - 6, x0 + m*d - d + s + 6);
+  const fade = k>=2 ? (k===2 ? 1 - .45*t : .55) : 1;
+  for(let i=0; i<m; i++) out += tile(x0 + i*d, yT, '', i<p ? fade : 1);
+  for(let j=0; j<p; j++) out += tile(x0 + j*d, yN, 'b', fade);
+  /* paren: oranje kader rond de teller- en de noemertegel, geen lijn over de breukstreep */
+  if(k===1) for(let j=0; j<p; j++){ const tt = Math.min(1, Math.max(0, t*p - j)); if(tt<=0) continue;
+    [yT, yN].forEach(y => { out += `<rect x="${fx(x0 + j*d - 3)}" y="${fx(y - 3)}" width="${s+6}" height="${s+6}" rx="7" style="fill:none;stroke:var(--orange);stroke-width:3;opacity:${fx(tt)}"/>`; });
+    out += sT(x0 + j*d + s/2, yN + s + 20, '= 1', 't'); }
+  /* schrappen: een rode schuine streep binnen elke tegel */
+  if(k>=2) for(let j=0; j<p; j++){ const tt = k===2 ? Math.min(1, Math.max(0, t*p*1.4 - j)) : 1; if(tt<=0) continue; const x = x0 + j*d;
+    [yT, yN].forEach(y => { out += `<line x1="${fx(x + 4)}" y1="${fx(y + s - 4)}" x2="${fx(x + 4 + (s-8)*tt)}" y2="${fx(y + s - 4 - (s-8)*tt)}" style="stroke:var(--bad);stroke-width:3;stroke-linecap:round"/>`; }); }
+  if(k>=3){ const xr = x0 + m*d - d + s + 30; out += sT(xr, yM, '=', 't big') + macht(xr + 40, yM, m-p) + sT(xr + 40, yM + 38, `${m} − ${p} = ${m-p}`, 'k'); }
   return out;
 }
 DL.schrap = { title:'Tegels schrappen', lvl:1, keep:true,
   instr:'Een deling is een breuk. Bekijk stap voor stap welke factoren je mag schrappen.',
   build(b, st, save){
     const R = makeR(st); const g = R.pick(['2', '3', 'a', 'x']); const p = R.int(2, 3), m = p + R.int(2, 4);
+    const fac = n => Array(n).fill(bH(g)).join(' · ');
+    const paren = Array(p).fill(brH(bH(g), bH(g))).join(' · ') + ' · ' + fac(m-p);
+    const W = 128 + m*40 - 40 + 34 + 30 + 80;
     const wrap = el('div', 'm4-naast breed-l'); b.append(wrap); const l = el('div'), r = el('div'); wrap.append(l, r);
-    stepFig(l, { W:480, H:210, maxw:600, alt:'tegels in teller en noemer', steps:[
-      {cap:`${mH(g, m)} : ${mH(g, p)} ${isq} ${brH(mH(g, m), mH(g, p))}: de deling als breuk.`, draw:t=>schrapSvg(g, m, p, 0, t)},
-      {cap:`Een factor ${bH(g)} in de teller en een in de noemer: die mag je schrappen.`, draw:t=>schrapSvg(g, m, p, 1, t), ms:1600},
-      {cap:`Je schrapte ${p} keer. In de teller blijven er ${m-p} factoren over.`, draw:t=>schrapSvg(g, m, p, 2, t)},
-      {cap:`${mH(g, m)} : ${mH(g, p)} ${isq} ${mH(g, m-p)}`, draw:t=>schrapSvg(g, m, p, 3, t)}] });
+    stepFig(l, { W, H:200, maxw:620, alt:'een breuk met exponenten en dezelfde breuk met factoren als tegels', steps:[
+      {cap:`Schrijf de deling als breuk. Een breuk met de exponenten is gelijk aan een breuk met de factoren:<div class="m4-line">${mH(g, m)} : ${mH(g, p)} ${isq} ${brH(mH(g, m), mH(g, p))} ${isq} ${brH(fac(m), fac(p))}</div>`, draw:t=>schrapSvg(g, m, p, 0, t)},
+      {cap:`Gelijke factoren mogen geschrapt worden in teller en noemer. Waarom? Zet telkens een factor ${bH(g)} van de teller boven een factor ${bH(g)} van de noemer. Zo een breukje is 1, want een getal gedeeld door zichzelf is 1. En vermenigvuldigen met 1 verandert niets:<div class="m4-line">${brH(fac(m), fac(p))} ${isq} ${paren} ${isq} ${Array(p).fill('1').join(' · ')} · ${fac(m-p)}</div>`, draw:t=>schrapSvg(g, m, p, 1, t), ms:1600},
+      {cap:`Schrap de ${p} paren: één streep op de factor in de teller en één op de factor in de noemer. De breukstreep schrap je niet. In de teller blijven er ${m-p} factoren over.`, draw:t=>schrapSvg(g, m, p, 2, t), ms:1600},
+      {cap:`Er blijven ${m-p} factoren ${bH(g)} over, dus ${m} − ${p} ${isq} ${m-p}:<div class="m4-line">${mH(g, m)} : ${mH(g, p)} ${isq} ${mH(g, m-p)}</div>`, draw:t=>schrapSvg(g, m, p, 3, t)}] });
     r.append(el('p', '', 'Speel de stappen links af en vul in.'));
     const it = el('div', 'm4-items een'); r.append(it);
     mQ(it, st, save, 'f', { nr:'a)', html:`<span class="txt">Hoeveel factoren ${bH(g)} blijven er over?</span> {{g:a}}`, check:V=>chkE(V.a, m-p, [[m+p, 'Je telde alles samen. Tel enkel wat niet geschrapt is.']]) });
