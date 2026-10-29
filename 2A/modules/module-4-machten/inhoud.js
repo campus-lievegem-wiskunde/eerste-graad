@@ -514,7 +514,8 @@ const isq = '<span class="m4-is">=</span>';
    {{m:k,opts}} machtvak (opts: i = "1/" typen maakt een breuk, t = tekenvak), {{e:k}} exponent,
    {{b:k}} grondtal, {{g:k}} gewoon vak
    ============================================================ */
-const tokens = html => html.replace(/\{\{(\w):(\w+)((?:,\w+)*)\}\}/g, (m, t, k, o) => `<span class="m4-w" data-t="${t}" data-k="${k}" data-o="${o.slice(1)}"></span>`);
+/* {{i:k}} … {{/i}}: een stuk dat de leerling zelf in de noemer zet met het breukicoontje (1 over …) */
+const tokens = html => html.replace(/\{\{i:(\w+)\}\}/g, '<span class="m4-wi" data-k="$1">').replace(/\{\{\/i\}\}/g, '</span>').replace(/\{\{(\w):(\w+)((?:,\w+)*)\}\}/g, (m, t, k, o) => `<span class="m4-w" data-t="${t}" data-k="${k}" data-o="${o.slice(1)}"></span>`);
 function m4inp(cls, val, lab){ const i = el('input', 'm4-in ' + cls); i.type = 'text'; i.autocomplete = 'off'; i.spellcheck = false; i.value = val || ''; i.setAttribute('aria-label', lab); grow(i); i.addEventListener('input', ()=>grow(i)); return i; }
 function grow(i){ const n = Math.max(0, i.value.length - (i.classList.contains('ex') ? 2 : 3)); i.style.width = n ? `calc(var(--w) + ${n*.6}em)` : ''; }
 const BRK_IC = '<svg viewBox="0 0 14 18" aria-hidden="true"><rect x="2.5" y="1" width="9" height="6" rx="1.2"/><path d="M1 9h12"/><rect x="2.5" y="11" width="9" height="6" rx="1.2"/></svg>';
@@ -590,16 +591,26 @@ function mountW(root, V, save, onCh, onEnter){
       draw();
     }
   });
+  root.querySelectorAll('.m4-wi').forEach(sp => {
+    const k = sp.dataset.k, v = V[k] || (V[k] = {}); W[k] = {sp, t:'i', o:[]};
+    const box = el('span', 'm4-wi-in'); [...sp.childNodes].forEach(n => box.append(n));
+    const fb = el('button', 'm4-brk', BRK_IC); fb.type = 'button'; fb.addEventListener('mousedown', e=>e.preventDefault());
+    const draw = () => { sp.innerHTML = '';
+      if(v.i){ const br = el('span', 'br m4-inv'); br.append(el('span', 'br-t', '1')); const bn = el('span', 'br-n'); bn.append(box); br.append(bn); sp.append(br); } else sp.append(box);
+      fb.dataset.tip = v.i ? 'geen breuk' : 'maak er een breuk van'; fb.setAttribute('aria-label', v.i ? 'maak er geen breuk van' : 'zet dit in de noemer'); fb.setAttribute('aria-pressed', String(!!v.i)); sp.append(fb); };
+    fb.addEventListener('click', ()=>{ v.i = !v.i; save(); draw(); onCh(); const f = box.querySelector('input'); if(f) f.focus({preventScroll:true}); });
+    draw();
+  });
   root.addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target.matches('.m4-in') && !(e.target.classList.contains('br-get') && e.target.closest('.br-t'))){ e.preventDefault(); onEnter && onEnter(); } });
   return {
     W, V,
     mark(fields){ Object.entries(W).forEach(([k, w]) => { w.sp.classList.remove('ok', 'bad'); if(fields && fields[k]!=null) w.sp.classList.add(fields[k] ? 'ok' : 'bad'); }); },
     clear(){ Object.values(W).forEach(w => w.sp.classList.remove('ok', 'bad')); },
-    lock(){ root.querySelectorAll('input,button').forEach(x => { if(x.tagName==='INPUT') x.readOnly = true; else if(x.closest('.m4-w')) x.disabled = true; }); },
+    lock(){ root.querySelectorAll('input,button').forEach(x => { if(x.tagName==='INPUT') x.readOnly = true; else if(x.closest('.m4-w,.m4-wi')) x.disabled = true; }); },
     empty(){ return Object.entries(W).some(([k, w]) => isEmptyW(w.t, V[k])); }
   };
 }
-const isEmptyW = (t, v) => !v || (t==='m' ? !(v.bt||'').trim() : t==='u' ? !(v.t||'').trim() && (v.z || !v.s) : !(v.t||'').trim()) || (v.n!=null && !String(v.n).trim());
+const isEmptyW = (t, v) => t==='i' ? false : !v || (t==='m' ? !(v.bt||'').trim() : t==='u' ? !(v.t||'').trim() && (v.z || !v.s) : !(v.t||'').trim()) || (v.n!=null && !String(v.n).trim());
 
 /* ---------- lezen ---------- */
 /* uitkomst: {q, simp} of {err, info} */
@@ -859,10 +870,12 @@ const VGL = [['<', '&lt;'], ['=', '='], ['>', '&gt;']];
   .m4-w.ok .m4-teken{border-color:var(--ok)} .m4-w.bad .m4-teken{border-color:var(--bad)}
   .m4-brk{border:0; background:transparent; padding:.2rem; margin-left:.15rem; cursor:pointer; color:#9bb8ba; display:inline-flex; align-self:center; border-radius:.3rem}
   .m4-brk:hover, .m4-brk:focus-visible{color:var(--accent-dark)}
-  .card.m4-geenbrk .m4-brk{display:none}
+  .card.m4-geenbrk .m4-w .m4-brk{display:none}
   .bank-line .blank.m4-expblank{min-width:4.2rem; min-height:1.6rem; font-size:.85em; align-self:flex-start; margin-left:-.35rem; transform:translateY(-.55rem)}
   .m4-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
   .m4-brk[aria-pressed="true"]{color:var(--accent-dark)}
+  .m4-wi{display:inline-flex; align-items:center; vertical-align:middle} .m4-wi .br-n{padding:.55rem .2rem .1rem} .m4-wi-in{display:inline-flex; align-items:center; gap:.2rem}
+  .m4-wi.bad > .m4-brk{color:var(--bad); outline:2px solid var(--bad); outline-offset:1px}
   .m4-teken{display:inline-flex; flex-direction:column; border:2px dashed var(--accent-dark); border-radius:.45rem; overflow:hidden; height:2.6rem; width:1.9rem; flex:none; background:var(--card)}
   .m4-teken.gekozen{border-style:solid; border-color:var(--border)}
   .m4-teken button{flex:1; border:0; margin:0; padding:0; background:transparent; color:var(--ink-soft); font:inherit; font-size:1.05rem; font-weight:900; line-height:1; cursor:pointer}
@@ -2530,14 +2543,14 @@ PR.slim = { title:'Slim rekenen: zelfde exponent', lvl:2, brk:false,
 
 /* ---------- negatieve exponent ---------- */
 PR.neg = { title:'Met een negatieve exponent', lvl:2, brk:false,
-  instr:'Schrijf met positieve exponenten. Het hele product komt in de noemer.',
+  instr:'Schrijf met positieve exponenten. Moet iets in de noemer? Klik dan eerst op het breukicoontje en vul daarna de noemer in.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     const L = R.shuffle([[2, 1, -3], [3, 1, -2], [5, 2, -2], [10, 3, -1], [4, 1, -2], [2, 3, -2]]);
     reeks(b, L.length, (g, i, nr) => { const [c, m, p] = L[i]; const C = c ** -p; const h = pPH(c, [[x, m]], p);
-      mQ(g, st, save, 'n' + i, { nr, html:`${h} ${isq} ${brH('1', `{{u:c}}${mE(x, 'a')}`)}`,
-        check:V=>allOf([['c', chkU(V.c, Q(C), [[Q(c), 'Verhef ook het getal tot de macht.']])], ['a', chkE(V.a, -m*p, [[m*p, 'De macht staat al in de noemer: schrijf de exponent positief.'], [m - p, 'Vermenigvuldig de exponenten.']])]]),
-        hint:[[`Een negatieve exponent: draai om. ${h} ${isq} ${brH('1', pPH(c, [[x, m]], -p))}`], ['Werk de noemer uit: verhef elke factor tot de macht.']],
+      mQ(g, st, save, 'n' + i, { nr, html:`${h} ${isq} {{i:i}}{{u:c}}${mE(x, 'a')}{{/i}}`,
+        check:V=>allOf([['i', (V.i||{}).i ? {ok:true} : {ok:false, msg:'Een negatieve exponent: het omgekeerde nemen. Klik op het breukicoontje, dan komt de macht in de noemer.'}], ['c', chkU(V.c, Q(C), [[Q(c), 'Verhef ook het getal tot de macht.']])], ['a', chkE(V.a, -m*p, [[m*p, 'De macht staat al in de noemer: schrijf de exponent positief.'], [m - p, 'Vermenigvuldig de exponenten.']])]]),
+        hint:[['Wat betekent een negatieve exponent? Je neemt het omgekeerde: 1 gedeeld door de macht met een positieve exponent. Klik op het breukicoontje.', `${pPH(2, [['a', 1]], -2)} ${isq} ${brH('1', pPH(2, [['a', 1]], 2))}`], ['Werk de noemer uit: verhef elke factor tot de macht.']],
         sol:`${h} ${isq} ${brH('1', pPH(c, [[x, m]], -p))} ${isq} ${brH('1', C + mH(x, -m*p))}` }); });
   } };
 
