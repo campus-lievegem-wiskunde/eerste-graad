@@ -1208,7 +1208,7 @@ function chkX(v, doel, fout=[]){
   const fk = res.findIndex(r => !r.eq);
   if(fk >= 0){ const g = fout.find(([w]) => VX.eq(res[fk].val, w)); return {ok:false, msg:(nr ? `Regel ${fk+1} klopt niet. ` : '') + (g ? g[1] : '')}; }
   const last = res[res.length-1];
-  if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>= volgende stap</b> en reken verder op een nieuwe regel.`};
+  if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>= (volgende tussenstap)</b> en reken verder op een nieuwe regel.`};
   return {ok:true};
 }
 /* ---------- tekenen en bewerken ---------- */
@@ -1245,7 +1245,7 @@ function vrijVak(sp, v, save, onCh){
       row.append(rend(L.b, actief));
       if(actief) row.append(knoppen(li));
       sp.append(row); });
-    const plus = el('button', 'linkbtn vx-plus', '= volgende stap'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
+    const plus = el('button', 'linkbtn vx-plus', '= (volgende tussenstap)'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
     plus.addEventListener('click', ()=>{ v.r.push({b:VX.R()}); ch(); draw(); focus(v.r[v.r.length-1].b.f[0]); });
     sp.append(plus); }
   function rend(n, actief){
@@ -2920,7 +2920,7 @@ QT.slim = { title:'Slim rekenen: zelfde exponent', lvl:2,
 
 /* ---------- negatieve exponent ---------- */
 QT.neg = { title:'Met een negatieve exponent', lvl:2,
-  instr:'Werk uit en schrijf met positieve exponenten. Bouw je antwoord zelf op, zoals op papier: <b>·▢</b> nog een factor (maal), <b><i>x</i><sup>n</sup></b> een exponent, <b>( )<sup>n</sup></b> haakjes met een exponent, het breukicoontje een breuk. Typen kan ook: ( ) / ^. Schrijf elke tussenstap op een nieuwe regel met <b>= volgende stap</b>.',
+  instr:'Werk uit en schrijf met positieve exponenten. Bouw je antwoord zelf op, zoals op papier: <b>·▢</b> nog een factor (maal), <b><i>x</i><sup>n</sup></b> een exponent, <b>( )<sup>n</sup></b> haakjes met een exponent, het breukicoontje een breuk. Typen kan ook: ( ) / ^. Schrijf elke tussenstap op een nieuwe regel met <b>= (volgende tussenstap)</b>.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     /* [getal, getal boven?, exponent] : (2/a)^-3 of (a/3)^-2 */
