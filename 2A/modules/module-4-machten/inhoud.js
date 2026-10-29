@@ -1289,7 +1289,7 @@ function vrijVak(sp, v, save, onCh){
     knop(BRK_IC, 'breuk', 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
     undoB = knop('↶', 'terug', 'ongedaan maken', terug, 'vx-terug'); undoB.disabled = hist.length<2;
     if(v.r.length>1) knop('✕', 'regel weg', 'deze regel weghalen', () => { v.r.pop(); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }, 'vx-weg');
-    const plus = el('button', 'btn ghost vx-plus', '= (volgende tussenstap)'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
+    const plus = el('button', 'btn ghost vx-plus', '= (volgende tussenstap)'); plus.type = 'button'; plus.dataset.tip = 'volgende tussenstap'; plus.setAttribute('aria-label', 'volgende tussenstap: nieuwe regel');
     plus.addEventListener('click', ()=>{ v.r.push({b:VX.R()}); ch(); draw(); focus(v.r[v.r.length-1].b.f[0]); });
     bar.append(plus, el('div', 'vx-snel', 'Typen kan ook: <kbd>(</kbd> <kbd>)</kbd> haakjes · <kbd>^</kbd> macht · <kbd>/</kbd> breuk · <kbd>*</kbd> maal'));
   }
@@ -1372,11 +1372,23 @@ function vxHulp(card){
   .vx-par.groot{font-size:3.6rem; transform:scaleX(.55); margin:0 -.3rem}
   .vx-balk{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .8rem; margin:.4rem 0 .2rem 2.8rem}
   .vx-tools{display:flex; flex-wrap:wrap; gap:.3rem}
+  /* mini-rekenmachine rechts van de uitwerking (op een smal scherm eronder) */
+  @media (min-width:640px){
+    .m4-q:has(> .vx-balk){display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:2rem; align-items:start}
+    .m4-q:has(> .vx-balk) > *{grid-column:1}
+    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(2, 2.5rem); gap:.35rem; margin:2.2rem 0 0; padding:.55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem}
+    .m4-q > .vx-balk .vx-tools{display:contents}
+    .m4-q > .vx-balk .vx-k{min-width:2.5rem; min-height:2.5rem}
+    .m4-q > .vx-balk .vx-plus{grid-column:1 / span 2; min-height:2.5rem; padding:0; font-size:0}
+    .m4-q > .vx-balk .vx-plus::before{content:'='; font-size:1.4rem}
+    .m4-q > .vx-balk .vx-snel{display:none}
+  }
   .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:2.15rem; min-height:2.15rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
   .vx-ic{font-size:.9rem; line-height:1.1; display:inline-flex; align-items:center; min-height:1.15rem}
   .vx-k{position:relative}
-  .vx-k::after{content:attr(data-tip); position:absolute; left:50%; top:calc(100% + 5px); transform:translateX(-50%); white-space:nowrap; background:var(--ink); color:var(--bg, #fff); font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.35rem; opacity:0; pointer-events:none; transition:opacity .15s; z-index:20}
-  .vx-k:hover::after{opacity:1; transition-delay:1s}
+  .m4-q > .vx-balk .vx-plus{position:relative}
+  .vx-k::after, .m4-q > .vx-balk .vx-plus::after{content:attr(data-tip); position:absolute; left:50%; top:calc(100% + 5px); transform:translateX(-50%); white-space:nowrap; background:var(--ink); color:var(--bg, #fff); font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.35rem; opacity:0; pointer-events:none; transition:opacity .15s; z-index:20}
+  .vx-k:hover::after, .m4-q > .vx-balk .vx-plus:hover::after{opacity:1; transition-delay:1s}
   .vx-plus{min-height:2.15rem; padding:.2rem .8rem; font-size:.9rem}
   .vx-snel{flex-basis:100%; font-size:.78rem; color:var(--ink-soft)}
   .vx-snel kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; background:var(--zone-bg, #f6fbfb); color:var(--accent-dark)}
