@@ -21,8 +21,14 @@
 .vo-cel:hover{ border-color:var(--orange); }
 .vo-cel.nu{ border:2px solid var(--orange); }
 .vo-cel.s1{ background:var(--bad-bg); } .vo-cel.s2{ background:var(--or-soft); } .vo-cel.s3{ background:var(--tq-soft); } .vo-cel.s4{ background:var(--ok-bg); }
+.vo-sectie .tbl-wrap{ max-width:100%; overflow-x:auto; }
 .vo-legende{ margin-top:.4rem; color:var(--ink-soft); font-size:.8rem; }
 .vo-mixscore{ font-size:.95rem; }
+.vo-meer{ margin:0; color:var(--ink-soft); font-size:.85rem; }
+.vo-chip.vo-alle{ border-style:dashed; }
+.vo-chip.vo-alle.aan{ border-style:solid; }
+.vo-andere{ margin:.2rem 0 .4rem; padding-left:1.2rem; font-size:.88rem; line-height:1.7; }
+.vo-andere .linkbtn{ font-size:.88rem; padding:0; text-align:left; overflow-wrap:anywhere; }
 
 /* de reeks */
 .vo-kaart{ border:2px solid var(--tq); border-radius:1rem; background:var(--card); color:var(--ink); max-width:56rem; }

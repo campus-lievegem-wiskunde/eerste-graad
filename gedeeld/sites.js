@@ -1372,6 +1372,12 @@ export const SITES = [
     "vragen": 0
    },
    {
+    "id": "macht",
+    "naam": "Machten en vierkantswortels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
     "id": "mix",
     "naam": "Alles door elkaar",
     "toets": false,

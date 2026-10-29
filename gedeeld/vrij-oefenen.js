@@ -79,7 +79,9 @@ VO.html = t => html(t, true); VO.ev = ev;
 
 /* ---------- getallen ---------- */
 function getal(J, v, rol, teken){
-  const neg = teken === -1 || (teken !== 1 && J.teken && Math.random() < .5), s = neg ? -1 : 1;
+  const metTeken = J.teken || v === 'z', neg = teken === -1 || (teken !== 1 && metTeken && Math.random() < .5), s = neg ? -1 : 1;
+  /* 1A: gehele getallen enkel van −zMax tot zMax (eenvoudige oefeningen) */
+  if(v === 'z' && J.zMax) return G(Q(s * (['som', 'somk'].includes(rol) ? ri(1, J.zMax) : rol === 'volg' ? ri(1, 10) : ri(2, rol === 'klein' ? 9 : 10))), 'z');
   if(v === 'z' || v === 'n'){
     const n = rol === 'som' ? (J.teken ? ri(1, 40) : ri(10, 999)) : rol === 'somk' ? (J.teken ? ri(1, 40) : ri(5, 150)) : rol === 'macht' ? ri(1, 10) : rol === 'klein' ? ri(2, 9) : rol === 'volg' ? (J.teken ? ri(1, 12) : ri(2, 12)) : (J.teken ? ri(2, 12) : ri(2, 15));
     return G(Q(s * n), v);
@@ -99,13 +101,23 @@ function getal(J, v, rol, teken){
     if(x.d !== 1) return G(Q(s * x.n, x.d), 'd');
   }
 }
+/* vermenigvuldigen en delen met kommagetallen: enkel met de factoren uit J.komma ('0,1', '0,25' ...) */
+const kommaQ = x => { const [e, f = ''] = String(x).split(','); return Q(Number(e + f), 10 ** f.length); };
+function kommaFactor(J, L, m){
+  if(!J.komma || !(m === 'd' || m === 'qd')) return L('maal');
+  const neg = J.teken && Math.random() < .5;
+  return G(R.maal(kommaQ(kies(J.komma)), Q(neg ? -1 : 1)), 'd');
+}
+/* het andere getal bij een kommafactor: een natuurlijk/geheel getal of een kommagetal */
+const kommaAnder = (J, L, m) => !J.komma || m !== 'd' ? L('maal') : Math.random() < .5 ? getal(J, J.geheel, 'maal') : L('maal');
 /* wortel uit een kwadraat: √49, √0,49, √(9/16) */
 function wortelVan(J, v){
   let r;
   if(v === 'q'){ for(;;){ const d = ri(2, 10), n = ri(1, 9); r = Q(n, d); if(r.d !== 1) break; } }
   else if(v === 'd'){ for(;;){ r = Q(ri(1, 15), 10); if(r.d !== 1) break; } }
-  else r = Q(ri(1, 15));
-  return W(G(R.maal(r, r), v === 'q' && R.maal(r, r).d === 1 ? J.geheel : v));
+  else r = Q(ri(1, J.kwadraat || 15));
+  const g = G(R.maal(r, r), v === 'q' && R.maal(r, r).d === 1 ? J.geheel : v); g.wrt = true;   /* een kwadraat onder de wortel valt niet onder zMax */
+  return W(g);
 }
 
 /* ---------- sjablonen per hoofdstuk en bewerking ---------- */
@@ -113,7 +125,7 @@ const keten = (L, rol, n, ops) => { let t = L(rol); for(let i = 1; i < n; i++) t
 /* a : b met een uitkomst die opgaat: a = b · c */
 function deling(J, L, rol){
   const b = L(rol), c = L(rol), p = R.maal(b.q, c.q);
-  const v = p.d === 1 ? J.geheel : (b.v === 'd' || c.v === 'd') && decimalen(p) >= 0 && decimalen(p) <= 3 ? 'd' : 'q';
+  const v = p.d === 1 ? (b.v === 'z' || c.v === 'z' ? 'z' : J.geheel) : (b.v === 'd' || c.v === 'd') && decimalen(p) >= 0 && decimalen(p) <= 3 ? 'd' : 'q';
   return O(':', G(p, v), b);
 }
 const EXP = (v, kort) => v === 'z' || v === 'n' ? kies(kort ? [2, 2, 3] : [2, 2, 3, 3, 4]) : kies([2, 2, 3]);
@@ -124,12 +136,18 @@ const SJ = {
     som:(J, L, m) => keten(L, 'somk', m === 'q' ? 3 : m === 'd' || m === 'qd' || !J.teken ? ri(3, 4) : ri(3, 5), ['+', MIN])
   },
   maal:{
-    maal:(J, L) => O('·', L('maal'), L('maal')),
-    deel:(J, L, m) => m === 'q' ? O(':', L('maal'), L('maal')) : deling(J, L, 'maal'),
-    fact:(J, L) => { const n = ri(3, 4); let t = L('klein'); for(let i = 1; i < n; i++) t = O(Math.random() < .75 ? '·' : ':', t, L('klein')); return t; }
+    maal:(J, L, m) => { if(!J.komma || !(m === 'd' || m === 'qd')) return O('·', L('maal'), L('maal'));
+      const a = kommaAnder(J, L, m), k = kommaFactor(J, L, m); return Math.random() < .5 ? O('·', a, k) : O('·', k, a); },
+    deel:(J, L, m) => m === 'q' ? O(':', L('maal'), L('maal')) : J.komma && (m === 'd' || m === 'qd') ? O(':', kommaAnder(J, L, m), kommaFactor(J, L, m)) : deling(J, L, 'maal'),
+    fact:(J, L, m) => { if(J.komma && (m === 'd' || m === 'qd')){ const d = Math.random() < .4; return O(d ? ':' : '·', O('·', kommaAnder(J, L, m), kommaFactor(J, L, m)), kommaFactor(J, L, m)); }
+      const n = ri(3, 4); let t = L('klein'); for(let i = 1; i < n; i++) t = O(Math.random() < .75 ? '·' : ':', t, L('klein')); return t; }
   },
   macht:{
-    macht:(J, L, m) => { const b = L('macht'); return P(b, Math.random() < .1 ? kies([0, 1]) : EXP(b.v)); },
+    macht:(J, L, m) => { const b = L('macht');
+      /* 1A (J.kwadraat): kwadraten tot J.kwadraat², derdemachten tot 5³ */
+      if(J.kwadraat && (b.v === 'n' || b.v === 'z')){ const e = Math.random() < .1 ? kies([0, 1]) : kies([2, 2, 2, 3]), s = b.q.n < 0 ? -1 : 1;
+        return P(G(Q(s * ri(1, e === 3 ? 5 : J.kwadraat)), b.v), e); }
+      return P(b, Math.random() < .1 ? kies([0, 1]) : EXP(b.v)); },
     mmin:(J, L) => { const v = kies([1, 2, 3]); const b = L('macht', v === 1 ? 1 : -1), e = EXP(b.v, true); return v === 2 ? P(b, e) : M(P(v === 1 ? b : b, e)); },
     wortel:(J, L, m) => { const v = () => m === 'qd' ? kies(['q', 'd']) : m; const f = kies([1, 1, 2, 3]);
       return f === 1 ? wortelVan(J, v()) : f === 2 ? M(wortelVan(J, v())) : O(kies(['+', MIN]), wortelVan(J, v()), wortelVan(J, v())); }
@@ -163,9 +181,11 @@ const SJ = {
 /* een uitdrukking is bruikbaar als elke tussenuitkomst klopt met de soort getallen */
 function bruikbaar(J, t, val, h){
   if(!val) return false;
-  let hasQ = false, hasD = false, nat = false, ok = true;
-  knopen(t, x=>{ if(x.k === 'g'){ if(x.v === 'q') hasQ = true; if(x.v === 'd') hasD = true; if(x.v === 'n') nat = true; } });
-  if(!J.teken) nat = true;
+  let hasQ = false, hasZ = false, hasD = false, ok = true;
+  knopen(t, x=>{ if(x.k === 'g'){ if(x.v === 'q') hasQ = true; if(x.v === 'd') hasD = true; if(x.v === 'z'){ hasZ = true; if(J.zMax && !x.wrt && Math.abs(x.q.n) > J.zMax) ok = false; } } });
+  if(!ok) return false;
+  /* zonder teken (1A) blijft alles positief, behalve bij de gehele getallen */
+  const nat = !J.teken && !hasZ;
   knopen(t, x=>{
     if(!ok || x.k === 'g') return;
     const w = ev(x); if(!w || Math.abs(w.n) > 1e6 || w.d > 1e6){ ok = false; return; }
@@ -177,7 +197,7 @@ function bruikbaar(J, t, val, h){
   if(!ok) return false;
   if(hasQ) return val.d <= (h === 'volg' ? 60 : 100) && Math.abs(val.n) <= 400;
   if(hasD) return decimalen(val) >= 0 && decimalen(val) <= (h === 'macht' ? 4 : h === 'volg' ? 2 : 3) && Math.abs(val.n / val.d) <= 1000;
-  return Math.abs(val.n) <= (h === 'optel' && !J.teken ? 3000 : 1000);
+  return Math.abs(val.n) <= (hasZ && J.zMax ? 20 * J.zMax : h === 'optel' && !J.teken ? 3000 : 1000);
 }
 function soortVan(t){
   let q = false, d = false; knopen(t, x=>{ if(x.k === 'g'){ if(x.v === 'q') q = true; if(x.v === 'd') d = true; } });
@@ -192,18 +212,26 @@ function maakOefening(J, h, b, m){
   return null;
 }
 /* een reeks van 10: per bewerking telkens een paar na elkaar (in de volgorde van de keuzelijst) */
+/* g en b: 'alle', één id, ids met + ertussen (bv. 'z+q') of een lijst */
+const lijst = (x, alle) => x === 'alle' || x == null ? alle.slice() : Array.isArray(x) ? x.slice() : String(x).split('+');
+VO.lijst = lijst;
+/* sleutel van een keuze: 'alle' als alles gekozen is, anders de ids in vaste volgorde met + ertussen */
+VO.sleutel = (x, alle) => { const l = lijst(x, alle); return alle.every(a=>l.includes(a)) ? 'alle' : alle.filter(a=>l.includes(a)).join('+'); };
 VO.maakReeks = function(J, h, g, b, zichtbaar){
+  const alleG = J.getallen.map(x=>x[0]).filter(x=>x !== 'alle'), gs = lijst(g, alleG);
+  /* soorten getallen per oefening: alles gekozen = ook breuken en kommagetallen in één oefening */
+  const modes = h === 'mix' || alleG.every(a=>gs.includes(a)) ? J.modes : gs.concat(gs.includes('q') && gs.includes('d') ? ['qd'] : []);
   const hs = J.hoofdstukken.filter(x=>x.bew && (!zichtbaar || zichtbaar.includes(x.id)));
   const plan = [];
   if(!hs.length) return [];
   if(h === 'mix'){ const volg = schud(hs); for(let i = 0; i < 10; i++){ const x = volg[i % volg.length]; plan.push([x.id, kies(x.bew)[0]]); } }
-  else { const x = hs.find(y=>y.id === h) || J.hoofdstukken.find(y=>y.id === h), bs = b === 'alle' ? x.bew.map(y=>y[0]) : [b]; for(let i = 0; i < 10; i++) plan.push([h, bs[i % bs.length]]); }
+  else { const x = hs.find(y=>y.id === h) || J.hoofdstukken.find(y=>y.id === h), bs = lijst(b, x.bew.map(y=>y[0])); for(let i = 0; i < 10; i++) plan.push([h, bs[i % bs.length]]); }
   const orde = J.hoofdstukken.flatMap(x=>(x.bew || []).map(y=>x.id + '|' + y[0]));
   plan.sort((p, q)=>orde.indexOf(p.join('|')) - orde.indexOf(q.join('|')));
   const items = [], gezien = new Set();
   plan.forEach(([hh, bb])=>{
     let it = null;
-    for(let k = 0; k < 30 && !it; k++){ const m = g === 'alle' || h === 'mix' ? kies(J.modes) : g; const x = maakOefening(J, hh, bb, m); if(x && !gezien.has(x.html)) it = x; }
+    for(let k = 0; k < 30 && !it; k++){ const m = kies(modes); const x = maakOefening(J, hh, bb, m); if(x && !gezien.has(x.html)) it = x; }
     if(it){ gezien.add(it.html); items.push(it); }
   });
   return items;
@@ -256,8 +284,9 @@ VO.start = function(J){
   const CLtoets = (key, score, n) => { try{ window.CL && window.CL.toets(key, score, n); }catch(e){} };
   const lees = k => { try{ const v = localStorage.getItem(PREFIX + k); return v ? JSON.parse(v) : null; }catch(e){ return null; } };
   const schrijf = (k, v) => { try{ if(v == null) localStorage.removeItem(PREFIX + k); else localStorage.setItem(PREFIX + k, JSON.stringify(v)); }catch(e){} };
-  const naamG = g => (J.getallen.find(x=>x[0] === g) || [, 'Alles door elkaar'])[1];
-  const naamB = (h, b) => { const x = J.hoofdstukken.find(y=>y.id === h); return b === 'alle' ? 'Alles door elkaar' : ((x && x.bew || []).find(y=>y[0] === b) || [, b])[1]; };
+  const ALLEG = J.getallen.map(x=>x[0]).filter(x=>x !== 'alle'), alleB = h => (J.hoofdstukken.find(y=>y.id === h).bew || []).map(y=>y[0]);
+  const naamG = g => g === 'alle' ? 'Alles door elkaar' : String(g).split('+').map(x=>(J.getallen.find(y=>y[0] === x) || [, x])[1]).join(' + ');
+  const naamB = (h, b) => { const x = J.hoofdstukken.find(y=>y.id === h); return b === 'alle' ? 'Alles door elkaar' : String(b).split('+').map(z=>((x && x.bew || []).find(y=>y[0] === z) || [, z])[1]).join(' + '); };
   const nrVan = h => HS.filter(x=>x.bew).findIndex(x=>x.id === h) + 1;
   let actief = null, scherm = 'keuze', bevestig = false;
 
@@ -279,13 +308,20 @@ VO.start = function(J){
   /* ---------- keuze: getallen en bewerking, en de scores ---------- */
   function toonKeuze(h){
     scherm = 'keuze'; bevestig = false;
-    const x = J.hoofdstukken.find(y=>y.id === h), kz = lees('keuze') || {}, k = kz[h] || { g:'alle', b:'alle' };
+    const x = J.hoofdstukken.find(y=>y.id === h), kz = lees('keuze') || {}, k0 = kz[h] || { g:'alle', b:'alle' };
+    /* gekozen getallen en bewerkingen (één of meer); k.g en k.b zijn de sleutels ('alle', 'z' of 'z+q') */
+    const kg = x.bew ? lijst(k0.g, ALLEG).filter(a=>ALLEG.includes(a)) : [], kb = x.bew ? lijst(k0.b, alleB(h)).filter(a=>alleB(h).includes(a)) : [];
+    if(x.bew && !kg.length) kg.push(...ALLEG); if(x.bew && !kb.length) kb.push(...alleB(h));
+    const k = { g:VO.sleutel(kg, ALLEG), b:x.bew ? VO.sleutel(kb, alleB(h)) : 'alle' };
     const sc = lees('scores') || {}, rk = lees('reeks_' + h), bezig = rk && !rk.klaar && rk.items && rk.items.length;
     let h2 = '';
     if(x.bew){
-      const chips = (soort, lijst, nu) => lijst.map(([id, nm])=>`<button type="button" class="vo-chip${id === nu ? ' aan' : ''}" data-${soort}="${id}" aria-pressed="${id === nu}">${esc(nm)}</button>`).join('');
-      h2 += `<div class="vo-kies"><div class="vo-rij"><b id="lblG">Welke getallen?</b><div class="vo-chips" role="group" aria-labelledby="lblG">${chips('g', J.getallen, k.g)}</div></div>
-        <div class="vo-rij"><b id="lblB">Welke bewerking?</b><div class="vo-chips" role="group" aria-labelledby="lblB">${chips('b', x.bew.concat([['alle', 'Alles door elkaar']]), k.b)}</div></div></div>`;
+      /* meerkeuze: elke knop zet een soort aan of uit; Alles door elkaar zet alles aan */
+      const chips = (soort, opties, aan) => opties.map(([id, nm])=>{ const op = id === 'alle' ? opties.every(([i])=>i === 'alle' || aan.includes(i)) : aan.includes(id);
+        return `<button type="button" class="vo-chip${op ? ' aan' : ''}${id === 'alle' ? ' vo-alle' : ''}" data-${soort}="${id}" aria-pressed="${op}">${esc(nm)}</button>`; }).join('');
+      h2 += `<div class="vo-kies"><div class="vo-rij"><b id="lblG">Welke getallen?</b><div class="vo-chips" role="group" aria-labelledby="lblG">${chips('g', ALLEG.map(a=>J.getallen.find(y=>y[0] === a)).concat([['alle', 'Alles door elkaar']]), kg)}</div></div>
+        <div class="vo-rij"><b id="lblB">Welke bewerking?</b><div class="vo-chips" role="group" aria-labelledby="lblB">${chips('b', x.bew.concat([['alle', 'Alles door elkaar']]), kb)}</div></div>
+        <p class="vo-meer">Kies één soort of klik er meer aan om ze te combineren. <b>Alles door elkaar</b> kiest ze allemaal.</p></div>`;
     } else h2 += `<p class="vo-mixuitleg">Een reeks van 10 bewerkingen uit alle hoofdstukken, met alle soorten getallen door elkaar.</p>`;
     if(bezig) h2 += `<div class="tip vo-bezig"><div>Je reeks <b>${esc(h === 'mix' ? 'Alles door elkaar' : naamG(rk.g) + ' · ' + naamB(h, rk.b))}</b> is nog niet verbeterd (${rk.antw.filter((a, i)=>VO.ingevuld(rk.items[i], a)).length} van ${rk.items.length} ingevuld).
       <button type="button" class="btn vo-verder">Verder met die reeks →</button></div></div>`;
@@ -294,15 +330,22 @@ VO.start = function(J){
     if(x.bew){
       const kol = x.bew.concat([['alle', 'Alles door elkaar']]);
       h2 += `<h3 class="vo-h3">Jouw scores</h3><div class="tbl-wrap"><table class="vo-scores"><thead><tr><th></th>${kol.map(([, nm])=>`<th>${esc(nm)}</th>`).join('')}</tr></thead><tbody>`
-        + J.getallen.map(([g, gn])=>`<tr><th>${esc(gn)}</th>${kol.map(([b])=>{ const s = sc[`${h}|${g}|${b}`];
+        + ALLEG.map(a=>J.getallen.find(y=>y[0] === a)).concat([['alle', 'Alles door elkaar']]).map(([g, gn])=>`<tr><th>${esc(gn)}</th>${kol.map(([b])=>{ const s = sc[`${h}|${g}|${b}`];
           return `<td><button type="button" class="vo-cel${s ? ' s' + (s.l >= 8 ? 4 : s.l >= 6 ? 3 : s.l >= 4 ? 2 : 1) : ''}${g === k.g && b === k.b ? ' nu' : ''}" data-g="${g}" data-b="${b}" title="${esc(gn + ' · ' + naamB(h, b))}${s ? `: laatste ${s.l}/10, beste ${s.b}/10, ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}` : ': nog niet geoefend'}">${s ? `<b>${s.l}/10</b><small>beste ${s.b} · ${s.n}×</small>` : '–'}</button></td>`; }).join('')}</tr>`).join('')
         + '</tbody></table></div><p class="mini vo-legende">Per keuze je laatste score, je beste score en het aantal reeksen. Klik op een vakje om die keuze te nemen.</p>';
+      /* combinaties van meer soorten (die passen niet in de tabel) */
+      const enkel = new Set(ALLEG.concat('alle')), enkelB = new Set(alleB(h).concat('alle'));
+      const andere = Object.entries(sc).filter(([key])=>{ const [hh, g, b] = key.split('|'); return hh === h && (!enkel.has(g) || !enkelB.has(b)); }).sort((a, b)=>(b[1].d || 0) - (a[1].d || 0));
+      if(andere.length) h2 += '<h3 class="vo-h3">Andere combinaties</h3><ul class="vo-andere">' + andere.map(([key, s])=>{ const [, g, b] = key.split('|');
+        return `<li><button type="button" class="linkbtn vo-comb" data-g="${esc(g)}" data-b="${esc(b)}">${esc(naamG(g) + ' · ' + naamB(h, b))}</button>: laatste <b>${s.l}/10</b>, beste ${s.b}/10, ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}</li>`; }).join('') + '</ul>';
     } else { const s = sc['mix|alle|alle']; h2 += `<h3 class="vo-h3">Jouw scores</h3><p class="vo-mixscore">${s ? `Laatste score <b>${s.l}/10</b> · beste score <b>${s.b}/10</b> · ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}` : 'Je hebt hier nog geen reeks gemaakt.'}</p>`; }
     const sec = sectie(h, h2);
     const zet = (g, b) => { const kz2 = lees('keuze') || {}; kz2[h] = { g:g || k.g, b:b || k.b }; schrijf('keuze', kz2); toonKeuze(h); };
-    sec.querySelectorAll('.vo-chip[data-g]').forEach(b=>b.onclick = ()=>zet(b.dataset.g, null));
-    sec.querySelectorAll('.vo-chip[data-b]').forEach(b=>b.onclick = ()=>zet(null, b.dataset.b));
-    sec.querySelectorAll('.vo-cel').forEach(b=>b.onclick = ()=>zet(b.dataset.g, b.dataset.b));
+    /* een soort aan- of uitzetten; minstens één blijft aan. Staat alles aan, dan kies je met één klik enkel die soort. */
+    const wissel = (aan, id, alle) => { if(id === 'alle') return 'alle'; if(alle.every(a=>aan.includes(a))) return id; const l = aan.includes(id) ? aan.filter(a=>a !== id) : aan.concat(id); return l.length ? VO.sleutel(l, alle) : VO.sleutel(aan, alle); };
+    sec.querySelectorAll('.vo-chip[data-g]').forEach(b=>b.onclick = ()=>zet(wissel(kg, b.dataset.g, ALLEG), null));
+    sec.querySelectorAll('.vo-chip[data-b]').forEach(b=>b.onclick = ()=>zet(null, wissel(kb, b.dataset.b, alleB(h))));
+    sec.querySelectorAll('.vo-cel, .vo-comb').forEach(b=>b.onclick = ()=>zet(b.dataset.g, b.dataset.b));
     sec.querySelector('.vo-start').onclick = ()=>nieuweReeks(h, h === 'mix' ? 'alle' : k.g, h === 'mix' ? 'alle' : k.b);
     const v = sec.querySelector('.vo-verder'); if(v) v.onclick = ()=>toonReeks(h);
   }

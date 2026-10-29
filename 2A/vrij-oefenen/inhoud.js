@@ -5,7 +5,7 @@
   const go = () => window.VRIJ.start(J);
   if(window.VRIJ) go(); else { const s = document.createElement('script'); s.src = '../../gedeeld/vrij-oefenen.js'; s.onload = go; document.head.append(s); }
 })({
-  jaar:'2A', teken:true, geheel:'z', noemers:[2, 3, 4, 5, 6, 8, 9, 10, 12],
+  jaar:'2A', teken:true, geheel:'z', komma:['0,1', '0,2', '0,5', '0,01', '0,001', '0,25', '0,125'], noemers:[2, 3, 4, 5, 6, 8, 9, 10, 12],
   getallen:[['z', 'Gehele getallen'], ['q', 'Breuken'], ['d', 'Kommagetallen'], ['alle', 'Alles door elkaar']],
   /* bij Alles door elkaar: per oefening een soort; qd = breuken en kommagetallen in één oefening */
   modes:['z', 'q', 'd', 'qd'],
