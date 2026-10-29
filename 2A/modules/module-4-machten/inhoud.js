@@ -1107,11 +1107,17 @@ const scherm = (boven, onder) => `<span class="m4-scherm"><span class="m4-scherm
 Object.assign(ICONS, {
   m_herh:'<text x="4" y="18" font-size="14" font-weight="700" fill="currentColor" stroke="none">a</text><text x="13" y="10" font-size="9" font-weight="700" fill="currentColor" stroke="none">n</text>'
 });
+/* tabel met machten die je vanbuiten kent */
+const MACHT_TABEL = (() => { const cel = (b, n) => `<td>${mH(String(b), n)} = ${Math.pow(b, n)}</td>`;
+  const rij = arr => `<tr>${arr.join('')}</tr>`;
+  const kw = [], i0 = [...Array(15).keys()].map(i => i + 1).concat([20, 25]);
+  for(let i=0; i<i0.length; i+=6) kw.push(rij(i0.slice(i, i+6).map(b => cel(b, 2))));
+  return `<table class="m4-mtab"><tr><th colspan="6">kwadraten</th></tr>${kw.join('')}<tr><th colspan="6">derdemachten</th></tr>${rij([1, 2, 3, 4, 5, 10].map(b => cel(b, 3)))}<tr><th colspan="6">machten van 2 en 3</th></tr>${rij([[2, 4], [2, 5], [2, 6], [2, 8], [2, 10], [3, 4]].map(([b, n]) => cel(b, n)))}</table>`; })();
 const CHEAT_HERH = `<h3>Spiekbriefje · machten</h3><table>
   <tr><td>macht</td><td><div class="m4-line">${mH('a', 'n')} ${isq} <i>a</i> · <i>a</i> · … · <i>a</i></div><i>n</i> factoren <i>a</i>; <i>a</i> is het <b>grondtal</b>, <i>n</i> de <b>exponent</b></td></tr>
   <tr><td>voorbeeld</td><td><div class="m4-line">${mH('2', 5)} ${isq} 2 · 2 · 2 · 2 · 2 ${isq} 32</div></td></tr>
   <tr><td>haakjes</td><td><div class="m4-line">${mH('-3', 2)} ${isq} (−3) · (−3) ${isq} 9</div><div class="m4-line">${minH(mH('3', 2))} ${isq} −(3 · 3) ${isq} −9</div>zonder haakjes hoort het minteken niet bij het grondtal</td></tr>
-  <tr><td>machten van 10</td><td><div class="m4-line">${mH('10', 4)} ${isq} 10 000</div>de exponent is het aantal nullen</td></tr></table>`;
+  <tr><td>machten van 10</td><td><div class="m4-line">${mH('10', 4)} ${isq} 10 000</div>de exponent is het aantal nullen</td></tr></table><h3>Vanbuiten kennen</h3>${MACHT_TABEL}`;
 const HR = {};
 
 /* ---------- grondtal en exponent ---------- */
@@ -1196,6 +1202,9 @@ HR.breuk = { title:'Een breuk als grondtal', lvl:2,
 HR.hoofd = { title:'Kwadraten en derdemachten uit het hoofd', lvl:2, brk:false,
   instr:'Deze machten ken je best vanbuiten. Reken ze uit zonder rekenmachine.',
   build(b, st, save){
+    const wrap = el('div', 'm4-hoe'); b.append(wrap);
+    const open = el('button', 'btn ghost', '▶ Spiekbriefje'); open.type = 'button'; const box = el('div', 'sa m4-sa', MACHT_TABEL); box.hidden = true; wrap.append(open, box);
+    open.addEventListener('click', ()=>{ box.hidden = !box.hidden; open.textContent = (box.hidden ? '▶ Spiekbriefje' : '■ Verberg het spiekbriefje'); });
     const R = makeR(st);
     const L = R.shuffle([[11, 2], [12, 2], [13, 2], [14, 2], [15, 2], [20, 2], [25, 2], [2, 3], [3, 3], [4, 3], [5, 3], [10, 3], [2, 10], [3, 4]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [bb, n] = L[i]; const T = Q(Math.pow(bb, n));
@@ -1226,6 +1235,8 @@ HR.waarde = { title:'Getalwaarde berekenen', lvl:3,
 SEC.herh = { id:'herh', ic:'m_herh', nav:'Machten: herhaling', title:'Machten: herhaling',
   tip:'Een macht is een korte schrijfwijze voor een product van gelijke factoren. Haakjes rond een negatief grondtal typ je zelf: <b>(-2)</b>.',
   cheat:CHEAT_HERH, cards:[HR.ge, HR.alsm, HR.uit, HR.haak, HR.tien, HR.breuk, HR.hoofd, HR.nul1, HR.waarde] };
+
+(function(){ const s = document.createElement('style'); s.textContent = `.m4-mtab{border-collapse:collapse; margin:.2rem 0; font-size:1.05rem} .m4-mtab td{padding:.25rem .7rem; white-space:nowrap; border-bottom:1px solid var(--accent-soft)} .m4-mtab th{text-align:left; padding:.5rem .7rem .2rem; color:var(--accent-dark); font-size:.9rem}`; document.head.append(s); })();
 
 /* ============================================================
    ONDERDELEN: ICONEN EN SPIEKBRIEFJES
