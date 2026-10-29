@@ -518,7 +518,7 @@ const isq = '<span class="m4-is">=</span>';
 const tokens = html => html.replace(/\{\{i:(\w+)\}\}/g, '<span class="m4-wi" data-k="$1">').replace(/\{\{\/i\}\}/g, '</span>').replace(/\{\{(\w):(\w+)((?:,\w+)*)\}\}/g, (m, t, k, o) => `<span class="m4-w" data-t="${t}" data-k="${k}" data-o="${o.slice(1)}"></span>`);
 function m4inp(cls, val, lab){ const i = el('input', 'm4-in ' + cls); i.type = 'text'; i.autocomplete = 'off'; i.spellcheck = false; i.value = val || ''; i.setAttribute('aria-label', lab); grow(i); i.addEventListener('input', ()=>grow(i)); return i; }
 function grow(i){ const n = Math.max(0, i.value.length - (i.classList.contains('ex') ? 2 : 3)); i.style.width = n ? `calc(var(--w) + ${n*.6}em)` : ''; }
-const BRK_IC = '<svg viewBox="0 0 14 18" aria-hidden="true"><rect x="2.5" y="1" width="9" height="6" rx="1.2"/><path d="M1 9h12"/><rect x="2.5" y="11" width="9" height="6" rx="1.2"/></svg>';
+const BRK_IC = '<svg viewBox="0 0 14 18" aria-hidden="true"><rect x="4.5" y="2.5" width="5" height="4" rx=".9"/><path d="M1.5 9h11"/><rect x="4.5" y="11.5" width="5" height="4" rx=".9"/></svg>';
 /* tekenvak zoals in de rekenvaardigheden: + boven, − onder */
 function tekenvak(o, save, onCh){
   const tv = el('span', 'm4-teken'); tv.setAttribute('role', 'group'); tv.setAttribute('aria-label', 'kies het teken');
