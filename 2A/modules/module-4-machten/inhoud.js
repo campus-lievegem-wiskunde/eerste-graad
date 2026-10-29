@@ -1231,6 +1231,7 @@ function vrijVak(sp, v, save, onCh){
   const eersteA = n => n.k==='a' ? n : n.k==='row' ? eersteA(n.f[0]) : n.k==='frac' ? eersteA(n.t) : eersteA(n.b);
   const laatsteA = n => n.k==='a' ? n : n.k==='row' ? laatsteA(n.f[n.f.length-1]) : n.k==='frac' ? laatsteA(n.t) : laatsteA(n.b);
   const haakVan = n => { let p = P.get(n); while(p){ if(p.o.k==='g') return p.o; p = P.get(p.o); } return null; };
+  const actiefVak = i => { sp.querySelectorAll('.vx-actief').forEach(x => x.classList.remove('vx-actief')); i.classList.add('vx-actief'); };
   const focus = (n, w='b') => { if(!n) return; foc = {n, w}; const x = IN.get(n); const i = x && (w==='e' && x.e ? x.e : x.b || x.e); if(i){ i.focus({preventScroll:true}); i.setSelectionRange(i.value.length, i.value.length); } };
   /* bewerkingen */
   const nieuweFactor = n => { const r = rijVan(n), a = VX.A(); r.f.splice(P.get(n).i + 1, 0, a); return a; };
@@ -1239,39 +1240,41 @@ function vrijVak(sp, v, save, onCh){
     const r = rijVan(n), p = P.get(r);
     if(p.o.k==='frac'){ const fr = p.o; zet(fr, fr.t); return eersteA(fr.t); }
     const fr = {k:'frac', t:r, n:VX.R()}; zet(r, fr); return fr.n.f[0]; };
+  let bar = null;
   function draw(){ index(); IN = new Map(); sp.innerHTML = '';
     v.r.forEach((L, li) => { const actief = li===v.r.length-1;
-      const row = el('div', 'vx-regel'); if(li) row.append(el('span', 'm4-is vx-is', '='));
-      row.append(rend(L.b, actief));
-      if(actief) row.append(knoppen(li));
-      sp.append(row); });
-    const plus = el('button', 'linkbtn vx-plus', '= (volgende tussenstap)'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
+      const row = el('div', 'vx-regel' + (actief ? ' actief' : '')); row.append(el('span', 'm4-is vx-is', '='), rend(L.b, actief)); sp.append(row); });
+    balk(); }
+  /* de knoppenbalk staat op een vaste plek: onder het antwoord, boven Controleer */
+  function balk(){
+    if(!bar){ bar = el('div', 'vx-balk'); const q = sp.closest('.m4-q'), act = q && q.querySelector(':scope > .q-act'); if(act) q.insertBefore(bar, act); else sp.after(bar); }
+    bar.innerHTML = ''; const tools = el('div', 'vx-tools'); bar.append(tools);
+    const knop = (ic, lab, tip, fn, cls='') => { const b = el('button', 'vx-k ' + cls, `<span class="vx-ic">${ic}</span><span class="vx-lab">${lab}</span>`); b.type = 'button'; b.dataset.tip = tip; b.setAttribute('aria-label', tip);
+      b.addEventListener('mousedown', e=>e.preventDefault()); b.addEventListener('click', ()=>{ index(); const n = foc && P.has(foc.n) ? foc.n : laatsteA(v.r[v.r.length-1].b); fn(n); }); tools.append(b); return b; };
+    knop('<span class="vx-dot">·</span><span class="vx-hok"></span>', 'maal', 'nog een factor erbij (maal)', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
+    knop(XP_IC, 'macht', 'exponent bij het actieve vakje', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
+    knop(HK_IC, 'haakjes', 'haakjes met een exponent', n => { const leeg = n.k==='a' && !nrm(n.s||''); const g = haakjes(n); ch(); draw(); if(leeg) focus(n); else focus(g, 'e'); });
+    knop(BRK_IC, 'breuk', 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
+    undoB = knop('↶', 'terug', 'ongedaan maken', terug, 'vx-terug'); undoB.disabled = hist.length<2;
+    if(v.r.length>1) knop('✕', 'regel weg', 'deze regel weghalen', () => { v.r.pop(); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }, 'vx-weg');
+    const plus = el('button', 'btn ghost vx-plus', '= (volgende tussenstap)'); plus.type = 'button'; plus.dataset.tip = 'reken verder op een nieuwe regel';
     plus.addEventListener('click', ()=>{ v.r.push({b:VX.R()}); ch(); draw(); focus(v.r[v.r.length-1].b.f[0]); });
-    sp.append(plus); }
+    bar.append(plus, el('div', 'vx-snel', 'Typen kan ook: <kbd>(</kbd> <kbd>)</kbd> haakjes · <kbd>^</kbd> macht · <kbd>/</kbd> breuk · <kbd>*</kbd> maal'));
+  }
   function rend(n, actief){
     if(n.k==='row'){ const s = el('span', 'vx-rij'); n.f.forEach((f, i) => { if(i) s.append(el('span', 'vx-maal', '·')); s.append(rend(f, actief)); }); return s; }
     if(n.k==='frac'){ const br = el('span', 'br vx-br'), bt = el('span', 'br-t'), bn = el('span', 'br-n'); bt.append(rend(n.t, actief)); bn.append(rend(n.n, actief)); br.append(bt, bn); return br; }
     const fe = el('span', 'vx-f' + (n.k==='g' ? ' vx-g' : '')); const x = {};
     if(n.k==='a'){ const bi = m4inp('b vx-b', n.s, 'getal of letter'); x.b = bi; fe.append(bi);
-      if(actief){ bi.addEventListener('focus', ()=>{ foc = {n, w:'b'}; }); bi.addEventListener('input', ()=>typ(n, bi)); bi.addEventListener('keydown', e=>toets(e, n, bi)); } else bi.readOnly = true; }
+      if(actief){ bi.addEventListener('focus', ()=>{ foc = {n, w:'b'}; actiefVak(bi); }); bi.addEventListener('input', ()=>typ(n, bi)); bi.addEventListener('keydown', e=>toets(e, n, bi)); } else bi.readOnly = true; }
     else { const groot = n.b.k==='frac' ? ' groot' : ''; fe.append(el('span', 'vx-par' + groot, '('), rend(n.b, actief), el('span', 'vx-par' + groot, ')')); }
     if(n.e!=null){ const ex = m4inp('ex', n.e, 'exponent'); x.e = ex; const sup = el('span', 'm4-exp'); sup.append(ex); fe.append(sup);
-      if(actief){ ex.addEventListener('focus', ()=>{ foc = {n, w:'e'}; });
+      if(actief){ ex.addEventListener('focus', ()=>{ foc = {n, w:'e'}; actiefVak(ex); });
         ex.addEventListener('input', ()=>{ const t = ex.value.replace(/[−–]/g, '-').replace(/[^-\d]/g, ''); n.e = t; if(ex.value!==t) ex.value = t; ch(); });
         ex.addEventListener('keydown', e=>{ if(e.key==='Backspace' && ex.value===''){ e.preventDefault(); n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } }); }
       else ex.readOnly = true; }
     IN.set(n, x); return fe;
   }
-  function knoppen(li){ const ctl = el('span', 'vx-ctl');
-    const knop = (html, tip, fn, cls='') => { const b = el('button', 'vx-k ' + cls, html); b.type = 'button'; b.dataset.tip = tip; b.setAttribute('aria-label', tip);
-      b.addEventListener('mousedown', e=>e.preventDefault()); b.addEventListener('click', ()=>{ index(); const n = foc && P.has(foc.n) ? foc.n : laatsteA(v.r[li].b); fn(n); }); ctl.append(b); return b; };
-    knop('<span class="vx-dot">·</span><span class="vx-hok"></span>', 'factor erbij (maal)', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
-    knop(XP_IC, 'exponent', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
-    knop(HK_IC, 'haakjes met een exponent', n => { const leeg = n.k==='a' && !nrm(n.s||''); const g = haakjes(n); ch(); draw(); if(leeg) focus(n); else focus(g, 'e'); });
-    knop(BRK_IC, 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
-    undoB = knop('↶', 'ongedaan maken', terug, 'vx-terug'); undoB.disabled = hist.length<2;
-    if(li) knop('✕', 'deze regel weghalen', () => { v.r.pop(); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }, 'vx-weg');
-    return ctl; }
   /* typen: ^ exponent · ( haakjes · ) uit de haakjes naar hun exponent · / breuk · * nieuwe factor · 3a wordt 3 · a */
   function typ(n, bi){
     const x = bi.value.replace(/[−–]/g, '-').replace(/:/g, '/'); index();
@@ -1301,15 +1304,14 @@ function vrijVak(sp, v, save, onCh){
   return {
     mark(on){ const res = v._res || []; sp.querySelectorAll('.vx-regel').forEach((row, li) => { row.classList.remove('ok', 'bad', 'bijna'); const r = res[li]; if(on==null || !r || r.err || r.eq==null) return;
       row.classList.add(!r.eq ? 'bad' : (li===v.r.length-1 && r.why) ? 'bijna' : 'ok'); }); },
-    lock(){ sp.querySelectorAll('.vx-ctl,.vx-plus').forEach(x => x.remove()); }
+    lock(){ if(bar) bar.remove(); sp.querySelectorAll('.vx-actief').forEach(x => x.classList.remove('vx-actief')); }
   };
 }
 (function(){ const css = `
-  .m4-wx{flex-direction:column; align-items:flex-start; gap:.45rem; align-self:flex-start}
-  .m4-line:has(> .m4-wx){align-items:flex-start} .m4-line:has(> .m4-wx) > :not(.m4-wx){margin-top:.55rem}
-  .vx-regel{display:flex; align-items:center; gap:.3rem; flex-wrap:wrap}
-  .vx-is{margin-left:-1.3rem; width:1rem; text-align:center}
-  .vx-regel + .vx-regel{margin-left:1.3rem}
+  .m4-line:has(> .m4-wx){flex-wrap:wrap; row-gap:.5rem}
+  .m4-wx{flex-basis:100%; flex-direction:column; align-items:flex-start; gap:.5rem; padding-left:1.4rem}
+  .vx-regel{display:flex; align-items:center; gap:.4rem; flex-wrap:wrap}
+  .vx-is{width:1rem; text-align:center}
   .vx-rij, .vx-f{display:inline-flex; align-items:center}
   .vx-rij{gap:.12rem} .vx-maal{color:var(--ink-soft); padding:0 .05rem}
   .vx-br{margin:0 .1rem} .vx-br > .br-t, .vx-br > .br-n{padding:.15rem .25rem; display:flex; justify-content:center} .vx-br > .br-n{padding-top:.45rem}
@@ -1318,16 +1320,22 @@ function vrijVak(sp, v, save, onCh){
   .vx-rij:has(> .vx-f > .m4-exp){padding-top:.45rem}
   .vx-par{font-size:1.6rem; font-weight:300; line-height:1; color:var(--accent-dark); padding:0 .05rem}
   .vx-par.groot{font-size:3.6rem; transform:scaleX(.55); margin:0 -.3rem}
-  .vx-ctl{display:inline-flex; gap:.15rem; margin-left:.3rem; flex-wrap:wrap}
-  .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.4rem; min-width:1.9rem; height:1.9rem; padding:0 .3rem; cursor:pointer; font:inherit; font-size:.95rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center}
+  .vx-balk{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .8rem; margin:.4rem 0 .2rem 2.8rem}
+  .vx-tools{display:flex; flex-wrap:wrap; gap:.3rem}
+  .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:3.1rem; min-height:2.9rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
+  .vx-ic{font-size:1rem; line-height:1.1; display:inline-flex; align-items:center; min-height:1.15rem}
+  .vx-lab{font-size:.68rem; font-weight:600; color:var(--ink-soft); line-height:1}
+  .vx-plus{min-height:2.9rem}
+  .vx-snel{flex-basis:100%; font-size:.78rem; color:var(--ink-soft)}
+  .vx-snel kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; background:var(--zone-bg, #f6fbfb); color:var(--accent-dark)}
+  .vx-f .m4-in.vx-actief{border-color:var(--orange); border-width:2.5px; box-shadow:0 0 0 3px var(--or-soft)}
   .vx-k:hover, .vx-k:focus-visible{border-color:var(--accent-dark)}
   .vx-k sup{font-size:.7em}
   .vx-dot{font-size:1.6em; line-height:0}
   .vx-hok{display:inline-block; width:.7rem; height:.85rem; border:1.5px solid currentColor; border-radius:.2rem; margin-left:.15rem}
   .vx-k.vx-brk svg{width:12px; height:16px; fill:none; stroke:currentColor; stroke-width:1.5}
   .vx-k.vx-weg{color:var(--ink-soft)}
-  .vx-k.vx-terug{font-size:1.15rem} .vx-k:disabled{opacity:.4; cursor:default}
-  .vx-plus{font-size:.9rem}
+  .vx-k.vx-terug .vx-ic{font-size:1.2rem} .vx-k:disabled{opacity:.4; cursor:default}
   .vx-regel.ok .m4-in{border-color:var(--ok); background:var(--ok-bg)}
   .vx-regel.bad .m4-in{border-color:var(--bad); background:var(--bad-bg)}
   .vx-regel.bijna .m4-in{border-color:var(--orange); background:var(--or-soft)}
@@ -2920,7 +2928,7 @@ QT.slim = { title:'Slim rekenen: zelfde exponent', lvl:2,
 
 /* ---------- negatieve exponent ---------- */
 QT.neg = { title:'Met een negatieve exponent', lvl:2,
-  instr:'Werk uit en schrijf met positieve exponenten. Bouw je antwoord zelf op, zoals op papier: <b>·▢</b> nog een factor (maal), <b><i>x</i><sup>n</sup></b> een exponent, <b>( )<sup>n</sup></b> haakjes met een exponent, het breukicoontje een breuk. Typen kan ook: ( ) / ^. Schrijf elke tussenstap op een nieuwe regel met <b>= (volgende tussenstap)</b>.',
+  instr:'Werk uit en schrijf met positieve exponenten. Schrijf elke tussenstap op een nieuwe regel.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     /* [getal, getal boven?, exponent] : (2/a)^-3 of (a/3)^-2 */
@@ -2933,7 +2941,7 @@ QT.neg = { title:'Met een negatieve exponent', lvl:2,
       const doel = VX.pow(breuk, p);
       const fout = [[VX.pow(breuk, E), 'Een negatieve exponent maakt de macht niet positief zonder omdraaien. Draai de breuk om.'],
         [boven ? VX.mono(Q(1, c), {[x]:E}) : VX.mono(Q(c), {[x]:-E}), 'Verhef ook het getal tot de macht.']];
-      mQ(g, st, save, 'v' + i, { nr, html:`${h} ${isq} {{x:a}}`, check:V=>chkX(V.a, doel, fout),
+      mQ(g, st, save, 'v' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, doel, fout),
         hint:[['Is de exponent negatief? Wat doe je dan eerst met de breuk?'], ['Verhef daarna de teller en de noemer tot de macht.']],
         sol:`${h} ${isq} ${boven ? qPH(bH(x), sg(c), E) : qPH(sg(c), bH(x), E)} ${isq} ${sol}` }); }, {een:true});
   } };
