@@ -568,7 +568,7 @@ function mountW(root, V, save, onCh, onEnter){
       if(o.includes('t')){ delete v.z; sp.append(tekenvak(v, save, onCh)); } else v.z = true; const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'u', 'uitkomst'); }
     else if(t==='b'){ const h = el('span', 'm4-slim'); sp.append(h); slimVak(h, v, save, onCh, 'b', 'grondtal'); }
     else if(t==='e' || t==='g'){ const i = m4inp(t==='e' ? 'ex' : 'g', v.t, t==='e' ? 'exponent' : 'antwoord'); i.addEventListener('input', ()=>{ v.t = i.value; save(); onCh(); }); sp.append(i); }
-    else if(t==='x') W[k].X = vrijVak(sp, v, save, onCh);
+    else if(t==='x') W[k].X = vrijVak(sp, v, save, onCh, o[0]);
     else if(t==='m'){
       /* machtvak: grondtal (haakjes typt de leerling zelf) en een oranje exponent; met ,i maakt "1/" er een breuk van */
       const draw = focus => { sp.innerHTML = '';
@@ -698,12 +698,13 @@ function mQ(parent, st, save, id, q){
   const fb = el('div', 'fb'); const sol = el('div', 'sol', q.sol || ''); sol.hidden = true;
   row.append(line, act, fb); parent.append(row);
   const M = mountW(line, s.v, save, ()=>{ M.clear(); if(!quiz){ fb.className = 'fb'; fb.textContent = ''; } }, ()=>{ if(!quiz) run(); });
-  Object.values(M.W).forEach(w => { if(w.X){ w.X.check = () => q.check(s.v); w.X.toon(); } });
+  if(!quiz) Object.values(M.W).forEach(w => { if(w.X){ w.X.check = () => q.check(s.v); w.X.toon(); } });
   if(window.__M4TEST) window.__M4TEST.push({id:qid, check:q.check, html:q.html});
   if(q.hint && !quiz){ hintBox(row, act, q.hint, q.meer, qid); const sig = hintSig(q.hint, q.meer); if(sig){ row.dataset.hsig = sig; row._hint = {steps:q.hint, meer:q.meer}; } }
   act.append(solBtn); row.append(sol);
   const evaluate = () => { try{ return q.check(s.v) || {ok:false}; }catch(e){ console.error(e); return {ok:false}; } };
   function run(silent){
+    if(!silent) Object.values(M.W).forEach(w => w.X && w.X.trim());
     if(M.empty()){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Vul eerst alle vakjes in.'; } return; }
     const r = evaluate();
     fb.className = 'fb ' + (r.ok ? 'ok' : r.info ? 'info' : 'bad');
@@ -716,8 +717,8 @@ function mQ(parent, st, save, id, q){
   btn.addEventListener('click', ()=>run());
   solBtn.addEventListener('click', ()=>{ sol.hidden = !sol.hidden; solBtn.textContent = sol.hidden ? 'Toon oplossing' : 'Verberg oplossing'; });
   if(quiz){ btn.hidden = true;
-    quiz.push({ pts:q.pts||1, grade:()=>!M.empty() && !!evaluate().ok,
-      reveal:ok=>{ M.mark(Object.fromEntries(Object.keys(M.W).map(k=>[k, ok]))); if(!ok){ const r = M.empty() ? {} : evaluate(); if(r.msg){ fb.className = 'fb bad'; fb.innerHTML = '❌ ' + r.msg; } if(q.sol) solBtn.hidden = false; } },
+    quiz.push({ pts:q.pts||1, grade:()=>{ Object.values(M.W).forEach(w => w.X && w.X.trim()); return !M.empty() && !!evaluate().ok; },
+      reveal:ok=>{ Object.values(M.W).forEach(w => { if(w.X){ w.X.check = () => q.check(s.v); w.X.trim(); } }); M.mark(Object.fromEntries(Object.keys(M.W).map(k=>[k, ok]))); if(!ok){ const r = M.empty() ? {} : evaluate(); if(r.msg){ fb.className = 'fb bad'; fb.innerHTML = '❌ ' + r.msg; } if(q.sol) solBtn.hidden = false; } },
       lock:()=>M.lock() }); }
   else if(s.checked) run(true);
   return {row, M, fb, run};
@@ -1146,6 +1147,10 @@ VX.pow = (a, n) => { const v = {}; for(const k in a.v){ if(a.v[k]*n) v[k] = a.v[
 VX.inv = a => VX.pow(a, -1);
 VX.eq = (a, b) => { if(!qEq(a.c, b.c)) return false; const ks = new Set([...Object.keys(a.v), ...Object.keys(b.v)]); for(const k of ks) if((a.v[k]||0)!==(b.v[k]||0)) return false; return true; };
 const isNum = s => /^-?\d+$/.test(s);
+/* doel maken: xm(getal, {letter:exponent}) · fout-exponenten van één letter omzetten */
+const xm = (c, v={}) => VX.mono(typeof c==='object' ? c : Q(c), Object.fromEntries(Object.entries(v).filter(([, e]) => e)));
+const eK = e => typeof e==='object' ? e.k : e;
+const foutM = (x, F, c=1) => (F||[]).map(([e, m]) => [xm(c, {[x]:eK(e)}), m]);
 /* ---------- een regel lezen ---------- */
 VX.atom = s => { s = nrm(s).replace(/\./g, ',');
   if(s==='-') return VX.mono(Q(-1));
@@ -1215,6 +1220,7 @@ VX.uitleg = (body, val, doel, fout) => {
 };
 /* controle: doel is een eentermvorm; fout = [[eentermvorm, boodschap], ...] */
 function chkX(v, doel, fout=[]){
+  if(window.__M4TEST) window.__VXDOEL = doel;
   const lines = VX.ok(v) ? v.r.filter(L => !VX.leeg(L.b)) : [];
   const res = lines.map(L => { const val = VX.val(L.b); if(val.err) return val; const eq = VX.eq(val, doel);
     return {val, eq, why:VX.waarom(L.b), uitleg: eq ? '' : VX.uitleg(L.b, val, doel, fout)}; });
@@ -1225,13 +1231,16 @@ function chkX(v, doel, fout=[]){
   const fk = res.findIndex(r => !r.eq);
   if(fk >= 0) return {ok:false, msg:(nr ? `Regel ${fk+1} klopt niet. Klik op het rode kruisje voor uitleg.` : (u => typeof u==='string' ? u : u.tekst)(res[fk].uitleg))};
   const last = res[res.length-1];
-  if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>= (volgende tussenstap)</b> en reken verder op een nieuwe regel.`};
+  if(last.why) return {info:true, msg:`<b>Bijna juist!</b> Dit is een juiste tussenstap. ${last.why} Klik op <b>=</b> en reken verder op een nieuwe regel.`};
   return {ok:true};
 }
 /* ---------- tekenen en bewerken ---------- */
 const XP_IC = '<i>x</i><sup style="color:var(--orange)">n</sup>';
 const HK_IC = '(&#8239;)<sup style="color:var(--orange)">n</sup>';
-function vrijVak(sp, v, save, onCh){
+/* knoppen per oefening: {{x:k}} geeft alle knoppen; {{x:k,meh}} enkel maal (m), macht (e), haakjes (h) en breuk (b) die je opgeeft */
+const VX_KNOPPEN = 'mehb';
+function vrijVak(sp, v, save, onCh, opt){
+  const mag = c => (opt || VX_KNOPPEN).includes(c); sp.dataset.knoppen = opt || VX_KNOPPEN;
   if(!VX.ok(v) || !v.r.length) v.r = [{b:VX.R()}];
   let P = new Map(), IN = new Map(), foc = null;
   /* ongedaan maken: na elke wijziging een momentopname */
@@ -1283,15 +1292,15 @@ function vrijVak(sp, v, save, onCh){
     bar.innerHTML = ''; const tools = el('div', 'vx-tools'); bar.append(tools);
     const knop = (ic, lab, tip, fn, cls='') => { const b = el('button', 'vx-k ' + cls, `<span class="vx-ic">${ic}</span>`); b.type = 'button'; b.dataset.tip = lab; b.setAttribute('aria-label', tip);
       b.addEventListener('mousedown', e=>e.preventDefault()); b.addEventListener('click', ()=>{ index(); const n = foc && P.has(foc.n) ? foc.n : laatsteA(v.r[v.r.length-1].b); fn(n); }); tools.append(b); return b; };
-    knop('<span class="vx-dot">·</span><span class="vx-hok"></span>', 'maal', 'nog een factor erbij (maal)', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
-    knop(XP_IC, 'macht', 'exponent bij het actieve vakje', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
-    knop(HK_IC, 'haakjes', 'haakjes met een exponent', n => { const leeg = n.k==='a' && !nrm(n.s||''); const g = haakjes(n); ch(); draw(); if(leeg) focus(n); else focus(g, 'e'); });
-    knop(BRK_IC, 'breuk', 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
+    if(mag('m')) knop('<span class="vx-dot">·</span><span class="vx-hok"></span>', 'maal', 'nog een factor erbij (maal)', n => { const a = nieuweFactor(n); ch(); draw(); focus(a); });
+    if(mag('e')) knop(XP_IC, 'macht', 'exponent bij het actieve vakje', n => { if(n.e==null){ n.e = ''; ch(); draw(); focus(n, 'e'); } else { n.e = null; ch(); draw(); focus(n.k==='a' ? n : laatsteA(n.b)); } });
+    if(mag('h')) knop(HK_IC, 'haakjes', 'haakjes met een exponent', n => { const leeg = n.k==='a' && !nrm(n.s||''); const g = haakjes(n); ch(); draw(); if(leeg) focus(n); else focus(g, 'e'); });
+    if(mag('b')) knop(BRK_IC, 'breuk', 'breuk', n => { const a = breuk(n); ch(); draw(); focus(a); }, 'vx-brk');
     undoB = knop('↶', 'terug', 'ongedaan maken', terug, 'vx-terug'); undoB.disabled = hist.length<2;
     if(v.r.length>1) knop('✕', 'regel weg', 'deze regel weghalen', () => { v.r.pop(); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }, 'vx-weg');
-    const plus = el('button', 'btn ghost vx-plus', '= (volgende tussenstap)'); plus.type = 'button'; plus.dataset.tip = 'volgende tussenstap'; plus.setAttribute('aria-label', 'volgende tussenstap: nieuwe regel');
+    const plus = el('button', 'btn ghost vx-plus', '<span class="sr-only">volgende tussenstap</span>'); plus.type = 'button'; plus.dataset.tip = 'volgende tussenstap'; plus.setAttribute('aria-label', 'volgende tussenstap: nieuwe regel');
     plus.addEventListener('click', ()=>{ v.r.push({b:VX.R()}); ch(); draw(); focus(v.r[v.r.length-1].b.f[0]); });
-    bar.append(plus, el('div', 'vx-snel', 'Typen kan ook: <kbd>(</kbd> <kbd>)</kbd> haakjes · <kbd>^</kbd> macht · <kbd>/</kbd> breuk · <kbd>*</kbd> maal'));
+    bar.append(plus, el('div', 'vx-snel', 'Typen kan ook: ' + [['h', '<kbd>(</kbd> <kbd>)</kbd> haakjes'], ['e', '<kbd>^</kbd> macht'], ['b', '<kbd>/</kbd> breuk'], ['m', '<kbd>*</kbd> maal']].filter(([c]) => mag(c)).map(([, t]) => t).join(' · ')));
   }
   function rend(n, actief){
     if(n.k==='row'){ const s = el('span', 'vx-rij'); n.f.forEach((f, i) => { if(i) s.append(el('span', 'vx-maal', '·')); s.append(rend(f, actief)); }); return s; }
@@ -1311,14 +1320,14 @@ function vrijVak(sp, v, save, onCh){
   function typ(n, bi){
     const x = bi.value.replace(/[−–]/g, '-').replace(/:/g, '/'); index();
     const zonder = c => x.replace(c, '');
-    if(x.includes('^')){ n.s = zonder('^'); if(n.e==null) n.e = ''; ch(); draw(); focus(n, 'e'); return; }
-    if(x.includes('(')){ const voor = x.split('(')[0];
+    if(x.includes('^') && mag('e')){ n.s = zonder('^'); if(n.e==null) n.e = ''; ch(); draw(); focus(n, 'e'); return; }
+    if(x.includes('(') && mag('h')){ const voor = x.split('(')[0];
       if(voor && voor!=='-'){ n.s = voor; const a = nieuweFactor(n); index(); haakjes(a); }
       else { n.s = ''; const g = haakjes(n); if(voor==='-'){ index(); rijVan(g).f.splice(P.get(g).i, 0, VX.A('-')); } }
       ch(); draw(); focus(voor && voor!=='-' ? laatsteA(rijVan(n).f[P.get(n).i + 1]) : n); return; }
-    if(x.includes(')')){ n.s = zonder(')'); const g = haakVan(n); if(g){ if(g.e==null) g.e = ''; ch(); draw(); focus(g, 'e'); } else { bi.value = n.s; ch(); } return; }
-    if(x.includes('/')){ n.s = zonder('/'); const a = breuk(n); ch(); draw(); focus(a); return; }
-    if(/[*·]/.test(x)){ const [a, ...b] = x.split(/[*·]/); n.s = a; const m = nieuweFactor(n); m.s = b.join(''); ch(); draw(); focus(m); return; }
+    if(x.includes(')') && mag('h')){ n.s = zonder(')'); const g = haakVan(n); if(g){ if(g.e==null) g.e = ''; ch(); draw(); focus(g, 'e'); } else { bi.value = n.s; ch(); } return; }
+    if(x.includes('/') && mag('b')){ n.s = zonder('/'); const a = breuk(n); ch(); draw(); focus(a); return; }
+    if(/[*·]/.test(x) && mag('m')){ const [a, ...b] = x.split(/[*·]/); n.s = a; const m = nieuweFactor(n); m.s = b.join(''); ch(); draw(); focus(m); return; }
     const m = x.match(/^(-?\d+(?:[.,]\d+)?|-?[a-z])([a-z\d].*)$/i);
     if(m && !(/^-?\d/.test(m[1]) && /^\d/.test(m[2]))){ n.s = m[1]; const a = nieuweFactor(n); a.s = m[2]; ch(); draw(); focus(a); return; }
     n.s = x; if(bi.value!==x) bi.value = x; ch();
@@ -1332,7 +1341,8 @@ function vrijVak(sp, v, save, onCh){
       while(q && q.o.k!=='frac') q = P.get(q.o);
       if(q){ e.preventDefault(); focus(e.key==='ArrowDown' ? eersteA(q.o.n) : eersteA(q.o.t)); } }
   }
-  const api = {check:null, toon:()=>kruisjes(false)};
+  const api = {check:null, toon:()=>kruisjes(false),
+    trim(){ let weg = false; while(v.r.length>1 && VX.leeg(v.r[v.r.length-1].b)){ v.r.pop(); weg = true; } if(weg){ ch(); draw(); } }};
   draw();
   return Object.assign(api, {
     mark(on){ const res = v._res || []; sp.querySelectorAll('.vx-regel').forEach((row, li) => { row.classList.remove('ok', 'bad', 'bijna'); const r = res[li]; if(on==null || !r || r.err || r.eq==null) return;
@@ -1341,19 +1351,19 @@ function vrijVak(sp, v, save, onCh){
   });
 }
 /* ---------- knop rechtsboven op de kaart: hoe werken de knoppen? ---------- */
-const VX_HULP = () => `<h3>Spiekbriefje · zo bouw je je antwoord</h3><table>
-  <tr><td><span class="vx-k vx-demo"><span class="vx-ic"><span class="vx-dot">·</span><span class="vx-hok"></span></span></span></td><td><b>maal</b>: zet er nog een factor bij, met een maalteken ertussen. Typ je <b>8a</b>, dan wordt dat vanzelf 8 · <i>a</i>.</td><td><kbd>*</kbd></td></tr>
-  <tr><td><span class="vx-k vx-demo"><span class="vx-ic">${XP_IC}</span></span></td><td><b>macht</b>: geeft het actieve vakje een exponent. Nog eens klikken haalt de exponent weg.</td><td><kbd>^</kbd></td></tr>
-  <tr><td><span class="vx-k vx-demo"><span class="vx-ic">${HK_IC}</span></span></td><td><b>haakjes</b>: zet haakjes met een exponent rond het actieve vakje, bijvoorbeeld (${MIN}3)<sup>2</sup>. Is het vakje leeg, dan bouw je tussen de haakjes verder, ook een breuk: <span class="m4-line" style="display:inline-flex">${abH('2', '3', '2')}</span>.</td><td><kbd>(</kbd> <kbd>)</kbd></td></tr>
-  <tr><td><span class="vx-k vx-brk vx-demo"><span class="vx-ic">${BRK_IC}</span></span></td><td><b>breuk</b>: wat er staat wordt de teller, eronder komt een noemer. Met de pijltjes ↑ en ↓ spring je tussen teller en noemer.</td><td><kbd>/</kbd></td></tr>
+const VX_HULP = (k=VX_KNOPPEN) => `<h3>Spiekbriefje · zo bouw je je antwoord</h3><table>
+  ${k.includes("m") ? `<tr><td><span class="vx-k vx-demo"><span class="vx-ic"><span class="vx-dot">·</span><span class="vx-hok"></span></span></span></td><td><b>maal</b>: zet er nog een factor bij, met een maalteken ertussen. Typ je <b>8a</b>, dan wordt dat vanzelf 8 · <i>a</i>.</td><td><kbd>*</kbd></td></tr>` : ""}
+  ${k.includes("e") ? `<tr><td><span class="vx-k vx-demo"><span class="vx-ic">${XP_IC}</span></span></td><td><b>macht</b>: geeft het actieve vakje een exponent. Nog eens klikken haalt de exponent weg.</td><td><kbd>^</kbd></td></tr>` : ""}
+  ${k.includes("h") ? `<tr><td><span class="vx-k vx-demo"><span class="vx-ic">${HK_IC}</span></span></td><td><b>haakjes</b>: zet haakjes met een exponent rond het actieve vakje, bijvoorbeeld (${MIN}3)<sup>2</sup>. Is het vakje leeg, dan bouw je tussen de haakjes verder, ook een breuk: <span class="m4-line" style="display:inline-flex">${abH('2', '3', '2')}</span>.</td><td><kbd>(</kbd> <kbd>)</kbd></td></tr>` : ""}
+  ${k.includes("b") ? `<tr><td><span class="vx-k vx-brk vx-demo"><span class="vx-ic">${BRK_IC}</span></span></td><td><b>breuk</b>: wat er staat wordt de teller, eronder komt een noemer. Met de pijltjes ↑ en ↓ spring je tussen teller en noemer.</td><td><kbd>/</kbd></td></tr>` : ""}
   <tr><td><span class="vx-k vx-demo"><span class="vx-ic">↶</span></span></td><td><b>terug</b>: maakt je laatste wijziging ongedaan. Ook handig: in een leeg vakje haalt de wistoets dat vakje weg.</td><td><kbd>⌫</kbd></td></tr>
   <tr><td><span class="vx-k vx-demo"><span class="vx-ic">✕</span></span></td><td><b>regel weg</b>: haalt de laatste regel weg.</td><td></td></tr>
-  <tr><td><span class="btn ghost vx-plus vx-demo">=</span></td><td><b>volgende tussenstap</b>: begint een nieuwe regel. Schrijf elke stap op een eigen regel, zoals op papier.</td><td></td></tr></table>
+  <tr><td><span class="btn ghost vx-plus vx-demo">=</span></td><td><b>volgende tussenstap</b>: begint een nieuwe regel. Klik je daarna toch meteen op Controleer, dan verdwijnt de lege regel vanzelf. Schrijf elke stap op een eigen regel, zoals op papier.</td><td></td></tr></table>
   <p><b>Het oranje vakje</b> is actief: daar werken de knoppen op. <b>Bijna juist</b> betekent: je stap klopt, maar je bent nog niet klaar. Een <b class="vx-rood">✕</b> naast een regel betekent dat daar iets fout ging: klik erop voor uitleg.</p>`;
 function vxHulp(card){
   const head = card.querySelector('.card-head'); if(!head || head.querySelector('.vx-hulp-btn')) return;
   const b = el('button', 'cheat-btn vx-hulp-btn', '<span aria-hidden="true">?</span>'); b.type = 'button'; b.dataset.tip = 'hoe werken de knoppen?'; b.setAttribute('aria-label', 'hoe werken de knoppen?'); b.setAttribute('aria-expanded', 'false');
-  const panel = el("div", "cheat vx-hulp", VX_HULP()); panel.hidden = true;
+  const panel = el("div", "cheat vx-hulp", VX_HULP([...new Set([...card.querySelectorAll(".m4-wx")].map(x => x.dataset.knoppen || VX_KNOPPEN).join(""))].join(""))); panel.hidden = true;
   b.addEventListener('click', ()=>{ panel.hidden = !panel.hidden; b.setAttribute('aria-expanded', String(!panel.hidden)); });
   const rb = head.querySelector('.refresh-btn'); head.insertBefore(b, rb || null); head.after(panel);
 }
@@ -1372,27 +1382,30 @@ function vxHulp(card){
   .vx-par.groot{font-size:3.6rem; transform:scaleX(.55); margin:0 -.3rem}
   .vx-balk{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .8rem; margin:.4rem 0 .2rem 2.8rem}
   .vx-tools{display:flex; flex-wrap:wrap; gap:.3rem}
-  /* mini-rekenmachine rechts van de uitwerking (op een smal scherm eronder) */
+  /* mini-rekenmachine naast de uitwerking (op een smal scherm eronder) */
   @media (min-width:640px){
-    .m4-q:has(> .vx-balk){display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:2rem; align-items:start}
+    .m4-q:has(> .vx-balk){display:grid; grid-template-columns:minmax(0, max-content) auto; justify-content:start; column-gap:2.5rem; align-items:start}
     .m4-q:has(> .vx-balk) > *{grid-column:1}
-    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(2, 2.5rem); gap:.35rem; margin:2.2rem 0 0; padding:.55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem}
+    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(3, 2.35rem); gap:.35rem; margin:2.2rem 0 0; padding:.55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem; width:max-content}
     .m4-q > .vx-balk .vx-tools{display:contents}
-    .m4-q > .vx-balk .vx-k{min-width:2.5rem; min-height:2.5rem}
-    .m4-q > .vx-balk .vx-plus{grid-column:1 / span 2; min-height:2.5rem; padding:0; font-size:0}
-    .m4-q > .vx-balk .vx-plus::before{content:'='; font-size:1.4rem}
-    .m4-q > .vx-balk .vx-snel{display:none}
+    .m4-q > .vx-balk .vx-k{min-width:2.35rem; min-height:2.35rem}
+    .m4-q > .vx-balk .vx-snel{grid-column:1 / span 3; width:7.8rem; font-size:.7rem; line-height:1.6}
   }
+  .vx-plus{font-size:0 !important; padding:0 !important; min-width:2.35rem; min-height:2.35rem}
+  .m4-q > .vx-balk .vx-plus{grid-column:1 / span 3}
+  .vx-plus::before{content:'='; font-size:1.4rem; font-weight:700}
   .vx-k{border:1.5px solid var(--border); background:var(--card, #fff); color:var(--accent-dark); border-radius:.5rem; min-width:2.15rem; min-height:2.15rem; padding:.2rem .35rem; cursor:pointer; font:inherit; font-weight:700; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.1rem}
   .vx-ic{font-size:.9rem; line-height:1.1; display:inline-flex; align-items:center; min-height:1.15rem}
   .vx-k{position:relative}
-  .m4-q > .vx-balk .vx-plus{position:relative}
-  .vx-k::after, .m4-q > .vx-balk .vx-plus::after{content:attr(data-tip); position:absolute; left:50%; top:calc(100% + 5px); transform:translateX(-50%); white-space:nowrap; background:var(--ink); color:var(--bg, #fff); font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.35rem; opacity:0; pointer-events:none; transition:opacity .15s; z-index:20}
-  .vx-k:hover::after, .m4-q > .vx-balk .vx-plus:hover::after{opacity:1; transition-delay:1s}
+  .vx-plus{position:relative}
+  .vx-k::after, .vx-plus::after{content:attr(data-tip); position:absolute; left:50%; top:calc(100% + 5px); transform:translateX(-50%); white-space:nowrap; background:var(--ink); color:var(--bg, #fff); font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.35rem; opacity:0; pointer-events:none; transition:opacity .15s; z-index:20}
+  .vx-k:hover::after, .vx-plus:hover::after{opacity:1; transition-delay:1s}
   .vx-plus{min-height:2.15rem; padding:.2rem .8rem; font-size:.9rem}
   .vx-snel{flex-basis:100%; font-size:.78rem; color:var(--ink-soft)}
   .vx-snel kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; background:var(--zone-bg, #f6fbfb); color:var(--accent-dark)}
   .vx-regel{position:relative}
+  .m4-items:has(.m4-wx){grid-template-columns:minmax(0, 1fr) !important}
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
   .card-head .vx-hulp-btn{margin-left:auto; margin-right:.5rem; font-weight:700; font-size:1.1rem; width:32px; height:32px; border:2px solid var(--accent); color:var(--accent-dark); background:var(--accent-soft)}
   .card-head:has(.vx-hulp-btn) .refresh-btn{margin-left:0}
   .vx-hulp td:first-child{width:3.2rem; text-align:center} .vx-hulp td:last-child{white-space:nowrap}
@@ -2228,26 +2241,26 @@ VM.een = { title:'Schrijf als één macht', lvl:2,
 
 /* ---------- met letters, positieve exponent ---------- */
 VM.letters = { title:'Met letters: schrijf met een positieve exponent', lvl:2,
-  instr:`Schrijf als één macht met een <b>positieve</b> exponent. Is de exponent negatief? Klik dan op het breukicoontje (of typ <b>1/</b>) en schrijf de macht in de noemer.`,
+  instr:'Werk uit en schrijf met een <b>positieve</b> exponent. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st); const lets = R.shuffle(['a', 'b', 'p', 'x', 'y', 't']);
     const L = [[R.int(2, 4), -R.int(5, 8)], [-R.int(1, 4), -R.int(2, 4)], [R.int(4, 7), -R.int(1, 3)], [-R.int(3, 5), R.int(4, 6), 1], [-R.int(4, 7), 0], [R.int(1, 3), -R.int(2, 4), -R.int(2, 4)]];
     L[4][1] = -L[4][0] - 1; /* som -1: 1 gedeeld door de letter */
     L.forEach(es => { if(es.reduce((x, y) => x+y)===0) es[1] += es[1]<0 ? -1 : 1; });
     reeks(b, L.length, (g, i, nr) => { const es = L[i], x = lets[i]; const S = linSum(es);
-      mQ(g, st, save, 'l' + i, { nr, html:`${prodE(x, es)} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true, fout:prodFout(es)}), hint:vermSteps(x, es, {pos:true}).slice(1), meer:VM_MEER,
+      mQ(g, st, save, 'l' + i, { nr, html:`${prodE(x, es)} {{x:a}}`, check:V=>chkX(V.a, xm(1, {[x]:S.k}), foutM(x, prodFout(es))), hint:vermSteps(x, es, {pos:true}).slice(1), meer:VM_MEER,
         sol:`${prodE(x, es)} ${isq} ${mH(x, S)}` + (S.k<0 ? ` ${isq} ${brH('1', S.k===-1 ? bH(x) : mH(x, -S.k))}` : '') }); });
   } };
 
 /* ---------- breuken en kommagetallen als grondtal ---------- */
 VM.breuk = { title:'Breuken en kommagetallen als grondtal', lvl:2,
-  instr:'Het grondtal blijft hetzelfde. Welke exponent hoort in het oranje vakje?',
+  instr:'Schrijf als één macht: typ het grondtal en de exponent. Een breuk of een negatief getal als grondtal zet je tussen haakjes.',
   build(b, st, save){
     const R = makeR(st);
     const pos = R.shuffle(['2/3', '3/4', '1/2', '5/2', '4/7', '3/5']), neg = R.shuffle(['-3/4', '-2/5', '-1/3', '-5/2']), dc = R.shuffle(['0,5', '1,2', '0,3', '2,5']);
     const L = [[pos[0], [R.int(2, 4), R.int(2, 5)]], [dc[0], [R.int(3, 6), -R.int(1, 2)]], [neg[0], [-R.int(2, 3), R.int(4, 6)]], [pos[1], [R.int(3, 5), 1]], [dc[1], [-R.int(2, 4), -R.int(1, 3)]], [neg[1], [R.int(2, 3), -R.int(1, 2), R.int(3, 4)]]];
     reeks(b, L.length, (g, i, nr) => { const [bb, es] = L[i]; const S = linSum(es);
-      mQ(g, st, save, 'b' + i, { nr, html:`${prodE(bb, es)} ${isq} ${mE(bb, 'a')}`, check:V=>chkE(V.a, S, prodFout(es)), hint:vermSteps(bb, es).slice(1, 2), meer:VM_MEER,
+      mQ(g, st, save, 'b' + i, { nr, html:`${prodE(bb, es)} ${isq} {{m:a}}`, check:V=>chkM(V.a, {b:bb, e:S, fout:prodFout(es)}), hint:vermSteps(bb, es).slice(1, 2), meer:VM_MEER,
         sol:`${prodE(bb, es)} ${isq} ${mH(bb, S)}` }); });
   } };
 
@@ -2258,8 +2271,8 @@ VM.reken = { title:'Schrijf als één macht en reken uit', lvl:2,
     const R = makeR(st);
     const L = R.shuffle([['2', [-5, 3]], ['-3', [2, 1]], ['10', [-4, 2]], ['5', [-3, 3]], ['-2', [-4, 1]], ['3', [-4, 2]], ['4', [-3, 2]], ['-2', [3, 2]], ['-1', [4, 3]], ['6', [-1, -1]]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [bb, es] = L[i]; const S = es[0] + es[1]; const T = powQ(bb, S);
-      mQ(g, st, save, 'r' + i, { nr, html:`${prodE(bb, es)} ${isq} ${mE(bb, 'a')} ${isq} {{u:b,t}}`,
-        check:V=>allOf([['a', chkE(V.a, S, prodFout(es))], ['b', chkU(V.b, T, negFout(bb, S))]]),
+      mQ(g, st, save, 'r' + i, { nr, html:`${prodE(bb, es)} ${isq} {{m:a}} ${isq} {{u:b,t}}`,
+        check:V=>allOf([['a', chkM(V.a, {b:bb, e:S, fout:prodFout(es)})], ['b', chkU(V.b, T, negFout(bb, S))]]),
         hint:[{u:'Tel de exponenten op.', line:`${ePlus(es)} ${isq} {{g:a}}`, check:V=>chkE(V.a, S), show:`${ePlus(es)} ${isq} ${S}`},
           S<0 ? {u:'Reken de macht uit: neem het omgekeerde.', line:`${mH(bb, S)} ${isq} ${brH('1', mH(bb, -S))} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}
             : {u:S===0 ? 'Een macht met exponent 0 is …' : 'Reken de macht uit. Let op het teken.', line:`${mH(bb, S)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}],
@@ -2463,12 +2476,12 @@ DL.aftrek = { title:'Aftrekken van een negatieve exponent', lvl:2,
 
 /* ---------- met letters: positieve exponent ---------- */
 DL.letters = { title:'Met letters: schrijf met een positieve exponent', lvl:2,
-  instr:'Schrijf als één macht met een <b>positieve</b> exponent. Is de exponent negatief? Klik dan op het breukicoontje (of typ <b>1/</b>) en schrijf de macht in de noemer.',
+  instr:'Werk uit en schrijf met een <b>positieve</b> exponent. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st); const lets = R.shuffle(['a', 'b', 'p', 'x', 'y', 't']);
     const L = [[R.int(2, 4), R.int(6, 9)], [R.int(5, 8), R.int(2, 4)], [-R.int(1, 3), R.int(2, 4)], [R.int(2, 4), -R.int(2, 4)], [1, R.int(3, 5)], [-R.int(4, 6), -R.int(1, 3)]];
     reeks(b, L.length, (g, i, nr) => { const [m, p] = L[i], x = lets[i]; const S = m - p;
-      mQ(g, st, save, 'l' + i, { nr, html:`${qtH(x, m, p, i%2===1)} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true, fout:[[m+p, 'Je telde de exponenten op. Trek ze af.']]}), hint:delSteps(x, m, p).slice(1),
+      mQ(g, st, save, 'l' + i, { nr, html:`${qtH(x, m, p, i%2===1)} {{x:a}}`, check:V=>chkX(V.a, xm(1, {[x]:S}), foutM(x, [[m+p, 'Je telde de exponenten op. Trek ze af.']])), hint:delSteps(x, m, p).slice(1),
         sol:`${qtH(x, m, p)} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', S===-1 ? bH(x) : mH(x, -S))}` : '') }); });
   } };
 
@@ -2479,8 +2492,8 @@ DL.reken = { title:'Schrijf als één macht en reken uit', lvl:2,
     const R = makeR(st);
     const L = R.shuffle([['2', 3, 6], ['-3', 5, 2], ['10', -2, 1], ['5', 4, 6], ['-2', 1, 4], ['3', -1, 1], ['-1', 7, 2], ['4', 2, 2]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [bb, m, p] = L[i]; const S = m - p; const T = powQ(bb, S);
-      mQ(g, st, save, 'r' + i, { nr, html:`${qtH(bb, m, p)} ${isq} ${mE(bb, 'a')} ${isq} {{u:b,t}}`,
-        check:V=>allOf([['a', chkE(V.a, S, [[m+p, 'Bij delen trek je de exponenten af.']])], ['b', chkU(V.b, T, negFout(bb, S))]]),
+      mQ(g, st, save, 'r' + i, { nr, html:`${qtH(bb, m, p)} ${isq} {{m:a}} ${isq} {{u:b,t}}`,
+        check:V=>allOf([['a', chkM(V.a, {b:bb, e:S, fout:[[m+p, 'Bij delen trek je de exponenten af.']]})], ['b', chkU(V.b, T, negFout(bb, S))]]),
         hint:[{u:'Trek de exponenten af.', line:`${eMin(m, p)} ${isq} {{g:a}}`, check:V=>chkE(V.a, S), show:`${eMin(m, p)} ${isq} ${S}`},
           {u:S<0 ? 'Reken de macht uit: neem het omgekeerde.' : S===0 ? 'Exponent 0: …' : 'Reken de macht uit.', line:`${mH(bb, S)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, T), show:`${mH(bb, S)} ${isq} ${qH(T)}`}],
         sol:`${qtH(bb, m, p)} ${isq} ${mH(bb, S)} ${isq} ${qH(T)}` }); });
@@ -2488,14 +2501,14 @@ DL.reken = { title:'Schrijf als één macht en reken uit', lvl:2,
 
 /* ---------- verdieping: breuken met letters ---------- */
 DL.mix = { title:'Vermenigvuldigen en delen samen', lvl:3,
-  instr:'Schrijf als één macht met een positieve exponent. Werk eerst de teller uit, dan de deling.',
+  instr:'Werk uit en schrijf met een <b>positieve</b> exponent. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>. Werk eerst de teller uit, dan de deling.',
   build(b, st, save){
     const R = makeR(st);
     /* [letter, exponenten teller, exponenten noemer] */
     const L = R.shuffle([['a', [3, -2], [4]], ['x', [5, 2], [-1, 3]], ['y', [-4], [2, 1]], ['b', [6, -1], [2, 2]], ['p', [2], [3, -4]], ['t', [-2, -3], [-6]]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [x, t, n] = L[i]; const S = t.reduce((a, c) => a+c, 0) - n.reduce((a, c) => a+c, 0);
       const h = brH(prodE(x, t), prodE(x, n));
-      mQ(g, st, save, 'x' + i, { nr, html:`${h} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true}),
+      mQ(g, st, save, 'x' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, xm(1, {[x]:S})),
         sol:`${h} ${isq} ${brH(mH(x, t.reduce((a, c) => a+c, 0)), mH(x, n.reduce((a, c) => a+c, 0)))} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', S===-1 ? bH(x) : mH(x, -S))}` : '') }); });
   } };
 
@@ -2635,12 +2648,12 @@ MM.welke = { title:'Optellen of vermenigvuldigen?', lvl:2,
 
 /* ---------- met letters: positieve exponent ---------- */
 MM.pos = { title:'Met letters: schrijf met een positieve exponent', lvl:2,
-  instr:'Schrijf als één macht met een <b>positieve</b> exponent. Is de exponent negatief? Klik dan op het breukicoontje (of typ <b>1/</b>) en schrijf de macht in de noemer.',
+  instr:'Werk uit en schrijf met een <b>positieve</b> exponent. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st); const lets = R.shuffle(['a', 'b', 'p', 'x', 'y', 't']);
     const L = R.shuffle([[-R.int(2, 3), R.int(2, 4)], [R.int(2, 5), -R.int(1, 3)], [-R.int(1, 4), -R.int(2, 3)], [R.int(2, 4), R.int(2, 3)], [-1, R.int(4, 7)], [R.int(3, 6), -1]]);
     reeks(b, L.length, (g, i, nr) => { const [m, p] = L[i], x = lets[i]; const S = m*p;
-      mQ(g, st, save, 'p' + i, { nr, html:`${mmH(x, m, p)} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true, fout:[[m+p, 'Je telde de exponenten op. Vermenigvuldig ze.'], [-S, 'Kijk naar het teken: ' + eMul(m, p) + ' = ' + sg(S) + '.']]}), hint:mmSteps(x, m, p, {pos:true}).slice(1),
+      mQ(g, st, save, 'p' + i, { nr, html:`${mmH(x, m, p)} {{x:a}}`, check:V=>chkX(V.a, xm(1, {[x]:S}), foutM(x, [[m+p, 'Je telde de exponenten op. Vermenigvuldig ze.'], [-S, 'Kijk naar het teken: ' + eMul(m, p) + ' = ' + sg(S) + '.']])), hint:mmSteps(x, m, p, {pos:true}).slice(1),
         sol:`${mmH(x, m, p)} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', mH(x, -S))}` : '') }); });
   } };
 
@@ -2792,16 +2805,16 @@ function prodPool(R){
   return [[R.pick([2, 3]), [[x, 1]], R.int(2, 4)], [-R.pick([2, 3]), [[x, R.int(2, 3)]], 3], [R.pick([4, 5]), [[x, R.int(2, 4)]], 2],
     [-10, [[x, R.int(2, 5)], [y, 1]], R.int(2, 3)], [R.pick([3, 10]), [[x, 2], [y, R.int(2, 3)]], 2], [-R.pick([2, 5]), [[x, 1], [y, R.int(3, 4)]], 2]];
 }
-PR.werk = { title:'Werk uit', lvl:2, brk:false,
-  instr:'Verhef elke factor tot de macht: het getal én elke letter. Kies het teken van het getal in het tekenvak.',
+PR.werk = { title:'Werk uit', lvl:2,
+  instr:'Verhef elke factor tot de macht: het getal én elke letter. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     regelTop(b, `<div class="m4-line"><span class="m4-m">(<i>a</i> · <i>b</i>)<sup class="m4-sup"><i>n</i></sup></span> ${isq} ${mH('a', 'n')} · ${mH('b', 'n')}</div>Een product tot een macht: verhef elke factor tot die macht.`);
     stapUitleg(b, [[pPH(-2, [['a', 3]], 3), 'Drie factoren: −2 en a³.'], [`${isq} ${mH('-2', 3)} · ${mmH('a', 3, 3)}`, 'Verhef elke factor tot de derde macht.'], [`${isq} ${MIN}8${mH('a', 9)}`, '(−2)³ = −8 en 3 · 3 = 9']], {kop:'Voorbeeld'});
     const R = makeR(st); const L = prodPool(R);
     reeks(b, L.length, (g, i, nr) => { const [c, fs, p] = L[i]; const C = qPow(Q(c), p); const h = pPH(c, fs, p);
-      mQ(g, st, save, 'w' + i, { nr, html:`${h} ${isq} {{u:c,t}}${pAnt(fs)}`,
-        check:V=>allOf([['c', chkU(V.c, C, [[Q(c*p), `Je vermenigvuldigde ${sg(c)} met ${p}. Neem ${sg(c)} ${p} keer als factor.`], [Q(c), 'Vergeet het getal niet tot de macht te verheffen.']])],
-          ...fs.map(([x, m], j) => ['abcd'[j], chkE(V['abcd'[j]], m*p, [[m+p, 'Een macht van een macht: vermenigvuldig de exponenten.'], [m, `Verhef ook ${bH(x)} tot de macht.`]])])]),
+      mQ(g, st, save, 'w' + i, { nr, html:`${h} {{x:a}}`,
+        check:V=>{ const E = Object.fromEntries(fs.map(([x, m]) => [x, m*p])); return chkX(V.a, xm(C, E), [[xm(Q(c*p), E), `Je vermenigvuldigde ${sg(c)} met ${p}. Neem ${sg(c)} ${p} keer als factor.`], [xm(Q(c), E), 'Vergeet het getal niet tot de macht te verheffen.'],
+          ...fs.map(([x, m]) => [xm(C, Object.assign({}, E, {[x]:m+p})), 'Een macht van een macht: vermenigvuldig de exponenten.']), ...fs.map(([x, m]) => [xm(C, Object.assign({}, E, {[x]:m})), `Verhef ook ${bH(x)} tot de macht.`])]); },
         hint:[{u:`Verhef het getal ${sg(c)} tot de macht ${p}.`, line:`${mH(String(c), p)} ${isq} {{u:a,t}}`, check:V=>chkU(V.a, C), show:`${mH(String(c), p)} ${isq} ${qH(C)}`},
           ...fs.map(([x, m]) => ({u:`Verhef ${m===1 ? bH(x) : mH(x, m)} tot de macht ${p}.`, line:`${m===1 ? `<span class="m4-m">${bH(x)}<sup class="m4-sup">${p}</sup></span>` : mmH(x, m, p)} ${isq} ${mE(x, 'a')}`, check:V=>chkE(V.a, m*p), show:`${mH(x, m*p)}`}))],
         sol:`${h} ${isq} ${qH(C)}${fs.map(([x, m]) => mH(x, m*p)).join('')}` }); });
@@ -2835,15 +2848,15 @@ PR.slim = { title:'Slim rekenen: zelfde exponent', lvl:2, brk:false,
   } };
 
 /* ---------- negatieve exponent ---------- */
-PR.neg = { title:'Met een negatieve exponent', lvl:2, brk:false,
-  instr:'Schrijf met positieve exponenten. Moet iets in de noemer? Klik dan eerst op het breukicoontje en vul daarna de noemer in.',
+PR.neg = { title:'Met een negatieve exponent', lvl:2,
+  instr:'Werk uit en schrijf met positieve exponenten. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     const L = R.shuffle([[2, 1, -3], [3, 1, -2], [5, 2, -2], [10, 3, -1], [4, 1, -2], [2, 3, -2]]);
     reeks(b, L.length, (g, i, nr) => { const [c, m, p] = L[i]; const C = c ** -p; const h = pPH(c, [[x, m]], p);
-      mQ(g, st, save, 'n' + i, { nr, html:`${h} ${isq} {{i:i}}{{u:c}}${mE(x, 'a')}{{/i}}`,
-        check:V=>allOf([['i', (V.i||{}).i ? {ok:true} : {ok:false, msg:'Een negatieve exponent: het omgekeerde nemen. Klik op het breukicoontje, dan komt de macht in de noemer.'}], ['c', chkU(V.c, Q(C), [[Q(c), 'Verhef ook het getal tot de macht.']])], ['a', chkE(V.a, -m*p, [[m*p, 'De macht staat al in de noemer: schrijf de exponent positief.'], [m - p, 'Vermenigvuldig de exponenten.']])]]),
-        hint:[['Wat betekent een negatieve exponent? Je neemt het omgekeerde: 1 gedeeld door de macht met een positieve exponent. Klik op het breukicoontje.', `${pPH(2, [['a', 1]], -2)} ${isq} ${brH('1', pPH(2, [['a', 1]], 2))}`], ['Werk de noemer uit: verhef elke factor tot de macht.']],
+      mQ(g, st, save, 'n' + i, { nr, html:`${h} {{x:a}}`,
+        check:V=>chkX(V.a, xm(Q(1, C), {[x]:m*p}), [[xm(Q(C), {[x]:-m*p}), 'Een negatieve exponent maakt het getal niet groter: je neemt het omgekeerde, 1 gedeeld door de macht.'], [xm(Q(1, c), {[x]:m*p}), 'Verhef ook het getal tot de macht.'], [xm(Q(1, C), {[x]:m - p}), 'Vermenigvuldig de exponenten.']]),
+        hint:[['Wat betekent een negatieve exponent? Je neemt het omgekeerde: 1 gedeeld door de macht met een positieve exponent.', `${pPH(2, [['a', 1]], -2)} ${isq} ${brH('1', pPH(2, [['a', 1]], 2))}`], ['Werk de noemer uit: verhef elke factor tot de macht.']],
         sol:`${h} ${isq} ${brH('1', pPH(c, [[x, m]], -p))} ${isq} ${brH('1', C + mH(x, -m*p))}` }); });
   } };
 
@@ -2970,8 +2983,8 @@ QT.getal = { title:'Reken uit', lvl:2,
   } };
 
 /* ---------- werk uit met letters ---------- */
-QT.letters = { title:'Werk uit met letters', lvl:2, brk:false,
-  instr:'Verhef de teller en de noemer tot de macht. Vergeet het getal niet.',
+QT.letters = { title:'Werk uit met letters', lvl:2,
+  instr:'Verhef de teller en de noemer tot de macht. Vergeet het getal niet. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st);
     /* [teller-factoren, noemer-factoren, exponent]; factoren: [getal] of [letter, exponent] */
@@ -2985,8 +2998,10 @@ QT.letters = { title:'Werk uit met letters', lvl:2, brk:false,
         return out.join(''); };
       const h = qPH(fh(t), fh(n), p); const ant = brH(ah(t), ah(n));
       const solF = f => typeof f[0]==='number' ? (f[0]**p) + (f.length>1 ? mH(f[1], f[2]*p) : '') : mH(f[0], f[1]*p);
-      mQ(g, st, save, 'l' + i, { nr, html:`${h} ${isq} ${ant}`,
-        check:V=>allOf(keys.map(([kk, w, v]) => [kk, w==='u' ? chkU(V[kk], Q(v), [[Q(v**(1/p)), 'Verhef ook het getal tot de macht.']]) : chkE(V[kk], v, [[v/p + p, 'Een macht van een macht: vermenigvuldig de exponenten.'], [v/p, 'Verhef ook deze factor tot de macht.']])])),
+      const fm = f => typeof f[0]==='number' ? xm(f[0], f.length>1 ? {[f[1]]:f[2]} : {}) : xm(1, {[f[0]]:f[1]});
+      const doel = VX.mul(VX.pow(fm(t), p), VX.inv(VX.pow(fm(n), p)));
+      mQ(g, st, save, 'x' + i, { nr, html:`${h} {{x:a}}`,
+        check:V=>chkX(V.a, doel), 
         hint:[['Verhef elke factor in de teller en in de noemer tot de macht.', `${qPH('2<i>a</i>', '3', 2)} ${isq} ${brH('4' + mH('a', 2), '9')}`]],
         sol:`${h} ${isq} ${brH(solF(t), solF(n))}` }); });
   } };
@@ -3006,7 +3021,7 @@ QT.slim = { title:'Slim rekenen: zelfde exponent', lvl:2,
 
 /* ---------- negatieve exponent ---------- */
 QT.neg = { title:'Met een negatieve exponent', lvl:2,
-  instr:'Werk uit en schrijf met positieve exponenten. Schrijf elke tussenstap op een nieuwe regel.',
+  instr:'Werk uit en schrijf met positieve exponenten. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     /* [getal, getal boven?, exponent] : (2/a)^-3 of (a/3)^-2 */
@@ -3047,8 +3062,8 @@ QT.lexp = { title:'Letters in de exponent', lvl:3,
   } };
 
 /* ---------- verdieping: alles samen ---------- */
-QT.mix = { title:'Alles samen', lvl:3, brk:false,
-  instr:'Werk uit. Schrijf met positieve exponenten. Kies het teken van het getal in het tekenvak.',
+QT.mix = { title:'Alles samen', lvl:3,
+  instr:'Werk uit en schrijf met positieve exponenten. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const items = [
       [qPH('2' + mH('a', 2), '<i>b</i>', 3), brH(`{{u:c,t}}${mE('a', 'a')}`, mE('b', 'b')), {c:Q(8), a:6, b:3}, brH('8' + mH('a', 6), mH('b', 3))],
@@ -3057,8 +3072,9 @@ QT.mix = { title:'Alles samen', lvl:3, brk:false,
       [qPH(MIN + '3', mH('x', 2), 3), brH('{{u:c,t}}', mE('x', 'a')), {c:Q(-27), a:6}, brH(MIN + '27', mH('x', 6))],
       [qPH(mH('a', 2), mH('b', -1), 2), `${mE('a', 'a')}${mE('b', 'b')}`, {a:4, b:2}, mH('a', 4) + mH('b', 2)],
       [qPH('<i>x</i>', MIN + '5', -2), brH('{{u:c,t}}', mE('x', 'a')), {c:Q(25), a:2}, brH('25', mH('x', 2))]];
+    const DOEL = [xm(8, {a:6, b:-3}), xm(Q(1, 4), {x:2, y:-2}), xm(4, {a:-6}), xm(-27, {x:-6}), xm(1, {a:4, b:2}), xm(25, {x:-2})];
     reeks(b, items.length, (g, i, nr) => { const [h, ant, T, sol] = items[i];
-      mQ(g, st, save, 'x' + i, { nr, html:`${h} ${isq} ${ant}`, check:V=>allOf(Object.entries(T).map(([k, v]) => [k, k==='c' ? chkU(V.c, v) : chkE(V[k], v)])),
+      mQ(g, st, save, 'v' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, DOEL[i]),
         hint:[['Is de exponent negatief? Draai dan eerst de breuk om.'], ['Verhef elke factor in de teller en in de noemer tot de macht, ook het getal en het minteken.']], sol:`${h} ${isq} ${sol}` }); });
   } };
 
@@ -3108,14 +3124,14 @@ DR.kies = { title:'Welke rekenregel?', lvl:1,
 
 /* ---------- schrijf als één macht ---------- */
 DR.een = { title:'Schrijf als één macht', lvl:2,
-  instr:'Schrijf als één macht met een positieve exponent. Werk stap voor stap: eerst de haakjes.',
+  instr:'Werk uit en schrijf met een <b>positieve</b> exponent. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>. Werk eerst de haakjes uit.',
   build(b, st, save){
     const R = makeR(st); const lets = R.shuffle(['a', 'b', 'x', 'y', 't', 'p', 'c']);
     /* [html-maker, exponent] */
     const L = R.shuffle([[x => `${mmH(x, 2, 3)} · ${bH(x)}`, 7], [x => `${mH(x, 5)} · ${mH(x, -2)} : ${bH(x)}`, 2], [x => mmH(x, 4, 2) + ' : ' + mH(x, 3), 5], [x => `<span class="m4-m">(${mH(x, 3)} · ${bH(x)})<sup class="m4-sup">2</sup></span>`, 8],
       [x => brH(`${mH(x, 2)} · ${mH(x, 6)}`, mH(x, 5)), 3], [x => brH(mH(x, 3), mmH(x, 2, 4)), -5], [x => `${mmH(x, -1, 3)} · ${mH(x, 7)}`, 4]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [f, S] = L[i]; const x = lets[i]; const h = f(x);
-      mQ(g, st, save, 'e' + i, { nr, html:`${h} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true}),
+      mQ(g, st, save, 'e' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, xm(1, {[x]:S})),
         hint:[['Werk eerst de haakjes uit (macht van een macht: vermenigvuldigen).'], ['Vermenigvuldigen: exponenten optellen. Delen: exponenten aftrekken. Vergeet niet: <i>a</i> = ' + mH('a', 1) + '.']],
         sol:`${h} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', mH(x, -S))}` : '') }); });
   } };
@@ -3153,15 +3169,15 @@ DR.gelijk = { title:'Gelijk of niet gelijk?', lvl:2,
   } };
 
 /* ---------- werk uit met een getal ervoor ---------- */
-DR.coef = { title:'Werk uit: getal en letter', lvl:2, brk:false,
-  instr:'Reken het getal en de macht apart uit. Kies het teken in het tekenvak.',
+DR.coef = { title:'Werk uit: getal en letter', lvl:2,
+  instr:'Werk uit: reken het getal en de macht van de letter apart uit. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>.',
   build(b, st, save){
     const R = makeR(st); const x = R.pick(['a', 'x', 'y']);
     const c = (k, m) => k + (m===1 ? bH(x) : mH(x, m));
     const L = R.shuffle([[`${c(2, 3)} · ${c(5, 4)}`, 10, 7], [`${pPH(3, [[x, 2]], 2)} · ${bH(x)}`, 9, 5], [`${c(12, 6)} : ${c(4, 2)}`, 3, 4], [`${pPH(-2, [[x, 1]], 3)} · ${mH(x, 2)}`, -8, 5],
       [`${c(4, 3)} · (${c(MIN + '3', 2)})`, -12, 5], [`${pPH(2, [[x, 2]], 3)} : ${c(4, 1)}`, 2, 5], [`${c(MIN + '6', 5)} : ${c(2, 3)}`, -3, 2]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [h, C, E] = L[i];
-      mQ(g, st, save, 'c' + i, { nr, html:`${h} ${isq} {{u:c,t}}${mE(x, 'a')}`, check:V=>allOf([['c', chkU(V.c, Q(C))], ['a', chkE(V.a, E)]]),
+      mQ(g, st, save, 'c' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, xm(C, {[x]:E})),
         hint:[['Werk eerst de haakjes uit: elke factor tot de macht.'], ['Reken de getallen samen uit. Gebruik voor de letters de rekenregels.']], sol:`${h} ${isq} ${sg(C)}${mH(x, E)}` }); });
   } };
 
@@ -3591,7 +3607,7 @@ function tEen(b, st, save){
   const m = R.int(3, 6), p = R.int(2, 5), c = R.int(2, 4), d = R.int(2, 3);
   const L = [[`${mH(x, m)} · ${mH(x, p)} · ${bH(x)}`, m + p + 1], [`${mH(x, -m)} · ${mH(x, p)}`, p - m], [brH(mH(x, p), mH(x, p + c)), -c], [mmH(x, -d, c), -d*c],
     [`<span class="m4-m">(${mH(x, c)} · ${bH(x)})<sup class="m4-sup">${d}</sup></span> : ${mH(x, d)}`, (c + 1)*d - d], [brH(`${mmH(x, 2, 3)} · ${mH(x, -1)}`, mH(x, 4)), 1]];
-  tReeks(b, 6, (g, i, nr) => { const [h, S] = L[i]; mQ(g, st, save, 'e' + i, { nr, html:`${h} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true}), sol:`${h} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', mH(x, -S))}` : '') }); });
+  tReeks(b, 6, (g, i, nr) => { const [h, S] = L[i]; mQ(g, st, save, 'v' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, xm(1, {[x]:S})), sol:`${h} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', mH(x, -S))}` : '') }); });
 }
 /* 4. werk uit: product en quotiënt (4 pt) */
 function tWerk(b, st, save){
@@ -3600,7 +3616,8 @@ function tWerk(b, st, save){
     [pPH(2, [['a', 1], ['b', n]], 4), `{{u:c,t}}${mE('a', 'a')}${mE('b', 'b')}`, {c:Q(16), a:4, b:4*n}, `16${mH('a', 4)}${mH('b', 4*n)}`],
     [qPH(mH('x', 3), '2', 2), brH(mE('x', 'a'), '{{u:c,t}}'), {c:Q(4), a:6}, brH(mH('x', 6), '4')],
     [qPH('3', mH('y', 2), -2), brH(mE('y', 'a'), '{{u:c,t}}'), {c:Q(9), a:4}, brH(mH('y', 4), '9')]];
-  tReeks(b, 4, (g, i, nr) => { const [h, ant, T, sol] = L[i]; mQ(g, st, save, 'w' + i, { nr, html:`${h} ${isq} ${ant}`, check:V=>allOf(Object.entries(T).map(([k, v]) => [k, k==='c' ? chkU(V.c, v) : chkE(V[k], v)])), sol:`${h} ${isq} ${sol}` }); });
+  const DOEL = [xm((-c)**3, {a:3*m}), xm(16, {a:4, b:4*n}), xm(Q(1, 4), {x:6}), xm(Q(1, 9), {y:4})];
+  tReeks(b, 4, (g, i, nr) => { const [h, ant, T, sol] = L[i]; mQ(g, st, save, 'x' + i, { nr, html:`${h} {{x:a}}`, check:V=>chkX(V.a, DOEL[i]), sol:`${h} ${isq} ${sol}` }); });
 }
 /* 5. slim rekenen (3 pt) */
 function tSlim(b, st, save){
