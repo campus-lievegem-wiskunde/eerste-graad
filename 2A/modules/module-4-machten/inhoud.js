@@ -687,7 +687,7 @@ function mQ(parent, st, save, id, q){
   row.append(line, act, fb); parent.append(row);
   const M = mountW(line, s.v, save, ()=>{ M.clear(); if(!quiz){ fb.className = 'fb'; fb.textContent = ''; } }, ()=>{ if(!quiz) run(); });
   if(window.__M4TEST) window.__M4TEST.push({id:qid, check:q.check, html:q.html});
-  if(q.hint && !quiz){ hintBox(row, act, q.hint, q.meer, qid); }
+  if(q.hint && !quiz){ hintBox(row, act, q.hint, q.meer, qid); const sig = hintSig(q.hint, q.meer); if(sig){ row.dataset.hsig = sig; row._hint = {steps:q.hint, meer:q.meer}; } }
   act.append(solBtn); row.append(sol);
   const evaluate = () => { try{ return q.check(s.v) || {ok:false}; }catch(e){ console.error(e); return {ok:false}; } };
   function run(silent){
@@ -715,10 +715,23 @@ function mQ(parent, st, save, id, q){
    step: [tekst, regel] of {u, line (met tokens), check(V)->bool, show (html van het antwoord)}
    meer: html (of functie(host)) voor 🔍 Meer uitleg
    ============================================================ */
+/* een hint zonder invulregels: tekst die bij elke vraag van de kaart dezelfde kan zijn */
+const hintSig = (steps, meer) => typeof meer==='function' || steps.some(x => x && typeof x==='object' && !Array.isArray(x)) ? null : JSON.stringify([steps, meer||'']);
+/* staat bij elke vraag van een kaart dezelfde hint? dan één hint bovenaan voor de hele oefening */
+function hintsSamen(body, key){
+  const rows = [...body.querySelectorAll('.m4-q')].filter(r => r.querySelector(':scope > .q-act > .m4-hb'));
+  if(rows.length < 2 || !rows.every(r => r.dataset.hsig && r.dataset.hsig===rows[0].dataset.hsig)) return;
+  const {steps, meer} = rows[0]._hint;
+  rows.forEach(r => { r.querySelector(':scope > .q-act > .m4-hb').remove(); const hb = r.querySelector(':scope > .hint-gr'); if(hb) hb.remove(); });
+  const wrap = el('div', 'm4-kaarthint'); const act = el('div', 'q-act'); wrap.append(act);
+  const first = rows[0].closest('.m4-items') || rows[0]; first.parentNode.insertBefore(wrap, first);
+  hintBox(wrap, act, steps, meer, key + '_hint');
+  act.querySelector('.m4-hb').textContent = '💡 Hint voor deze oefening';
+}
 function hintBox(row, act, steps, meer, qid){
   if(window.__M4TEST) steps.forEach((stp, i) => { if(stp && stp.check) window.__M4TEST.push({id:qid + '_hint' + i, check:V=>{ const r = stp.check(V); return typeof r==='boolean' ? {ok:r} : r; }, html:stp.line}); });
   const box = el('div', 'hint-gr'); const ol = el('ol', 'hint-stap'); ol.hidden = true; box.append(ol);
-  const nb = el('button', 'btn ghost', '💡 Hint'); nb.type = 'button'; act.append(nb); row.append(box);
+  const nb = el('button', 'btn ghost m4-hb', '💡 Hint'); nb.type = 'button'; act.append(nb); row.append(box);
   let n = 0;
   const next = () => { nb.hidden = n >= steps.length; nb.textContent = '💡 Volgende stap'; if(n >= steps.length && meer && !box.querySelector('.hint-fig')) addMeer(); };
   function addMeer(){ const d = el('details', 'hint-fig'); d.append(el('summary', '', '🔍 Meer uitleg')); const inn = el('div', 'hint-in'); d.append(inn);
@@ -1147,7 +1160,7 @@ HR.alsm = { title:'Schrijf als een macht', lvl:1,
     const L = R.shuffle([['5', R.int(3, 6)], ['-2', R.int(3, 5)], ['a', R.int(4, 7)], ['10', R.int(3, 6)], ['-7', R.int(2, 4)], ['y', R.int(3, 6)], ['3', R.int(3, 5)]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [bb, n] = L[i]; const f = Array(n).fill(bH(bb)).join(' · ');
       mQ(g, st, save, 'a' + i, { nr, html:`${f} ${isq} {{m:a}}`, check:V=>chkM(V.a, {b:bb, e:n, keep:false}),
-        hint:[`Tel het aantal factoren ${bH(bb)}: dat is de exponent.`].concat(B(bb).neg || B(bb).kind==='q' ? ['Typ haakjes rond het grondtal.'] : []),
+        hint:['Tel het aantal gelijke factoren: dat is de exponent. De factor zelf is het grondtal.', 'Is het grondtal negatief of een breuk? Typ er dan haakjes rond.'],
         sol:`${f} ${isq} ${mH(bb, n)}` }); });
   } };
 
@@ -1378,7 +1391,7 @@ NG.pos = { title:'Schrijf met een positieve exponent', lvl:1,
     reeks(b, lijst.length, (g, i, nr) => { const it = lijst[i];
       mQ(g, st, save, 'p' + i, { nr, html:`${mH(it.g, -it.n)} ${isq} ${brH('1', '{{m:a}}')}`,
         check:V=>chkM(V.a, {b:it.g, e:it.n, fout:[[-it.n, 'In de noemer staat de exponent positief.']]}),
-        hint:[['Neem het omgekeerde en maak de exponent positief.', `${mH('a', '-n')} ${isq} ${brH('1', mH('a', 'n'))}`]].concat(B(it.g).neg ? [['Het grondtal is negatief: typ er haakjes rond, bijvoorbeeld (-2).']] : []),
+        hint:[['Neem het omgekeerde en maak de exponent positief.', `${mH('a', '-n')} ${isq} ${brH('1', mH('a', 'n'))}`]].concat([['Is het grondtal negatief? Typ er dan haakjes rond, bijvoorbeeld (-2).']]),
         sol:`${mH(it.g, -it.n)} ${isq} ${brH('1', mH(it.g, it.n))}` });
     });
   } };
@@ -1396,7 +1409,7 @@ NG.een = { title:'Schrijf als één macht met een negatieve exponent', lvl:1,
     reeks(b, lijst.length, (g, i, nr) => { const it = lijst[i];
       mQ(g, st, save, 'q' + i, { nr, html:`${brH('1', it.n===1 ? bH(it.g) : mH(it.g, it.n))} ${isq} ${mE(it.g, 'a')}`,
         check:V=>chkE(V.a, -it.n, [[it.n, 'Een macht in de noemer krijgt een negatieve exponent als je ze naar boven brengt.']]),
-        hint:[['Eén gedeeld door een macht: de exponent wordt tegengesteld.', `${brH('1', mH('a', 'n'))} ${isq} ${mH('a', '-n')}`]].concat(it.n===1 ? [[`${bH(it.g)} is hetzelfde als ${mH(it.g, 1)}.`]] : []),
+        hint:[['Eén gedeeld door een macht: de exponent wordt tegengesteld.', `${brH('1', mH('a', 'n'))} ${isq} ${mH('a', '-n')}`]].concat([[`Staat er geen exponent? Dan is de exponent 1: <i>a</i> ${isq} ${mH('a', 1)}.`]]),
         sol:`${brH('1', it.n===1 ? bH(it.g) : mH(it.g, it.n))} ${isq} ${mH(it.g, -it.n)}` });
     });
   } };
@@ -2653,7 +2666,7 @@ QT.letters = { title:'Werk uit met letters', lvl:2, brk:false,
       const solF = f => typeof f[0]==='number' ? (f[0]**p) + (f.length>1 ? mH(f[1], f[2]*p) : '') : mH(f[0], f[1]*p);
       mQ(g, st, save, 'l' + i, { nr, html:`${h} ${isq} ${ant}`,
         check:V=>allOf(keys.map(([kk, w, v]) => [kk, w==='u' ? chkU(V[kk], Q(v), [[Q(v**(1/p)), 'Verhef ook het getal tot de macht.']]) : chkE(V[kk], v, [[v/p + p, 'Een macht van een macht: vermenigvuldig de exponenten.'], [v/p, 'Verhef ook deze factor tot de macht.']])])),
-        hint:[['Verhef elke factor in de teller en in de noemer tot de macht ' + p + '.', `${qPH('2<i>a</i>', '3', 2)} ${isq} ${brH('4' + mH('a', 2), '9')}`]],
+        hint:[['Verhef elke factor in de teller en in de noemer tot de macht.', `${qPH('2<i>a</i>', '3', 2)} ${isq} ${brH('4' + mH('a', 2), '9')}`]],
         sol:`${h} ${isq} ${brH(solF(t), solF(n))}` }); });
   } };
 
@@ -2779,7 +2792,7 @@ DR.een = { title:'Schrijf als één macht', lvl:2,
       [x => brH(`${mH(x, 2)} · ${mH(x, 6)}`, mH(x, 5)), 3], [x => brH(mH(x, 3), mmH(x, 2, 4)), -5], [x => `${mmH(x, -1, 3)} · ${mH(x, 7)}`, 4]]).slice(0, 6);
     reeks(b, L.length, (g, i, nr) => { const [f, S] = L[i]; const x = lets[i]; const h = f(x);
       mQ(g, st, save, 'e' + i, { nr, html:`${h} ${isq} {{m:a,i}}`, check:V=>chkM(V.a, {b:x, e:S, pos:true}),
-        hint:[['Werk eerst de haakjes uit (macht van een macht: vermenigvuldigen).'], ['Vermenigvuldigen: exponenten optellen. Delen: exponenten aftrekken. Vergeet niet: ' + bH(x) + ' = ' + mH(x, 1) + '.']],
+        hint:[['Werk eerst de haakjes uit (macht van een macht: vermenigvuldigen).'], ['Vermenigvuldigen: exponenten optellen. Delen: exponenten aftrekken. Vergeet niet: <i>a</i> = ' + mH('a', 1) + '.']],
         sol:`${h} ${isq} ${mH(x, S)}` + (S<0 ? ` ${isq} ${brH('1', mH(x, -S))}` : '') }); });
   } };
 
@@ -3369,7 +3382,7 @@ function buildSection(sec, num){
     if(card.instr) c.append(el('p','instructions', card.instr));
     const body = el('div'); c.append(body); (card.lvl===3 ? panes.c : panes.b).append(c);
     renderers[key] = ()=>{ body.innerHTML = ''; clearSel(); const st = load(key); const save = ()=>store(key, st); CURKEY = key;
-      try{ card.build(body, st, save, key); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
+      try{ card.build(body, st, save, key); hintsSamen(body, key); }catch(err){ console.error(err); body.append(el('p','fb bad','Er liep iets mis bij het maken van deze oefening. Klik op “Nieuwe opgave”.')); }
       save(); };
     rb.addEventListener('click', ()=>{ wipe(key); renderers[key](); });
     renderers[key]();
