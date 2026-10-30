@@ -1345,14 +1345,20 @@ export const SITES = [
  },
  {
   "id": "1a-vrij",
-  "titel": "Vrij oefenen · 1ste jaar",
-  "kort": "Vrij oefenen",
+  "titel": "Bewerkingen vrij oefenen · 1ste jaar",
+  "kort": "Bewerkingen vrij oefenen",
   "jaar": "1A",
   "rubriek": "vrij-oefenen",
   "vrij": true,
   "pad": "1A/vrij-oefenen/",
   "prefix": "1a_vrij_v1_",
   "onderdelen": [
+   {
+    "id": "tafel",
+    "naam": "Maal- en deeltafels",
+    "toets": false,
+    "vragen": 0
+   },
    {
     "id": "optel",
     "naam": "Optellen en aftrekken",
@@ -1366,14 +1372,14 @@ export const SITES = [
     "vragen": 0
    },
    {
-    "id": "volg",
-    "naam": "Volgorde van bewerkingen",
+    "id": "macht",
+    "naam": "Machten en vierkantswortels",
     "toets": false,
     "vragen": 0
    },
    {
-    "id": "macht",
-    "naam": "Machten en vierkantswortels",
+    "id": "volg",
+    "naam": "Volgorde van bewerkingen",
     "toets": false,
     "vragen": 0
    },
@@ -1387,14 +1393,20 @@ export const SITES = [
  },
  {
   "id": "2a-vrij",
-  "titel": "Vrij oefenen · 2de jaar",
-  "kort": "Vrij oefenen",
+  "titel": "Bewerkingen vrij oefenen · 2de jaar",
+  "kort": "Bewerkingen vrij oefenen",
   "jaar": "2A",
   "rubriek": "vrij-oefenen",
   "vrij": true,
   "pad": "2A/vrij-oefenen/",
   "prefix": "2a_vrij_v1_",
   "onderdelen": [
+   {
+    "id": "tafel",
+    "naam": "Maal- en deeltafels",
+    "toets": false,
+    "vragen": 0
+   },
    {
     "id": "optel",
     "naam": "Optellen en aftrekken",

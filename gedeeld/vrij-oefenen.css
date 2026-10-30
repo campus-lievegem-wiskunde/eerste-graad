@@ -6,7 +6,9 @@
 .vo-chip{ font-family:inherit; font-size:.92rem; font-weight:700; color:var(--ink); background:var(--card); border:2px solid var(--tq); border-radius:999px; padding:.3rem .85rem; cursor:pointer; }
 .vo-chip:hover{ border-color:var(--orange); background:var(--or-soft); }
 .vo-chip.aan{ border-color:var(--orange); background:var(--or-soft); box-shadow:inset 0 0 0 1px var(--orange); }
-.vo-start-rij{ margin:.2rem 0 1.1rem; }
+.vo-start-rij{ margin:.2rem 0 1.1rem; display:flex; align-items:center; gap:.4rem 1rem; flex-wrap:wrap; }
+.vo-start:disabled{ opacity:.45; cursor:not-allowed; }
+.vo-eerst{ color:var(--ink-soft); font-size:.9rem; }
 .vo-bezig{ align-items:center; }
 .vo-bezig .btn{ margin-left:.6rem; }
 .vo-mixuitleg{ margin:.2rem 0 1rem; color:var(--ink-soft); }
