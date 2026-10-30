@@ -1,7 +1,7 @@
 /* Wiskundige problemen 2B (site 2b-wp, B-stroom), met de nep-Firebase.
    node test/wiskundigeproblemen2b.js   (eerst test/serve.sh)
    Leerling van klas 2B: tegel op de 2B-pagina, de thema's van de B-stroom in de volgorde van de leeswijzer, geen letters te zien,
-   eenvoudige rekenmachine, formulekader bij omtrek en oppervlakte, een reeks met letter en B-doelen, een proeftoets in drie delen.
+   eenvoudige rekenmachine (te verslepen), formulekader bij omtrek en oppervlakte, een reeks met letter en B-doelen, een proeftoets in drie delen.
    Leerkracht: doelen per letter (B) in de module en letters en doelen in het dashboard. */
 const H = require('./helpers');
 (async()=>{
@@ -37,6 +37,20 @@ const H = require('./helpers');
   check(ls.niv.ooi && ls.niv.ooi.t === 10 && ls.niv.ooi.j === 10, 'letter per thema bewaard: ' + JSON.stringify(ls.niv.ooi));
   check(Object.keys(ls.dg).length >= 3 && Object.keys(ls.dg).every(c=>/^B-OOI-[ABCD]\d+$/.test(c)), 'B-doelen bewaard: ' + Object.keys(ls.dg).join(' '));
   check(Object.keys(ls.res).length === 10 && Object.keys(ls.res).every(id=>/^ooi_/.test(id)), 'juist/fout per vraag onder ooi_…');
+
+  /* de rekenmachine verslepen aan de kop: ze blijft op die plaats, ook bij de volgende vraag */
+  await p.click('nav.side button[data-d=get]'); await p.waitForTimeout(150);
+  await p.click('form[data-f=keuze] button[type=submit]'); await p.waitForTimeout(300);
+  for(let i = 0; i < 10 && !(await p.locator('.tools [data-a=calc]').count()); i++){ await p.click('[data-a=weetniet]'); await p.waitForTimeout(60); await p.click('[data-a=verder]'); await p.waitForTimeout(80); }
+  await p.click('.tools [data-a=calc]'); await p.waitForTimeout(80);
+  const r0 = await p.locator('#calc').boundingBox(), kb = await p.locator('#calc .paneelkop b').boundingBox();
+  await p.mouse.move(kb.x + 10, kb.y + 5); await p.mouse.down(); await p.mouse.move(kb.x - 250, kb.y + 150, { steps:6 }); await p.mouse.up(); await p.waitForTimeout(80);
+  const r1 = await p.locator('#calc').boundingBox();
+  await p.click('[data-a=weetniet]'); await p.waitForTimeout(60); await p.click('[data-a=verder]'); await p.waitForTimeout(120);
+  if(!(await p.locator('#calc').count()) && await p.locator('.tools [data-a=calc]').count()) await p.click('.tools [data-a=calc]');
+  const r2 = await p.locator('#calc').count() ? await p.locator('#calc').boundingBox() : null;
+  check(Math.abs(r1.x - r0.x + 260) < 15 && Math.abs(r1.y - r0.y - 145) < 15 && (!r2 || (Math.abs(r2.x - r1.x) < 2 && Math.abs(r2.y - r1.y) < 2)), 'rekenmachine verplaatsen aan de kop; ze blijft op haar plaats');
+  await p.click('[data-a=stop]'); await p.click('[data-a=stopja]'); await p.waitForTimeout(150);
 
   /* proeftoets 2: problemen oplossen, verhoudingen, statistiek */
   await p.click('nav.side button[data-d=toets2]'); await p.click('[data-a=proefstart]'); await p.waitForTimeout(200);
