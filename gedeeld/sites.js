@@ -449,6 +449,29 @@ export const SITES = [
   ]
  },
  {
+  "id": "m5",
+  "titel": "Module 5 · Hoofdbewerkingen met gehele getallen",
+  "kort": "Module 5",
+  "jaar": "1A",
+  "rubriek": "modules",
+  "pad": "1A/modules/module-5-gehele-getallen/",
+  "prefix": "m5_gehele_v1_",
+  "onderdelen": [
+   {
+    "id": "optel",
+    "naam": "Optellen",
+    "toets": false,
+    "vragen": 46
+   },
+   {
+    "id": "volg",
+    "naam": "Volgorde van bewerkingen",
+    "toets": false,
+    "vragen": 29
+   }
+  ]
+ },
+ {
   "id": "2a-m1",
   "titel": "Module 1 · Transformaties van het vlak en symmetrie",
   "kort": "Module 1",
