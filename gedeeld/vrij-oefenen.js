@@ -79,6 +79,8 @@ VO.html = t => html(t, true); VO.ev = ev;
 
 /* ---------- getallen ---------- */
 function getal(J, v, rol, teken){
+  /* 1A: negatieve breuken = breuken met een willekeurig teken */
+  if(v === 'qn'){ const g = getal(Object.assign({}, J, { teken:true }), 'q', rol, teken); g.qn = true; return g; }
   const metTeken = J.teken || v === 'z', neg = teken === -1 || (teken !== 1 && metTeken && Math.random() < .5), s = neg ? -1 : 1;
   /* 1A: gehele getallen enkel van −zMax tot zMax (eenvoudige oefeningen) */
   if(v === 'z' && J.zMax) return G(Q(s * (['som', 'somk'].includes(rol) ? ri(1, J.zMax) : rol === 'volg' ? ri(1, 10) : ri(2, rol === 'klein' ? 9 : 10))), 'z');
@@ -130,6 +132,11 @@ function deling(J, L, rol){
 }
 const EXP = (v, kort) => v === 'z' || v === 'n' ? kies(kort ? [2, 2, 3] : [2, 2, 3, 3, 4]) : kies([2, 2, 3]);
 const SJ = {
+  /* maal- en deeltafels: m is het tafelgetal; factor 0 tot 10; delen door het tafelgetal of door de factor */
+  tafel:{
+    mt:(J, L, m) => { const t = G(Q(+m), 'n'), f = G(Q(ri(0, 10)), 'n'); return Math.random() < .5 ? O('·', t, f) : O('·', f, t); },
+    dt:(J, L, m) => { const t = +m, f = ri(0, 10), p = G(Q(t * f), 'n'); return f && Math.random() < .35 ? O(':', p, G(Q(f), 'n')) : O(':', p, G(Q(t), 'n')); }
+  },
   optel:{
     plus:(J, L) => O('+', L('som'), L('som')),
     min:(J, L) => O(MIN, L('som'), L('som')),
@@ -138,7 +145,7 @@ const SJ = {
   maal:{
     maal:(J, L, m) => { if(!J.komma || !(m === 'd' || m === 'qd')) return O('·', L('maal'), L('maal'));
       const a = kommaAnder(J, L, m), k = kommaFactor(J, L, m); return Math.random() < .5 ? O('·', a, k) : O('·', k, a); },
-    deel:(J, L, m) => m === 'q' ? O(':', L('maal'), L('maal')) : J.komma && (m === 'd' || m === 'qd') ? O(':', kommaAnder(J, L, m), kommaFactor(J, L, m)) : deling(J, L, 'maal'),
+    deel:(J, L, m) => m === 'q' || m === 'qn' ? O(':', L('maal'), L('maal')) : J.komma && (m === 'd' || m === 'qd') ? O(':', kommaAnder(J, L, m), kommaFactor(J, L, m)) : deling(J, L, 'maal'),
     fact:(J, L, m) => { if(J.komma && (m === 'd' || m === 'qd')){ const d = Math.random() < .4; return O(d ? ':' : '·', O('·', kommaAnder(J, L, m), kommaFactor(J, L, m)), kommaFactor(J, L, m)); }
       const n = ri(3, 4); let t = L('klein'); for(let i = 1; i < n; i++) t = O(Math.random() < .75 ? '·' : ':', t, L('klein')); return t; }
   },
@@ -182,9 +189,9 @@ const SJ = {
 function bruikbaar(J, t, val, h){
   if(!val) return false;
   let hasQ = false, hasZ = false, hasD = false, ok = true;
-  knopen(t, x=>{ if(x.k === 'g'){ if(x.v === 'q') hasQ = true; if(x.v === 'd') hasD = true; if(x.v === 'z'){ hasZ = true; if(J.zMax && !x.wrt && Math.abs(x.q.n) > J.zMax) ok = false; } } });
+  knopen(t, x=>{ if(x.k === 'g'){ if(x.qn) hasZ = true; if(x.v === 'q') hasQ = true; if(x.v === 'd') hasD = true; if(x.v === 'z'){ hasZ = true; if(J.zMax && !x.wrt && Math.abs(x.q.n) > J.zMax) ok = false; } } });
   if(!ok) return false;
-  /* zonder teken (1A) blijft alles positief, behalve bij de gehele getallen */
+  /* zonder teken (1A) blijft alles positief, behalve bij de gehele getallen en de negatieve breuken */
   const nat = !J.teken && !hasZ;
   knopen(t, x=>{
     if(!ok || x.k === 'g') return;
@@ -217,10 +224,13 @@ const lijst = (x, alle) => x === 'alle' || x == null ? alle.slice() : Array.isAr
 VO.lijst = lijst;
 /* sleutel van een keuze: 'alle' als alles gekozen is, anders de ids in vaste volgorde met + ertussen */
 VO.sleutel = (x, alle) => { const l = lijst(x, alle); return alle.every(a=>l.includes(a)) ? 'alle' : alle.filter(a=>l.includes(a)).join('+'); };
+/* een hoofdstuk kan eigen getallen hebben (de tafels, of extra soorten zoals negatieve breuken) */
+const getallenVan = (J, x) => (x && x.getallen) || J.getallen, modesVan = (J, x) => (x && x.modes) || J.modes;
+VO.getallenVan = getallenVan;
 VO.maakReeks = function(J, h, g, b, zichtbaar){
-  const alleG = J.getallen.map(x=>x[0]).filter(x=>x !== 'alle'), gs = lijst(g, alleG);
+  const hx = J.hoofdstukken.find(y=>y.id === h), alleG = getallenVan(J, hx).map(x=>x[0]).filter(x=>x !== 'alle'), gs = lijst(g, alleG);
   /* soorten getallen per oefening: alles gekozen = ook breuken en kommagetallen in één oefening */
-  const modes = h === 'mix' || alleG.every(a=>gs.includes(a)) ? J.modes : gs.concat(gs.includes('q') && gs.includes('d') ? ['qd'] : []);
+  const modes = h === 'mix' || alleG.every(a=>gs.includes(a)) ? modesVan(J, hx) : gs.concat(gs.includes('q') && gs.includes('d') ? ['qd'] : []);
   const hs = J.hoofdstukken.filter(x=>x.bew && (!zichtbaar || zichtbaar.includes(x.id)));
   const plan = [];
   if(!hs.length) return [];
@@ -231,7 +241,7 @@ VO.maakReeks = function(J, h, g, b, zichtbaar){
   const items = [], gezien = new Set();
   plan.forEach(([hh, bb])=>{
     let it = null;
-    for(let k = 0; k < 30 && !it; k++){ const m = kies(modes); const x = maakOefening(J, hh, bb, m); if(x && !gezien.has(x.html)) it = x; }
+    for(let k = 0; k < 30 && !it; k++){ const m = kies(h === 'mix' ? modesVan(J, J.hoofdstukken.find(y=>y.id === hh)) : modes); const x = maakOefening(J, hh, bb, m); if(x && !gezien.has(x.html)) it = x; }
     if(it){ gezien.add(it.html); items.push(it); }
   });
   return items;
@@ -269,6 +279,7 @@ VO.canoniek = function(it){
 
 /* ---------- pagina ---------- */
 const ICO = {
+  tafel:'<path d="M4 4h16v16H4zM4 10h16M10 4v16"/>',
   optel:'<path d="M4 9h7M7.5 5.5v7M13 16.5h7"/>',
   maal:'<path d="M5 6l5 5M10 6l-5 5M14 16h6"/><circle cx="17" cy="13" r=".7"/><circle cx="17" cy="19" r=".7"/>',
   macht:'<path d="M4 19l4-10 4 10M5.6 15h4.8"/><path d="M15 6.5a2 2 0 1 1 3.2 1.6L15 11h4"/>',
@@ -284,8 +295,12 @@ VO.start = function(J){
   const CLtoets = (key, score, n) => { try{ window.CL && window.CL.toets(key, score, n); }catch(e){} };
   const lees = k => { try{ const v = localStorage.getItem(PREFIX + k); return v ? JSON.parse(v) : null; }catch(e){ return null; } };
   const schrijf = (k, v) => { try{ if(v == null) localStorage.removeItem(PREFIX + k); else localStorage.setItem(PREFIX + k, JSON.stringify(v)); }catch(e){} };
-  const ALLEG = J.getallen.map(x=>x[0]).filter(x=>x !== 'alle'), alleB = h => (J.hoofdstukken.find(y=>y.id === h).bew || []).map(y=>y[0]);
-  const naamG = g => g === 'alle' ? 'Alles door elkaar' : String(g).split('+').map(x=>(J.getallen.find(y=>y[0] === x) || [, x])[1]).join(' + ');
+  const hfd = h => J.hoofdstukken.find(y=>y.id === h), GL = h => getallenVan(J, hfd(h));
+  const alleG = h => GL(h).map(x=>x[0]).filter(x=>x !== 'alle'), alleB = h => (hfd(h).bew || []).map(y=>y[0]);
+  const alleNaam = h => (GL(h).find(y=>y[0] === 'alle') || [, 'Alles door elkaar'])[1];
+  const naamG = (h, g) => g === 'alle' ? alleNaam(h) : String(g).split('+').map(x=>(GL(h).find(y=>y[0] === x) || [, x])[1]).join(' + ');
+  /* de keuze per hoofdstuk blijft enkel zolang de pagina open is: bij het openen is niets aangeduid */
+  const KZ = {};
   const naamB = (h, b) => { const x = J.hoofdstukken.find(y=>y.id === h); return b === 'alle' ? 'Alles door elkaar' : String(b).split('+').map(z=>((x && x.bew || []).find(y=>y[0] === z) || [, z])[1]).join(' + '); };
   const nrVan = h => HS.filter(x=>x.bew).findIndex(x=>x.id === h) + 1;
   let actief = null, scherm = 'keuze', bevestig = false;
@@ -308,41 +323,42 @@ VO.start = function(J){
   /* ---------- keuze: getallen en bewerking, en de scores ---------- */
   function toonKeuze(h){
     scherm = 'keuze'; bevestig = false;
-    const x = J.hoofdstukken.find(y=>y.id === h), kz = lees('keuze') || {}, k0 = kz[h] || { g:'alle', b:'alle' };
+    const x = J.hoofdstukken.find(y=>y.id === h), k0 = KZ[h] || { g:'', b:'' }, ALLEG = x.bew ? alleG(h) : [];
     /* gekozen getallen en bewerkingen (één of meer); k.g en k.b zijn de sleutels ('alle', 'z' of 'z+q') */
-    const kg = x.bew ? lijst(k0.g, ALLEG).filter(a=>ALLEG.includes(a)) : [], kb = x.bew ? lijst(k0.b, alleB(h)).filter(a=>alleB(h).includes(a)) : [];
-    if(x.bew && !kg.length) kg.push(...ALLEG); if(x.bew && !kb.length) kb.push(...alleB(h));
+    const kg = x.bew && k0.g ? lijst(k0.g, ALLEG).filter(a=>ALLEG.includes(a)) : [], kb = x.bew && k0.b ? lijst(k0.b, alleB(h)).filter(a=>alleB(h).includes(a)) : [];
+    const klaarOm = !x.bew || (kg.length && kb.length);
     const k = { g:VO.sleutel(kg, ALLEG), b:x.bew ? VO.sleutel(kb, alleB(h)) : 'alle' };
     const sc = lees('scores') || {}, rk = lees('reeks_' + h), bezig = rk && !rk.klaar && rk.items && rk.items.length;
     let h2 = '';
     if(x.bew){
       /* meerkeuze: elke knop zet een soort aan of uit; Alles door elkaar zet alles aan */
-      const chips = (soort, opties, aan) => opties.map(([id, nm])=>{ const op = id === 'alle' ? opties.every(([i])=>i === 'alle' || aan.includes(i)) : aan.includes(id);
-        return `<button type="button" class="vo-chip${op ? ' aan' : ''}${id === 'alle' ? ' vo-alle' : ''}" data-${soort}="${id}" aria-pressed="${op}">${esc(nm)}</button>`; }).join('');
-      h2 += `<div class="vo-kies"><div class="vo-rij"><b id="lblG">Welke getallen?</b><div class="vo-chips" role="group" aria-labelledby="lblG">${chips('g', ALLEG.map(a=>J.getallen.find(y=>y[0] === a)).concat([['alle', 'Alles door elkaar']]), kg)}</div></div>
-        <div class="vo-rij"><b id="lblB">Welke bewerking?</b><div class="vo-chips" role="group" aria-labelledby="lblB">${chips('b', x.bew.concat([['alle', 'Alles door elkaar']]), kb)}</div></div>
-        <p class="vo-meer">Kies één soort of klik er meer aan om ze te combineren. <b>Alles door elkaar</b> kiest ze allemaal.</p></div>`;
+      const chips = (soort, opties, aan) => opties.map(([id, nm, kort])=>{ const op = id === 'alle' ? opties.every(([i])=>i === 'alle' || aan.includes(i)) : aan.includes(id);
+        return `<button type="button" class="vo-chip${op ? ' aan' : ''}${id === 'alle' ? ' vo-alle' : ''}" data-${soort}="${id}" aria-pressed="${op}">${esc(kort || nm)}</button>`; }).join('');
+      h2 += `<div class="vo-kies"><div class="vo-rij"><b id="lblG">${esc(x.vraagG || 'Welke getallen?')}</b><div class="vo-chips" role="group" aria-labelledby="lblG">${chips('g', GL(h).filter(y=>y[0] !== 'alle').concat([['alle', alleNaam(h)]]), kg)}</div></div>
+        <div class="vo-rij"><b id="lblB">${esc(x.vraagB || 'Welke bewerking?')}</b><div class="vo-chips" role="group" aria-labelledby="lblB">${chips('b', x.bew.concat([['alle', 'Alles door elkaar']]), kb)}</div></div>
+        <p class="vo-meer">Kies in elke rij één of meer knoppen. ${alleNaam(h) === 'Alles door elkaar' ? '<b>Alles door elkaar</b> kiest' : `<b>${esc(alleNaam(h))}</b> en <b>Alles door elkaar</b> kiezen`} alles in die rij.</p></div>`;
     } else h2 += `<p class="vo-mixuitleg">Een reeks van 10 bewerkingen uit alle hoofdstukken, met alle soorten getallen door elkaar.</p>`;
-    if(bezig) h2 += `<div class="tip vo-bezig"><div>Je reeks <b>${esc(h === 'mix' ? 'Alles door elkaar' : naamG(rk.g) + ' · ' + naamB(h, rk.b))}</b> is nog niet verbeterd (${rk.antw.filter((a, i)=>VO.ingevuld(rk.items[i], a)).length} van ${rk.items.length} ingevuld).
+    if(bezig) h2 += `<div class="tip vo-bezig"><div>Je reeks <b>${esc(h === 'mix' ? 'Alles door elkaar' : naamG(h, rk.g) + ' · ' + naamB(h, rk.b))}</b> is nog niet verbeterd (${rk.antw.filter((a, i)=>VO.ingevuld(rk.items[i], a)).length} van ${rk.items.length} ingevuld).
       <button type="button" class="btn vo-verder">Verder met die reeks →</button></div></div>`;
-    h2 += `<div class="vo-start-rij"><button type="button" class="btn big vo-start">${bezig ? 'Start een nieuwe reeks van 10' : 'Start een reeks van 10'}</button></div>`;
+    h2 += `<div class="vo-start-rij"><button type="button" class="btn big vo-start"${klaarOm ? '' : ' disabled'}>${bezig ? 'Start een nieuwe reeks van 10' : 'Start een reeks van 10'}</button>${klaarOm ? '' : `<span class="vo-eerst">${esc(x.vraagG ? 'Kies eerst welke tafels en maal- of deeltafels.' : 'Kies eerst welke getallen en welke bewerking.')}</span>`}</div>`;
     /* scores: rijen = getallen, kolommen = bewerkingen; klik op een cel om die keuze te nemen */
     if(x.bew){
       const kol = x.bew.concat([['alle', 'Alles door elkaar']]);
       h2 += `<h3 class="vo-h3">Jouw scores</h3><div class="tbl-wrap"><table class="vo-scores"><thead><tr><th></th>${kol.map(([, nm])=>`<th>${esc(nm)}</th>`).join('')}</tr></thead><tbody>`
-        + ALLEG.map(a=>J.getallen.find(y=>y[0] === a)).concat([['alle', 'Alles door elkaar']]).map(([g, gn])=>`<tr><th>${esc(gn)}</th>${kol.map(([b])=>{ const s = sc[`${h}|${g}|${b}`];
+        /* veel rijen (de tafels): enkel de rijen met een score */
+        + GL(h).filter(y=>y[0] !== 'alle' && (GL(h).length <= 8 || kol.some(([b])=>sc[`${h}|${y[0]}|${b}`]))).concat([['alle', alleNaam(h)]]).map(([g, gn])=>`<tr><th>${esc(gn)}</th>${kol.map(([b])=>{ const s = sc[`${h}|${g}|${b}`];
           return `<td><button type="button" class="vo-cel${s ? ' s' + (s.l >= 8 ? 4 : s.l >= 6 ? 3 : s.l >= 4 ? 2 : 1) : ''}${g === k.g && b === k.b ? ' nu' : ''}" data-g="${g}" data-b="${b}" title="${esc(gn + ' · ' + naamB(h, b))}${s ? `: laatste ${s.l}/10, beste ${s.b}/10, ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}` : ': nog niet geoefend'}">${s ? `<b>${s.l}/10</b><small>beste ${s.b} · ${s.n}×</small>` : '–'}</button></td>`; }).join('')}</tr>`).join('')
         + '</tbody></table></div><p class="mini vo-legende">Per keuze je laatste score, je beste score en het aantal reeksen. Klik op een vakje om die keuze te nemen.</p>';
       /* combinaties van meer soorten (die passen niet in de tabel) */
       const enkel = new Set(ALLEG.concat('alle')), enkelB = new Set(alleB(h).concat('alle'));
       const andere = Object.entries(sc).filter(([key])=>{ const [hh, g, b] = key.split('|'); return hh === h && (!enkel.has(g) || !enkelB.has(b)); }).sort((a, b)=>(b[1].d || 0) - (a[1].d || 0));
       if(andere.length) h2 += '<h3 class="vo-h3">Andere combinaties</h3><ul class="vo-andere">' + andere.map(([key, s])=>{ const [, g, b] = key.split('|');
-        return `<li><button type="button" class="linkbtn vo-comb" data-g="${esc(g)}" data-b="${esc(b)}">${esc(naamG(g) + ' · ' + naamB(h, b))}</button>: laatste <b>${s.l}/10</b>, beste ${s.b}/10, ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}</li>`; }).join('') + '</ul>';
+        return `<li><button type="button" class="linkbtn vo-comb" data-g="${esc(g)}" data-b="${esc(b)}">${esc(naamG(h, g) + ' · ' + naamB(h, b))}</button>: laatste <b>${s.l}/10</b>, beste ${s.b}/10, ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}</li>`; }).join('') + '</ul>';
     } else { const s = sc['mix|alle|alle']; h2 += `<h3 class="vo-h3">Jouw scores</h3><p class="vo-mixscore">${s ? `Laatste score <b>${s.l}/10</b> · beste score <b>${s.b}/10</b> · ${s.n} ${s.n === 1 ? 'reeks' : 'reeksen'}` : 'Je hebt hier nog geen reeks gemaakt.'}</p>`; }
     const sec = sectie(h, h2);
-    const zet = (g, b) => { const kz2 = lees('keuze') || {}; kz2[h] = { g:g || k.g, b:b || k.b }; schrijf('keuze', kz2); toonKeuze(h); };
-    /* een soort aan- of uitzetten; minstens één blijft aan. Staat alles aan, dan kies je met één klik enkel die soort. */
-    const wissel = (aan, id, alle) => { if(id === 'alle') return 'alle'; if(alle.every(a=>aan.includes(a))) return id; const l = aan.includes(id) ? aan.filter(a=>a !== id) : aan.concat(id); return l.length ? VO.sleutel(l, alle) : VO.sleutel(aan, alle); };
+    const zet = (g, b) => { KZ[h] = { g:g == null ? k.g : g, b:b == null ? k.b : b }; toonKeuze(h); };
+    /* een soort aan- of uitzetten; Alles door elkaar zet alles aan, of alles uit als alles al aan stond */
+    const wissel = (aan, id, alle) => { if(id === 'alle') return alle.every(a=>aan.includes(a)) ? '' : 'alle'; const l = aan.includes(id) ? aan.filter(a=>a !== id) : aan.concat(id); return l.length ? VO.sleutel(l, alle) : ''; };
     sec.querySelectorAll('.vo-chip[data-g]').forEach(b=>b.onclick = ()=>zet(wissel(kg, b.dataset.g, ALLEG), null));
     sec.querySelectorAll('.vo-chip[data-b]').forEach(b=>b.onclick = ()=>zet(null, wissel(kb, b.dataset.b, alleB(h))));
     sec.querySelectorAll('.vo-cel, .vo-comb').forEach(b=>b.onclick = ()=>zet(b.dataset.g, b.dataset.b));
@@ -368,7 +384,7 @@ VO.start = function(J){
     scherm = 'reeks';
     const N = rk.items.length, i = Math.max(0, Math.min(N - 1, rk.i || 0)), it = rk.items[i], a = rk.antw[i] || VO.leeg(it);
     const ingevuld = rk.antw.filter((x, k)=>VO.ingevuld(rk.items[k], x)).length;
-    const titel = h === 'mix' ? 'Alles door elkaar' : `${naamG(rk.g)} · ${naamB(h, rk.b)}`;
+    const titel = h === 'mix' ? 'Alles door elkaar' : `${naamG(h, rk.g)} · ${naamB(h, rk.b)}`;
     const dots = rk.items.map((x, k)=>`<button type="button" class="vo-dot${k === i ? ' nu' : ''}${rk.klaar ? (rk.r[k] ? ' ok' : ' nok') : VO.ingevuld(x, rk.antw[k]) ? ' af' : ''}" data-i="${k}" aria-label="Oefening ${k + 1}${rk.klaar ? (rk.r[k] ? ', juist' : ', fout') : VO.ingevuld(x, rk.antw[k]) ? ', ingevuld' : ''}"${k === i ? ' aria-current="step"' : ''}></button>`).join('');
     const teken = rk.klaar ? (rk.r[i] ? '<span class="vo-res ok" role="img" aria-label="juist">✓</span>' : '<span class="vo-res nok" role="img" aria-label="fout">✗</span>') : '';
     const sec = sectie(h, `<div class="vo-kaart${rk.klaar ? ' klaar' : ''}">

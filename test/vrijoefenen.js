@@ -4,11 +4,14 @@
    Leerling 2A: tegel, verborgen hoofdstuk weg, reeks gehele getallen (9/10), breuken met het breukvak (minteken, vereenvoudigen),
    lege oefeningen (bevestiging), reeks bewaard bij herladen, nieuwe reeks = nieuwe opgaven, één oefening past op het scherm, scores in Firestore.
    Meerkeuze: meer soorten getallen en bewerkingen samen (Andere combinaties). Kommagetallen ×/: enkel met de vaste factoren.
-   Leerling 1A: natuurlijke en gehele getallen (−20 tot 20), machten tot 20². Leerkracht: dashboard toont laatste en beste score per hoofdstuk. */
+   Bij het openen niets aangeduid; maal- en deeltafels. Leerling 1A: natuurlijke en gehele getallen (−20 tot 20), negatieve breuken, machten tot 20². Leerkracht: dashboard toont laatste en beste score per hoofdstuk. */
 const H = require('./helpers'); const fs = require('fs'); const path = require('path');
 const SCH = process.env.SCHERMEN || null;
 (async()=>{
   const { b, ctx } = await H.context({ breedte:1366 }); let ok = true; const check = (c, t)=>{ console.log((c ? 'OK   ' : 'FOUT ') + t); if(!c) ok = false; };
+  /* de keuze blijft niet bewaard bij herladen: zet precies deze knoppen aan */
+  const zetChips = async (pg, soort, ids) => { for(const b of await pg.locator(`.vo-chip[data-${soort}]:not([data-${soort}="alle"])`).all()){ const id = await b.getAttribute('data-' + soort), aan = /\baan\b/.test(await b.getAttribute('class'));
+    if(aan !== ids.includes(id)){ await pg.click(`.vo-chip[data-${soort}="${id}"]`); await pg.waitForTimeout(60); } } };
   const shot = async (p, naam) => { if(SCH){ fs.mkdirSync(SCH, { recursive:true }); await p.screenshot({ path:path.join(SCH, naam + '.png') }); } };
   const LL = { uid:'ll2', email:'peeters.noor@svsl.be', displayName:'Noor Peeters' };
   const L1 = { uid:'ll1', email:'janssens.lars@svsl.be', displayName:'Lars Janssens' };
@@ -24,11 +27,11 @@ const SCH = process.env.SCHERMEN || null;
   check(await p.locator('a.tegel[data-site="2a-vrij"]:visible').count() === 1, 'tegel Vrij oefenen staat open op de 2A-pagina');
   await p.goto(H.B + '2A/vrij-oefenen/'); await p.waitForTimeout(1500);
   const nav = await p.locator('nav.side .lbl').allTextContents();
-  check(nav.join('|') === 'Optellen en aftrekken|Vermenigvuldigen en delen|Volgorde van bewerkingen|Alles door elkaar', 'hoofdstukken zonder het verborgen Machten: ' + nav.join(', '));
+  check(nav.join('|') === 'Maal- en deeltafels|Optellen en aftrekken|Vermenigvuldigen en delen|Volgorde van bewerkingen|Alles door elkaar', 'hoofdstukken (tafels eerst), zonder het verborgen Machten: ' + nav.join(', '));
 
   /* motor: elke keuze, het eigen juiste antwoord wordt aanvaard */
   const motor = await p.evaluate(()=>{ const V = window.VRIJ, J = V.J; let n = 0, fout = [];
-    J.hoofdstukken.forEach(h=>{ const gs = h.bew ? J.getallen.map(x=>x[0]) : ['alle'], bs = h.bew ? h.bew.map(x=>x[0]).concat('alle') : ['alle'];
+    J.hoofdstukken.forEach(h=>{ const gs = h.bew ? V.getallenVan(J, h).map(x=>x[0]) : ['alle'], bs = h.bew ? h.bew.map(x=>x[0]).concat('alle') : ['alle'];
       gs.forEach(g=>bs.forEach(bw=>{ for(let k = 0; k < 4; k++){ const r = V.maakReeks(J, h.id, g, bw); if(r.length !== 10) fout.push('lengte ' + h.id + g + bw);
         r.forEach(it=>{ n++; const c = V.canoniek(it); if(!V.beoordeel(it, c)) fout.push('juist geweigerd ' + it.html);
           const w = JSON.parse(JSON.stringify(c)); if(w.a != null) w.a += '1'; else w.t = String(Number(w.t) + 1); if(V.beoordeel(it, w)) fout.push('fout aanvaard ' + it.html);
@@ -44,7 +47,23 @@ const SCH = process.env.SCHERMEN || null;
     return { n, fout:fout.slice(0, 5) }; });
   check(kf.n === 300 && !kf.fout.length, 'kommagetallen: vermenigvuldigen en delen telkens met 0,1 0,2 0,5 0,01 0,001 0,25 of 0,125 ' + kf.fout.join(' | '));
 
+  /* bij het openen: niets aangeduid, de startknop werkt pas na een keuze in elke rij */
+  const open0 = [await p.locator('.vo-sectie h2').innerText(), await p.locator('.vo-chip.aan').count(), await p.locator('.vo-cel.nu').count(), await p.locator('.vo-start:disabled').count()];
+  check(/Maal- en deeltafels/.test(open0[0]) && open0[1] === 0 && open0[2] === 0 && open0[3] === 1, 'bij het openen: niets aangeduid, startknop grijs ' + open0.join(' · '));
+  await p.click('.vo-chip[data-g="7"]'); await p.click('.vo-chip[data-g="9"]'); await p.waitForTimeout(80);
+  check(await p.locator('.vo-start:disabled').count() === 1 && /Kies eerst/.test(await p.locator('.vo-eerst').innerText()), 'enkel tafels gekozen: startknop nog grijs');
+  await p.click('.vo-chip[data-b="mt"]'); await p.click('.vo-chip[data-b="dt"]'); await p.waitForTimeout(80);
+  await shot(p, '0_tafels_keuze');
+  await p.click('.vo-start'); await p.waitForTimeout(200);
+  const rt = await p.evaluate(k=>JSON.parse(localStorage.getItem(k)), P + 'reeks_tafel');
+  const tafelOk = rt.items.every(it=>{ const t = it.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), m = t.match(/^(\d+) ([·:]) (\d+)$/); if(!m) return false;
+    const a = +m[1], c = +m[3]; return m[2] === '·' ? ((a === 7 || a === 9) && c <= 10) || ((c === 7 || c === 9) && a <= 10) : c && a % c === 0 && (((c === 7 || c === 9) && a / c <= 10) || ((a / c === 7 || a / c === 9) && c <= 10)); });
+  check(rt.g === '7+9' && rt.b === 'alle' && tafelOk && new Set(rt.items.map(x=>x.b)).size === 2, 'tafels van 7 en 9: maal- en deeltafels, factor tot 10: ' + rt.items.map(x=>x.html.replace(/<[^>]+>/g, '')).join(' | '));
+  await shot(p, '0b_tafels_reeks');
+
   /* reeks: gehele getallen, optellen */
+  await p.click('nav.side button:has-text("Optellen en aftrekken")'); await p.waitForTimeout(150);
+  check(await p.locator('.vo-chip.aan').count() === 0, 'ander hoofdstuk: ook daar niets aangeduid');
   await p.click('.vo-chip[data-g="z"]'); await p.click('.vo-chip[data-b="plus"]'); await p.waitForTimeout(100);
   await shot(p, '1_keuze');
   await p.click('.vo-start'); await p.waitForTimeout(200);
@@ -96,7 +115,7 @@ const SCH = process.env.SCHERMEN || null;
   /* meerkeuze: gehele getallen + breuken, optellen + aftrekken */
   await p.click('nav.side button:has-text("Optellen en aftrekken")'); await p.waitForTimeout(150);
   if(await p.locator('.vo-terug').count()) await p.locator('.vo-terug').first().click(); await p.waitForTimeout(150);
-  await p.click('.vo-chip[data-g="q"]'); await p.click('.vo-chip[data-b="min"]'); await p.waitForTimeout(100);
+  await zetChips(p, 'g', ['z', 'q']); await zetChips(p, 'b', ['plus', 'min']);
   const aanG = await p.locator('.vo-chip.aan[data-g]').evaluateAll(l=>l.map(b=>b.dataset.g)), aanB = await p.locator('.vo-chip.aan[data-b]').evaluateAll(l=>l.map(b=>b.dataset.b));
   check(aanG.join() === 'z,q' && aanB.join() === 'plus,min', 'meerkeuze: twee soorten getallen en twee bewerkingen aan: ' + aanG + ' / ' + aanB);
   await shot(p, '1b_meerkeuze');
@@ -147,23 +166,31 @@ const SCH = process.env.SCHERMEN || null;
   check(await q.locator('a.tegel[data-site="1a-vrij"]:visible').count() === 1, '1A: tegel Vrij oefenen staat open');
   await q.goto(H.B + '1A/vrij-oefenen/'); await q.waitForTimeout(1500);
   const nav1 = await q.locator('nav.side .lbl').allTextContents();
-  check(nav1.join('|') === 'Optellen en aftrekken|Vermenigvuldigen en delen|Volgorde van bewerkingen|Machten en vierkantswortels|Alles door elkaar', '1A: hoofdstukken, Machten en vierkantswortels achteraan: ' + nav1.join(', '));
+  check(nav1.join('|') === 'Maal- en deeltafels|Optellen en aftrekken|Vermenigvuldigen en delen|Machten en vierkantswortels|Volgorde van bewerkingen|Alles door elkaar', '1A: hoofdstukken in de nieuwe volgorde: ' + nav1.join(', '));
   const m1 = await q.evaluate(()=>{ const V = window.VRIJ, J = V.J; let n = 0, fout = [];
-    J.hoofdstukken.forEach(h=>{ (h.bew ? J.getallen.map(x=>x[0]) : ['alle']).forEach(g=>(h.bew ? h.bew.map(x=>x[0]).concat('alle') : ['alle']).forEach(bw=>{ for(let k = 0; k < 4; k++) V.maakReeks(J, h.id, g, bw).forEach(it=>{ n++;
+    J.hoofdstukken.forEach(h=>{ (h.bew ? V.getallenVan(J, h).map(x=>x[0]) : ['alle']).forEach(g=>(h.bew ? h.bew.map(x=>x[0]).concat('alle') : ['alle']).forEach(bw=>{ for(let k = 0; k < 4; k++) V.maakReeks(J, h.id, g, bw).forEach(it=>{ n++;
       if(!V.beoordeel(it, V.canoniek(it))) fout.push(it.html);
       const neg = /class="vo-g">−/.test(it.html) || it.w[0] < 0, getallen = (it.html.replace(/<[^>]+>/g, ' ').match(/\d+(,\d+)?/g) || []).map(x=>+x.replace(',', '.'));
-      if(g !== 'z' && g !== 'alle' && neg) fout.push('negatief ' + it.html);
+      if(!['z', 'qn', 'alle'].includes(g) && neg) fout.push('negatief ' + it.html);
       if(g === 'z' && !/wrt|vo-e/.test(it.html) && getallen.some(x=>x > 20)) fout.push('groter dan 20 ' + it.html); }); })); });
     return { n, fout:fout.slice(0, 5) }; });
   check(m1.n >= 1500 && !m1.fout.length, `motor 1A: ${m1.n} oefeningen, negatief enkel bij gehele getallen (van −20 tot 20), juist antwoord aanvaard ${m1.fout.join(' | ')}`);
+  await q.click('nav.side button:has-text("Optellen en aftrekken")'); await q.waitForTimeout(150);
   await q.click('.vo-chip[data-g="n"]'); await q.click('.vo-chip[data-b="alle"]'); await q.click('.vo-start'); await q.waitForTimeout(200);
   await shot(q, '6_1A_reeks');
   check(await q.locator('.vo-dot').count() === 10 && !q.fouten.length, '1A: reeks natuurlijke getallen gestart, geen JavaScript-fouten ' + q.fouten.join(' | '));
   await q.locator('.vo-terug').first().click(); await q.waitForTimeout(150);
-  await q.click('.vo-chip[data-g="alle"]'); await q.click('.vo-chip[data-g="z"]'); await q.click('.vo-start'); await q.waitForTimeout(200);
+  await q.click('.vo-chip[data-g="n"]'); await q.click('.vo-chip[data-g="z"]'); await q.click('.vo-start'); await q.waitForTimeout(200);
   const rz = await q.evaluate(k=>JSON.parse(localStorage.getItem(k)), '1a_vrij_v1_reeks_optel');
   check(rz.g === 'z' && rz.items.every(x=>x.s === 'z') && rz.items.some(x=>/−/.test(x.html)), '1A: reeks gehele getallen met negatieve getallen');
   await shot(q, '6b_1A_gehele_getallen');
+  await q.locator('.vo-terug').first().click(); await q.waitForTimeout(150);
+  await q.click('.vo-chip[data-g="z"]'); await q.click('.vo-chip[data-g="qn"]'); await q.click('.vo-start'); await q.waitForTimeout(200);
+  const rn = await q.evaluate(k=>JSON.parse(localStorage.getItem(k)), '1a_vrij_v1_reeks_optel');
+  check(rn.g === 'qn' && rn.items.every(x=>x.s === 'q') && rn.items.some(x=>x.w[0] < 0 || /−/.test(x.html)), '1A: reeks negatieve breuken');
+  await shot(q, '6c_1A_negatieve_breuken');
+  await q.click('nav.side button:has-text("Volgorde van bewerkingen")'); await q.waitForTimeout(150);
+  check(await q.locator('.vo-chip[data-g="qn"]').count() === 0 && await q.locator('.vo-chip[data-g="q"]').count() === 1, '1A: negatieve breuken niet bij volgorde van bewerkingen');
 
   /* leerkracht: dashboard */
   const r = await H.pagina(ctx, await H.fakedb(p));
@@ -171,7 +198,7 @@ const SCH = process.env.SCHERMEN || null;
   await r.click('.chip-btn:has-text("2ANg1")'); await r.waitForTimeout(500);
   await r.click('.tab:has-text("Voortgang")'); await r.waitForTimeout(800);
   const ov = await r.locator('table.dt').first().innerText().catch(()=>'');
-  check(/Vrij oefenen/.test(ov), 'dashboard: overzicht met de rubriek Vrij oefenen');
+  check(/Bewerkingen vrij oefenen/.test(ov), 'dashboard: overzicht met de rubriek Bewerkingen vrij oefenen');
   await r.locator('#siteSel').selectOption('2a-vrij'); await r.waitForTimeout(800);
   const txt = await r.locator('table.dt').innerText();
   check(/10\/10/.test(txt) && /beste 10 · 2×/.test(txt) && /0\/10/.test(txt), 'dashboard: per hoofdstuk laatste score, beste score en aantal reeksen');

@@ -10,6 +10,10 @@
   /* bij Alles door elkaar: per oefening een soort; qd = breuken en kommagetallen in één oefening */
   modes:['z', 'q', 'd', 'qd'],
   hoofdstukken:[
+    /* maal- en deeltafels: de getallen zijn hier de tafels van 2 tot 15 (id = het tafelgetal) */
+    { id:'tafel', naam:'Maal- en deeltafels', vraagG:'Welke tafels?', vraagB:'Maal- of deeltafels?', bew:[['mt', 'Maaltafels'], ['dt', 'Deeltafels']],
+      getallen:Array.from({ length:14 }, (_, i)=>[String(i + 2), 'Tafel van ' + (i + 2), String(i + 2)]).concat([['alle', 'Alle tafels']]),
+      modes:Array.from({ length:14 }, (_, i)=>String(i + 2)) },
     { id:'optel', naam:'Optellen en aftrekken', bew:[['plus', 'Optellen'], ['min', 'Aftrekken'], ['som', 'Gedurige som']] },
     { id:'maal', naam:'Vermenigvuldigen en delen', bew:[['maal', 'Vermenigvuldigen'], ['deel', 'Delen'], ['fact', 'Meer factoren']] },
     { id:'macht', naam:'Machten en vierkantswortels', bew:[['macht', 'Macht'], ['mmin', 'Macht met minteken'], ['wortel', 'Vierkantswortel']] },

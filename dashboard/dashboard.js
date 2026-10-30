@@ -12,7 +12,7 @@ const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], lee
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
 /* rubrieken in vaste volgorde; een site zonder (gekende) rubriek komt achteraan bij Andere */
-const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['vrij-oefenen', 'Vrij oefenen'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen']];
+const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['vrij-oefenen', 'Bewerkingen vrij oefenen'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen']];
 function perRubriek(sites){
   const groepen = RUBRIEKEN.map(([id, naam])=>({ id, naam, sites:sites.filter(s=>s.rubriek === id) }));
   const rest = sites.filter(s=>!RUBRIEKEN.some(([id])=>id === s.rubriek)); if(rest.length) groepen.push({ id:'andere', naam:'Andere', sites:rest });
@@ -118,10 +118,10 @@ function sectieVan(site, vraagId){ let best = null; site.onderdelen.forEach(o=>{
 const NIV_UITLEG = { A:'niveau A (hoogste)', B:'niveau B', C:'niveau C', D:'niveau D', E:'E: D nog niet beheerst' };
 function nivBol(nv, extra){ if(!nv) return ''; if(!nv.n) return nv.t ? `<b class="niv-l niv-leeg" title="nog te weinig gegevens (${nv.j}/${nv.t} juist): minstens 3 antwoorden per niveau nodig">?</b>` : ''; return `<b class="niv-l${nv.n === 'E' ? ' niv-e' : ''}" title="${esc(NIV_UITLEG[nv.n] || 'niveau ' + nv.n)}${nv.t ? ` · ${nv.j}/${nv.t} juist` : ''}${extra ? ' · ' + esc(extra) : ''}">${esc(nv.n)}</b>`; }
 function deelLetters(site, nv){ if(!nv || !nv.delen) return ''; return Object.entries(nv.delen).map(([k, x])=>{ const o = site.onderdelen.find(y=>y.id === k); return x && x.n ? `${esc(o ? o.naam.split(' ')[0] : k)} ${nivBol(x)}` : ''; }).filter(Boolean).join(' '); }
-/* namen van de keuzes in Vrij oefenen (zoals in 1A/vrij-oefenen/inhoud.js en 2A/vrij-oefenen/inhoud.js) */
-const VRIJ_NAMEN = { z:'gehele getallen', n:'natuurlijke getallen', q:'breuken', d:'kommagetallen', alle:'alles door elkaar', plus:'optellen', min:'aftrekken', som:'gedurige som',
-  maal:'vermenigvuldigen', deel:'delen', fact:'meer factoren', macht:'macht', mmin:'macht met minteken', wortel:'vierkantswortel', zh:'zonder haakjes', mh:'met haakjes', mw:'met machten en wortels' };
-const vrijNaam = k => String(k).split('+').map(x=>VRIJ_NAMEN[x] || x).join(' + ');
+/* namen van de keuzes in Bewerkingen vrij oefenen (zoals in 1A/vrij-oefenen/inhoud.js en 2A/vrij-oefenen/inhoud.js) */
+const VRIJ_NAMEN = { z:'gehele getallen', n:'natuurlijke getallen', q:'breuken', qn:'negatieve breuken', d:'kommagetallen', alle:'alles door elkaar', plus:'optellen', min:'aftrekken', som:'gedurige som',
+  maal:'vermenigvuldigen', deel:'delen', fact:'meer factoren', macht:'macht', mmin:'macht met minteken', wortel:'vierkantswortel', zh:'zonder haakjes', mh:'met haakjes', mw:'met machten en wortels', mt:'maaltafels', dt:'deeltafels' };
+const vrijNaam = k => String(k).split('+').map(x=>VRIJ_NAMEN[x] || (/^\d+$/.test(x) ? 'tafel van ' + x : x)).join(' + ');
 function minuten(s){ if(!s) return '–'; const m = Math.round(s / 60); return m < 1 ? '<1 min' : `${m} min`; }
 async function haalVoortgang(site, emails){
   const out = new Map();
