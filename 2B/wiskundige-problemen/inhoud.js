@@ -8955,6 +8955,60 @@ function formHtml() {
   return '<div class="wb paneel formpaneel" id="form" role="group" aria-label="Formularium"><div class="paneelkop"><b>Formularium</b><button type="button" class="sluit" data-a="form" aria-label="Sluit het formularium">×</button></div>' +
     '<dl class="formlijst">' + lijst.map(f => '<dt>' + f[0] + '</dt><dd>' + [f[1], f[2]].filter(x => x).map(wis).join('<br>') + '</dd>').join('') + '</dl><p class="klein">π ≈ 3,14</p></div>';
 }
+
+/* ---------- panelen verplaatsen (rekenmachine, woordenboek, formularium) ----------
+   Sleep aan de kop van het paneel (muis of vinger). De plaats blijft bewaard voor volgende vragen en volgende bezoeken
+   (localStorage 'wp_paneelpos', zonder prefix: dit gaat niet naar Firestore). Dubbelklik op de kop zet het paneel terug.
+   Met het toetsenbord: focus op de kop en de pijltjestoetsen (Shift voor grotere stappen), Home zet terug. */
+let paneelPos = null;
+try { paneelPos = JSON.parse(localStorage.getItem('wp_paneelpos') || 'null'); } catch (e) {}
+function bewaarPaneelPos() { try { if (paneelPos) localStorage.setItem('wp_paneelpos', JSON.stringify(paneelPos)); else localStorage.removeItem('wp_paneelpos'); } catch (e) {} }
+function zetPaneel(el, x, y) {
+  const r = el.getBoundingClientRect(), W = document.documentElement.clientWidth, H = window.innerHeight;
+  x = clamp(x, 4, Math.max(4, W - r.width - 4)); y = clamp(y, 4, Math.max(4, H - 40));
+  Object.assign(el.style, {position:'fixed', left:x + 'px', top:y + 'px', right:'auto', bottom:'auto', margin:'0'});
+  el.classList.add('verplaatst');
+  return {x, y};
+}
+/* na elke weergave van een vraag: het open paneel op zijn bewaarde plaats zetten */
+function plaatsPaneel() {
+  wortel().querySelectorAll('.paneel').forEach(el => {
+    const kop = el.querySelector('.paneelkop');
+    if (kop && !kop.hasAttribute('tabindex')) { kop.tabIndex = 0; kop.title = 'Sleep om te verplaatsen. Dubbelklik om terug te zetten.'; kop.setAttribute('aria-label', 'Verplaats het paneel met de pijltjestoetsen'); }
+    if (paneelPos) zetPaneel(el, paneelPos.x, paneelPos.y);
+  });
+}
+let paneelSleep = null;
+document.addEventListener('pointerdown', e => {
+  const kop = e.target.closest && e.target.closest('.paneel .paneelkop');
+  if (!kop || e.target.closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const el = kop.closest('.paneel'), r = el.getBoundingClientRect();
+  paneelSleep = {el, dx:e.clientX - r.left, dy:e.clientY - r.top, id:e.pointerId};
+  zetPaneel(el, r.left, r.top); el.classList.add('sleept');
+  try { kop.setPointerCapture(e.pointerId); } catch (x) {}
+  e.preventDefault();
+});
+document.addEventListener('pointermove', e => {
+  if (!paneelSleep || e.pointerId !== paneelSleep.id) return;
+  paneelPos = zetPaneel(paneelSleep.el, e.clientX - paneelSleep.dx, e.clientY - paneelSleep.dy);
+});
+const stopPaneelSleep = e => { if (!paneelSleep || (e && e.pointerId !== paneelSleep.id)) return; paneelSleep.el.classList.remove('sleept'); paneelSleep = null; bewaarPaneelPos(); };
+document.addEventListener('pointerup', stopPaneelSleep);
+document.addEventListener('pointercancel', stopPaneelSleep);
+document.addEventListener('dblclick', e => {
+  const kop = e.target.closest && e.target.closest('.paneel .paneelkop'); if (!kop || e.target.closest('button')) return;
+  paneelPos = null; bewaarPaneelPos();
+  const el = kop.closest('.paneel'); el.removeAttribute('style'); el.classList.remove('verplaatst');
+});
+document.addEventListener('keydown', e => {
+  const kop = e.target.closest && e.target.closest('.paneel .paneelkop'); if (!kop || e.target !== kop) return;
+  const el = kop.closest('.paneel'), r = el.getBoundingClientRect(), s = e.shiftKey ? 60 : 15;
+  const d = {ArrowLeft:[-s, 0], ArrowRight:[s, 0], ArrowUp:[0, -s], ArrowDown:[0, s]}[e.key];
+  if (e.key === 'Home') { paneelPos = null; bewaarPaneelPos(); el.removeAttribute('style'); el.classList.remove('verplaatst'); e.preventDefault(); return; }
+  if (!d) return;
+  paneelPos = zetPaneel(el, r.left + d[0], r.top + d[1]); bewaarPaneelPos(); e.preventDefault(); e.stopImmediatePropagation();
+});
+window.addEventListener('resize', () => { if (paneelPos) plaatsPaneel(); });
 /* ---------- invulvakken: getal, breuk, gemengd getal, macht ---------- */
 const VORMEN = [['getal', 'Getal', '12'], ['breuk', 'Breuk', '<span class="br mini"><span class="bt">a</span><span class="bn">b</span></span>'],
   ['gemengd', 'Gemengd getal', '1<span class="br mini"><span class="bt">a</span><span class="bn">b</span></span>'], ['macht', 'Macht', 'x<sup>n</sup>']];
@@ -9604,6 +9658,7 @@ function toonVraag() {
     toon('vraag', '<div class="card wpkaart"><div class="card-head"><h3 class="wpkop">' + kop + '</h3></div><div class="wpin">' + binnen + '</div></div>');
   }
   if (ses.paneel === 'calc') calcScherm();
+  plaatsPaneel();
 }
 setInterval(() => {
   if (!ses || ses.klaar) return;

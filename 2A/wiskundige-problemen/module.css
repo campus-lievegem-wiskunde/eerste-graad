@@ -384,3 +384,10 @@ body.vraagmodus .wpin{gap:8px}
 /* formulekader naast de opgave (2B: 'met gegeven formularium', zoals op de toets) */
 .formkader{margin:10px 0 0;padding:8px 12px;border:2px solid var(--tq);border-radius:10px;background:var(--tq-soft, #e8f8f8);font-size:15px;display:inline-block;max-width:100%}
 .formkader p{margin:2px 0}
+/* panelen verplaatsen: sleep aan de kop (rekenmachine, woordenboek, formularium) */
+.paneelkop{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:.5rem}
+.paneelkop b::before{content:"⠿";display:inline-block;margin-right:6px;color:var(--orange);font-weight:400}
+.paneelkop:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.paneel.verplaatst{z-index:60}
+.paneel.sleept{cursor:grabbing;box-shadow:0 16px 40px rgba(20,50,55,.28)}
+.paneel.sleept .paneelkop{cursor:grabbing}
