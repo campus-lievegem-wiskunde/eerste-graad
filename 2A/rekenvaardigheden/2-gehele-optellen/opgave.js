@@ -13,18 +13,20 @@ const COL = { plus:'#d62828', min:'#1d4ed8' }; /* enkel de legertjes zijn rood e
 /* ---------- oefeningen ---------- */
 const nl = (id, expr, range, punten = 1) => ({ id, type:'eigen', soort:'numberline', punten, expr, range, vraag:`Bereken ${expr} met een sprong op de getallenas.` });
 const leger = (id, expr, camps, doubleSign) => ({ id, type:'eigen', soort:'armies', punten:1, expr, camps, doubleSign:!!doubleSign, vraag:`Bereken ${expr} met de legertjes.` });
-const stap = (id, expr, n) => ({ id, type:'eigen', soort:'steps', punten:1, expr, n, vraag:`Bereken ${expr} met het stappenplan.` });
-const som = (id, expr, n) => ({ id, type:'eigen', soort:'steps', collect:true, punten:2, expr, n, vraag:`Bereken de gedurige som ${expr}.` });
+/* opbouw in het stappenplan (opmerking collega, 31 oktober): klik = tekens aanklikken en dubbele tekens samen aanklikken;
+   half = de tekens zelf typen in een vakje, dubbele tekens nog aanklikken; zelf = alles typen, ook het dubbele teken zelf wegwerken */
+const stap = (id, expr, n, modus) => ({ id, type:'eigen', soort:'steps', punten:1, expr, n, modus, vraag:`Bereken ${expr} met het stappenplan.` });
+const som = (id, expr, n, modus) => ({ id, type:'eigen', soort:'steps', collect:true, punten:2, expr, n, modus, vraag:`Bereken de gedurige som ${expr}.` });
 const verg = (id, items) => ({ id, type:'eigen', soort:'compare', punten:1, items, vraag:'Vul in met &lt;, &gt; of =.' });
 const jager = (id, who, work, expr, options) => ({ id, type:'eigen', soort:'errorhunt', punten:1, who, work, expr, options:options.map((text, i)=>({ id:'abcd'[i], text })), vraag:`${who} maakte een fout. Kan jij ze vinden?` });
 const DELEN = [
   { titel:'Getallenas', vragen:[ nl('ex01', '−12 − 19', [-40, 10]), nl('ex02', '−8 + 13', [-15, 15]), nl('ex03', '25 − 39', [-20, 30]), nl('ex04', '−6 − 17', [-30, 10]), nl('ex05', '−21 + 34', [-25, 20]) ] },
   { titel:'Legertjes', vragen:[ leger('ex06', '−7 + 11', ['min', 'plus']), leger('ex07', '9 − 15', ['plus', 'min']), leger('ex08', '−5 − 8', ['min', 'min']), leger('ex09', '6 + 7', ['plus', 'plus']),
     leger('ex10', '−23 + 17', ['min', 'plus']), leger('ex11', '−12 + (−18)', ['min', 'min']), leger('ex12', '19 − (−8)', ['plus', 'plus'], true), leger('ex13', '−26 − (−29)', ['min', 'plus'], true) ] },
-  { titel:'Optellen · stappenplan', vragen:[ stap('ex14', '−9 + (−6)', 2), stap('ex15', '−14 + 8', 2), stap('ex16', '27 + (−35)', 2) ] },
-  { titel:'Aftrekken · stappenplan', vragen:[ stap('ex17', '7 − (−5)', 2), stap('ex18', '23 − 41', 2), stap('ex19', '−25 − (−11)', 2) ] },
+  { titel:'Optellen · stappenplan', vragen:[ stap('ex14', '−9 + (−6)', 2, 'klik'), stap('ex15', '−14 + 8', 2, 'half'), stap('ex16', '27 + (−35)', 2, 'zelf') ] },
+  { titel:'Aftrekken · stappenplan', vragen:[ stap('ex17', '7 − (−5)', 2, 'klik'), stap('ex18', '23 − 41', 2, 'half'), stap('ex19', '−25 − (−11)', 2, 'zelf') ] },
   { titel:'Vergelijken', vragen:[ verg('ex20', [['−7 + 4', '−7 − 4'], ['5 − (−3)', '5 + 3'], ['−20 − (−6)', '−20 + 10']]), verg('ex21', [['18 + (−25)', '−25 + 18'], ['−9 − 9', '9 − 9'], ['0 − (−14)', '−14']]) ] },
-  { titel:'Gedurige sommen', vragen:[ som('ex22', '12 − 7 − (−4) + (−9)', 4), som('ex23', '−6 + (−5) − (−13) − 8 + 2', 5), som('ex24', '15 − (−9) + (−21) − 14 + (−3) − (−6)', 6) ] },
+  { titel:'Gedurige sommen', vragen:[ som('ex22', '12 − 7 − (−4) + (−9)', 4, 'half'), som('ex23', '−6 + (−5) − (−13) − 8 + 2', 5, 'zelf'), som('ex24', '15 − (−9) + (−21) − 14 + (−3) − (−6)', 6, 'zelf') ] },
   { titel:'Vraagstukken', vragen:[
     { id:'ex25', type:'eigen', soort:'context', punten:1.5, visual:'thermo', vis:{ start:-6, lo:-10, hi:15 }, unit:'°C', resLabel:'Temperatuur ’s middags',
       vraag:'Om 7.00 uur ’s morgens is het −6 °C. Tegen de middag is de temperatuur 11 graden gestegen. Hoeveel graden is het ’s middags?' },
@@ -105,6 +107,11 @@ const neg = s => s === '−' || s === '-';
 const uit = v => { if(v.resSign == null) return null; const n = nat(v.res); return n == null ? null : neg(v.resSign) ? -n : n; };
 const vgl = (a, b) => a < b ? '<' : a > b ? '>' : '=';
 const teken = s => s == null ? '?' : neg(s) ? '−' : '+';
+/* getypte tekens (modus half en zelf): spaties weg, een gewoon koppelteken of een gedachtestreep telt als min;
+   vooraan (eerste term, uitkomst) mag het vakje leeg blijven voor een positief getal */
+const getypt = q => !!q.modus && q.modus !== 'klik';
+const tk = (q, s, vooraan) => { const t = s == null ? '' : String(s).trim().replace(/[–—]/g, '−'); return t === '' && vooraan && getypt(q) ? '+' : t === '' ? null : t; };
+const uitStap = (q, v) => uit(Object.assign({}, v, { resSign:tk(q, v.resSign, true) }));
 const uitTekst = v => v.resSign == null && !v.res ? '…' : (v.resSign == null ? '?' : neg(v.resSign) ? '−' : '') + (v.res === '' || v.res == null ? '…' : v.res);
 
 /* typische fout in een uitkomst */
@@ -149,7 +156,7 @@ const VERBETER = {
     const s1 = Array.isArray(v.s1) ? v.s1 : [];
     let ok = 0, som = 0, eigen = true, plus = 0, min = 0;
     for(let i = 0; i < n; i++){
-      const t = P.terms[i], x = s1[i] || {}, sg = x.sign === '+' ? 1 : neg(x.sign) ? -1 : 0, g = nat(x.n), wilT = t.t < 0 ? -1 : 1, wilG = Math.abs(t.t);
+      const t = P.terms[i], x = s1[i] || {}, s = tk(q, x.sign, i === 0), sg = s === '+' ? 1 : neg(s) ? -1 : 0, g = nat(x.n), wilT = t.t < 0 ? -1 : 1, wilG = Math.abs(t.t);
       if(sg === wilT && g === wilG) ok++;
       else { if(sg !== 0 && sg !== wilT) codes.push(t.double ? 'DUBBEL_TEKEN' : 'STAP1_TEKEN'); if(g !== null && g !== wilG) codes.push('STAP1_GETAL'); }
       if(sg === 0 || g === null) eigen = false; else { som += sg * g; if(sg > 0) plus += g; else min += g; }
@@ -161,7 +168,7 @@ const VERBETER = {
       if(p !== null && m !== null){ if(eigen && p === plus && m === min) pts += .5; else if(eigen) codes.push('SAMENNEMEN'); eigenUit = p - m; }
       else eigenUit = null;
     }
-    const r = uit(v);
+    const r = uitStap(q, v);
     if(r === E) pts += .5;
     else if(r !== null){
       if(eigenUit !== null && r === eigenUit && (ok !== n || codes.includes('SAMENNEMEN'))) codes.push('DOORWERKFOUT');
@@ -203,7 +210,7 @@ const bewerkingOk = s => { const t = String(s || '').trim(); if(!t || !/^[\d\s+\
 const VOLLEDIG = {
   numberline:(q, v)=>v.start != null && v.end != null && uitAf(v),
   armies:(q, v)=>(!q.doubleSign || !!(v.dub && v.dub.weg)) && v.a > 0 && v.b > 0 && v.fought && uitAf(v),
-  steps:(q, v)=>v.s1.every(t=>t.sign && nat(t.n) != null) && (!q.collect || (nat(v.plus) != null && nat(v.min) != null)) && uitAf(v),
+  steps:(q, v)=>v.s1.every((t, i)=>{ const s = tk(q, t.sign, i === 0); return (s === '+' || neg(s)) && nat(t.n) != null; }) && (!q.collect || (nat(v.plus) != null && nat(v.min) != null)) && uitStap(q, v) !== null,
   compare:(q, v)=>v.c.every(x=>!!x),
   context:(q, v)=>(q.visual !== 'thermo' || v.temp != null) && bewerkingOk(v.bew) && uitAf(v),
   errorhunt:(q, v)=>!!v.choice && uitAf(v)
@@ -317,7 +324,8 @@ function toon(q, a, modus, k){
     }
     case 'steps': {
       const P = termen(q.expr);
-      const s1 = sl ? P.terms.map(t=>({ sign:t.t < 0 ? '−' : '+', n:Math.abs(t.t) })) : v.s1;
+      if(!sl && !blanco && getypt(q)) v = Object.assign({}, v, { resSign:tk(q, v.resSign, true) });
+      const s1 = sl ? P.terms.map(t=>({ sign:t.t < 0 ? '−' : '+', n:Math.abs(t.t) })) : v.s1.map((t, i)=>Object.assign({}, t, { sign:tk(q, t.sign, i === 0) }));
       const r1 = blanco ? leeg : s1.map((t, i)=>`${i === 0 && t.sign === '+' ? '' : teken(t.sign) + ' '}${t.n === '' || t.n == null ? '…' : esc(t.n)}`).join(' ');
       let h = lijn('', uitdr(q.expr)) + lijn('=', r1);
       if(q.collect){ const pl = P.terms.filter(t=>t.t > 0).reduce((a, t)=>a + t.t, 0), mi = -P.terms.filter(t=>t.t < 0).reduce((a, t)=>a + t.t, 0);
@@ -352,6 +360,8 @@ Object.keys(LEEG).forEach(s=>{ TYPEN[s] = { leeg:LEEG[s], volledig:VOLLEDIG[s] }
 TYPEN.numberline.uitleg = ()=>UITLEG.numberline;
 TYPEN.armies.uitleg = q=>(q.doubleSign ? UITLEG.armiesDouble + ' ' : '') + (samen(q) ? UITLEG.armiesMerge : UITLEG.armiesFight);
 ['steps', 'compare', 'context', 'errorhunt'].forEach(s=>{ TYPEN[s].uitleg = ()=>UITLEG[s]; });
+TYPEN.steps.uitleg = q=>!q.modus || q.modus === 'klik' ? UITLEG.steps
+  : `Gebruik het stappenplan. Noteer elke tussenstap. Typ voor elk getal het teken (+ of −) in het kleine vakje ervoor.${q.modus === 'zelf' ? ' Een dubbel teken werk je nu zelf weg.' : ' Een dubbel teken werk je weg door in de opgave de twee tekens aan te klikken.'}`;
 
 TYPEN.numberline.teken = c=>{
   const { q, v, ui } = c, RV = window.RV;
@@ -435,17 +445,19 @@ TYPEN.steps.teken = c=>{
   const plan = q.collect ? ['Stap 1 · dubbele tekens wegwerken', 'Stap 2 · plustermen en mintermen samennemen', 'Stap 3 · uitrekenen'] : ['Stap 1 · dubbele tekens wegwerken', 'Stap 2 · uitrekenen'];
   c.root.querySelector('.rv-werk').classList.add('stapel');
   c.vis.innerHTML = '<div class="plan">' + plan.map(p=>`<span>${p}</span>`).join('') + '</div>';
-  const P = termen(q.expr), dubbel = P.terms.some(t=>t.double);
+  const P = termen(q.expr), modus = q.modus || 'klik', zelf = modus === 'zelf', dubbel = !zelf && P.terms.some(t=>t.double);
   const orig = P.terms.map((t, i)=>i === 0 ? esc(fmt(t.lit)) : !t.double ? ` <span class="rv-op">${t.op === '-' ? '−' : '+'}</span> ${t.lit}`
+    : zelf ? ` <span class="rv-op">${t.op === '-' ? '−' : '+'}</span> (${esc(fmt(t.lit))})`
     : ' ' + RV.dubbel(`s1.${i}`, t.op === '-' ? '−' : '+', t.lit < 0 ? '−' : '+', Math.abs(t.lit), v.s1[i].weg)).join('');
-  const tekenvak = (t, i) => !P.terms[i].double ? RV.teken(`s1.${i}.sign`, t.sign, `teken van term ${i + 1}`, i === 0)
-    : t.weg ? `<span class="vast-teken" title="uit het dubbele teken">${esc(t.sign)}</span>` : '<span class="rv-teken-wacht" title="Klik eerst in de opgave de twee tekens van het dubbele teken aan">?</span>';
+  /* klik: tekenvak aanklikken; half en zelf: het teken typen (vooraan mag het leeg blijven); een dubbel teken in klik en half eerst aanklikken */
+  const tekenvak = (t, i) => P.terms[i].double && !zelf ? (t.weg ? `<span class="vast-teken" title="uit het dubbele teken">${esc(t.sign)}</span>` : '<span class="rv-teken-wacht" title="Klik eerst in de opgave de twee tekens van het dubbele teken aan">?</span>')
+    : modus === 'klik' ? RV.teken(`s1.${i}.sign`, t.sign, `teken van term ${i + 1}`, i === 0) : RV.tekenVakje(`s1.${i}.sign`, t.sign, `teken van term ${i + 1}`);
   const term = v.s1.map((t, i)=>`<span class="rv-term">${tekenvak(t, i)}${RV.getal(`s1.${i}.n`, t.n, 'nat', '', `getal van term ${i + 1}`)}</span>`).join('');
   const rij2 = q.collect ? `<div class="srij"><span class="gelijk">=</span><div class="termen"><span class="rv-term"><span class="vast-teken">+</span>${RV.getal('plus', v.plus, 'nat', '', 'som van de plustermen')}</span><span class="rv-term"><span class="vast-teken">−</span>${RV.getal('min', v.min, 'nat', '', 'som van de mintermen')}</span></div><span class="stapnaam">Stap 2</span></div>` : '';
   c.ant.innerHTML = `<div class="schrift"><div class="srij"><span></span><span class="orig">${orig}</span><span></span></div>
     <div class="srij"><span class="gelijk">=</span><div class="termen">${term}</div><span class="stapnaam">Stap 1</span></div>${rij2}
-    <div class="srij"><span class="gelijk">=</span><div class="termen">${RV.uitkomst(v)}</div><span class="stapnaam">Stap ${q.collect ? 3 : 2}</span></div></div>
-    <p class="rv-tip">${dubbel ? RV.dubbelTip + ' ' : ''}Stap 1: kies voor elk getal het teken (<b>+</b> of <b>−</b>) en schrijf het getal <b>zonder</b> teken ernaast. ${q.collect ? 'Stap 2: tel alle plustermen samen en alle mintermen samen. Stap 3: reken uit.' : 'Stap 2: reken uit.'} Kies ook het toestandsteken van je uitkomst.</p>`;
+    <div class="srij"><span class="gelijk">=</span><div class="termen">${modus === 'klik' ? RV.uitkomst(v) : `<span class="rv-term">${RV.tekenVakje('resSign', v.resSign, 'toestandsteken van de uitkomst')}${RV.getal('res', v.res, 'nat')}</span>`}</div><span class="stapnaam">Stap ${q.collect ? 3 : 2}</span></div></div>
+    <p class="rv-tip">${dubbel ? RV.dubbelTip + ' ' : ''}Stap 1: ${modus === 'klik' ? 'kies voor elk getal het teken (<b>+</b> of <b>−</b>)' : `typ voor elk getal het teken (<b>+</b> of <b>−</b>) in het kleine vakje${zelf ? ' en werk de dubbele tekens zelf weg' : ''}`} en schrijf het getal <b>zonder</b> teken ernaast. ${q.collect ? 'Stap 2: tel alle plustermen samen en alle mintermen samen. Stap 3: reken uit.' : 'Stap 2: reken uit.'} ${modus === 'klik' ? 'Kies ook het toestandsteken van je uitkomst.' : 'Typ ook het teken van je uitkomst (vooraan mag een + wegblijven).'}</p>`;
 };
 
 TYPEN.compare.teken = c=>{

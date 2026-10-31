@@ -39,6 +39,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   const term = async (i, sg, n)=>{ const d = p.locator(`.rv [data-dubbel="s1.${i}"]`);
     if(await d.count()){ await d.locator('[data-k="0"]').click(); await d.locator('[data-k="1"]').click(); await p.waitForTimeout(80);
       check((await p.locator(`.rv [data-pad="s1.${i}.n"]`).locator('xpath=preceding-sibling::span[1]').textContent()).trim() === sg, `dubbel teken van term ${i + 1} wordt ${sg}`); }
+    else if(await p.locator(`.rv input[data-pad="s1.${i}.sign"]`).count()) await vul(`s1.${i}.sign`, sg);
     else await teken(`s1.${i}.sign`, sg);
     await vul(`s1.${i}.n`, n); };
 
@@ -77,12 +78,21 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   await term(1, '+', 3); await teken('resSign', '+'); await vul('res', 10);
   check(/7 − \(−5\)/.test(await p.locator('.rv .orig').textContent()) && await p.locator('.rv .rv-dubbel.weg').count() === 1, 'opgave toont het weggewerkte dubbele teken');
 
+  /* opbouw: oefening 15 (half) typt de tekens, oefening 16 (zelf) werkt ook het dubbele teken zelf weg */
+  await dot(14); check(await p.locator('.rv input.rv-tekenvakje').count() === 3 && !(await p.locator('.rv .rv-teken').count()), 'stappenplan half: getypte tekenvakjes, ook voor de uitkomst');
+  await dot(15); check(!(await p.locator('.rv .rv-dubbel').count()) && await p.locator('.rv input.rv-tekenvakje').count() === 3 && /\(−35\)/.test(await p.locator('.rv .orig').textContent()), 'stappenplan zelf: geen dubbel teken aanklikken, alles typen');
+  await term(0, '', 27); await term(1, '-', 35); await vul('resSign', '−'); await vul('res', 8);
+  await past('stappenplan zelf'); await p.locator('.rv-wis').click(); await p.waitForTimeout(100); /* weer leeg: de totalen verderop blijven gelijk */
+  const r16 = await p.evaluate(()=>{ const O = window.OPGAVE, q = O.delen.flatMap(d=>d.vragen).find(x=>x.id === 'ex16');
+    return [O.verbeter(q, { s1:[{ sign:'', n:'27' }, { sign:'-', n:'35' }], resSign:'−', res:'8' }), O.verbeter(q, { s1:[{ sign:'', n:'27' }, { sign:'+', n:'35' }], resSign:'', res:'62' }), O.volledig(q, { s1:[{ sign:'', n:'27' }, { sign:'−', n:'35' }], resSign:'−', res:'8' })]; });
+  check(r16[0].pts === 1 && r16[1].codes.includes('DUBBEL_TEKEN') && r16[2], 'stappenplan zelf: + vooraan mag wegblijven, - telt als min, fout dubbel teken herkend ' + JSON.stringify(r16));
+
   /* vergelijken */
   await dot(19); for(const [i, s] of [[0, '>'], [1, '='], [2, '<']]) await p.locator(`.rv [data-vgl="${i}"][data-s="${s}"]`).click();
   await past('vergelijken');
   /* gedurige som met 6 termen */
   await dot(23); for(const [i, s, n] of [[0, '+', 15], [1, '+', 9], [2, '−', 21], [3, '−', 14], [4, '−', 3], [5, '+', 6]]) await term(i, s, n);
-  await vul('plus', 30); await vul('min', 38); await teken('resSign', '−'); await vul('res', 8);
+  await vul('plus', 30); await vul('min', 38); await vul('resSign', '−'); await vul('res', 8);
   await past('gedurige som'); await shot(p, '4_leerling_gedurige_som');
 
   /* thermometer: −6 °C, 11 graden gestegen */
