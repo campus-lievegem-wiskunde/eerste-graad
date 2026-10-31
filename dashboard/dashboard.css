@@ -141,7 +141,7 @@ table.opdr-tabel td.hand{ text-decoration:underline; text-underline-offset:3px; 
 .opdr-fouten table{ max-width:720px; }
 .opdr-fouten td{ white-space:normal; }
 /* Google Classroom (Toetsen en taken) */
-.cr-balk{ display:flex; flex-direction:column; gap:.35rem; padding:.6rem .9rem; }
+.cr-balk{ display:flex; flex-direction:column; gap:.35rem; margin:-.5rem 0 .8rem; padding:.45rem .8rem; border:1.5px solid var(--border); border-radius:.6rem; }
 .cr-balk .rij{ align-items:center; }
 .cr-balk select{ font:inherit; padding:.3rem .45rem; border:2px solid var(--tq); border-radius:.5rem; background:var(--card); color:var(--ink); max-width:100%; }
 .cr-melding{ margin:0; }

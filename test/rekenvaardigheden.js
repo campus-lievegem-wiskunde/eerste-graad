@@ -20,7 +20,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
 
   /* 1. leerkracht zet de opdracht open */
   await als(p, 'dashboard/', LK);
-  await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
+  await p.click('button.tab:has-text("Rekenvaardigheden")'); await p.waitForTimeout(300);
   const blok = p.locator('.opdr-blok', { hasText:'Optellen en aftrekken van gehele getallen' });
   check(await blok.count() === 1, 'dashboard: rekenvaardigheid staat in de lijst van 2A');
   await blok.locator('button:has-text("Nu openen")').click(); await p.waitForTimeout(400);
@@ -39,6 +39,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   const term = async (i, sg, n)=>{ const d = p.locator(`.rv [data-dubbel="s1.${i}"]`);
     if(await d.count()){ await d.locator('[data-k="0"]').click(); await d.locator('[data-k="1"]').click(); await p.waitForTimeout(80);
       check((await p.locator(`.rv [data-pad="s1.${i}.n"]`).locator('xpath=preceding-sibling::span[1]').textContent()).trim() === sg, `dubbel teken van term ${i + 1} wordt ${sg}`); }
+    else if(await p.locator(`.rv input[data-pad="s1.${i}.sign"]`).count()) await vul(`s1.${i}.sign`, sg);
     else await teken(`s1.${i}.sign`, sg);
     await vul(`s1.${i}.n`, n); };
 
@@ -77,12 +78,21 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   await term(1, '+', 3); await teken('resSign', '+'); await vul('res', 10);
   check(/7 − \(−5\)/.test(await p.locator('.rv .orig').textContent()) && await p.locator('.rv .rv-dubbel.weg').count() === 1, 'opgave toont het weggewerkte dubbele teken');
 
+  /* opbouw: oefening 15 (half) typt de tekens, oefening 16 (zelf) werkt ook het dubbele teken zelf weg */
+  await dot(14); check(await p.locator('.rv input.rv-tekenvakje').count() === 3 && !(await p.locator('.rv .rv-teken').count()), 'stappenplan half: getypte tekenvakjes, ook voor de uitkomst');
+  await dot(15); check(!(await p.locator('.rv .rv-dubbel').count()) && await p.locator('.rv input.rv-tekenvakje').count() === 3 && /\(−35\)/.test(await p.locator('.rv .orig').textContent()), 'stappenplan zelf: geen dubbel teken aanklikken, alles typen');
+  await term(0, '', 27); await term(1, '-', 35); await vul('resSign', '−'); await vul('res', 8);
+  await past('stappenplan zelf'); await p.locator('.rv-wis').click(); await p.waitForTimeout(100); /* weer leeg: de totalen verderop blijven gelijk */
+  const r16 = await p.evaluate(()=>{ const O = window.OPGAVE, q = O.delen.flatMap(d=>d.vragen).find(x=>x.id === 'ex16');
+    return [O.verbeter(q, { s1:[{ sign:'', n:'27' }, { sign:'-', n:'35' }], resSign:'−', res:'8' }), O.verbeter(q, { s1:[{ sign:'', n:'27' }, { sign:'+', n:'35' }], resSign:'', res:'62' }), O.volledig(q, { s1:[{ sign:'', n:'27' }, { sign:'−', n:'35' }], resSign:'−', res:'8' })]; });
+  check(r16[0].pts === 1 && r16[1].codes.includes('DUBBEL_TEKEN') && r16[2], 'stappenplan zelf: + vooraan mag wegblijven, - telt als min, fout dubbel teken herkend ' + JSON.stringify(r16));
+
   /* vergelijken */
   await dot(19); for(const [i, s] of [[0, '>'], [1, '='], [2, '<']]) await p.locator(`.rv [data-vgl="${i}"][data-s="${s}"]`).click();
   await past('vergelijken');
   /* gedurige som met 6 termen */
   await dot(23); for(const [i, s, n] of [[0, '+', 15], [1, '+', 9], [2, '−', 21], [3, '−', 14], [4, '−', 3], [5, '+', 6]]) await term(i, s, n);
-  await vul('plus', 30); await vul('min', 38); await teken('resSign', '−'); await vul('res', 8);
+  await vul('plus', 30); await vul('min', 38); await vul('resSign', '−'); await vul('res', 8);
   await past('gedurige som'); await shot(p, '4_leerling_gedurige_som');
 
   /* thermometer: −6 °C, 11 graden gestegen */
@@ -115,7 +125,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
   /* 3. leerkracht: sleutel, verbeteren met deelpunten en foutcodes, op 5 */
   await als(p, 'dashboard/', LK);
   if(CODE){
-    await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
+    await p.click('button.tab:has-text("Rekenvaardigheden")'); await p.waitForTimeout(300);
     await p.locator('.opdr-blok', { hasText:'Optellen en aftrekken van gehele getallen' }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
     await p.fill('.sl-code', CODE); await p.click('button:has-text("Ontgrendel")'); await p.waitForTimeout(2500);
     check(!!(await db())[`sleutels/${ID}`], 'echte sleutel ontgrendeld met de sleutelcode');
@@ -126,7 +136,7 @@ const UIT = process.env.SCHERMEN || null, CODE = process.env.RV_CODE || null, ID
     for(let i = 1; i <= 30; i++){ const id = 'ex' + String(i).padStart(2, '0'); v[id] = Object.assign({ toon:'(test)' }, v[id]); }
     await p.evaluate(s=>{ const d = JSON.parse(localStorage.getItem('__fakedb')); d['sleutels/' + s.opdr] = s; localStorage.setItem('__fakedb', JSON.stringify(d)); }, { opdr:ID, vragen:v });
     await p.reload(); await p.waitForTimeout(900);
-    await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
+    await p.click('button.tab:has-text("Rekenvaardigheden")'); await p.waitForTimeout(300);
     await p.locator('.opdr-blok', { hasText:'Optellen en aftrekken van gehele getallen' }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
   }
   const rij = p.locator('table.opdr-tabel tbody tr', { hasText:'Claes' }), cel = i=>rij.locator('td').nth(1 + i);

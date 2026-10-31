@@ -9,7 +9,7 @@ const UIT = process.env.SCHERMEN || null;
   const bron = fs.readFileSync(path.join(__dirname, '..', 'gedeeld', 'opdrachten.js'), 'utf8').replace('export const OPDRACHTEN = [',
     `export const OPDRACHTEN = [ { id:'test-toets', titel:'Proeftoets voorbeeld', kort:'Proeftoets', jaar:'1A', rubriek:'toetsen', pad:'test/opdracht/toets/' },
     { id:'test-taak', titel:'Proeftaak voorbeeld', kort:'Proeftaak', jaar:'1A', rubriek:'huistaken', pad:'test/opdracht/taak/', op:5 },`);
-  await ctx.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron.replace(/OPDR_ZICHTBAAR = '\w+'/, "OPDR_ZICHTBAAR = 'iedereen'") }));
+  await ctx.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron.replace(/OPDR_ZICHTBAAR = '\w+'/, "OPDR_ZICHTBAAR = 'iedereen'").replace(/RUBRIEKEN_ACTIEF = \[[^\]]*\]/, "RUBRIEKEN_ACTIEF = ['toetsen', 'huistaken', 'rekenvaardigheden']") }));
   const LK = { uid:'lk', email:'jeroen@svsl.be', displayName:'Jeroen De Jaeger' };
   const L1 = { uid:'l1', email:'an.claes@svsl.be', displayName:'An Claes' }, L2 = { uid:'l2', email:'bo.dewit@svsl.be', displayName:'Bo De Wit' };
   const nep = await nepCR.installeer(ctx, { klassen:[

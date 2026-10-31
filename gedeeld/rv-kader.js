@@ -28,13 +28,16 @@
     nat:'Schrijf hier enkel het getal, zonder teken. Het teken kies je in het vakje ervoor.',
     int:'Schrijf een geheel getal, bijvoorbeeld 12 of −7.',
     dec:'Schrijf een getal zonder teken, eventueel met een komma, bijvoorbeeld 3,50. Het teken kies je in het vakje ervoor.',
-    expr:'Gebruik enkel getallen, +, −, ⋅ (of x), :, haakjes en =. Schrijf minstens twee getallen.'
+    expr:'Gebruik enkel getallen, +, −, ⋅ (of x), :, haakjes en =. Schrijf minstens twee getallen.',
+    teken:'Typ in het tekenvakje enkel + of −.'
   };
-  const geldig = (soort, w) => String(w).trim() === '' || (soort === 'nat' ? RV.nat(w) != null : soort === 'int' ? RV.int(w) != null : soort === 'dec' ? RV.dec(w) != null : soort === 'expr' ? RV.bewerking(w) : true);
+  const geldig = (soort, w) => String(w).trim() === '' || (soort === 'nat' ? RV.nat(w) != null : soort === 'int' ? RV.int(w) != null : soort === 'dec' ? RV.dec(w) != null : soort === 'expr' ? RV.bewerking(w) : soort === 'teken' ? /^[+\-−–]$/.test(String(w).trim()) : true);
 
   /* invulvak; soort nat (getal zonder teken), int (geheel getal), dec (kommagetal zonder teken) of expr (bewerking) */
   RV.getal = (pad, w, soort = 'nat', cls = '', label = 'antwoord') =>
     `<input class="rv-getal ${cls}" type="text" autocomplete="off" spellcheck="false" data-pad="${pad}" data-soort="${soort}" value="${esc(w)}" aria-label="${esc(label)}">`;
+  /* getypt tekenvakje (+ of −), voor wie de tekens niet meer aanklikt */
+  RV.tekenVakje = (pad, w, label = 'teken') => RV.getal(pad, w == null ? '' : w, 'teken', 'rv-tekenvakje', label);
   RV.bewerkingVak = (pad, w) => `<input class="rv-expr" type="text" autocomplete="off" spellcheck="false" data-pad="${pad}" data-soort="expr" value="${esc(w)}" placeholder="Typ hier je bewerking" aria-label="bewerking">`;
   /* tekenvak: + boven, − onder; de leerling klikt het juiste teken aan.
      vooraan: het getal staat vooraan (eerste term, uitkomst); een gekozen + verschijnt even en verdwijnt dan, want vooraan schrijf je geen + */

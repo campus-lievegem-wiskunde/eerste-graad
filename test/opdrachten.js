@@ -10,7 +10,7 @@ const UIT = process.env.SCHERMEN || null; /* map voor schermafbeeldingen (option
     { id:'test-taak', titel:'Proeftaak voorbeeld', kort:'Proeftaak', jaar:'1A', rubriek:'huistaken', pad:'test/opdracht/taak/' },`);
   /* hier voor iedereen zichtbaar (zoals later); stap 10 test de instelling 'beheerder' in een aparte browsercontext */
   check(/OPDR_ZICHTBAAR = '(beheerder|iedereen)'/.test(bron), 'instelling OPDR_ZICHTBAAR gevonden');
-  await ctx.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron.replace(/OPDR_ZICHTBAAR = '\w+'/, "OPDR_ZICHTBAAR = 'iedereen'") }));
+  await ctx.route(/gedeeld\/opdrachten\.js/, r=>r.fulfill({ contentType:'text/javascript', body:bron.replace(/OPDR_ZICHTBAAR = '\w+'/, "OPDR_ZICHTBAAR = 'iedereen'").replace(/RUBRIEKEN_ACTIEF = \[[^\]]*\]/, "RUBRIEKEN_ACTIEF = ['toetsen', 'huistaken', 'rekenvaardigheden']") }));
   const LK = { uid:'lk', email:'jeroen@svsl.be', displayName:'Jeroen De Jaeger' };
   const L1 = { uid:'l1', email:'an.claes@svsl.be', displayName:'An Claes' }, L2 = { uid:'l2', email:'bo.dewit@svsl.be', displayName:'Bo De Wit' };
   const LK2 = { uid:'lk2', email:'els.collega@svsl.be', displayName:'Els Collega' };
@@ -135,7 +135,12 @@ const UIT = process.env.SCHERMEN || null; /* map voor schermafbeeldingen (option
   await q.goto(H.B + 'test/opdracht/taak/'); await q.waitForTimeout(900);
   check(/niet beschikbaar/.test(await q.locator('#app').textContent()), 'leerling: opdrachtpagina niet beschikbaar');
   await alsGebruiker(q, '1A/', LK);
-  check(await q.locator('a.tegel[data-rubriek]').count() === 3, 'beheerder: drie rubriektegels');
+  /* echte RUBRIEKEN_ACTIEF (enkel rekenvaardigheden): geen tegel Toetsen of Huistaken, Rekenvaardigheden enkel waar er iets in staat */
+  check(!(await q.locator('a.tegel[data-rubriek]').count()), 'beheerder 1A: geen rubriektegels (Toetsen en Huistaken niet in gebruik, nog geen rekenvaardigheden voor 1A)');
+  await q.goto(H.B + '2A/'); await q.waitForTimeout(900);
+  check(await q.locator('a.tegel[data-rubriek]').count() === 1 && await q.locator('a.tegel[data-rubriek="rekenvaardigheden"]').count() === 1, 'beheerder 2A: enkel de tegel Rekenvaardigheden');
+  await q.goto(H.B + 'dashboard/'); await q.waitForTimeout(900);
+  check(await q.locator('button.tab:has-text("Rekenvaardigheden")').count() === 1 && await q.locator('.cr-balk').count() === 1, 'beheerder: tabblad Rekenvaardigheden en de Classroom-lijn bij de groep');
   await alsGebruiker(q, '1A/', LK2);
   check(!(await q.locator('a.tegel[data-rubriek]').count()), 'collega: geen rubriektegels toetsen en taken');
   await q.goto(H.B + 'dashboard/'); await q.waitForTimeout(900);

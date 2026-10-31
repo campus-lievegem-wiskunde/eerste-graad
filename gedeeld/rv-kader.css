@@ -127,3 +127,5 @@
   .rv .vglrij{ grid-template-columns:1fr; text-align:center; } .rv .vglrij .l, .rv .vglrij .r{ text-align:center; } .rv .vglknoppen{ justify-content:center; }
 }
 @media (max-width:560px){ .rv-nav{ flex-wrap:wrap; } .rv-nav .rv-wis{ order:3; flex-basis:100%; } }
+/* getypt tekenvakje (+ of −) */
+.rv .rv-getal.rv-tekenvakje{ width:2.1rem; padding-left:0; padding-right:0; text-align:center; font-weight:900; margin-right:.15rem; }

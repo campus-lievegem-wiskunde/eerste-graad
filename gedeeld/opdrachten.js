@@ -23,6 +23,13 @@ export const opdrZichtbaar = (rol, toeschouwer) => OPDR_ZICHTBAAR === 'iedereen'
 export const opSchaal = (o, totaal, max) => o.op && max ? Math.round(totaal / max * o.op * 10) / 10 : null;
 export const RUBRIEKEN_OPDR = [['toetsen', 'Toetsen'], ['huistaken', 'Huistaken'], ['rekenvaardigheden', 'Rekenvaardigheden']];
 export const rubriekNaam = id => (RUBRIEKEN_OPDR.find(r=>r[0] === id) || [id, id])[1];
+/* welke rubrieken nu in gebruik zijn: een tegel op de jaarpagina en het tabblad in het dashboard (keuze van Jeroen, 31 oktober 2026).
+   Toetsen en huistaken komen later misschien terug: dan volstaat het ze hier toe te voegen. */
+export const RUBRIEKEN_ACTIEF = ['rekenvaardigheden'];
+/* naam van het tabblad in het dashboard: de naam van de rubriek als er maar één is */
+export const opdrTabNaam = () => RUBRIEKEN_ACTIEF.length === 1 ? rubriekNaam(RUBRIEKEN_ACTIEF[0]) : 'Toetsen en taken';
+/* een rubriektegel op de jaarpagina enkel als die rubriek in gebruik is en er voor dat jaar iets in de catalogus staat */
+export const rubriekGevuld = (rubriek, jaar) => RUBRIEKEN_ACTIEF.includes(rubriek) && OPDRACHTEN.some(o=>o.rubriek === rubriek && o.jaar === jaar);
 export const soortVan = o => o.rubriek === 'toetsen' ? 'toets' : 'taak';
 /* wat de leerling ziet nadat jij de resultaten vrijgeeft */
 export const ZIET = { niets:'Niets', score:'Enkel de score', verbetering:'Score en verbetering per vraag' };

@@ -2,7 +2,10 @@
    Oefeningen, volgorde en uitleg zoals het oorspronkelijke Oefening.html; verbeteren zoals code.gs:
    deelpunten per coördinaat en foutcodes. Het ontbrekende punt D, de vier oplossingen en de naam van de figuur
    staan enkel in de versleutelde sleutel (sleutel.enc.json). De andere antwoorden volgen uit de opgave zelf.
-   Elke coördinaat: tekenvak (+ boven, − onder) en het getal zonder teken; vooraan verdwijnt een gekozen +. */
+   Elke coördinaat: één vakje, de leerling typt het getal met zijn teken (bv. −3).
+   Opbouw (opmerkingen collega, 31 oktober): in de eerste 2 oefeningen van aflezen, plaatsen en noteren kleurt de x-as groen
+   en de y-as rood, net als de vakjes van x en y (q.kleur); de coördinaat bij het zweven over het rooster enkel in de eerste
+   2 van Punt plaatsen (q.hulp); bij Figuur vervolledigen en Meerdere mogelijkheden mag de leerling lijnstukken tekenen (kladwerk, telt niet mee). */
 (function(){
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt = n => n < 0 ? '−' + Math.abs(n) : String(n);
@@ -10,11 +13,11 @@ const ptTxt = p => '(' + fmt(p[0]) + ', ' + fmt(p[1]) + ')';
 
 /* ---------- oefeningen ---------- */
 const V = (id, soort, punten, vraag, p) => ({ id, type:'eigen', soort, punten, vraag, p });
-const lees = (id, A) => V(id, 'read', 1, 'Lees de coördinaat van punt A.', { A });
-const plaats = (id, A) => V(id, 'place', 1, 'Duid punt A aan met de gegeven coördinaat.', { A });
+const lees = (id, A, kleur) => Object.assign(V(id, 'read', 1, 'Lees de coördinaat van punt A.', { A }), { kleur:!!kleur });
+const plaats = (id, A, hulp) => Object.assign(V(id, 'place', 1, 'Duid punt A aan met de gegeven coördinaat.', { A }), { kleur:!!hulp, hulp:!!hulp });
 const DELEN = [
-  { titel:'Coördinaat aflezen', vragen:[ lees('ex01', [0, 6]), lees('ex02', [-1, -6]), lees('ex03', [2, -5]), lees('ex04', [-4, 3]), lees('ex05', [-6, -2]), lees('ex06', [7, -3]) ] },
-  { titel:'Punt plaatsen', vragen:[ plaats('ex07', [3, -2]), plaats('ex08', [-7, 0]), plaats('ex09', [-2, 7]), plaats('ex10', [-5, 5]), plaats('ex11', [6, 4]), plaats('ex12', [5, -7]) ] },
+  { titel:'Coördinaat aflezen', vragen:[ lees('ex01', [0, 6], 1), lees('ex02', [-1, -6], 1), lees('ex03', [2, -5]), lees('ex04', [-4, 3]), lees('ex05', [-6, -2]), lees('ex06', [7, -3]) ] },
+  { titel:'Punt plaatsen', vragen:[ plaats('ex07', [3, -2], 1), plaats('ex08', [-7, 0], 1), plaats('ex09', [-2, 7]), plaats('ex10', [-5, 5]), plaats('ex11', [6, 4]), plaats('ex12', [5, -7]) ] },
   { titel:'Meerdere punten plaatsen', vragen:[
     V('ex13', 'multi', 1, 'Plaats alle gevraagde punten op het rooster.', { A:[-4, 2], B:[2, 4], C:[5, -1] }),
     V('ex14', 'multi', 1, 'Plaats A, B en C.', { A:[-5, -4], B:[0, 4], C:[5, 1] }),
@@ -22,8 +25,8 @@ const DELEN = [
     V('ex16', 'multi', 1, 'Plaats A, B, C en D.', { A:[-6, 3], B:[-2, -4], C:[3, 4], D:[6, -2] }),
     V('ex17', 'multi', 1, 'Plaats alle vier de punten.', { A:[-7, -5], B:[-3, 2], C:[2, -6], D:[6, 5] }) ] },
   { titel:'Coördinaten noteren', vragen:[
-    V('ex18', 'coords', 1, 'Noteer de coördinaten van alle hoekpunten.', { A:[-5, -2], B:[-1, 4], C:[5, 4], D:[5, -2] }),
-    V('ex19', 'coords', 1, 'Noteer de coördinaten van alle hoekpunten.', { A:[-4, -4], B:[-4, 2], C:[2, 5], D:[6, -1] }),
+    Object.assign(V('ex18', 'coords', 1, 'Noteer de coördinaten van alle hoekpunten.', { A:[-5, -2], B:[-1, 4], C:[5, 4], D:[5, -2] }), { kleur:true }),
+    Object.assign(V('ex19', 'coords', 1, 'Noteer de coördinaten van alle hoekpunten.', { A:[-4, -4], B:[-4, 2], C:[2, 5], D:[6, -1] }), { kleur:true }),
     V('ex20', 'coords', 1, 'Noteer de coördinaten van alle hoekpunten.', { A:[-6, -3], B:[-2, 4], C:[4, 4], D:[6, -3] }) ] },
   { titel:'Figuur vervolledigen', vragen:[
     V('ex21', 'missing', 1.5, 'ABCD moet een parallellogram worden. Welke coördinaat heeft D?', { A:[-5, -2], B:[1, -2], C:[4, 3] }),
@@ -44,8 +47,8 @@ const UITLEG = {
   place:'Gebruik de gegeven coördinaat en klik de juiste plaats aan.',
   multi:'Plaats de punten in de juiste volgorde.',
   coords:'Noteer bij elk hoekpunt eerst x, dan y.',
-  missing:'Vul de coördinaat van D in. Je ziet D dan op het rooster verschijnen, net zoals wanneer je het op papier tekent.',
-  four:'Er bestaan meerdere juiste antwoorden. Zoek er 4; de volgorde maakt niet uit.',
+  missing:'Vul de coördinaat van D in. Je ziet D dan op het rooster verschijnen, net zoals wanneer je het op papier tekent. Je mag ook lijnstukken tekenen op het rooster.',
+  four:'Er bestaan meerdere juiste antwoorden. Zoek er 4; de volgorde maakt niet uit. Je mag lijnstukken tekenen op het rooster.',
   placeshape:'Plaats eerst alle punten, kies daarna de best passende naam voor de figuur.'
 };
 const FIGUREN = ['driehoek', 'vierkant', 'rechthoek', 'parallellogram', 'ruit', 'trapezium', 'vijfhoek', 'zeshoek'];
@@ -77,16 +80,18 @@ const CODES = {
 /* namen die wel kloppen, maar niet de best passende zijn (zoals code.gs) */
 const RUIMERE_NAAM = { vierkant:['rechthoek', 'ruit', 'parallellogram', 'trapezium'], rechthoek:['parallellogram', 'trapezium'], ruit:['parallellogram', 'trapezium'], parallellogram:['trapezium'] };
 
-/* ---------- coördinaten lezen: { xs, x, ys, y } → [x, y] ---------- */
-const nat = x => { const t = String(x == null ? '' : x).trim(); return /^\d{1,3}$/.test(t) ? +t : null; };
+/* ---------- coördinaten lezen: { x, y } (getypt met teken, bv. '−3') → [x, y] ----------
+   Oudere antwoorden hebben nog een apart teken (xs, ys) en het getal zonder teken: die worden ook nog gelezen. */
+const norm = n => String(n == null ? '' : n).trim().replace(/[−–—]/g, '-').replace(/\s+/g, '');
 const neg = s => s === '−' || s === '-';
-const getal = (s, n) => { const g = nat(n); if(g === null) return null; if(g === 0) return 0; return s == null ? null : neg(s) ? -g : g; };
+const getal = (s, n) => { const t = norm(n); if(!/^[+-]?\d{1,3}$/.test(t)) return null; const g = Number(t);
+  if(/^[+-]/.test(t) || g === 0 || s === undefined) return g === 0 ? 0 : g; return s == null ? null : neg(s) ? -g : g; };
 const co = o => { if(!o) return null; const x = getal(o.xs, o.x), y = getal(o.ys, o.y); return x === null || y === null ? null : [x, y]; };
 const pt = p => Array.isArray(p) && p.length === 2 && isFinite(p[0]) && isFinite(p[1]) ? [+p[0], +p[1]] : null;
-const leegCo = () => ({ xs:null, x:'', ys:null, y:'' });
+const leegCo = () => ({ x:'', y:'' });
 const zelfde = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
 /* zoals de leerling het schreef, ook half ingevuld */
-const coTekst = o => { if(!o) return '(…, …)'; const d = (s, n) => String(n == null ? '' : n).trim() === '' ? '…' : (nat(n) !== 0 && neg(s) ? '−' : '') + String(n).trim(); return `(${d(o.xs, o.x)}, ${d(o.ys, o.y)})`; };
+const coTekst = o => { if(!o) return '(…, …)'; const d = (s, n) => { if(norm(n) === '') return '…'; const g = getal(s, n); return g === null ? String(n).trim() : fmt(g); }; return `(${d(o.xs, o.x)}, ${d(o.ys, o.y)})`; };
 
 /* ---------- verbeteren (zoals code.gs) ---------- */
 function punt(want, got, w){
@@ -161,21 +166,24 @@ const LEEG = {
 /* ---------- het rooster (ook voor het dashboard en de pdf) ---------- */
 const MIN = -8, MAX = 8, M = 30, PLOT = 500, U = PLOT / (MAX - MIN);
 const sx = x => M + (x - MIN) * U, sy = y => M + PLOT - (y - MIN) * U;
-/* punten { A:[x, y] }, verbind: veelhoek tekenen, nieuw: deze letters zijn van de leerling (andere kleur) */
-function rooster(pts, verbind, nieuw = [], interactief = false){
+/* punten { A:[x, y] }, verbind: veelhoek tekenen, nieuw: deze letters zijn van de leerling (andere kleur);
+   o.kleur: x-as groen en y-as rood, o.lijnen: lijnstukken van de leerling [[x1, y1, x2, y2]], o.start: begin van een lijnstuk */
+function rooster(pts, verbind, nieuw = [], interactief = false, o = {}){
   let h = '';
   for(let i = MIN; i <= MAX; i++){
     const as = i === 0;
-    h += `<line class="co-lijn${as ? ' as' : ''}" x1="${sx(i)}" y1="${M}" x2="${sx(i)}" y2="${M + PLOT}"/><line class="co-lijn${as ? ' as' : ''}" x1="${M}" y1="${sy(i)}" x2="${M + PLOT}" y2="${sy(i)}"/>`;
+    h += `<line class="co-lijn${as ? ' as as-y' : ''}" x1="${sx(i)}" y1="${M}" x2="${sx(i)}" y2="${M + PLOT}"/><line class="co-lijn${as ? ' as as-x' : ''}" x1="${M}" y1="${sy(i)}" x2="${M + PLOT}" y2="${sy(i)}"/>`;
     if(i !== 0) h += `<text class="co-lab" x="${sx(i)}" y="${sy(0) + 19}">${fmt(i)}</text><text class="co-lab" x="${sx(0) - 12}" y="${sy(i) + 5}">${fmt(i)}</text>`;
   }
-  h += `<text class="co-lab nul" x="${sx(0) - 11}" y="${sy(0) + 19}">0</text><text class="co-as" x="${M + PLOT + 14}" y="${sy(0) + 5}">x</text><text class="co-as" x="${sx(0)}" y="${M - 14}">y</text>`;
+  h += `<text class="co-lab nul" x="${sx(0) - 11}" y="${sy(0) + 19}">0</text><text class="co-as as-x" x="${M + PLOT + 14}" y="${sy(0) + 5}">x</text><text class="co-as as-y" x="${sx(0)}" y="${M - 14}">y</text>`;
+  (o.lijnen || []).forEach(l=>{ if(Array.isArray(l) && l.length === 4 && l.every(isFinite)) h += `<line class="co-kladlijn" x1="${sx(l[0])}" y1="${sy(l[1])}" x2="${sx(l[2])}" y2="${sy(l[3])}"/>`; });
+  if(o.start) h += `<circle class="co-start" cx="${sx(o.start[0])}" cy="${sy(o.start[1])}" r="7"/>`;
   const lijst = Object.entries(pts).filter(([, p])=>pt(p));
   if(verbind && lijst.length > 2) h += `<polygon class="co-veelhoek" points="${lijst.map(([, p])=>sx(p[0]) + ',' + sy(p[1])).join(' ')}"/>`;
   lijst.forEach(([k, p])=>{ const n = nieuw.includes(k);
     h += `<circle class="co-punt${n ? ' nieuw' : ''}" cx="${sx(p[0])}" cy="${sy(p[1])}" r="8"/><text class="co-letter" x="${sx(p[0]) + 11}" y="${sy(p[1]) - 10}">${esc(k)}</text>`; });
   if(interactief) h += '<g class="co-spook" style="display:none"><circle r="8"/><rect x="12" y="-36" width="74" height="26" rx="8"/><text x="49" y="-17"></text></g>';
-  return `<svg class="co-svg" viewBox="0 0 560 560" aria-label="Coördinatenrooster">${h}</svg>`;
+  return `<svg class="co-svg${o.kleur ? ' kleur' : ''}" viewBox="0 0 560 560" aria-label="Coördinatenrooster">${h}</svg>`;
 }
 
 /* ---------- lezen: dashboard, pdf, resultaat van de leerling ---------- */
@@ -186,7 +194,7 @@ function toon(q, a, modus, k){
   if(!v || blanco || sl) v = LEEG[q.soort](q);
   const lijn = (l, r) => `<div class="tl"><span class="tl-l">${l}</span><span class="tl-r">${r}</span></div>`;
   const leeg = '<span class="tl-leeg">……</span>', juist = p => p ? esc(ptTxt(p)) : leeg;
-  const fig = (pts, verbind, nieuw) => `<div class="rv-lees rv-lees-fig co-lees"><div class="tl-fig">${rooster(pts, verbind, nieuw)}</div><div>`;
+  const fig = (pts, verbind, nieuw) => `<div class="rv-lees rv-lees-fig co-lees"><div class="tl-fig">${rooster(pts, verbind, nieuw, false, { kleur:q.kleur, lijnen:!sl && !blanco && v.lijnen })}</div><div>`;
   const ks = Object.keys(q.p), gegeven = ks.map(x=>x + esc(ptTxt(q.p[x]))).join(' · ');
   switch(q.soort){
     case 'read':
@@ -222,44 +230,67 @@ function toon(q, a, modus, k){
 /* ---------- invullen: de interactieve oefeningen ---------- */
 const TYPEN = {};
 Object.keys(LEEG).forEach(s=>{ TYPEN[s] = { leeg:LEEG[s], volledig:VOLLEDIG[s], uitleg:()=>UITLEG[s] }; });
-/* (x, y) met een tekenvak en een getal per coördinaat; vooraan verdwijnt een gekozen + */
-function coVak(pad, o, naam){
-  const RV = window.RV;
+/* (x, y): één vakje per coördinaat, het getal met zijn teken; kleur: x groen, y rood (zoals de assen) */
+const toonGetal = (s, n) => { const g = getal(s, n); return g === null ? (n == null ? '' : String(n)) : norm(n) === '' ? '' : fmt(g); };
+function coVak(pad, o, naam, kleur){
+  const RV = window.RV, k = kleur ? ' kleur' : '';
   return `<div class="rv-rij co-rij"><span class="rv-lbl">${esc(naam)}</span><span class="co-haak">(</span>`
-    + `<span class="rv-term">${RV.teken(pad + '.xs', o.xs, `teken van x bij ${naam}`, true)}${RV.getal(pad + '.x', o.x, 'nat', 'co', `x bij ${naam}`)}</span><span class="co-haak">,</span>`
-    + `<span class="rv-term">${RV.teken(pad + '.ys', o.ys, `teken van y bij ${naam}`, true)}${RV.getal(pad + '.y', o.y, 'nat', 'co', `y bij ${naam}`)}</span><span class="co-haak">)</span></div>`;
+    + RV.getal(pad + '.x', toonGetal(o.xs, o.x), 'int', 'co co-x' + k, `x bij ${naam}`) + '<span class="co-haak">,</span>'
+    + RV.getal(pad + '.y', toonGetal(o.ys, o.y), 'int', 'co co-y' + k, `y bij ${naam}`) + '<span class="co-haak">)</span></div>';
 }
-const TIP_CO = '<p class="rv-tip">Kies voor elk getal het teken (<b>+</b> of <b>−</b>) en schrijf het getal zonder teken ernaast. Bij 0 hoef je geen teken te kiezen.</p>';
+const TIP_CO = '<p class="rv-tip">Typ elk getal met zijn teken, bijvoorbeeld <b>−3</b> of <b>5</b>.</p>';
 const gegevenTekst = q => Object.entries(q.p).map(([k, p])=>`${k}${esc(ptTxt(p))}`).join(' · ');
 /* klikken op het rooster: dichtstbijzijnde roosterpunt, met een spookpunt bij het bewegen */
 function klikbaar(c, bijKlik){
-  const svg = c.vis.querySelector('svg'), spook = svg.querySelector('.co-spook');
+  const svg = c.vis.querySelector('svg'), spook = svg.querySelector('.co-spook'), label = !!c.q.hulp;
+  if(!label) spook.querySelectorAll('rect, text').forEach(e=>e.remove());
   svg.classList.add('klik');
   const puntBij = ev => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; const m = p.matrixTransform(svg.getScreenCTM().inverse());
     return [Math.max(MIN, Math.min(MAX, Math.round((m.x - M) / U + MIN))), Math.max(MIN, Math.min(MAX, Math.round(MAX - (m.y - M) / U)))]; };
-  svg.onpointermove = ev=>{ const p = puntBij(ev); spook.style.display = ''; spook.setAttribute('transform', `translate(${sx(p[0])},${sy(p[1])})`); spook.querySelector('text').textContent = ptTxt(p); };
+  svg.onpointermove = ev=>{ const p = puntBij(ev); spook.style.display = ''; spook.setAttribute('transform', `translate(${sx(p[0])},${sy(p[1])})`); if(label) spook.querySelector('text').textContent = ptTxt(p); };
   svg.onpointerleave = ()=>{ spook.style.display = 'none'; };
   svg.onpointerdown = ev=>{ bijKlik(puntBij(ev)); };
 }
 function werk(c){ c.root.querySelector('.rv-werk').classList.add('rooster'); }
+/* lijnstukken tekenen (kladwerk): klik een roosterpunt en daarna een tweede; v.lijnen wordt bewaard maar telt niet mee */
+let lijnStart = null, lijnVraag = null;
+function tekenbaar(c, pts, verbind, nieuw){
+  if(lijnVraag !== c.q.id){ lijnStart = null; lijnVraag = c.q.id; }
+  const lijnen = c.v.lijnen || [];
+  c.vis.innerHTML = rooster(pts, verbind, nieuw, true, { kleur:c.q.kleur, lijnen, start:lijnStart });
+  klikbaar(c, p=>{
+    if(!lijnStart){ lijnStart = p; return c.teken(); }
+    const a = lijnStart; lijnStart = null;
+    if(zelfde(a, p)) return c.teken();
+    const w = window.RV.kopie(c.huidig()); w.lijnen = (w.lijnen || []).concat([[a[0], a[1], p[0], p[1]]]); c.bewaar(w); c.teken();
+  });
+  return `<div class="co-lijnknoppen"><span class="mini">Lijnstuk tekenen: klik twee roosterpunten aan.</span>`
+    + `<button type="button" class="btn ghost co-lijnweg"${lijnen.length ? '' : ' disabled'}>↶ Laatste lijnstuk weg</button></div>`;
+}
+function lijnKnoppen(c){
+  const b = c.ant.querySelector('.co-lijnweg'); if(!b) return;
+  b.onclick = ()=>{ const w = window.RV.kopie(c.huidig()); (w.lijnen || []).pop(); lijnStart = null; c.bewaar(w); c.teken(); };
+}
 
-TYPEN.read.teken = c=>{ werk(c); c.vis.innerHTML = rooster(c.q.p, false);
-  c.ant.innerHTML = '<h3>Jouw antwoord</h3><p class="rv-tip">Vul de coördinaat in als <b>(x, y)</b>.</p>' + coVak('v', c.v.v, 'A') + TIP_CO; };
+TYPEN.read.teken = c=>{ werk(c); c.vis.innerHTML = rooster(c.q.p, false, [], false, { kleur:c.q.kleur });
+  c.ant.innerHTML = '<h3>Jouw antwoord</h3><p class="rv-tip">Vul de coördinaat in als <b>(x, y)</b>.</p>' + coVak('v', c.v.v, 'A', c.q.kleur) + TIP_CO; };
 TYPEN.missing.teken = c=>{
   const { q, v } = c; werk(c);
-  const teken = w => { const D = co(w.v); c.vis.innerHTML = rooster(Object.assign({}, q.p, D ? { D } : {}), !!D, ['D']); };
-  teken(v);
-  c.ant.innerHTML = '<h3>Jouw antwoord</h3><p class="rv-tip">Vul de coördinaat in als <b>(x, y)</b>.</p>' + coVak('v', v.v, 'D') + TIP_CO;
+  const teken = w => { const D = co(w.v); return tekenbaar(c, Object.assign({}, q.p, D ? { D } : {}), !!D, ['D']); };
+  const knoppen = teken(v);
+  c.ant.innerHTML = '<h3>Jouw antwoord</h3><p class="rv-tip">Vul de coördinaat in als <b>(x, y)</b>.</p>' + coVak('v', v.v, 'D') + TIP_CO + knoppen;
+  lijnKnoppen(c);
   /* D verschijnt meteen op het rooster */
   c.ant.oninput = ()=>teken(c.huidig());
 };
-TYPEN.coords.teken = c=>{ werk(c); c.vis.innerHTML = rooster(c.q.p, false);
-  c.ant.innerHTML = '<h3>Coördinaten</h3><p class="rv-tip">Noteer de coördinaten van elk hoekpunt.</p>' + Object.keys(c.q.p).map(k=>coVak('pts.' + k, c.v.pts[k], k)).join('') + TIP_CO; };
-TYPEN.four.teken = c=>{ werk(c); c.vis.innerHTML = rooster(c.q.p, false);
-  c.ant.innerHTML = '<h3>Jouw antwoorden</h3><p class="rv-tip">Vul 4 verschillende coördinaten in voor punt C, telkens als <b>(x, y)</b>. De volgorde maakt niet uit.</p>' + [0, 1, 2, 3].map(i=>coVak('c.' + i, c.v.c[i], 'C' + (i + 1))).join('') + TIP_CO; };
+TYPEN.coords.teken = c=>{ werk(c); c.vis.innerHTML = rooster(c.q.p, false, [], false, { kleur:c.q.kleur });
+  c.ant.innerHTML = '<h3>Coördinaten</h3><p class="rv-tip">Noteer de coördinaten van elk hoekpunt.</p>' + Object.keys(c.q.p).map(k=>coVak('pts.' + k, c.v.pts[k], k, c.q.kleur)).join('') + TIP_CO; };
+TYPEN.four.teken = c=>{ werk(c); const knoppen = tekenbaar(c, c.q.p, false, []);
+  c.ant.innerHTML = '<h3>Jouw antwoorden</h3><p class="rv-tip">Vul 4 verschillende coördinaten in voor punt C, telkens als <b>(x, y)</b>. De volgorde maakt niet uit.</p>' + [0, 1, 2, 3].map(i=>coVak('c.' + i, c.v.c[i], 'C' + (i + 1))).join('') + TIP_CO + knoppen;
+  lijnKnoppen(c); };
 TYPEN.place.teken = c=>{
   const { q, v } = c, A = pt(v.A); werk(c);
-  c.vis.innerHTML = rooster(A ? { A } : {}, false, ['A'], true);
+  c.vis.innerHTML = rooster(A ? { A } : {}, false, ['A'], true, { kleur:q.kleur });
   c.ant.innerHTML = `<h3>Plaats punt A</h3><p class="rv-tip">Klik op het rooster op de plaats van A. Nog eens klikken verplaatst het punt.</p><p class="co-gegeven"><b>Gegeven:</b> ${gegevenTekst(q)}</p>`;
   klikbaar(c, p=>{ c.bewaar({ A:p }); c.teken(); });
 };
@@ -287,7 +318,7 @@ const OPG = window.OPGAVE = {
   toon,
   /* een volledig juist antwoord bij sleutel k (voor de tests) */
   voorbeeld(q, k){
-    const c = p => ({ xs:p[0] < 0 ? '−' : '+', x:String(Math.abs(p[0])), ys:p[1] < 0 ? '−' : '+', y:String(Math.abs(p[1])) });
+    const c = p => ({ x:fmt(p[0]), y:fmt(p[1]) });
     const kaart = (o, f) => Object.fromEntries(Object.entries(o).map(([x, p])=>[x, f(p)]));
     return { read:()=>({ v:c(q.p.A) }), place:()=>({ A:q.p.A }), multi:()=>({ pts:q.p }), coords:()=>({ pts:kaart(q.p, c) }),
       missing:()=>({ v:c(k.answer) }), four:()=>({ c:k.answers.map(c) }), placeshape:()=>({ pts:q.p, shape:k.shape }) }[q.soort]();
