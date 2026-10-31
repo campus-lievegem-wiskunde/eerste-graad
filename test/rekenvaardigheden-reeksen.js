@@ -15,21 +15,28 @@ const REEKSEN = [
     sleutel:{ ex21:{ answer:[1, 1] }, ex22:{ answer:[1, 1] }, ex23:{ answer:[1, 1] }, ex24:{ answer:[1, 1] }, ex25:{ answer:[1, 1] }, ex26:{ answer:[1, 1] },
       ex27:{ answers:[[1, 1], [2, 2], [3, 3], [4, 4]] }, ex28:{ shape:'vijfhoek' }, ex29:{ shape:'vijfhoek' }, ex30:{ shape:'vijfhoek' } },
     async interactie(p, t){
-      /* aflezen: (0, 6) met het tekenvak; een + vooraan verdwijnt */
-      await t.vul('v.x', 0); await t.teken('v.ys', '+'); await t.vul('v.y', 6);
-      t.check(await p.locator('.rv [data-teken="v.ys"].plus-weg').count() === 1, 'coördinaten: gekozen + verdwijnt');
-      /* plaatsen: A(3, −2) aanklikken, nog eens klikken verplaatst */
+      /* aflezen: één vakje per coördinaat, zonder tekenvak; in de eerste oefeningen x groen en y rood (assen en vakjes) */
+      t.check(!(await p.locator('.rv .rv-teken').count()) && await p.locator('.rv .co-svg.kleur').count() === 1 && await p.locator('.rv .rv-getal.co-x.kleur').count() === 1, 'aflezen: geen tekenvak, assen en vakjes gekleurd');
+      await t.vul('v.x', 0); await t.vul('v.y', 6);
+      await t.dot(2); t.check(!(await p.locator('.rv .co-svg.kleur').count()) && !(await p.locator('.rv .rv-getal.kleur').count()), 'aflezen oefening 3: geen kleuren meer');
+      /* plaatsen: A(3, −2) aanklikken, nog eens klikken verplaatst; de coördinaat bij het zweven enkel in de eerste 2 */
       await t.dot(6); await roosterKlik(p, 1, 1); await roosterKlik(p, 3, -2);
-      /* ontbrekend punt D verschijnt meteen op het rooster */
-      await t.dot(20); await t.teken('v.xs', '−'); await t.vul('v.x', 2); await t.teken('v.ys', '+'); await t.vul('v.y', 3);
+      t.check(await p.locator('.rv .co-spook text').count() === 1, 'plaatsen oefening 7: coördinaat bij het zweven');
+      await t.dot(8); t.check(!(await p.locator('.rv .co-spook text').count()) && await p.locator('.rv .co-spook circle').count() === 1, 'plaatsen oefening 9: geen coördinaat bij het zweven');
+      /* ontbrekend punt D verschijnt meteen op het rooster; −2 getypt met het minteken; lijnstukken tekenen als kladwerk */
+      await t.dot(20); await t.vul('v.x', '−2'); await t.vul('v.y', 3);
       t.check(await p.locator('.rv .co-svg .co-punt').count() === 4 && await p.locator('.rv .co-svg .co-veelhoek').count() === 1, 'figuur vervolledigen: D verschijnt en de figuur sluit');
+      await roosterKlik(p, -5, -2); await roosterKlik(p, 4, 3); await roosterKlik(p, 1, -2); await roosterKlik(p, -2, 3);
+      t.check(await p.locator('.rv .co-svg .co-kladlijn').count() === 2, 'lijnstukken tekenen: 2 lijnstukken');
+      await p.locator('.rv .co-lijnweg').click(); await p.waitForTimeout(150);
+      t.check(await p.locator('.rv .co-svg .co-kladlijn').count() === 1, 'laatste lijnstuk weg');
       /* plaatsen en herkennen: vier punten, één weg, opnieuw, figuur kiezen */
       await t.dot(27); for(const [x, y] of [[-4, -1], [0, 2], [0, -3], [5, 5]]) await roosterKlik(p, x, y);
       await p.locator('.rv .co-terug').click(); await roosterKlik(p, -4, -6); await p.locator('.rv [data-figuur="ruit"]').click(); await p.waitForTimeout(150);
       t.check(await p.locator('.rv .co-svg .co-veelhoek').count() === 1 && await p.locator('.rv [data-figuur="ruit"].aan').count() === 1, 'plaatsen en herkennen: veelhoek en gekozen figuur');
       await p.waitForTimeout(1600);
       const w = await t.antw();
-      t.check(w.ex01 && w.ex01.v.x === '0' && w.ex07 && w.ex07.A[0] === 3 && w.ex07.A[1] === -2 && w.ex28 && w.ex28.pts.D[1] === -6 && w.ex28.shape === 'ruit', 'coördinaten: antwoorden bewaard ' + JSON.stringify(w.ex07));
+      t.check(w.ex01 && w.ex01.v.x === '0' && w.ex21 && w.ex21.v.x === '−2' && w.ex21.lijnen.length === 1 && w.ex07 && w.ex07.A[0] === 3 && w.ex07.A[1] === -2 && w.ex28 && w.ex28.pts.D[1] === -6 && w.ex28.shape === 'ruit', 'coördinaten: antwoorden bewaard ' + JSON.stringify(w.ex07));
       /* verbeteren zoals code.gs: x en y omgewisseld, teken van y fout */
       const r = await p.evaluate(()=>{ const O = window.OPGAVE, q = id=>O.delen.flatMap(d=>d.vragen).find(x=>x.id === id);
         return [O.verbeter(q('ex04'), { v:{ xs:'+', x:'3', ys:'−', y:'4' } }), O.verbeter(q('ex04'), { v:{ xs:'−', x:'4', ys:'−', y:'3' } }), O.verbeter(q('ex21'), { v:{ xs:'−', x:'8', ys:'−', y:'7' } }, { answer:[-2, 3] })]; });

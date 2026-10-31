@@ -20,3 +20,10 @@
 .rv .co-figuren .keuze{ justify-content:center; padding:.45rem .3rem; font-size:.9rem; }
 .co-lees .tl-fig{ width:min(220px, 100%); }
 @media (max-width:900px){ .rv .rv-werk.rooster{ grid-template-columns:minmax(0, 1fr); } .rv .co-figuren{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+/* opbouw: x-as groen, y-as rood (eerste oefeningen), ook de vakjes; lijnstukken van de leerling (kladwerk) */
+.co-svg.kleur .co-lijn.as-x{ stroke:#2e7d32; stroke-width:3; } .co-svg.kleur .co-lijn.as-y{ stroke:#c62828; stroke-width:3; }
+.co-svg.kleur .co-as.as-x{ fill:#2e7d32; } .co-svg.kleur .co-as.as-y{ fill:#c62828; }
+.rv .rv-getal.co.kleur.co-x{ border-color:#2e7d32; background:#eef7ee; } .rv .rv-getal.co.kleur.co-y{ border-color:#c62828; background:#fcefef; }
+.co-kladlijn{ stroke:#e06c00; stroke-width:3; stroke-linecap:round; } .co-start{ fill:#e06c00; }
+.rv .co-lijnknoppen{ display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin-top:.5rem; }
+.rv .co-lijnweg{ font-size:.9rem; padding:.35rem .9rem; }
