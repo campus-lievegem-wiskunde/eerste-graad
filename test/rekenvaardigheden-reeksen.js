@@ -308,7 +308,7 @@ const REEKSEN = [
     console.log('== ' + R.id);
     await p.setViewportSize({ width:1280, height:1000 });
     await als(p, 'dashboard/', LK);
-    await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
+    await p.click('button.tab:has-text("Rekenvaardigheden")'); await p.waitForTimeout(300);
     const blok = p.locator('.opdr-blok', { hasText:R.blok });
     check(await blok.count() === 1, 'dashboard: de reeks staat in de lijst');
     await blok.locator('button:has-text("Nu openen")').click(); await p.waitForTimeout(400);
@@ -343,7 +343,7 @@ const REEKSEN = [
 
     enc = await versleutel({ opdr:R.id, vragen:sl }, 'TEST-CODE', 1000);
     await als(p, 'dashboard/', LK);
-    await p.click('button.tab:has-text("Toetsen en taken")'); await p.waitForTimeout(300);
+    await p.click('button.tab:has-text("Rekenvaardigheden")'); await p.waitForTimeout(300);
     await p.locator('.opdr-blok', { hasText:R.blok }).locator('button:has-text("Resultaten")').click(); await p.waitForTimeout(900);
     await p.fill('.sl-code', 'FOUT-CODE'); await p.click('button:has-text("Ontgrendel")'); await p.waitForTimeout(800);
     check(/code klopt niet/.test(await p.locator('.tip .errmsg').textContent()), 'verkeerde code geweigerd');

@@ -7,7 +7,7 @@
    Een interactieve opdracht (rekenvaardigheden) zet zelf OPGAVE.invullen(opts) → element en OPGAVE.volledig(q, antwoord)
    (zie gedeeld/rv-kader.js); dan tekent die het invulscherm in plaats van gedeeld/opgave-weergave.js, altijd in de vaste volgorde. */
 import { klaar, db, F, C } from './aanmelden.js';
-import { OPDRACHTEN, groepVoor, docId, schud, soortVan, opdrZichtbaar, uitDb } from './opdrachten.js';
+import { OPDRACHTEN, groepVoor, docId, schud, soortVan, opdrZichtbaar, uitDb, rubriekNaam } from './opdrachten.js';
 import { tekenOpgave, maxPunten } from './opgave-weergave.js';
 
 const B = document.body, app = document.getElementById('app'), OPG = window.OPGAVE;
@@ -26,7 +26,7 @@ else leerling();
 
 /* ---------- leerkracht: voorbeeld ---------- */
 async function voorbeeld(){
-  const tip = el('div', 'tip lk-tip', `<div>Je bekijkt deze ${woord()} als <b>${s.toeschouwer ? 'toeschouwer' : s.rol}</b>. Invullen kan, maar er wordt niets bewaard. Openzetten, resultaten en afdrukken: <a href="${new URL('../dashboard/', import.meta.url).href}">Dashboard</a> › Toetsen en taken. Totaal: ${maxPunten(OPG)} punten.</div>`);
+  const tip = el('div', 'tip lk-tip', `<div>Je bekijkt deze ${woord()} als <b>${s.toeschouwer ? 'toeschouwer' : s.rol}</b>. Invullen kan, maar er wordt niets bewaard. Openzetten, resultaten en afdrukken: <a href="${new URL('../dashboard/', import.meta.url).href}">Dashboard</a> › ${rubriekNaam(o.rubriek)}. Totaal: ${maxPunten(OPG)} punten.</div>`);
   app.append(tip);
   const blok = el('div'); app.append(blok);
   blok.append(invulScherm({}));

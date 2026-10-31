@@ -1,11 +1,11 @@
-/* Dashboard, tabblad Toetsen en taken (per groep): openzetten met datum en uur, instellingen per toets of taak,
+/* Dashboard, tabblad Rekenvaardigheden (opdrTabNaam; per groep): openzetten met datum en uur, instellingen per toets of taak,
    eigen opening per leerling, resultaten verbeteren, vrijgeven, afdrukken en punten kopiëren.
    Instellingen: groepen/{groep}.opdr.{id} (zie gedeeld/opdrachten.js). Antwoorden: inzendingen/{id}__{e-mail}.
    Punten: resultaten/{id}__{e-mail}. Verbetersleutel: sleutels/{id} (enkel leerkrachten lezen hem).
-   Classroom (classroom.js): groepen/{groep}.classroom = gekoppelde klas, groepen/{groep}.cr.{id} = opdracht in Classroom. */
+   Classroom (classroom.js, lijn classroomBalk in dashboard.js): groepen/{groep}.classroom = gekoppelde klas, groepen/{groep}.cr.{id} = opdracht in Classroom. */
 import { db, F } from '../gedeeld/aanmelden.js';
 import { SITES } from '../gedeeld/sites.js';
-import { OPDRACHTEN, RUBRIEKEN_OPDR, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, telt, opSchaal, ontsleutel, naarDb, uitDb } from '../gedeeld/opdrachten.js';
+import { OPDRACHTEN, RUBRIEKEN_OPDR, RUBRIEKEN_ACTIEF, opdrTabNaam, ZIET, instelling, staat, soortVan, docId, bereken, alleVragen, telt, opSchaal, ontsleutel, naarDb, uitDb } from '../gedeeld/opdrachten.js';
 import { tekenOpgave, laadOpgave } from '../gedeeld/opgave-weergave.js';
 import * as CR from './classroom.js';
 
@@ -27,12 +27,12 @@ function staatTekst(cfg){
 let H = null; /* hulp uit dashboard.js: ST, render, naamVan, laadLeerlingen, jaarcode */
 export function paneOpdrachten(pane, g, hulp){
   H = hulp;
-  const lijst = OPDRACHTEN.filter(o=>o.jaar === H.jaarcode(g));
+  const lijst = OPDRACHTEN.filter(o=>o.jaar === H.jaarcode(g) && RUBRIEKEN_ACTIEF.includes(o.rubriek)), een = RUBRIEKEN_ACTIEF.length === 1;
   if(H.ST.opdrRes && lijst.includes(H.ST.opdrRes)) return resultaten(pane, g, H.ST.opdrRes);
-  const card = el('div', 'dash-card', `<h3>Toetsen en taken voor ${esc(g.naam)}</h3><p class="mini">Een toets of taak die je nog niet opende, zien de leerlingen niet. Kies wanneer ze opent en sluit, of gebruik <b>Nu openen</b> en <b>Nu sluiten</b> tijdens de les. Wijzigingen worden meteen bewaard. Standaard zien de leerlingen hun resultaat niet: dat kies je per toets bij Instellingen, en je geeft het vrij bij Resultaten.</p>`);
-  pane.append(crKader(g, lijst));
-  if(!lijst.length){ card.append(el('p', 'mini', `Er zijn nog geen toetsen of taken voor ${esc(H.jaarcode(g))}. Zodra er een klaarstaat, verschijnt ze hier.`)); pane.append(card); return; }
-  RUBRIEKEN_OPDR.forEach(([rid, rnaam])=>{
+  const card = el('div', 'dash-card', `<h3>${esc(opdrTabNaam())} voor ${esc(g.naam)}</h3><p class="mini">Een ${een ? 'taak' : 'toets of taak'} die je nog niet opende, zien de leerlingen niet. Kies wanneer ze opent en sluit, of gebruik <b>Nu openen</b> en <b>Nu sluiten</b> tijdens de les. Wijzigingen worden meteen bewaard. Standaard zien de leerlingen hun resultaat niet: dat kies je per ${een ? 'taak' : 'toets'} bij Instellingen, en je geeft het vrij bij Resultaten.</p>`);
+  if(!lijst.length){ card.append(el('p', 'mini', `Er zijn nog geen ${een ? esc(opdrTabNaam().toLowerCase()) : 'toetsen of taken'} voor ${esc(H.jaarcode(g))}. Zodra er een klaarstaat, verschijnt ze hier.`)); pane.append(card); return; }
+  if(een) lijst.forEach(o=>card.append(blok(g, o)));
+  else RUBRIEKEN_OPDR.filter(([rid])=>RUBRIEKEN_ACTIEF.includes(rid)).forEach(([rid, rnaam])=>{
     const os = lijst.filter(o=>o.rubriek === rid); if(!os.length) return;
     const d = el('details', 'rub-blok'); d.open = true; d.append(el('summary', '', `<b>${esc(rnaam)}</b> <span class="mini rub-tel">${os.length}</span>`));
     os.forEach(o=>d.append(blok(g, o))); card.append(d);
@@ -110,7 +110,7 @@ async function resultaten(pane, g, o){
   const terug = knop('← Terug naar de lijst'); terug.onclick = ()=>{ H.ST.opdrRes = null; H.render(); };
   const cfg = instelling(g, o);
   const card = el('div', 'dash-card', `<h3>${esc(o.titel)} · ${esc(g.naam)}</h3><p class="mini">${staatTekst(cfg)} · na het vrijgeven ziet de leerling: ${esc(ZIET[cfg.ziet] || cfg.ziet)}</p>`);
-  pane.append(el('div', 'rij'), crKader(g, [o]), card); pane.firstChild.append(terug);
+  pane.append(el('div', 'rij'), card); pane.firstChild.append(terug);
   const wacht = el('p', 'mini', 'Antwoorden ophalen…'); card.append(wacht);
   let opg, sleutel = null, inz, res;
   try{
@@ -267,9 +267,11 @@ async function resultaten(pane, g, o){
    op Verbind met Classroom klikt (Google laat het aanmeldvenster enkel bij een klik open). */
 const crWacht = new Map(), crBezig = new Set();
 let crVak = null, crG = null, crMelding = '', crKies = null;
-function crKader(g, lijst){
+/* de koppeling hoort bij de groep: een lijn onder de groepknoppen, boven alle tabbladen (keuze van Jeroen, 31 oktober 2026) */
+export function classroomBalk(g, hulp){
+  H = hulp;
   if(crG !== g){ crWacht.clear(); crMelding = ''; crKies = null; }
-  crG = g; crVak = el('div', 'dash-card cr-balk'); crTeken();
+  crG = g; crVak = el('div', 'cr-balk'); crTeken();
   CR.laadGoogle(H.ST.me).catch(e=>{ crMelding = 'Google is niet bereikbaar: ' + e.message; crTeken(); });
   return crVak;
 }
@@ -306,7 +308,7 @@ async function crKiesKlas(){
     const x = klassen.find(k=>k.id === sel.value); const w = { id:x.id, naam:x.name + (x.section ? ' · ' + x.section : ''), link:x.alternateLink || '', door:H.ST.me, op:Date.now() };
     try{ await F.updateDoc(F.doc(db, 'groepen', g.id), { classroom:w }); }catch(e){ crMelding = 'Bewaren lukte niet.'; return crTeken(); }
     g.classroom = w; crKies = null; crMelding = `Gekoppeld aan ${w.naam}.`; crTeken();
-    crAlleOpdrachten(g, OPDRACHTEN.filter(o=>o.jaar === H.jaarcode(g)));
+    crAlleOpdrachten(g, OPDRACHTEN.filter(o=>o.jaar === H.jaarcode(g) && RUBRIEKEN_ACTIEF.includes(o.rubriek)));
   };
   crKies.append(el('span', 'mini', `Klas voor ${esc(g.naam)}:`), sel, ok, weg); crTeken();
 }

@@ -10,6 +10,6 @@ export const firebaseConfig = {
 };
 export const DOMEIN = 'svsl.be';          /* enkel schoolaccounts */
 export const SCHOOLJAAR = '2026-2027';    /* elk jaar aanpassen (of via het dashboard) */
-/* Google Classroom (dashboard, Toetsen en taken): webclient van het Firebase-project in de Google Cloud-console.
+/* Google Classroom (dashboard, tabblad Rekenvaardigheden): webclient van het Firebase-project in de Google Cloud-console.
    Niet geheim. Toegelaten JavaScript-bron: https://campus-lievegem-wiskunde.github.io */
 export const CLASSROOM_CLIENT_ID = '848131645100-dg8fs8qnfckn6bovockmht1hmdghmh0h.apps.googleusercontent.com';

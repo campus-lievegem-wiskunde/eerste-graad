@@ -1,4 +1,4 @@
-/* Koppeling met Google Classroom (dashboard, Toetsen en taken). Geen server: het dashboard roept de Classroom API
+/* Koppeling met Google Classroom (dashboard, tabblad Rekenvaardigheden). Geen server: het dashboard roept de Classroom API
    rechtstreeks aan met het Google-account van de leerkracht (Google Identity Services, token van één uur, enkel in dit tabblad).
    Classroom laat enkel punten zetten op opdrachten die met dezelfde webclient aangemaakt zijn, dus het dashboard maakt ze zelf.
    Koppeling: groepen/{groep}.classroom = { id, naam, link } en groepen/{groep}.cr.{opdracht-id} = { course, cw, link }. */
