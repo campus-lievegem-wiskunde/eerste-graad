@@ -461,13 +461,13 @@ export const SITES = [
     "id": "optel",
     "naam": "Optellen",
     "toets": false,
-    "vragen": 46
+    "vragen": 48
    },
    {
     "id": "volg",
     "naam": "Volgorde van bewerkingen",
     "toets": false,
-    "vragen": 29
+    "vragen": 28
    }
   ]
  },

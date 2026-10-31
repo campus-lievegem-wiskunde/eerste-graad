@@ -1827,8 +1827,8 @@ function asSvg(o){
   (o.sprongen||[]).forEach(sp => { const x1 = X(sp.van), x2 = X(sp.naar), h = Math.min(48, 14 + Math.abs(x2-x1)*.22), ym = y - 9 - h;
     const d = `M${fx(x1)} ${y-9} Q${fx((x1+x2)/2)} ${fx(ym)} ${fx(x2)} ${y-9}`;
     const dir = x2 > x1 ? 1 : -1;
-    s += `<path class="as-sp ${sp.cls||''}${sp.nieuw ? ' nieuw' : ''}" pathLength="1" d="${d}"/>`;
-    s += `<path class="as-spk ${sp.cls||''}${sp.nieuw ? ' nieuw' : ''}" d="M${fx(x2)} ${y-7} l${-dir*9} -7 l${dir*2} 9z"/>`;
+    s += `<path class="as-sp ${sp.cls||''}${sp.nieuw ? ' nieuw' : ''}${sp.vl ? ' vl' : ''}" pathLength="1" d="${d}"/>`;
+    s += `<path class="as-spk ${sp.cls||''}${sp.nieuw ? ' nieuw' : ''}${sp.vl ? ' vl' : ''}" d="M${fx(x2)} ${y-7} l${-dir*9} -7 l${dir*2} 9z"/>`;
     if(sp.lab) s += sT((x1+x2)/2, ym + h*.5 - 8, sp.lab, 'as-lab ' + (sp.cls||'')); });
   (o.punten||[]).forEach(p => { s += `<circle class="as-p ${p.cls||''}" cx="${fx(X(p.x))}" cy="${y}" r="7"/>`; if(p.lab) s += sT(X(p.x), y-20, p.lab, 'as-lab'); });
   if(o.geest!=null) s += `<circle class="as-p geest" cx="${fx(X(o.geest))}" cy="${y}" r="7"/>`;
@@ -1840,96 +1840,229 @@ function asKlik(svg, e, o){ const r = svg.getBoundingClientRect(), W = o.W || 64
 /* bereik van de as rond een paar getallen, minstens 'min' eenheden breed */
 function asBereik(xs, min=14){ let lo = Math.min(0, ...xs) - 2, hi = Math.max(0, ...xs) + 2; while(hi - lo < min){ lo--; if(hi - lo < min) hi++; } return {lo, hi}; }
 
-/* ---------- springen op de getallenas: klik het startgetal, klik waar je landt, vul in ---------- */
+/* ---------- springen op de getallenas: klik het startgetal, sleep (of klik) naar waar je landt, vul in ---------- */
 function sprongAs(host, st, save, id, o){
   const qid = QID(id); if(!QZ) CLvraag(qid);
   const s = st[id] || (st[id] = {f:0}); const a = o.a, b = o.b, T = a + b;
-  const B = asBereik([a, T]); const box = el('div', 'm5-sprong'); host.append(box);
-  const tekst = el('p', 'm5-stap'); const fig = el('div', 'm5-asbox'); const fb = el('div', 'fb'); const vak = el('div');
-  box.append(tekst, fig, fb, vak);
-  let geest = null, nieuw = false;
-  function teken(){ const sp = s.f>=2 ? [{van:a, naar:T, lab:(b<0 ? '+ ' : '+ ') + zP(b), cls:b<0 ? 'neg' : 'pos', nieuw}] : [];
+  const B = asBereik([a, T]); const P = paneel(host);
+  const fig = el('div', 'm5-asbox'); P.vis.append(fig);
+  const k1 = stapKop(P.stap, 1, ''), k2 = stapKop(P.stap, 2, ''), fb = el('div', 'fb'), k3 = stapKop(P.stap, 3, 'Schrijf de uitkomst'), vak = el('div');
+  P.stap.insertBefore(fb, k3); P.stap.append(vak);
+  let geest = null, nieuw = false, sleep = false;
+  function teken(){
+    const sp = s.f>=2 ? [{van:a, naar:T, lab:'+ ' + zP(b), cls:b<0 ? 'neg' : 'pos', nieuw}] : s.f===1 && geest!=null && geest!==a ? [{van:a, naar:geest, lab:'+ ' + zP(geest - a), cls:geest<a ? 'neg' : 'pos', vl:true}] : [];
     const pt = s.f>=1 ? [{x:a, cls:'start'}] : []; if(s.f>=2) pt.push({x:T, cls:'eind'});
     fig.innerHTML = asSvg(Object.assign({}, B, {sprongen:sp, punten:pt, geest:s.f<2 ? geest : null, alt:`getallenas van ${B.lo} tot ${B.hi}`}));
-    nieuw = false;
-    tekst.innerHTML = s.f===0 ? `<b>Stap 1.</b> Klik op de getallenas op het startgetal <b>${zS(a)}</b>.` : s.f===1 ? `<b>Stap 2.</b> Je telt <b>${zP(b)}</b> op: ${b>0 ? 'spring ' + b + ' naar rechts' : 'spring ' + (-b) + ' naar links'}? Klik waar je landt.` : `<b>Stap 3.</b> Schrijf de uitkomst.`; }
-  fig.addEventListener('pointermove', e => { if(s.f>=2) return; const svg = fig.querySelector('svg'); const v = asKlik(svg, e, B); if(v!==geest){ geest = v; teken(); } });
-  fig.addEventListener('pointerleave', () => { geest = null; if(s.f<2) teken(); });
-  fig.addEventListener('click', e => { if(s.f>=2) return; const v = asKlik(fig.querySelector('svg'), e, B);
+    fig.classList.toggle('sleep', s.f<2); nieuw = false;
+    k1.innerHTML = `<span class="m5-sk-n">①</span> Klik op het startgetal <b>${zS(a)}</b>.`; k1.classList.toggle('klaar', s.f>=1);
+    k2.innerHTML = `<span class="m5-sk-n">②</span> Je telt <b>${zP(b)}</b> op. Sleep vanaf ${zS(a)} naar waar je landt, of klik erop.`; k2.classList.toggle('uit', s.f<1); k2.classList.toggle('klaar', s.f>=2);
+    k3.classList.toggle('uit', s.f<2); }
+  const waar = e => asKlik(fig.querySelector('svg'), e, B);
+  fig.addEventListener('pointerdown', e => { if(s.f>=2) return; if(s.f===1){ sleep = true; try{ fig.setPointerCapture(e.pointerId); }catch(x){} } geest = waar(e); teken(); });
+  fig.addEventListener('pointermove', e => { if(s.f>=2) return; const v = waar(e); if(v!==geest){ geest = v; teken(); } });
+  fig.addEventListener('pointerleave', () => { if(sleep) return; geest = null; if(s.f<2) teken(); });
+  fig.addEventListener('pointerup', e => { if(s.f>=2) return; sleep = false; const v = waar(e);
     if(s.f===0){ if(v===a){ s.f = 1; fb.className = 'fb'; fb.textContent = ''; } else { fb.className = 'fb bad'; fb.innerHTML = `❌ Je klikte op ${zS(v)}. Zoek ${zS(a)}: ${a<0 ? 'links' : 'rechts'} van 0.`; CLres(qid, false); } }
-    else if(s.f===1){ if(v===T){ s.f = 2; nieuw = true; fb.className = 'fb'; fb.textContent = ''; vraag(); }
+    else if(s.f===1){ if(v===a){ geest = null; teken(); return; }
+      if(v===T){ s.f = 2; nieuw = true; fb.className = 'fb'; fb.textContent = ''; vraag(); }
       else { fb.className = 'fb bad'; fb.innerHTML = v===a - b ? `❌ Je sprong de verkeerde kant op. Een ${b<0 ? 'negatief getal optellen: naar links' : 'positief getal optellen: naar rechts'}.` : `❌ Je landde op ${zS(v)}. Tel ${Math.abs(b)} streepjes vanaf ${zS(a)}.`; CLres(qid, false); } }
-    save(); teken(); });
+    geest = null; save(); teken(); });
   function vraag(){ vak.innerHTML = '';
     mQ(vak, st, save, id + 'u', {noCL:true, html:`${zS(a)} + ${zP(b)} ${isq} {{u:a${o.teken===false ? '' : ',t'}}}`, check:V=>chkZG(V.a, T, [[a - b, 'Kijk naar de sprong op de getallenas.']]),
       onOk:silent=>{ if(!silent){ CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
   teken(); if(s.f>=2) vraag();
 }
 
-/* ---------- legertjes: + en − soldaten, een nulpaar is samen 0 ---------- */
-const sold = x => `<b>${Math.abs(x)}</b> ${x>0 ? 'plus' : 'min'}-${Math.abs(x)===1 ? 'soldaat' : 'soldaten'}`;
+/* ---------- legertjes: de leerling stelt een min- en een plus-leger op; nulparen vallen weg ---------- */
+const LKLEUR = {plus:'#d62828', min:'#1d4ed8'};
+const soldSvg = soort => { const c = LKLEUR[soort], sym = soort==='plus' ? `<path d="M12 16.5v6M9 19.5h6" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>` : `<path d="M9 19.5h6" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`;
+  return `<svg viewBox="0 0 24 30" aria-hidden="true"><path d="M6.5 6.5a5.5 5.5 0 0 1 11 0z" fill="${c}"/><circle cx="12" cy="8" r="4" fill="#f2c9a0"/><rect x="5" y="12.5" width="14" height="14" rx="4" fill="${c}"/><circle cx="12" cy="19.5" r="5" fill="#fff"/>${sym}<rect x="7" y="26" width="3.5" height="3.5" rx="1" fill="#35545a"/><rect x="13.5" y="26" width="3.5" height="3.5" rx="1" fill="#35545a"/></svg>`; };
+const LNAAM = {min:'➖ Min-leger', plus:'➕ Plus-leger'};
 function legertjes(host, st, save, id, o){
   const qid = QID(id); if(!QZ) CLvraag(qid);
-  const s = st[id] || (st[id] = {}); const a = o.a, b = o.b, T = a + b;
-  const pos = (a>0 ? a : 0) + (b>0 ? b : 0), neg = (a<0 ? -a : 0) + (b<0 ? -b : 0), n = Math.max(pos, neg), paren = Math.min(pos, neg);
-  const box = el('div', 'm5-leger'); host.append(box);
-  box.append(el('p', 'm5-stap', `${zS(a)} + ${zP(b)}: ${sold(a)} en ${sold(b)}. Een plus- en een min-soldaat samen zijn <b>0</b>: een nulpaar.`));
-  const veld = el('div', 'm5-veld'); veld.style.setProperty('--n', n); box.append(veld);
-  const rijP = el('div', 'm5-rij p'), rijN = el('div', 'm5-rij m'); veld.append(rijP, rijN);
-  for(let i=0; i<n; i++){ const p = el('span', 'm5-sold' + (i<pos ? ' plus' : ' leeg'), i<pos ? '+' : ''); const m = el('span', 'm5-sold' + (i<neg ? ' min' : ' leeg'), i<neg ? MIN : ''); if(i<paren){ p.classList.add('paar'); m.classList.add('paar'); } rijP.append(p); rijN.append(m); }
-  const act = el('div', 'q-act'); const knop = el('button', 'btn', '⚔ Laat de nulparen verdwijnen'); knop.type = 'button'; act.append(knop); box.append(act);
-  const uit = el('div', 'm5-stap'); const vak = el('div'); box.append(uit, vak);
-  function na(anim){ veld.classList.add('weg'); if(!anim) veld.classList.add('direct'); knop.hidden = true;
-    const over = Math.abs(T); uit.innerHTML = paren ? `${paren} ${paren===1 ? 'nulpaar verdwijnt' : 'nulparen verdwijnen'}. Er ${over===1 ? 'blijft' : 'blijven'} <b>${over}</b> ${T>0 ? 'plus' : T<0 ? 'min' : ''}-soldat${over===1 ? '' : 'en'} over.` : `Er zijn geen nulparen: alle soldaten hebben hetzelfde teken. Tel ze samen.`;
-    if(T===0) uit.innerHTML = `Alle soldaten vormen nulparen. Er blijft niets over.`;
+  const s = st[id] || (st[id] = {n:[0, 0], f:0}); const a = o.a, b = o.b, T = a + b, MAX = 25;
+  const srt = [a<0 ? 'min' : 'plus', b<0 ? 'min' : 'plus'], doel = [Math.abs(a), Math.abs(b)], samen = srt[0]===srt[1], paren = samen ? 0 : Math.min(doel[0], doel[1]);
+  const P = paneel(host); const slag = el('div', 'm5-slag'); P.vis.append(slag);
+  stapKop(P.stap, 1, 'Stel je legers op');
+  P.stap.append(el('p', 'm5-tip', `${zS(a)} + ${zP(b)}: een positief getal is een plus-leger, een negatief getal een min-leger.`));
+  const rijen = el('div', 'm5-lrijen'); const act = el('div', 'q-act'); const knop = el('button', 'btn', samen ? '🤝 Samenvoegen' : '⚔️ Ten aanval'); knop.type = 'button'; act.append(knop);
+  const fb = el('div', 'fb'); P.stap.append(rijen, act, fb);
+  const k2 = stapKop(P.stap, 2, 'Noteer de uitkomst'); const vak = el('div'); P.stap.append(vak);
+  let anim = false;
+  function kamp(i){ const n = s.n[i], weg = s.f ? (samen ? 0 : paren) : 0;
+    const troep = n ? Array.from({length:n}, (_, j) => `<span class="m5-sd${j<weg ? ' dood' : ''}" data-j="${j}">${soldSvg(srt[i])}</span>`).join('') : '<span class="m5-kleeg">Klik hier om soldaatjes toe te voegen</span>';
+    return `<div class="m5-kamp ${srt[i]}${s.f ? '' : ' klik'}" data-k="${i}"><div class="m5-kkop"><span>${LNAAM[srt[i]]}</span><span class="m5-kcnt">${s.f && !samen ? (n - weg) + ' over' : n}</span></div><div class="m5-troep">${troep}</div></div>`; }
+  function teken(){
+    slag.innerHTML = s.f && samen ? `<div class="m5-kamp ${srt[0]} breed"><div class="m5-kkop"><span>${LNAAM[srt[0]]} (samengevoegd)</span><span class="m5-kcnt">${s.n[0] + s.n[1]}</span></div><div class="m5-troep">${Array.from({length:s.n[0] + s.n[1]}, () => `<span class="m5-sd">${soldSvg(srt[0])}</span>`).join('')}</div></div>`
+      : `${kamp(0)}<div class="m5-vs">${samen ? '🤝' : '⚔️'}</div>${kamp(1)}`;
+    rijen.innerHTML = [0, 1].map(i => `<div class="m5-lrij ${srt[i]}"><span class="m5-lnaam">${LNAAM[srt[i]]}</span><span class="m5-lcnt">${s.n[i]}</span><button type="button" class="btn sm-btn" data-k="${i}" data-d="1"${s.f || s.n[i]>=MAX ? ' disabled' : ''}>1 erbij</button><button type="button" class="btn sm-btn" data-k="${i}" data-d="5"${s.f || s.n[i]>MAX - 5 ? ' disabled' : ''}>5 erbij</button><button type="button" class="btn sm-btn ghost" data-k="${i}" data-d="-1"${s.f || !s.n[i] ? ' disabled' : ''}>1 weg</button></div>`).join('');
+    knop.hidden = !!s.f; knop.disabled = anim; k2.classList.toggle('uit', !s.f);
+    rijen.querySelectorAll('button').forEach(x => x.addEventListener('click', () => wijzig(+x.dataset.k, +x.dataset.d)));
+    if(!s.f && !anim) slag.querySelectorAll('.m5-kamp.klik').forEach(k => k.addEventListener('click', e => wijzig(+k.dataset.k, e.target.closest('.m5-sd') ? -1 : 1))); }
+  function wijzig(i, d){ if(s.f || anim) return; s.n[i] = Math.max(0, Math.min(MAX, s.n[i] + d)); fb.className = 'fb'; fb.textContent = ''; save(); teken(); }
+  knop.addEventListener('click', () => {
+    const fout = [0, 1].find(i => s.n[i]!==doel[i]);
+    if(fout!=null){ const x = fout ? b : a; fb.className = 'fb bad'; fb.innerHTML = `❌ Het ${srt[fout]}-leger hoort bij <b>${zS(x)}</b>: zet er ${Math.abs(x)} soldaatjes in.`; CLres(qid, false); return; }
+    fb.className = 'fb'; fb.textContent = '';
+    const klaar = () => { anim = false; s.f = 1; save(); teken(); toonVraag(); };
+    if(samen || REDUCED_M || !paren){ klaar(); return; }
+    anim = true; knop.disabled = true; slag.querySelector('.m5-vs').classList.add('vecht');
+    const s0 = slag.querySelectorAll('.m5-kamp[data-k="0"] .m5-sd'), s1 = slag.querySelectorAll('.m5-kamp[data-k="1"] .m5-sd'), stap = Math.max(60, Math.min(160, 1400/paren));
+    for(let j=0; j<paren; j++) setTimeout(() => { s0[j] && s0[j].classList.add('raak'); s1[j] && s1[j].classList.add('raak'); }, j*stap);
+    setTimeout(klaar, paren*stap + 500); });
+  function toonVraag(){ if(vak.firstChild) return;
+    P.stap.insertBefore(el('p', 'm5-tip', samen ? `Zelfde teken: de legers voegen samen. Er zijn ${s.n[0] + s.n[1]} ${srt[0]}-soldaatjes.` : T ? `${paren} ${paren===1 ? 'nulpaar valt' : 'nulparen vallen'} weg. Er ${Math.abs(T)===1 ? 'blijft' : 'blijven'} ${Math.abs(T)} ${T<0 ? 'min' : 'plus'}-soldaatje${Math.abs(T)===1 ? '' : 's'} over.` : 'Alle soldaatjes vormen nulparen. Er blijft niets over.'), vak);
     mQ(vak, st, save, id + 'u', {noCL:true, html:`${zS(a)} + ${zP(b)} ${isq} {{u:a${o.teken===false ? '' : ',t'}}}`, check:V=>chkZG(V.a, T),
       onOk:silent=>{ if(!silent){ CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
-  knop.addEventListener('click', ()=>{ s.weg = true; save(); na(!REDUCED_M); });
-  if(s.weg) na(false);
+  teken(); if(s.f) toonVraag();
 }
 
-/* ---------- som-piramide: elk vak is de som van de twee vakken eronder ---------- */
-/* basis: getallen onderaan; open: indexen (rij*10 + kolom, rij 0 = onderaan) die de leerling invult */
+/* ---------- piramide: elk vak is de som (of het product) van de twee vakken eronder; elke open steen heeft een tekenvak ---------- */
+/* basis: getallen onderaan; open: indexen (rij*10 + kolom, rij 0 = onderaan) die de leerling invult; o.op: '+' of '·' */
 function piramide(host, st, save, id, o){
   const qid = QID(id); const quiz = QZ; if(!quiz) CLvraag(qid);
-  const s = st[id] || (st[id] = {v:{}}); const n = o.basis.length; const W = [o.basis.slice()];
-  for(let r=1; r<n; r++){ W[r] = []; for(let c=0; c<n-r; c++) W[r][c] = W[r-1][c] + W[r-1][c+1]; }
+  const s = st[id] || (st[id] = {v:{}}); const n = o.basis.length; const W = [o.basis.slice()]; const maal = o.op==='·';
+  for(let r=1; r<n; r++){ W[r] = []; for(let c=0; c<n-r; c++) W[r][c] = maal ? W[r-1][c]*W[r-1][c+1] : W[r-1][c] + W[r-1][c+1]; }
   const box = el('div', 'q m5-pir'); host.append(box); if(o.nr) box.append(el('span', 'q-num', o.nr));
-  const pir = el('div', 'm5-pir-in'); box.append(pir); const inp = {};
+  const pir = el('div', 'm5-pir-in'); box.append(pir); const vak = {};
   for(let r=n-1; r>=0; r--){ const rij = el('div', 'm5-pir-rij');
     for(let c=0; c<n-r; c++){ const k = r*10 + c;
-      if(o.open.includes(k)){ const i = el('input', 'inp m5-pir-v'); i.type = 'text'; i.autocomplete = 'off'; i.inputMode = 'numeric'; i.value = s.v[k] || ''; i.setAttribute('aria-label', `rij ${r+1} van onder, vak ${c+1}`);
-        i.addEventListener('input', ()=>{ s.v[k] = i.value; save(); i.classList.remove('ok', 'bad'); }); i.addEventListener('keydown', e=>{ if(e.key==='Enter' && !quiz) run(); }); inp[k] = i; rij.append(i); }
-      else rij.append(el('span', 'm5-pir-v vast', zS(W[r][c]))); }
+      if(o.open.includes(k)){ if(typeof s.v[k]!=='object' || !s.v[k]) s.v[k] = {s:'', t:''}; const v = s.v[k];
+        const steen = el('span', 'm5-steen open'); const tv = tekenvak(v, save, () => steen.classList.remove('ok', 'bad'));
+        const i = el('input', 'inp m5-pir-v'); i.type = 'text'; i.autocomplete = 'off'; i.inputMode = 'numeric'; i.value = v.t || ''; i.setAttribute('aria-label', `rij ${r+1} van onder, vak ${c+1}`);
+        i.addEventListener('input', ()=>{ v.t = i.value; save(); steen.classList.remove('ok', 'bad'); }); i.addEventListener('keydown', e=>{ if(e.key==='Enter' && !quiz) run(); });
+        steen.append(tv, i); vak[k] = {steen, v, i}; rij.append(steen); }
+      else rij.append(el('span', 'm5-steen vast', zS(W[r][c]))); }
     pir.append(rij); }
   const act = el('div', 'q-act'); const btn = el('button', 'btn', 'Controleer'); btn.type = 'button'; act.append(btn); box.append(act); const fb = el('div', 'fb'); box.append(fb);
-  const goed = k => rdZ({t:inp[k].value, z:true})===W[Math.floor(k/10)][k%10];
-  function run(silent){ const ks = Object.keys(inp); if(ks.some(k => !inp[k].value.trim())){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Vul eerst alle vakjes in.'; } return; }
-    let fout = 0; ks.forEach(k => { const g = goed(+k); if(!g) fout++; inp[k].classList.remove('ok', 'bad'); inp[k].classList.add(g ? 'ok' : 'bad'); });
-    fb.className = 'fb ' + (fout ? 'bad' : 'ok'); fb.innerHTML = fout ? `❌ ${fout===1 ? 'Eén vak klopt' : fout + ' vakken kloppen'} nog niet. ${o.whyBad||'Elk vak is de som van de twee vakken eronder.'}` : '✅ Juist! ' + (o.why||'');
+  const lees = v => { const t = nrm(v.t||''); if(!/^\d+$/.test(t)) return null; const x = +t; return x===0 ? 0 : v.s==='-' ? -x : v.s==='+' ? x : null; };
+  const goed = k => lees(vak[k].v)===W[Math.floor(k/10)][k%10];
+  function run(silent){ const ks = Object.keys(vak);
+    if(ks.some(k => !nrm(vak[k].v.t||''))){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Vul eerst alle stenen in.'; } return; }
+    if(ks.some(k => /^[+\-−]/.test(nrm(vak[k].v.t)))){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Het teken hoort in het tekenvak, niet bij het getal.'; } return; }
+    if(ks.some(k => nrm(vak[k].v.t)!=='0' && !vak[k].v.s)){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Kies bij elke steen ook het teken: + boven, − onder.'; } return; }
+    let fout = 0; ks.forEach(k => { const g = goed(+k); if(!g) fout++; vak[k].steen.classList.remove('ok', 'bad'); vak[k].steen.classList.add(g ? 'ok' : 'bad'); });
+    fb.className = 'fb ' + (fout ? 'bad' : 'ok'); fb.innerHTML = fout ? `❌ ${fout===1 ? 'Eén steen klopt' : fout + ' stenen kloppen'} nog niet. ${o.whyBad || (maal ? 'Elk vak is het product van de twee vakken eronder.' : 'Elk vak is de som van de twee vakken eronder.')}` : '';
+    if(!fout){ fb.className = 'fb'; fb.innerHTML = ''; if(!box.querySelector('.m5-juist')) allesJuist(box, o.why || (maal ? 'Elk vak is het product van de twee vakken eronder.' : 'Elk vak is de som van de twee vakken eronder.')); }
     s.checked = true; save(); if(!silent && !quiz) CLres(qid, !fout); }
   btn.addEventListener('click', ()=>run());
-  if(quiz){ btn.hidden = true; quiz.push({pts:o.pts||1, grade:()=>Object.keys(inp).every(k => goed(+k)), reveal:()=>run(true), lock:()=>Object.values(inp).forEach(i => i.readOnly = true)}); }
+  if(quiz){ btn.hidden = true; quiz.push({pts:o.pts||1, grade:()=>Object.keys(vak).every(k => goed(+k)), reveal:()=>run(true), lock:()=>Object.values(vak).forEach(x => { x.i.readOnly = true; x.steen.querySelectorAll('button').forEach(b => b.disabled = true); })}); }
   else if(s.checked) run(true);
 }
 
-/* ---------- thermometer ---------- */
-function thermoSvg(o){ /* o: {lo, hi, t (stand), van (vorige stand), merk} */
-  const H = 262, x = 46, top = 30, bot = 218, Y = v => bot - (v - o.lo)*(bot - top)/(o.hi - o.lo);
-  let s = `<rect class="th-buis" x="${x-9}" y="${top-8}" width="18" height="${bot-top+20}" rx="9"/><circle class="th-bol" cx="${x}" cy="${bot+22}" r="17"/>`;
-  s += `<rect class="th-kwik" x="${x-5}" y="${fx(Y(o.t))}" width="10" height="${fx(bot + 14 - Y(o.t))}"/><circle class="th-kwik" cx="${x}" cy="${bot+22}" r="12"/>`;
-  for(let v=o.lo; v<=o.hi; v++){ if(v % 2) continue; const y = fx(Y(v)), lang = v % 10===0;
-    s += `<line class="th-t${v===0 ? ' nul' : ''}" x1="${x+10}" y1="${y}" x2="${x+(lang ? 22 : v % 5===0 ? 18 : 15)}" y2="${y}"/>`; if(v % 10===0) s += sT(x+40, y, zS(v), v===0 ? 't as-0' : 'k'); }
-  if(o.van!=null && o.van!==o.t){ const y1 = Y(o.van), y2 = Y(o.t); s += `<path class="as-sp ${o.t<o.van ? 'neg' : 'pos'} nieuw" pathLength="1" d="M${x-14} ${fx(y1)} C${x-40} ${fx(y1)} ${x-40} ${fx(y2)} ${x-14} ${fx(y2)}"/>`; }
-  s += sT(x+8, 8, '°C', 'k', 'start');
-  return svgWrap(110, H, s, {alt:`thermometer: ${zS(o.t)} °C`, maxw:110, cls:'m5-th'}); }
+/* ---------- twee thermometers: voor (vast) en na (sleep het kwik) ---------- */
+const THT = {top:46, bot:286};
+function thermoPaar(o){ /* o: {lo, hi, t1, t2 (stand rechts of null), voor:[icoon, uur], na:[icoon, uur], vl (voorlopig)} */
+  const Y = t => THT.bot - (t - o.lo)*(THT.bot - THT.top)/(o.hi - o.lo);
+  const schaal = cx => { let h = `<rect class="th-buis" x="${cx-12}" y="${THT.top-12}" width="24" height="${THT.bot-THT.top+26}" rx="12"/>`;
+    for(let t=o.lo; t<=o.hi; t++){ const v = t % 5===0, y = fx(Y(t)); h += `<line class="th-t${t===0 ? ' nul' : ''}" x1="${cx+14}" y1="${y}" x2="${cx+14+(v ? 12 : 6)}" y2="${y}"/>`; if(v) h += sT(cx+46, y, zS(t) + '°', t===0 ? 'th-lab nul' : 'th-lab'); }
+    return h; };
+  const kwik = (cx, t) => `<rect class="th-kwik" x="${cx-5}" y="${fx(Y(t))}" width="10" height="${fx(THT.bot + 12 - Y(t))}" rx="5"/><circle class="th-kwik" cx="${cx}" cy="${THT.bot+26}" r="19"/><circle class="th-bolr" cx="${cx}" cy="${THT.bot+26}" r="19"/>`;
+  const tag = (cx, t, links) => { const x = links ? cx - 92 : cx + 60, y = Y(t); return `<rect class="th-tag" x="${x}" y="${fx(y-13)}" width="64" height="26" rx="8"/>` + sT(x + 32, y, zS(t) + ' °C', 'th-tagt'); };
+  const c1 = 120, c2 = 330; const t2 = o.t2==null ? o.t1 : o.t2;
+  let h = sT(c1, 18, `${o.voor[0]} ${o.voor[1]}`, 'th-titel') + schaal(c1) + kwik(c1, o.t1) + tag(c1, o.t1, true);
+  h += sT(c2, 18, `${o.na[0]} ${o.na[1]}`, 'th-titel') + schaal(c2) + kwik(c2, t2);
+  h += `<line class="th-start" x1="${c2-64}" y1="${fx(Y(o.t1))}" x2="${c2+12}" y2="${fx(Y(o.t1))}"/>`;
+  if(o.t2!=null && o.t2!==o.t1){ const x = c2 - 56, y1 = Y(o.t1), y2 = Y(o.t2), op = o.t2 > o.t1;
+    h += `<line class="th-pijl${o.vl ? ' vl' : ''}" x1="${x}" y1="${fx(y1)}" x2="${x}" y2="${fx(op ? y2 + 9 : y2 - 9)}"/><path class="th-pijlk" d="M${x-7} ${fx(op ? y2 + 11 : y2 - 11)} L${x} ${fx(y2)} L${x+7} ${fx(op ? y2 + 11 : y2 - 11)}z"/>`;
+    h += sT(x - 8, (y1 + y2)/2, (op ? '+' : MIN) + Math.abs(o.t2 - o.t1), 'th-sprong', 'end'); }
+  if(o.t2!=null && !o.vl) h += tag(c2, o.t2, false);
+  h += `<rect class="th-raak" x="${c2-70}" y="${THT.top-24}" width="150" height="${THT.bot-THT.top+70}"/>`;
+  return `<svg class="mf m5-th2" viewBox="0 0 470 330" role="img" aria-label="twee thermometers: ${o.voor[1]} ${zS(o.t1)} °C">${h}</svg>`;
+}
+function thermoSleep(box, o, zet){ /* zet(t, los): tijdens het slepen los=false, bij loslaten los=true */
+  const svg = () => box.querySelector('svg');
+  const temp = e => { const s = svg(), pt = s.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const y = pt.matrixTransform(s.getScreenCTM().inverse()).y;
+    return Math.max(o.lo, Math.min(o.hi, Math.round(o.lo + (THT.bot - y)*(o.hi - o.lo)/(THT.bot - THT.top)))); };
+  let sl = false;
+  box.addEventListener('pointerdown', e => { if(!e.target.closest('.th-raak')) return; sl = true; try{ box.setPointerCapture(e.pointerId); }catch(x){} zet(temp(e), false); });
+  box.addEventListener('pointermove', e => { if(sl) zet(temp(e), false); else if(e.target.closest('.th-raak')) zet(temp(e), null); });
+  box.addEventListener('pointerup', e => { if(!sl) return; sl = false; zet(temp(e), true); });
+  box.addEventListener('pointerleave', () => { if(!sl) zet(null, null); });
+}
+
+/* ---------- hoogte: lift in een gebouw of duiker in de zee; klik of sleep naar de nieuwe plaats ---------- */
+function hoogteSvg(o){ /* o: {scene:'lift'|'zee', lo, hi, pos, geest, naam} */
+  if(o.scene==='lift'){ const fh = 26, top = 16, bx = 96, bw = 220, Y = f => top + (o.hi - f)*fh, Hh = Y(o.lo - 1) + 10;
+    let h = `<rect x="0" y="0" width="360" height="${Y(-1)}" fill="#eef9f9"/><rect x="0" y="${Y(-1)}" width="360" height="${Hh - Y(-1)}" fill="#efe7da"/>`;
+    for(let f=o.hi; f>=o.lo; f--){ const ond = f<0;
+      h += `<rect class="hg-r" data-v="${f}" x="${bx}" y="${Y(f)}" width="${bw}" height="${fh}" fill="${ond ? '#ddd2c1' : '#ffffff'}" stroke="#9fb3b6"/>`;
+      h += `<text x="${bx-10}" y="${Y(f)+17}" text-anchor="end" font-size="14" font-weight="${f===0 ? 900 : 600}" fill="#173436">${zS(f)}</text>`;
+      if(!ond) for(let w=0; w<4; w++) h += `<rect x="${bx+76+w*34}" y="${Y(f)+7}" width="20" height="12" rx="2" fill="#c4ebec"/>`;
+      else h += `<text x="${bx+150}" y="${Y(f)+18}" text-anchor="middle" font-size="13" font-weight="700" fill="#7a6a55">P${-f}</text>`; }
+    h += `<rect x="${bx+8}" y="${Y(o.hi)}" width="40" height="${Y(o.lo - 1) - Y(o.hi)}" fill="#e6eef0" stroke="#9fb3b6"/>`;
+    h += `<line x1="0" y1="${Y(-1)}" x2="360" y2="${Y(-1)}" stroke="#5a8a3a" stroke-width="4"/><text x="352" y="${Y(-1)-6}" font-size="11" fill="#3f6b28" font-weight="700" text-anchor="end">straat</text>`;
+    const kabine = (f, cls) => `<g class="${cls}"><rect x="${bx+11}" y="${Y(f)+2}" width="34" height="${fh-4}" rx="3"/><text x="${bx+28}" y="${Y(f)+18}" text-anchor="middle" font-size="13">🧍</text></g>`;
+    if(o.geest!=null && o.geest!==o.pos) h += kabine(o.geest, 'hg-geest');
+    h += kabine(o.pos, 'hg-kab');
+    h += `<text x="${bx-36}" y="10" font-size="12" font-weight="800" fill="#173436">verdieping</text>`;
+    return `<svg class="mf m5-hg" viewBox="0 0 360 ${Hh}" role="img" aria-label="gebouw met lift, de lift staat op verdieping ${zS(o.pos)}">${h}</svg>`; }
+  const top = 20, st = 9, Y = m => top + (o.hi - m)*st, Hh = Y(o.lo) + 22, x0 = 70;
+  let h = `<defs><linearGradient id="m5zee" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd3e6"/><stop offset="1" stop-color="#0d4f72"/></linearGradient></defs>`;
+  h += `<rect x="0" y="0" width="360" height="${Y(0)}" fill="#e8f6fb"/><rect x="0" y="${Y(0)}" width="360" height="${Hh - Y(0)}" fill="url(#m5zee)"/>`;
+  h += `<path d="M0 ${Y(0)} q15 -5 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0" fill="none" stroke="#2a8fb0" stroke-width="2"/>`;
+  h += `<line x1="${x0}" y1="${Y(o.hi)}" x2="${x0}" y2="${Y(o.lo)}" stroke="#173436" stroke-width="2"/>`;
+  for(let m=o.lo; m<=o.hi; m++){ const v = m % 5===0; h += `<line x1="${x0-(v ? 8 : 4)}" y1="${Y(m)}" x2="${x0}" y2="${Y(m)}" stroke="#173436" stroke-width="${m===0 ? 3 : 1.4}"/>`;
+    if(v) h += `<text x="${x0-12}" y="${Y(m)+4}" text-anchor="end" font-size="12" font-weight="${m===0 ? 900 : 600}" fill="${m<-12 ? '#ffffff' : '#173436'}">${zS(m)} m</text>`; }
+  h += `<rect class="hg-zone" x="${x0}" y="${Y(o.hi)}" width="${290}" height="${Y(o.lo) - Y(o.hi)}" fill="transparent"/>`;
+  h += `<text x="250" y="${Y(0)-2}" font-size="26" text-anchor="middle">⛵</text>`;
+  (o.extra||[]).forEach(([ic, m]) => { h += `<text x="300" y="${Y(m)+8}" font-size="22" text-anchor="middle">${ic}</text>`; });
+  const duiker = (m, cls) => `<g class="${cls}"><line x1="${x0}" y1="${Y(m)}" x2="${x0+60}" y2="${Y(m)}" stroke-dasharray="4 3" stroke="#173436"/><text x="${x0+80}" y="${Y(m)+9}" font-size="24" text-anchor="middle">🤿</text><text x="${x0+104}" y="${Y(m)+5}" font-size="13" font-weight="800" fill="${m<-12 ? '#ffffff' : '#173436'}">${zS(m)} m</text></g>`;
+  if(o.geest!=null && o.geest!==o.pos) h += duiker(o.geest, 'hg-geest');
+  h += duiker(o.pos, 'hg-kab');
+  return `<svg class="mf m5-hg" viewBox="0 0 360 ${Hh}" role="img" aria-label="zee met duiker op ${zS(o.pos)} m">${h}</svg>`;
+}
+function hoogteWaar(svg, e, o){ const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const y = pt.matrixTransform(svg.getScreenCTM().inverse()).y;
+  const v = o.scene==='lift' ? Math.floor(o.hi - (y - 16)/26 + 1) : Math.round(o.hi - (y - 20)/9); return Math.max(o.lo, Math.min(o.hi, v)); }
+
+/* ---------- een verandering: ① beeld bijwerken (thermometer, lift, duiker), ② bewerking schrijven ---------- */
+/* o: {soort:'thermo'|'lift'|'zee', van, d, tekst, lo, hi, voor, na, extra, eenheid, onOk} */
+function verander(host, st, save, id, o){
+  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const s = st[id] || (st[id] = {f:0}); const T = o.van + o.d;
+  const P = paneel(host); const fig = el('div', 'm5-vfig'); P.vis.append(fig);
+  P.stap.append(el('p', 'm5-vtekst', o.tekst));
+  const k1 = stapKop(P.stap, 1, o.soort==='thermo' ? 'Sleep het kwik van de rechtse thermometer naar de nieuwe temperatuur.' : o.soort==='lift' ? 'Klik op de verdieping waar de lift stopt, of sleep de lift.' : 'Klik op de diepte waar de duiker nu zwemt, of sleep hem.');
+  const fb = el('div', 'fb'); P.stap.append(fb);
+  const k2 = stapKop(P.stap, 2, 'Schrijf de bewerking en de uitkomst'); const vak = el('div'); P.stap.append(vak);
+  let geest = null;
+  function teken(){
+    if(o.soort==='thermo') fig.innerHTML = thermoPaar({lo:o.lo, hi:o.hi, t1:o.van, t2:s.f ? T : geest, vl:!s.f && geest!=null, voor:o.voor, na:o.na});
+    else fig.innerHTML = hoogteSvg({scene:o.soort, lo:o.lo, hi:o.hi, pos:s.f ? T : o.van, geest:s.f ? null : geest, extra:o.extra});
+    fig.classList.toggle('sleep', !s.f); k1.classList.toggle('klaar', !!s.f); k2.classList.toggle('uit', !s.f); }
+  function los(v){ if(s.f || v==null) return;
+    if(v===T){ s.f = 1; fb.className = 'fb'; fb.textContent = ''; save(); teken(); vraag(); return; }
+    if(v===o.van){ return; }
+    const meer = o.soort==='thermo' ? (o.d>0 ? 'warmer' : 'kouder') : (o.d>0 ? 'hoger' : 'lager');
+    fb.className = 'fb bad'; fb.innerHTML = (Math.sign(v - o.van)!==Math.sign(o.d) ? `❌ Verkeerde richting: het wordt <b>${meer}</b>.` : `❌ Bijna. Het verschil met ${zS(o.van)} moet ${Math.abs(o.d)} zijn, niet ${Math.abs(v - o.van)}.`); CLres(qid, false); }
+  if(o.soort==='thermo') thermoSleep(fig, o, (t, klaar) => { if(s.f) return; if(klaar===true){ geest = null; los(t); teken(); return; } geest = t; teken(); });
+  else { let sl = false; const opt = {scene:o.soort, lo:o.lo, hi:o.hi};
+    fig.addEventListener('pointerdown', e => { if(s.f) return; sl = true; try{ fig.setPointerCapture(e.pointerId); }catch(x){} geest = hoogteWaar(fig.querySelector('svg'), e, opt); teken(); });
+    fig.addEventListener('pointermove', e => { if(s.f) return; const v = hoogteWaar(fig.querySelector('svg'), e, opt); if(v!==geest){ geest = v; teken(); } });
+    fig.addEventListener('pointerup', e => { if(s.f || !sl) return; sl = false; const v = hoogteWaar(fig.querySelector('svg'), e, opt); geest = null; los(v); teken(); });
+    fig.addEventListener('pointerleave', () => { if(sl || s.f) return; geest = null; teken(); }); }
+  function vraag(){ if(vak.firstChild) return;
+    mQ(vak, st, save, id + 'b', {noCL:true, html:`${zS(o.van)} + <span class="m4-par">(</span>{{g:d}}<span class="m4-par">)</span> ${isq} {{u:r}}${o.eenheid ? ` <span class="txt">${o.eenheid}</span>` : ''}`,
+      check:V=>allOf([['d', chkG(V.d, o.d, [[-o.d, o.d<0 ? 'Een daling of een stap naar beneden is een negatief getal.' : 'Een stijging of een stap naar boven is een positief getal.']])], ['r', chkG(V.r, T)]]),
+      onOk:silent=>{ if(!silent){ CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
+  teken(); if(s.f) vraag();
+}
 
 /* ---------- bogen: welke bewerking eerst? ---------- */
+/* kleur per soort zoals in rekenvaardigheid 7: haakjes paars, (machten oranje), maal en deel blauw, plus en min rood */
+const LV = ['', 'lv1', 'lv3', 'lv4'];
+const BALK = [['Haakjes', 'wat tussen haakjes staat'], ['Maal en deel', 'van links naar rechts'], ['Plus en min', 'van links naar rechts']];
+const balkHTML = nu => `<div class="m5-balk"><span class="m5-balk-k">Stappenplan</span>${BALK.map(([k, u], i) => `<span class="m5-bs ${LV[i+1]}${i+1===nu ? ' aan' : ''}"><b>${'①②③'[i]} ${k}</b> <small>${u}</small></span>`).join('<span class="m5-bpijl">→</span>')}</div>`;
+/* oud trap-paneel blijft bestaan voor de spiekbriefjes en Toon mij hoe */
 const TRAP_TXT = [['haakjes', 'eerst wat tussen haakjes staat'], ['· en :', 'maal en gedeeld door, van links naar rechts'], ['+ en −', 'plus en min, van links naar rechts']];
 function trapHTML(nu){ return `<div class="m5-trap"><b>Trap van de volgorde</b>${TRAP_TXT.map(([k, u], i) => `<div class="m5-trede${i+1===nu ? ' aan' : ''}"><span class="m5-tr-n">${i+1}</span><span><b>${k}</b><br><small>${u}</small></span></div>`).join('')}</div>`; }
-/* boom naar html; klikbaar: bewerkingstekens worden knoppen. sel: {i, v} een boog met uitkomst onder knoop i */
+/* een tekenpaar: + (−5) of − (−5) */
+const isTP = x => x.t==='bin' && '+−'.includes(x.op) && x.b.t==='grp' && x.b.br==='(' && x.b.a.t==='neg' && x.b.a.a.t==='n';
+const heeftTP = x => !!x && (isTP(x) || heeftTP(x.a) || heeftTP(x.b));
+/* boom naar html; klik: bewerkingstekens worden knoppen; sel: [{i, v}] bogen met uitkomst (v null: invulvak) */
 function bogHTML(t, o={}){ const K = []; const idx = new Map();
   const w = x => { if(x.t==='bin' || (x.t==='grp' && x.br==='|') || (x.t==='neg' && x.a.t==='grp')){ idx.set(x, K.length); K.push(x); } if(x.a) w(x.a); if(x.b) w(x.b); }; w(t);
+  const sel = new Map((o.sel||[]).map(x => [x.i, x]));
   const r = x => {
     let h;
     if(x.t==='n') h = dz(x.v);
@@ -1937,10 +2070,11 @@ function bogHTML(t, o={}){ const K = []; const idx = new Map();
     else if(x.t==='neg') h = MIN + r(x.a);
     else if(x.t==='pos') h = '+' + r(x.a);
     else if(x.t==='grp'){ const [a, c] = x.br==='[' ? ['[', ']'] : x.br==='|' ? ['|', '|'] : ['(', ')']; h = a + r(x.a) + c; }
-    else { const i = idx.get(x); const op = x.op==='·' ? '·' : x.op;
-      h = `${r(x.a)} ${o.klik ? `<button type="button" class="bg-op" data-i="${i}" aria-label="bewerking ${esc(ZX.str(x))}">${op}</button>` : `<span class="bg-o">${op}</span>`} ${r(x.b)}`; }
-    if(idx.has(x)){ const i = idx.get(x); const sel = o.sel && o.sel.i===i;
-      h = `<span class="bg-s${sel ? ' u' : ''}${o.rood===i ? ' rd' : ''}" data-i="${i}">${h}${sel ? `<span class="bg-arc"></span><span class="bg-ub">${o.sel.v!=null ? zS(o.sel.v) : '<input type="text" class="inp bg-in" inputmode="numeric" autocomplete="off" aria-label="uitkomst van deze bewerking">'}</span>` : ''}</span>`; }
+    else { const i = idx.get(x); const op = x.op;
+      if(o.klik && isTP(x)) h = `${r(x.a)} <button type="button" class="bg-tp" data-tp="${i}" aria-label="tekenpaar ${op} (${MIN}"><span>${op}</span><span>(${MIN}</span></button>${dz(x.b.a.a.v)})`;
+      else h = `${r(x.a)} ${o.klik ? `<button type="button" class="bg-op" data-i="${i}" aria-label="bewerking ${esc(ZX.str(x))}">${op}</button>` : `<span class="bg-o">${op}</span>`} ${r(x.b)}`; }
+    if(idx.has(x)){ const i = idx.get(x); const s = sel.get(i); const lv = s ? LV[ZX.trede(t, x)] : '';
+      h = `<span class="bg-s${s ? ' u ' + lv : ''}${o.rood===i ? ' rd' : ''}" data-i="${i}">${h}${s ? `<span class="bg-arc"></span><span class="bg-ub">${s.v!=null ? zS(s.v) : `<input type="text" class="inp bg-in" data-i="${i}" inputmode="numeric" autocomplete="off" aria-label="uitkomst van ${esc(ZX.str(x))}">`}</span>` : ''}</span>`; }
     return h; };
   return {html:r(t), K}; }
 /* diagnose van een verkeerde keuze */
@@ -1954,45 +2088,67 @@ function bogFout(t, N){
 }
 function bogen(host, st, save, id, o){
   const qid = QID(id); if(!QZ) CLvraag(qid);
-  const s = st[id] || (st[id] = {L:[o.opg], d:[], sel:null, f:0});
-  const wrap = el('div', 'm5-bog'); host.append(wrap);
-  const links = el('div', 'm5-bog-l'), rechts = el('div', 'm5-bog-r'); wrap.append(links, rechts);
-  const lijst = el('div', 'm5-bog-lijst'); const fb = el('div', 'fb'); const act = el('div', 'q-act'); links.append(lijst, fb, act);
-  const terug = el('button', 'btn ghost', '↶ Regel terug'); terug.type = 'button'; act.append(terug);
+  const s = st[id] || (st[id] = {L:[o.opg], d:[], sel:[], f:0}); if(!Array.isArray(s.sel)) s.sel = s.sel==null ? [] : [s.sel]; if(!s.iv) s.iv = {};
+  const P = paneel(host, 'breed-l'); const balk = el('div'); const blad = el('div', 'm5-blad'); P.vis.append(balk, blad);
+  const k1 = stapKop(P.stap, 1, 'Klik op de bewerking die eerst moet. Staan er bewerkingen los van elkaar, dan mag je er meerdere aanklikken.');
+  const tpTip = el('p', 'm5-tip', `Staat er + (${MIN}…) of ${MIN} (${MIN}…)? Klik eerst op dat <b>tekenpaar</b>: + (${MIN}5) wordt ${MIN} 5 en ${MIN} (${MIN}5) wordt + 5.`); P.stap.append(tpTip);
+  const k2 = stapKop(P.stap, 2, 'Typ onder elke boog de uitkomst en ga naar de volgende regel.');
+  const act = el('div', 'q-act'); const verder = el('button', 'btn', '↓ Volgende regel'); verder.type = 'button'; const terug = el('button', 'btn ghost', '↶ Regel terug'); terug.type = 'button'; act.append(verder, terug);
+  const fb = el('div', 'fb'); P.stap.append(act, fb);
   let rood = null;
+  const huidig = () => ZX.parse(s.L[s.L.length-1]);
   function draw(focus){
-    lijst.innerHTML = '';
-    s.L.forEach((L, li) => { const t = ZX.parse(L); const nu = li===s.L.length-1;
+    blad.innerHTML = ''; const t = huidig(); const H = bogHTML(t);
+    s.L.forEach((L, li) => { const tt = ZX.parse(L); const nu = li===s.L.length-1;
       const regel = el('div', 'm5-bog-regel' + (nu ? ' nu' : ''));
       regel.append(el('span', 'm5-bog-is', li ? '=' : ''));
-      const d = s.d[li]; const H = bogHTML(t, {klik: nu && s.sel==null && !ZX.isAt(t), sel: d ? {i:d.i, v:d.v} : nu && s.sel!=null ? {i:s.sel} : null, rood: nu ? rood : null});
-      const ex = el('span', 'm5-bog-ex', H.html); regel.append(ex); lijst.append(regel);
-      if(nu){ ex.querySelectorAll('.bg-op').forEach(b => {
-          const sp = b.closest('.bg-s');
-          b.addEventListener('mouseenter', ()=>sp.classList.add('hov')); b.addEventListener('mouseleave', ()=>sp.classList.remove('hov'));
-          b.addEventListener('focus', ()=>sp.classList.add('hov')); b.addEventListener('blur', ()=>sp.classList.remove('hov'));
-          b.addEventListener('click', ()=>kies(t, H.K, +b.dataset.i)); });
-        const inp = ex.querySelector('.bg-in');
-        if(inp){ const ok = el('button', 'btn sm-btn bg-ok', 'OK'); ok.type = 'button'; inp.parentNode.append(ok);
-          const chk = () => antwoord(t, H.K[s.sel], inp);
-          inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); chk(); } }); ok.addEventListener('click', chk);
-          if(focus) inp.focus({preventScroll:true}); }
-        if(ZX.isAt(t)) klaar(t); }
+      const d = s.d[li]; const klik = nu && !s.sel.length && !ZX.isAt(tt);
+      const HH = bogHTML(tt, {klik, sel: d && d.sel ? d.sel : nu ? s.sel.map(i => ({i, v:null})) : null, rood: nu ? rood : null});
+      const ex = el('span', 'm5-bog-ex', HH.html); regel.append(ex);
+      if(!nu || ZX.isAt(tt)) regel.append(el('span', 'm5-bog-v', '✓'));
+      blad.append(regel);
+      if(nu){
+        ex.querySelectorAll('.bg-op').forEach(b => { const sp = b.closest('.bg-s');
+          ['mouseenter', 'focus'].forEach(ev => b.addEventListener(ev, ()=>sp.classList.add('hov'))); ['mouseleave', 'blur'].forEach(ev => b.addEventListener(ev, ()=>sp.classList.remove('hov')));
+          b.addEventListener('click', ()=>kies(tt, HH.K, +b.dataset.i)); });
+        ex.querySelectorAll('.bg-tp').forEach(b => b.addEventListener('click', ()=>tekenpaar(tt, HH.K[+b.dataset.tp])));
+        const ins = [...ex.querySelectorAll('.bg-in')];
+        ins.forEach(inp => { inp.value = s.iv[inp.dataset.i] || ''; inp.addEventListener('input', ()=>{ s.iv[inp.dataset.i] = inp.value; inp.classList.remove('bad'); save(); });
+          inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); const j = ins.indexOf(inp); if(j < ins.length-1 && !ins[j+1].value) ins[j+1].focus(); else volgende(); } }); });
+        if(focus && ins.length) ins[ins.length-1].focus({preventScroll:true});
+        /* nog een losse bewerking aanklikken terwijl er al één gekozen is */
+        if(s.sel.length && !ZX.isAt(tt)){ const E = ZX.klaar(tt), minT = Math.min(...E.map(e => ZX.trede(tt, e)));
+          ex.querySelectorAll('.bg-s:not(.u)').forEach(sp => { const N = HH.K[+sp.dataset.i]; if(!N || !E.includes(N) || ZX.trede(tt, N)!==minT || isTP(N)) return;
+            const opEl = [...sp.childNodes].find(c => c.nodeType===1 && c.classList.contains('bg-o')); if(!opEl) return;
+            const b = el('button', 'bg-op', opEl.textContent); b.type = 'button'; b.setAttribute('aria-label', 'ook deze bewerking'); opEl.replaceWith(b); b.addEventListener('click', ()=>kies(tt, HH.K, +sp.dataset.i)); }); }
+        if(ZX.isAt(tt)) klaar(tt); }
     });
-    const t = ZX.parse(s.L[s.L.length-1]); const E = ZX.klaar(t);
-    rechts.innerHTML = trapHTML(ZX.isAt(t) ? 0 : s.sel!=null ? ZX.trede(t, bogHTML(t).K[s.sel]) : E.length ? Math.min(...E.map(e => ZX.trede(t, e))) : 0);
-    terug.hidden = s.L.length<2 && s.sel==null;
+    const E = ZX.klaar(t);
+    balk.innerHTML = balkHTML(ZX.isAt(t) ? 0 : s.sel.length ? ZX.trede(t, H.K[s.sel[0]]) : E.length ? Math.min(...E.map(e => ZX.trede(t, e))) : 0);
+    const af = ZX.isAt(t);
+    k1.classList.toggle('klaar', af || !!s.sel.length); k2.classList.toggle('uit', !s.sel.length && !af); k2.classList.toggle('klaar', af);
+    tpTip.hidden = af || !heeftTP(t);
+    verder.hidden = !s.sel.length; terug.hidden = s.L.length<2 && !s.sel.length; act.hidden = verder.hidden && terug.hidden;
   }
   function kies(t, K, i){ const N = K[i]; const E = ZX.klaar(t), minT = Math.min(...E.map(e => ZX.trede(t, e)));
-    if(ZX.mag(N) && ZX.trede(t, N)===minT){ s.sel = i; rood = null; fb.className = 'fb'; fb.textContent = ''; save(); draw(true); return; }
+    if(s.sel.includes(i)){ s.sel = s.sel.filter(x => x!==i); delete s.iv[i]; save(); draw(false); return; }
+    if(ZX.mag(N) && ZX.trede(t, N)===minT){ s.sel.push(i); rood = null; fb.className = 'fb'; fb.textContent = ''; save(); draw(true); return; }
     const d = bogFout(t, N); rood = i; s.f++; save(); fb.className = 'fb bad'; fb.innerHTML = `❌ <b>${d.code}</b> · ${d.msg}`; CLres(qid, false); draw(false); }
-  function antwoord(t, N, inp){ const x = rdZ({t:inp.value, z:true}); const T = ZX.val(N).k;
-    if(x==null){ fb.className = 'fb info'; fb.textContent = 'Typ een geheel getal onder de boog.'; return; }
-    if(x!==T){ s.f++; save(); fb.className = 'fb bad'; fb.innerHTML = x===-T ? '❌ Het getal klopt, maar het teken niet.' : `❌ ${zT(ZX.str(N))} is niet ${zS(x)}. Reken nog eens.`; inp.classList.add('bad'); CLres(qid, false); return; }
-    s.d[s.L.length-1] = {i:s.sel, v:T}; s.L.push(ZX.str(ZX.vervang(t, new Set([N])))); s.sel = null; fb.className = 'fb'; fb.textContent = ''; save(); draw(false); }
+  function tekenpaar(t, N){
+    const vv = (x) => x===N ? {t:'bin', op:N.op==='+' ? '−' : '+', a:N.a, b:{t:'n', v:N.b.a.a.v}} : x.t==='bin' ? Object.assign({}, x, {a:vv(x.a), b:vv(x.b)}) : x.a ? Object.assign({}, x, {a:vv(x.a)}) : x;
+    s.d[s.L.length-1] = {tp:true}; s.L.push(ZX.str(vv(t))); s.sel = []; s.iv = {}; rood = null; fb.className = 'fb'; fb.textContent = ''; save(); draw(false); }
+  function volgende(){ const t = huidig(); const K = bogHTML(t).K; const ins = [...blad.querySelectorAll('.m5-bog-regel.nu .bg-in')];
+    let leeg = false, fout = null;
+    ins.forEach(inp => { const N = K[+inp.dataset.i]; const x = rdZ({t:inp.value, z:true}); const T = ZX.val(N).k;
+      if(x==null){ leeg = true; return; } if(x!==T){ inp.classList.add('bad'); if(!fout) fout = {N, x, T}; } });
+    if(leeg){ fb.className = 'fb info'; fb.textContent = 'Typ onder elke boog een geheel getal.'; return; }
+    if(fout){ s.f++; save(); fb.className = 'fb bad'; fb.innerHTML = fout.x===-fout.T ? `❌ ${zT(ZX.str(fout.N))}: het getal klopt, maar het teken niet.` : `❌ ${zT(ZX.str(fout.N))} is niet ${zS(fout.x)}. Reken nog eens.`; CLres(qid, false); return; }
+    const Ns = s.sel.map(i => K[i]);
+    s.d[s.L.length-1] = {sel:s.sel.map(i => ({i, v:ZX.val(K[i]).k}))}; s.L.push(ZX.str(ZX.vervang(t, new Set(Ns)))); s.sel = []; s.iv = {}; fb.className = 'fb'; fb.textContent = ''; save(); draw(false); }
   function klaar(t){ fb.className = 'fb ok'; fb.innerHTML = `✅ Klaar! De uitkomst is <b>${zS(ZX.val(t).k)}</b>.` + (s.f ? '' : ' Alles in één keer juist.');
-    if(!s.ok){ s.ok = true; save(); CLres(qid, true); if(o.onOk) setTimeout(o.onOk, 700); } }
-  terug.addEventListener('click', ()=>{ if(s.sel!=null) s.sel = null; else if(s.L.length>1){ s.L.pop(); s.d.length = s.L.length-1; s.ok = false; } rood = null; fb.className = 'fb'; fb.textContent = ''; save(); draw(false); });
+    if(!s.ok){ s.ok = true; save(); CLres(qid, true); if(o.onOk) setTimeout(o.onOk, 900); } }
+  verder.addEventListener('click', volgende);
+  terug.addEventListener('click', ()=>{ if(s.sel.length){ s.sel = []; s.iv = {}; } else if(s.L.length>1){ s.L.pop(); s.d.length = s.L.length-1; s.ok = false; } rood = null; fb.className = 'fb'; fb.textContent = ''; save(); draw(false); });
   draw(false);
 }
 
@@ -2003,6 +2159,62 @@ function stapWat(s){ const t = ZX.parse(s); const E = ZX.klaar(t); if(!E.length)
   const lijst = E.filter(e => ZX.trede(t, e)===tr).map(e => zT(ZX.str(e)));
   return (tr===1 ? 'Eerst de haakjes: ' : tr===2 ? 'Maal en gedeeld door, van links naar rechts: ' : 'Plus en min, van links naar rechts: ') + lijst.join(' en ') + '.'; }
 const hoeLijnen = L => L.map((l, i) => [(i ? '= ' : '') + zT(l), i < L.length-1 ? stapWat(l) : 'Dit is de uitkomst.']);
+
+/* ---------- indeling zoals de rekenvaardigheden: beeld links, genummerde stappen rechts (op een gsm onder elkaar) ---------- */
+function paneel(host, cls){ const w = el('div', 'm5-pan' + (cls ? ' ' + cls : '')), vis = el('div', 'm5-pan-vis'), stap = el('div', 'm5-pan-st'); w.append(vis, stap); host.append(w); return {w, vis, stap}; }
+const stapKop = (host, n, t) => { const h = el('p', 'm5-sk', `<span class="m5-sk-n">${'①②③④'[n-1]}</span> ${t}`); host.append(h); return h; };
+/* groen vak als alles juist is, met één zin waarom */
+const allesJuist = (host, waarom) => { const d = el('div', 'm5-juist', `<b>🎉 Alles juist!</b> <span>${waarom}</span>`); host.append(d); return d; };
+/* lijst van wat al juist is, met een groene vink per regel */
+const vinkLijst = L => `<div class="m5-vinken">${L.map(t => `<div><span class="m5-vink">✓</span> ${t}</div>`).join('')}</div>`;
+
+/* ---------- staafdiagram bij een patroon: staven boven en onder 0 ---------- */
+function staafSvg(o){ /* o: {lab:[...], w:[waarde of null], lo, hi, nu (index van de volgende staaf)} */
+  const W = 360, H = 210, L = 34, R = 10, T = 14, B = 26, n = o.lab.length, bw = (W - L - R)/n;
+  const Y = v => T + (o.hi - v)*(H - T - B)/(o.hi - o.lo);
+  let s = '';
+  for(let v=o.lo; v<=o.hi; v++){ if(v % 2) continue; s += `<line class="sd-r${v===0 ? ' nul' : ''}" x1="${L}" y1="${fx(Y(v))}" x2="${W-R}" y2="${fx(Y(v))}"/>`; s += sT(L-6, Y(v), zS(v), v===0 ? 'sd-l nul' : 'sd-l', 'end'); }
+  o.lab.forEach((lb, i) => { const x = L + i*bw + bw*.18, w = bw*.64, v = o.w[i];
+    if(v!=null && v!==0){ const y1 = Y(Math.max(v, 0)), y2 = Y(Math.min(v, 0)); s += `<rect class="sd-b ${v<0 ? 'neg' : 'pos'}${i===o.nieuw ? ' nieuw' : ''}" x="${fx(x)}" y="${fx(y1)}" width="${fx(w)}" height="${fx(y2 - y1)}" rx="3"/>`;
+      s += sT(x + w/2, v>0 ? y1 - 8 : y2 + 9, zS(v), 'sd-w'); }
+    else if(v===0) s += sT(x + w/2, Y(0) - 8, '0', 'sd-w');
+    else if(i===o.nu) s += `<rect class="sd-b vraag" x="${fx(x)}" y="${fx(Y(o.hi) + 4)}" width="${fx(w)}" height="${fx(Y(o.lo) - Y(o.hi) - 8)}" rx="3"/>` + sT(x + w/2, Y(0), '?', 'sd-w');
+    s += sT(x + w/2, H - 10, lb, 'sd-x'); });
+  return svgWrap(W, H, s, {alt:'staafdiagram van de uitkomsten', maxw:460, cls:'m5-staaf'});
+}
+
+/* ---------- bankapp: saldo met bij- en afschrijvingen ---------- */
+function bankHTML(o){ /* o: {naam, start, tr:[[omschrijving, bedrag]], nu (aantal verwerkt)} */
+  let saldo = o.start; o.tr.slice(0, o.nu).forEach(([, b]) => saldo += b);
+  const rij = ([t, b], i) => `<div class="bk-r${i===o.nu ? ' nu' : i<o.nu ? ' ok' : ''}"><span>${t}</span><b class="${b<0 ? 'af' : 'bij'}">${b<0 ? MIN : '+'} € ${Math.abs(b)}</b></div>`;
+  return `<div class="m5-bank"><div class="bk-top">🏦 Rekening van ${o.naam}</div><div class="bk-saldo${saldo<0 ? ' rood' : ''}">Saldo<b>€ ${zS(saldo)}</b>${saldo<0 ? '<span class="bk-rood">je staat rood</span>' : ''}</div>
+    <div class="bk-lijst">${o.tr.map(rij).join('')}</div></div>`; }
+
+/* ---------- zoek de fout in het schriftje van een leerling: regel aanklikken, oorzaak kiezen, verbeteren ---------- */
+const OORZAAK = [['teg', 'tegengestelde vergeten'], ['tek', 'teken fout'], ['vol', 'volgorde fout'], ['rek', 'rekenfout']];
+function schriftFout(host, st, save, id, e){ /* e: {wie, task, lines, wrong, cons, oorzaak, why, fixMQ, onOk} */
+  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const s = st[id] || (st[id] = {tried:[], found:false}); const P = paneel(host);
+  const blad = el('div', 'm5-schrift'); P.vis.append(blad);
+  const k1 = stapKop(P.stap, 1, 'Klik in het schrift op de eerste regel die fout is.'); const fb = el('div', 'fb'); P.stap.append(fb);
+  const k2 = stapKop(P.stap, 2, 'Wat ging er mis?'); const kz = el('div'); P.stap.append(kz);
+  const k3 = stapKop(P.stap, 3, 'Verbeter die regel.'); const fix = el('div'); P.stap.append(fix);
+  function teken(){
+    blad.innerHTML = `<div class="sj-naam">✏️ Schrift van ${e.wie}</div><div class="sj-r opg">${e.task}</div>` + e.lines.map((l, i) => `<button type="button" class="sj-r${s.tried.includes(i) ? ' nope' : ''}${s.found && i===e.wrong ? ' fout' : ''}" data-i="${i}"${s.found ? ' disabled' : ''}>${l}</button>`).join('') + (s.found ? '' : '<div class="sj-stempel">?</div>');
+    blad.querySelectorAll('button.sj-r').forEach(b => b.addEventListener('click', () => klik(+b.dataset.i)));
+    k1.classList.toggle('klaar', s.found); k2.classList.toggle('uit', !s.found); k2.classList.toggle('klaar', !!s.oz); k3.classList.toggle('uit', !s.oz); }
+  function klik(i){ if(s.found) return;
+    if(i===e.wrong){ s.found = true; fb.className = 'fb ok'; fb.innerHTML = `✅ Juist, de fout zit in regel ${i+1}.`; save(); teken(); kiesOorzaak(); return; }
+    const cons = (e.cons||[]).includes(i); if(!s.tried.includes(i)) s.tried.push(i); save(); teken(); CLres(qid, false);
+    fb.className = 'fb bad'; fb.textContent = cons ? `❌ In regel ${i+1} loopt het mis, maar de fout begint vroeger.` : `❌ Regel ${i+1} klopt wel. Zoek verder.`; }
+  function kiesOorzaak(){ if(kz.firstChild) return;
+    qChoice(kz, st, save, id + 'oz', { noCL:true, html:'', opts:OORZAAK, ans:e.oorzaak, why:e.why, whyBad:'Kijk goed naar wat er tussen die twee regels veranderde.',
+      after:ok=>{ if(ok && !s.oz){ s.oz = true; save(); teken(); verbeter(); } } });
+    if(s.oz) verbeter(); }
+  function verbeter(){ if(fix.firstChild) return;
+    mQ(fix, st, save, id + '_fix', Object.assign({noCL:true, onOk:silent=>{ if(!silent){ CLres(qid, true); if(e.onOk) e.onOk(); } }}, e.fixMQ)); }
+  teken(); if(s.found){ fb.className = 'fb ok'; fb.innerHTML = `✅ Juist, de fout zit in regel ${e.wrong+1}.`; kiesOorzaak(); }
+}
 
 (function(){ const css = `
   .m5-as{width:100%; height:auto; touch-action:manipulation}
@@ -2056,6 +2268,113 @@ const hoeLijnen = L => L.map((l, i) => [(i ? '= ' : '') + zT(l), i < L.length-1 
   .m5-ctx{display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap}
   .m5-ctx > .m4-items{flex:1 1 300px}
   `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
+
+/* stijl van de tweede ronde: indeling, legertjes, thermometers, lift en zee, bogen met kleuren, schrift, bank */
+(function(){ const css = `
+  .m5-pan{display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:1rem; align-items:start; margin:.3rem 0}
+  .m5-pan.breed-l{grid-template-columns:minmax(0, 1.35fr) minmax(0, 1fr)}
+  @media (max-width:820px){ .m5-pan, .m5-pan.breed-l{grid-template-columns:1fr} }
+  .m5-pan-vis{border:1.5px solid var(--border); border-radius:.9rem; padding:.6rem; background:var(--zone-bg); min-width:0}
+  .m5-pan-st{display:flex; flex-direction:column; gap:.45rem; min-width:0}
+  .m5-pan-st > .fb{margin:0}
+  .m5-sk{margin:.2rem 0 0; font-weight:700; line-height:1.35; padding-left:1.75rem; text-indent:-1.75rem}
+  .m5-sk-n{display:inline-block; width:1.75rem; text-indent:0; font-size:1.25rem; color:var(--accent-dark); line-height:1}
+  .m5-sk.klaar .m5-sk-n{color:var(--ok)} .m5-sk.uit{opacity:.45}
+  .m5-tip{margin:0; font-size:.92rem; color:var(--ink-soft)}
+  .m5-vtekst{margin:0; font-size:1.05rem}
+  .m5-juist{border:2px solid var(--ok); background:var(--ok-bg); border-radius:.8rem; padding:.55rem .8rem; margin:.5rem 0; animation:m5-pop .35s ease-out}
+  .m5-juist b{color:var(--ok); font-size:1.1rem; margin-right:.3rem}
+  @keyframes m5-pop{from{transform:scale(.96); opacity:0} to{transform:none; opacity:1}}
+  .m5-vinken{display:flex; flex-direction:column; gap:.15rem; font-size:1.1rem; font-weight:700; font-variant-numeric:tabular-nums}
+  .m5-vink{color:var(--ok); font-weight:900}
+  .m5-asbox{cursor:pointer; max-width:none} .m5-asbox.sleep{touch-action:none; user-select:none}
+  .mf .as-sp.vl{stroke-dasharray:.03 .025; opacity:.75} .mf .as-spk.vl{opacity:.6}
+  .m5-slag{display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); gap:.4rem; align-items:stretch}
+  .m5-kamp{border:2px solid; border-radius:.8rem; padding:.45rem; min-height:170px; display:flex; flex-direction:column}
+  .m5-kamp.breed{grid-column:1 / -1}
+  .m5-kamp.min{background:#e8efff; border-color:#7aa0ea} .m5-kamp.plus{background:#fdeaea; border-color:#ec8f8f}
+  .m5-kamp.klik{cursor:copy} .m5-kamp.klik .m5-sd{cursor:pointer}
+  .m5-kkop{display:flex; justify-content:space-between; gap:.3rem; font-weight:800; font-size:.88rem; margin-bottom:.3rem}
+  .m5-kamp.min .m5-kkop{color:#1d4ed8} .m5-kamp.plus .m5-kkop{color:#c01f1f}
+  .m5-kcnt{background:#fff; border-radius:999px; padding:0 .55rem; white-space:nowrap}
+  .m5-troep{display:flex; flex-wrap:wrap; gap:2px; align-content:flex-start}
+  .m5-sd{width:25px; height:31px; display:inline-block; transition:opacity .3s, transform .15s}
+  .m5-sd svg{width:100%; height:100%; display:block}
+  .m5-sd.dood{opacity:.15; filter:grayscale(1)} .m5-sd.raak{animation:m5-poef .5s ease-in forwards}
+  @keyframes m5-poef{50%{transform:scale(1.25) rotate(-8deg)} to{opacity:.15; filter:grayscale(1); transform:none}}
+  .m5-kleeg{margin:auto; text-align:center; font-size:.8rem; font-style:italic; color:#4f6668}
+  .m5-vs{display:flex; align-items:center; font-size:1.5rem} .m5-vs.vecht{animation:m5-bots .3s ease-in-out infinite alternate}
+  @keyframes m5-bots{to{transform:scale(1.3)}}
+  .m5-lrijen{display:flex; flex-direction:column; gap:.35rem}
+  .m5-lrij{display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; border-radius:.6rem; padding:.3rem .45rem}
+  .m5-lrij.min{background:#e8efff} .m5-lrij.plus{background:#fdeaea}
+  .m5-lnaam{font-weight:800; min-width:7.2rem; color:#173436} .m5-lcnt{min-width:1.8rem; text-align:center; font-weight:900; background:#fff; color:#173436; border-radius:.4rem}
+  .m5-lrij .btn{padding:.2rem .55rem; font-size:.85rem}
+  .m5-th2{width:100%; height:auto; max-width:460px; display:block; margin:0 auto}
+  .m5-th2 .th-buis{fill:var(--card); stroke:#9fb3b6; stroke-width:2} .m5-th2 .th-kwik{fill:#d92d20} .m5-th2 .th-bolr{fill:none; stroke:#8a2a20; stroke-width:2}
+  .m5-th2 .th-t{stroke:var(--ink); stroke-width:1.3} .m5-th2 .th-t.nul{stroke-width:3}
+  .m5-th2 .th-lab{font-size:12px; fill:var(--ink-soft); font-weight:600} .m5-th2 .th-lab.nul{font-weight:900; fill:var(--ink)}
+  .m5-th2 .th-titel{font-size:16px; font-weight:800; fill:var(--ink)}
+  .m5-th2 .th-tag{fill:#173436} .m5-th2 .th-tagt{fill:#fff; font-size:13px; font-weight:800}
+  .m5-th2 .th-start{stroke:var(--ink); stroke-width:2; stroke-dasharray:4 3}
+  .m5-th2 .th-pijl{stroke:var(--ink); stroke-width:4; stroke-linecap:round} .m5-th2 .th-pijl.vl{stroke-dasharray:7 5} .m5-th2 .th-pijlk{fill:var(--ink)}
+  .m5-th2 .th-sprong{font-size:17px; font-weight:900; fill:var(--ink)}
+  .m5-th2 .th-raak{fill:transparent; cursor:ns-resize}
+  .m5-vfig.sleep{touch-action:none; user-select:none}
+  .m5-hg{width:100%; height:auto; max-width:380px; display:block; margin:0 auto; border-radius:.6rem}
+  .m5-vfig.sleep .m5-hg{cursor:pointer}
+  .m5-hg .hg-kab rect{fill:#3bc1c5; stroke:#127a7f; stroke-width:1.5} .m5-hg .hg-geest{opacity:.45} .m5-hg .hg-geest rect{fill:#fcaf17; stroke:#b77900; stroke-dasharray:3 2}
+  .m5-pir-in{gap:.3rem} .m5-pir-rij{gap:.3rem}
+  .m5-steen{display:inline-flex; align-items:center; gap:.2rem; min-width:4.6rem; height:2.9rem; padding:0 .25rem; justify-content:center; border-radius:.5rem; box-sizing:border-box; font-size:1.15rem; font-weight:700}
+  .m5-steen.vast{background:var(--tq-soft); border:2px solid var(--tq)}
+  .m5-steen.open{border:2px solid var(--border); background:var(--card)}
+  .m5-steen.ok{border-color:var(--ok); background:var(--ok-bg)} .m5-steen.bad{border-color:var(--bad); background:var(--bad-bg)}
+  .m5-steen .m4-teken{height:2.3rem; width:1.5rem}
+  .m5-steen .m5-pir-v{width:2.9rem; height:2.2rem; font-size:1.1rem; padding:0}
+  .m5-balk{display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; margin-bottom:.5rem; font-size:.85rem}
+  .m5-balk-k{font-size:.72rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-right:.2rem}
+  .m5-bs{--c:#7b3fb8; border:2px solid var(--c); border-radius:999px; padding:.1rem .6rem; background:var(--card); color:var(--ink)}
+  .m5-bs b{color:var(--c)} .m5-bs small{color:var(--ink-soft)}
+  .m5-bs.aan{background:var(--c); color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.15)} .m5-bs.aan b, .m5-bs.aan small{color:#fff}
+  .m5-bpijl{color:var(--ink-soft)}
+  .lv1{--c:#7b3fb8} .lv2{--c:#e06c00} .lv3{--c:#1565c0} .lv4{--c:#ad1457}
+  .m5-blad{background:#fffef7; border:1px solid #ece6c8; border-radius:.7rem; padding:.4rem .7rem .6rem 2.4rem; color:#173436; background-image:linear-gradient(to right, transparent 1.6rem, #f3b4b4 1.6rem 1.7rem, transparent 1.7rem); overflow-x:auto}
+  .m5-blad .m5-bog-regel{border-bottom:1px solid #e4ecf0; padding:.15rem 0; margin:0}
+  .m5-blad .m5-bog-regel:not(.nu){color:#35545a; font-size:1.3rem}
+  .m5-bog-v{color:var(--ok); font-weight:900; margin-left:auto}
+  .bg-s.u{background:color-mix(in srgb, var(--c, #8e5bd0) 14%, #fff); outline:2px solid var(--c, #8e5bd0)}
+  .bg-s.u > .bg-arc{border-color:var(--c, #8e5bd0)}
+  .bg-s.u > .bg-ub{border-color:var(--c, #8e5bd0); color:#173436}
+  .bg-in{background:#fff; color:#173436}
+  .bg-op{background:#fff; color:#173436}
+  .bg-tp{display:inline-flex; gap:.15rem; font:inherit; font-weight:900; padding:0 .3rem; border:2px dashed #e0a800; border-radius:.45rem; background:#fff4e0; color:#173436; cursor:pointer; line-height:1.25; animation:m5-puls 1.6s ease-in-out infinite}
+  .bg-tp:hover, .bg-tp:focus-visible{border-style:solid; outline:none}
+  @keyframes m5-puls{50%{box-shadow:0 0 0 4px rgba(252,175,23,.35)}}
+  @media (prefers-reduced-motion:reduce){ .bg-tp, .m5-vs.vecht, .m5-juist{animation:none} }
+  .m5-schrift{position:relative; background:#fffef7; border:1px solid #ece6c8; border-radius:.8rem; padding:.8rem 1rem 1.4rem 3rem; color:#3a3a3a; background-image:linear-gradient(to right, transparent 2.1rem, #f3b4b4 2.1rem 2.2rem, transparent 2.2rem), repeating-linear-gradient(to bottom, transparent 0 2.45rem, #dbe7ef 2.45rem 2.5rem); min-height:12rem}
+  .sj-naam{font-size:.85rem; color:#4f6668; font-weight:700; margin-bottom:.4rem; font-family:inherit}
+  .sj-r{display:block; width:100%; text-align:left; font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:1.35rem; line-height:2.5rem; min-height:2.5rem; background:transparent; border:0; border-radius:.4rem; color:#2b3a55; padding:0 .4rem}
+  button.sj-r{cursor:pointer} button.sj-r:hover:not(:disabled){background:#fff1c2}
+  .sj-r.nope{text-decoration:line-through; text-decoration-color:#e57373; color:#7a8a95}
+  .sj-r.fout{background:#fdecea; outline:2px solid #e57373}
+  .sj-r.opg{font-weight:700}
+  .sj-stempel{position:absolute; right:1rem; bottom:.8rem; width:3rem; height:3rem; border-radius:50%; border:4px solid var(--orange); color:var(--orange); font-size:1.7rem; font-weight:900; display:grid; place-items:center; transform:rotate(-12deg)}
+  .m5-bank{max-width:340px; margin:0 auto; border-radius:1.2rem; background:#127a7f; color:#fff; padding:.9rem 1rem}
+  .bk-top{font-size:.85rem; opacity:.9; font-weight:700}
+  .bk-saldo{font-size:.85rem; margin:.6rem 0 .7rem} .bk-saldo b{display:block; font-size:2rem; margin-top:.1rem; transition:color .3s}
+  .bk-saldo.rood b{color:#ffb4a8} .bk-rood{display:inline-block; margin-top:.2rem; background:#d92d20; border-radius:999px; padding:0 .6rem; font-weight:800; font-size:.8rem}
+  .bk-lijst{background:rgba(255,255,255,.12); border-radius:.8rem; padding:.15rem .7rem}
+  .bk-r{display:flex; justify-content:space-between; gap:.6rem; padding:.45rem 0; font-size:.9rem; border-bottom:1px solid rgba(255,255,255,.15); opacity:.55}
+  .bk-r:last-child{border-bottom:0} .bk-r.ok{opacity:.85} .bk-r.nu{opacity:1; font-weight:700; background:rgba(255,255,255,.14); margin:0 -.4rem; padding:.45rem .4rem; border-radius:.4rem}
+  .bk-r .af{color:#ffd0c8} .bk-r .bij{color:#c9f7d8}
+  .m5-staaf{width:100%; height:auto} .mf .sd-r{stroke:var(--border); stroke-width:1} .mf .sd-r.nul{stroke:var(--ink); stroke-width:2}
+  .mf .sd-l{font-size:11px; fill:var(--ink-soft)} .mf .sd-l.nul{font-weight:900; fill:var(--ink)}
+  .mf .sd-b.pos{fill:var(--tq)} .mf .sd-b.neg{fill:#e8772e} .mf .sd-b.vraag{fill:none; stroke:var(--orange); stroke-width:2; stroke-dasharray:5 4}
+  .mf .sd-b.nieuw{animation:m5-in .5s both}
+  .mf .sd-w{font-size:12px; font-weight:800; fill:var(--ink)} .mf .sd-x{font-size:12px; font-weight:700; fill:var(--accent-dark)}
+  .m5-tl{width:100%; height:auto; display:block}
+  @media (max-width:600px){ .m5-bs small{display:none} .m5-kamp{min-height:120px} .m5-lnaam{min-width:0; flex:1 1 100%} }
+  `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
 /* ============================================================
    ONDERDEEL · OPTELLEN VAN GEHELE GETALLEN
    basis: getallen tot 20 (met tekenvak), oefenen: tot 100, verdieping: groter en redeneren
@@ -2087,32 +2406,35 @@ const somMeer = (a, b) => host => { host.innerHTML = '<p>Op de getallenas: start
 const OP = {};
 /* ---------- 1 ontdek het patroon ---------- */
 OP.patroon = { title:'Ontdek het patroon', lvl:1,
-  instr:'Reken de sommen van boven naar onder uit. Kijk op de getallenas hoe de uitkomst verandert.',
+  instr:'Reken de sommen van boven naar onder uit. Kijk hoe de staven en de getallenas veranderen.',
   build(b, st, save){
-    const R = makeR(st); const a = R.pick([3, 4, 5, -2, -3, -4]); const B = [3, 2, 1, 0, -1, -2, -3]; if(!st.k) st.k = {};
-    const wrap = el('div', 'm4-naast'); b.append(wrap); const lk = el('div'), vis = el('div', 'm4-vis'); wrap.append(lk, vis);
-    const ber = asBereik([a - 3, a + 3], 12); const figH = el('div'); const uitl = el('p', 'm5-stap'); vis.append(figH, uitl);
-    const fig = (i, anim) => { const pt = [{x:a, cls:'start'}]; B.forEach((x, j) => { if(j < st.i && x) pt.push({x:a + x}); });
+    const R = makeR(st); const a = R.pick([3, 4, 5, -2, -3, -4]); const B = [3, 2, 1, 0, -1, -2, -3]; if(!st.k) st.k = {}; if(st.i==null) st.i = 0;
+    const P = paneel(b); const staaf = el('div'), figH = el('div'), uitl = el('p', 'm5-tip'); P.vis.append(staaf, figH, uitl);
+    const ber = asBereik([a - 3, a + 3], 12); const lo = Math.min(0, a - 3) - 1, hi = Math.max(0, a + 3) + 1;
+    stapKop(P.stap, 1, 'Reken uit, van boven naar onder.'); const lijst = el('div'), g = el('div'); P.stap.append(lijst, g);
+    const k2 = stapKop(P.stap, 2, 'Wat valt je op?'); const bes = el('div'); P.stap.append(bes);
+    const fig = (anim) => { const i = st.i ? st.i - 1 : null; const pt = [{x:a, cls:'start'}]; B.forEach((x, j) => { if(j < st.i && x) pt.push({x:a + x}); });
       const sp = i!=null && B[i] ? [{van:a, naar:a + B[i], lab:'+ ' + zP(B[i]), cls:B[i]<0 ? 'neg' : 'pos', nieuw:anim}] : [];
+      staaf.innerHTML = staafSvg({lab:B.map(x => '+ ' + zP(x)), w:B.map((x, j) => j < st.i ? a + x : null), lo, hi, nu:st.i, nieuw:anim ? st.i - 1 : -1});
       figH.innerHTML = asSvg(Object.assign({}, ber, {W:440, punten:pt, sprongen:sp, alt:'getallenas met de uitkomsten', maxw:520}));
       uitl.innerHTML = i==null ? `Start bij <b>${zS(a)}</b>.` : B[i]>0 ? `${zP(B[i])} optellen: ${B[i]} naar <b>rechts</b>.` : B[i]<0 ? `${zP(B[i])} optellen: ${-B[i]} naar <b>links</b>.` : '0 optellen: je blijft staan.'; };
-    const lijst = el('div', 'm5-patroon'), g = el('div'); lk.append(lijst, g); if(st.i==null) st.i = 0;
-    const toon = anim => { lijst.innerHTML = B.slice(0, st.i).map((x, j) => `<div class="m5-ok-r"><span>${somT(a, x)} = <b>${zS(a + x)}</b></span> <span class="m5-vink">✓</span></div>`).join('');
-      g.innerHTML = ''; fig(st.i ? st.i - 1 : null, anim);
+    const toon = anim => { lijst.innerHTML = vinkLijst(B.slice(0, st.i).map(x => `${somT(a, x)} = ${zS(a + x)}`));
+      g.innerHTML = ''; fig(anim); k2.classList.toggle('uit', st.i < B.length);
       if(st.i < B.length){ const i = st.i, x = B[i];
         mQ(g, st, save, 'p' + i, { html:`${somT(a, x)} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, a + x, [[a - x, 'Kijk naar het patroon: telkens 1 minder optellen geeft 1 minder.']]),
           onOk:silent=>{ if(!silent && st.i===i){ st.k[i] = 1; st.i++; save(); setTimeout(()=>toon(true), 500); } } });
         const f = g.querySelector('.m4-teken button'); if(f && anim) f.focus({preventScroll:true}); }
       else besluit(); };
     toon(false);
-    function besluit(){ if(lk.querySelector('.m5-besluit')) return; const d = el('div', 'm5-besluit'); lk.append(d);
-      qChoice(d, st, save, 'bes', { html:'Wat gebeurt er als je een <b>negatief</b> getal optelt?', opts:[['l', 'je gaat naar links: de uitkomst wordt kleiner'], ['r', 'je gaat naar rechts: de uitkomst wordt groter']], ans:'l',
-        why:`Een negatief getal optellen: naar links op de getallenas. Bijvoorbeeld ${somT(a, -2)} = ${zS(a - 2)}.`, whyBad:'Kijk naar de laatste drie sommen: de uitkomst wordt telkens kleiner.' }); }
+    function besluit(){ if(bes.firstChild) return;
+      qChoice(bes, st, save, 'bes', { html:'Wat gebeurt er als je een <b>negatief</b> getal optelt?', opts:[['l', 'je gaat naar links: de uitkomst wordt kleiner'], ['r', 'je gaat naar rechts: de uitkomst wordt groter']], ans:'l',
+        why:`Een negatief getal optellen: naar links op de getallenas. Bijvoorbeeld ${somT(a, -2)} = ${zS(a - 2)}.`, whyBad:'Kijk naar de staven: na + 0 zakken ze telkens 1.',
+        after:ok=>{ if(ok && !bes.querySelector('.m5-juist')) allesJuist(bes, 'Telkens 1 minder optellen geeft 1 minder. Daarom wordt de uitkomst kleiner als je een negatief getal optelt.'); } }); }
   } };
 
 /* ---------- 2 springen op de getallenas ---------- */
 OP.sprong = { title:'Springen op de getallenas', lvl:1,
-  instr:'Klik eerst op het startgetal. Spring dan zoveel stappen als de tweede term: naar rechts als die positief is, naar links als die negatief is.',
+  instr:'Klik eerst op het startgetal. Sleep dan zoveel stappen als de tweede term: naar rechts als die positief is, naar links als die negatief is.',
   build(b, st, save){
     const R = makeR(st); const P = [somPaar(R, 'pn', 9), somPaar(R, 'np', 9), somPaar(R, 'zz', 6)]; if(st.i==null) st.i = 0;
     const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
@@ -2120,13 +2442,13 @@ OP.sprong = { title:'Springen op de getallenas', lvl:1,
       host.innerHTML = '';
       if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`)); const [x, y] = P[st.i];
         sprongAs(host, st, save, 's' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }}); }
-      else host.append(el('div', 'm4-regel nieuw', '✅ Alle sprongen juist. Een positief getal optellen: <b>naar rechts</b>. Een negatief getal optellen: <b>naar links</b>.')); };
+      else allesJuist(host, 'Een positief getal optellen: naar <b>rechts</b>. Een negatief getal optellen: naar <b>links</b>.'); };
     toon();
   } };
 
 /* ---------- 3 legertjes ---------- */
 OP.leger = { title:'Plus- en min-soldaten', lvl:1,
-  instr:'Plus-soldaten staan voor positieve getallen, min-soldaten voor negatieve. Een plus- en een min-soldaat heffen elkaar op: samen zijn ze 0. Laat de nulparen verdwijnen en tel wat overblijft.',
+  instr:'Een positief getal is een plus-leger, een negatief getal een min-leger. Een plus- en een min-soldaatje samen zijn 0: een nulpaar. Stel de legers op, laat ze vechten en tel wat overblijft.',
   build(b, st, save){
     const R = makeR(st); const P = R.shuffle([somPaar(R, 'pn', 8), somPaar(R, 'np', 8), somPaar(R, 'zz', 5)]); if(st.i==null) st.i = 0;
     const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
@@ -2134,7 +2456,7 @@ OP.leger = { title:'Plus- en min-soldaten', lvl:1,
       host.innerHTML = '';
       if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`)); const [x, y] = P[st.i];
         legertjes(host, st, save, 'l' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }}); }
-      else host.append(el('div', 'm4-regel nieuw', '✅ Klaar. Verschillend teken: de nulparen verdwijnen, het leger met de meeste soldaten wint. Zelfde teken: alle soldaten blijven over.')); };
+      else allesJuist(host, 'Verschillend teken: de nulparen vallen weg en het grootste leger wint. Zelfde teken: de legers voegen samen.'); };
     toon();
   } };
 
@@ -2183,39 +2505,72 @@ OP.ber2 = { title:'Bereken tot 100', lvl:2,
         hint:somHint(x, y, false), meer:somMeer(x, y), sol:`${somT(x, y)} ${isq} ${zS(T)}` }); });
   } };
 
-/* ---------- 7 temperatuur met een thermometer ---------- */
+/* ---------- 7 temperatuur met twee thermometers ---------- */
+const UREN = [['🌅', '7.00 uur'], ['☀️', '12.00 uur'], ['🌇', '17.00 uur'], ['🌙', '22.00 uur'], ['🌌', '3.00 uur']];
+/* een reeks veranderingen na elkaar (thermometer, lift, duiker) */
+function veranderKaart(b, st, save, L, maak, slot){ if(st.i==null) st.i = 0;
+  const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
+  const toon = () => { lijst.innerHTML = L.slice(0, st.i).map(([v, d]) => `<span class="m5-ok">✓ ${somT(v, d)} = ${zS(v + d)}</span>`).join('');
+    host.innerHTML = '';
+    if(st.i < L.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${L.length}`)); verander(host, st, save, 'v' + st.i, Object.assign(maak(st.i), {onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }})); }
+    else allesJuist(host, slot); };
+  toon(); }
 OP.temp = { title:'Een dag op de thermometer', lvl:2,
-  instr:'Volg de temperatuur van een winterdag. Bij elke verandering tel je op: een stijging is positief, een daling negatief.',
+  instr:'Volg de temperatuur van een winterdag. Stel telkens de rechtse thermometer in en schrijf de optelling: een stijging is positief, een daling negatief.',
   build(b, st, save){
-    const R = makeR(st); const t0 = R.int(-8, 3); const V = []; let t = t0;
-    [['tegen de middag stijgt de temperatuur', 1], ['in de namiddag stijgt ze nog wat', 1], ['bij zonsondergang daalt ze', -1], ['in de nacht daalt ze verder', -1]].forEach(([tx, s]) => { let d;
-      for(let k=0; k<50; k++){ d = s*R.int(3, 11); if(t + d >= -18 && t + d <= 18 && t + d!==0) break; } V.push([tx, d, t]); t += d; });
-    if(st.i==null) st.i = 0;
-    const wrap = el('div', 'm5-ctx'); b.append(wrap); const th = el('div', 'm4-vis'); const rt = el('div', 'm4-items een'); wrap.append(th, rt);
-    const teken = (anim) => { const nu = st.i ? V[st.i-1][2] + V[st.i-1][1] : t0; const van = anim && st.i ? V[st.i-1][2] : null; th.innerHTML = thermoSvg({lo:-20, hi:20, t:nu, van}); };
-    const toon = anim => { rt.innerHTML = ''; teken(anim);
-      rt.append(el('p', '', `'s Morgens is het <b>${zS(t0)} °C</b>.`));
-      V.forEach(([tx, d, van], i) => { if(i > st.i) return;
-        mQ(rt, st, save, 't' + i, { nr:'abcd'[i] + ')', html:`<span class="txt">${tx[0].toUpperCase() + tx.slice(1)} ${d>0 ? 'met' : 'met'} ${Math.abs(d)} °C:</span> ${somT(van, d)} ${isq} {{u:a}} <span class="txt">°C</span>`,
-          check:V2=>chkG(V2.a, van + d, [[van - d, d<0 ? 'Een daling is een negatieve verandering: tel ' + zP(d) + ' op.' : 'Een stijging maakt het warmer.']]),
-          onOk:silent=>{ if(!silent && st.i===i){ st.i++; save(); toon(true); } } }); });
-      if(st.i >= V.length) rt.append(el('div', 'm4-regel nieuw', `✅ 's Avonds laat is het ${zS(t)} °C. Een stijging tel je op als positief getal, een daling als negatief getal.`)); };
-    toon(false);
+    const R = makeR(st); let t = R.int(-8, 3); const V = [];
+    [['Tegen de middag stijgt de temperatuur', 1], ['In de namiddag stijgt ze nog wat', 1], ['Bij zonsondergang daalt ze', -1], ['In de nacht daalt ze verder', -1]].forEach(([tx, s]) => { let d;
+      for(let k=0; k<50; k++){ d = s*R.int(3, 9); if(t + d >= -14 && t + d <= 14 && t + d!==0) break; } V.push([t, d, tx]); t += d; });
+    veranderKaart(b, st, save, V, i => { const [van, d, tx] = V[i];
+      return {soort:'thermo', van, d, lo:-15, hi:15, voor:UREN[i], na:UREN[i+1], eenheid:'°C', tekst:`Om ${UREN[i][1]} is het <b>${zS(van)} °C</b>. ${tx} met <b>${Math.abs(d)} °C</b>. Hoe warm is het om ${UREN[i+1][1]}?`}; },
+      'Een stijging tel je op als positief getal, een daling als negatief getal.');
   } };
 
-/* ---------- 8 rekenen in het echt ---------- */
-OP.echt = { title:'Rekenen in het echt', lvl:2,
-  instr:'Schrijf elke situatie als een optelling in je hoofd en vul de uitkomst in.',
+/* ---------- 8 de lift ---------- */
+const verd = v => v>0 ? `verdieping ${v}` : v===0 ? 'het gelijkvloers (0)' : `parking ${zS(v)}`;
+OP.lift = { title:'Met de lift', lvl:2,
+  instr:'De verdiepingen onder de grond zijn negatief. Zet de lift op de juiste verdieping en schrijf de optelling.',
   build(b, st, save){
-    const R = makeR(st);
-    const h = R.int(4, 15), d = R.int(3, 12), v = R.int(1, 6), w = R.int(v + 2, v + 7), s = -R.int(15, 60), st2 = R.int(30, 90), j = R.pick([480, 625, 753, 1200]), n = R.pick([500, 800, 1000, 1500]);
-    const L = [
-      [`Een duiker zwemt op ${h} m onder het wateroppervlak. Hij daalt nog ${d} m dieper. Op welke hoogte zwemt hij nu?`, -h - d, 'm', `${zS(-h)} + ${zP(-d)}`],
-      [`Een lift staat op verdieping ${v}. Hij gaat ${w} verdiepingen naar beneden. Op welke verdieping stopt hij? (onder de grond: negatief)`, v - w, '', `${v} + ${zP(-w)}`],
-      [`Op de rekening van Noor staat ${zS(s)} euro. Ze stort ${st2} euro. Hoeveel staat er nu op haar rekening?`, s + st2, 'euro', `${zS(s)} + ${st2}`],
-      [`Een stad werd gesticht in het jaar ${j} voor Christus (${zS(-j)}). In welk jaar vierde ze haar ${n}ste verjaardag? (voor Christus: negatief)`, -j + n, '', `${zS(-j)} + ${n}`]];
-    reeks(b, L.length, (g, i, nr) => { const [tx, T, u, som] = L[i];
-      mQ(g, st, save, 'e' + i, { nr, html:`<span class="txt">${tx}</span> {{u:a}} <span class="txt">${u}</span>`, check:V=>chkG(V.a, T), hint:[`Schrijf als optelling: ${som}.`], sol:`${som} ${isq} ${zS(T)}` }); }, {een:true});
+    const R = makeR(st); const L = [];
+    for(let k=0; k<300 && L.length<3; k++){ const v = R.int(-3, 8), d = (L.length===1 ? 1 : -1)*R.int(2, 9), w = v + d;
+      if(w < -3 || w > 8 || w===v || L.some(l => l[0]===v)) continue; if(L.length!==1 && !(v>0 && w<0) && k<200) continue; L.push([v, d]); }
+    veranderKaart(b, st, save, L, i => { const [v, d] = L[i];
+      return {soort:'lift', van:v, d, lo:-3, hi:8, tekst:`De lift staat op <b>${verd(v)}</b>. Hij gaat <b>${Math.abs(d)} verdiepingen naar ${d>0 ? 'boven' : 'beneden'}</b>. Op welke verdieping stopt hij?`}; },
+      'Naar boven tel je een positief getal op, naar beneden een negatief getal.');
+  } };
+
+/* ---------- 9 duiken ---------- */
+OP.duik = { title:'Duiker en haai', lvl:2,
+  instr:'Onder het wateroppervlak is de hoogte negatief. Zet de duiker op de juiste diepte en schrijf de optelling.',
+  build(b, st, save){
+    const R = makeR(st); const L = []; let v = -R.int(3, 9);
+    [-1, 1, -1].forEach(s => { let d; for(let k=0; k<50; k++){ d = s*R.int(4, 12); if(v + d >= -28 && v + d <= -1) break; } if(v + d < -28 || v + d > -1) d = s<0 ? -2 : 2; L.push([v, d]); v += d; });
+    const zin = (v, d) => d<0 ? `daalt nog <b>${-d} m</b> dieper` : `stijgt <b>${d} m</b>`;
+    veranderKaart(b, st, save, L, i => { const [v, d] = L[i];
+      return {soort:'zee', van:v, d, lo:-30, hi:8, extra:[['🦈', -24], ['🐦', 5]], eenheid:'m', tekst:`De duiker zwemt op <b>${-v} m</b> onder water (${zS(v)} m). Hij ${zin(v, d)}. Op welke hoogte zwemt hij nu?`}; },
+      'Dieper gaan is een negatief getal optellen, stijgen een positief getal.');
+  } };
+
+/* ---------- 10 bankapp ---------- */
+OP.bank = { title:'De bankapp', lvl:2,
+  instr:'Een storting tel je op als positief getal, een betaling als negatief getal. Volg het saldo. Een negatief saldo betekent dat je rood staat.',
+  build(b, st, save){
+    const R = makeR(st); const naam = R.pick(['Jonas', 'Noor', 'Lina', 'Yassin']); let start, tr;
+    const BIJ = [['👵 Storting van oma', 20, 50], ['💼 Zakgeld', 10, 25], ['🎂 Verjaardag', 15, 40]], AF = [['🎮 Game online', 25, 70], ['🍕 Pizza met vrienden', 12, 30], ['🎧 Oortjes', 20, 60], ['🚲 Fietsherstelling', 15, 45]];
+    for(let k=0; k<300; k++){ start = R.int(10, 40); const af = R.shuffle(AF), bij = R.shuffle(BIJ);
+      tr = [af[0], af[1], bij[0], af[2]].map(([t, lo, hi], j) => [t, (j===2 ? 1 : -1)*R.int(lo, hi)]);
+      let s = start; const S = tr.map(([, x]) => s += x); if(S.some(x => x<0) && S.some(x => x>0) && S.every(x => x!==0 && Math.abs(x) <= 99)) break; }
+    if(st.i==null) st.i = 0; const P = paneel(b); const app = el('div'); P.vis.append(app); const sp = el('div'); P.stap.append(sp);
+    const saldo = n => { let s = start; tr.slice(0, n).forEach(([, x]) => s += x); return s; };
+    const toon = () => { app.innerHTML = bankHTML({naam, start, tr, nu:st.i}); sp.innerHTML = '';
+      sp.append(el('div', 'm5-vinken', tr.slice(0, st.i).map(([t, x], j) => `<div><span class="m5-vink">✓</span> ${somT(saldo(j), x)} = ${zS(saldo(j + 1))}</div>`).join('')));
+      if(st.i < tr.length){ const i = st.i, [t, x] = tr[i], v = saldo(i);
+        stapKop(sp, 1, `Lees de volgende regel: <b>${t}</b>.`); stapKop(sp, 2, 'Schrijf de optelling en het nieuwe saldo.');
+        mQ(sp, st, save, 'k' + i, { html:`${zS(v)} + <span class="m4-par">(</span>{{g:d}}<span class="m4-par">)</span> ${isq} {{u:r}} <span class="txt">euro</span>`,
+          check:V=>allOf([['d', chkG(V.d, x, [[-x, x<0 ? 'Een betaling gaat van je rekening af: een negatief getal.' : 'Een storting komt op je rekening: een positief getal.']])], ['r', chkG(V.r, v + x)]]),
+          onOk:silent=>{ if(!silent && st.i===i){ st.i++; save(); setTimeout(toon, 600); } } }); }
+      else allesJuist(sp, `Het eindsaldo is € ${zS(saldo(tr.length))}. Bij een negatief saldo sta je rood: je hebt meer uitgegeven dan er op de rekening stond.`); };
+    toon();
   } };
 
 /* ---------- 9 som-piramide ---------- */
@@ -2263,6 +2618,22 @@ OP.pir2 = { title:'Piramide met gaten', lvl:3,
     piramide(b, st, save, 'q', {basis:B, open:[1, 2, 10, 12, 21, 30], whyBad:'Werk van onder naar boven en omgekeerd: als je de som en één term kent, zoek je de andere term.'});
   } };
 
+OP.tijd = { title:'Voor en na Christus', lvl:3,
+  instr:'Een jaar voor Christus (v.C.) schrijf je als negatief getal, een jaar na Christus (n.C.) als positief getal. Let op: het jaar 0 bestaat niet.',
+  build(b, st, save){
+    regelTop(b, `Na het jaar 1 v.C. komt meteen het jaar 1 n.C.<div class="m5-tlijn">${['3 v.C.', '2 v.C.', '1 v.C.', '1 n.C.', '2 n.C.', '3 n.C.'].map((j, i) => `<span class="${i<3 ? 'vc' : 'nc'}">${j}</span>`).join('')}</div>Ga je over die grens, dan kom je één jaar verder uit dan het rekenwerk geeft: het jaar 0 sla je over.`);
+    const R = makeR(st);
+    const j1 = R.int(3, 9)*100 + R.pick([0, 25, 50, 53]), n1 = R.int(1, Math.floor(j1/100) - 1)*100 + R.int(0, 9)*10;
+    const j2 = R.pick([753, 509, 336, 146, 44]), n2 = R.pick([800, 1000, 1200, 1500]);
+    const y3 = R.int(2, 30)*10, n3 = y3 + R.int(1, 30)*10;
+    const L = [
+      [`Een tempel werd gebouwd in ${j1} v.C. Hij brandde ${n1} jaar later af. In welk jaar was dat?`, -j1 + n1, null, `${zS(-j1)} + ${n1} = ${zS(-j1 + n1)}: dat is ${j1 - n1} v.C. Je ging niet over de grens, dus je hoeft niets aan te passen.`],
+      [`Een stad werd gesticht in ${j2} v.C. In welk jaar vierde ze haar ${n2}ste verjaardag?`, -j2 + n2 + 1, -j2 + n2, `${zS(-j2)} + ${n2} = ${-j2 + n2}, maar je sprong over het jaar 0 dat niet bestaat. Het is dus ${-j2 + n2 + 1} n.C.`],
+      [`Een brug werd gebouwd in ${y3} n.C. Een tempel in dezelfde stad is ${n3} jaar ouder. In welk jaar werd de tempel gebouwd?`, y3 - n3 - 1, y3 - n3, `${y3} + ${zP(-n3)} = ${zS(y3 - n3)}, maar het jaar 0 bestaat niet. Het is dus ${n3 - y3 + 1} v.C., of ${zS(y3 - n3 - 1)}.`]];
+    reeks(b, L.length, (g, i, nr) => { const [tx, T, naief, uitl] = L[i];
+      mQ(g, st, save, 'j' + i, { nr, html:`<span class="txt">${tx}</span> {{u:a}}`, check:V=>chkG(V.a, T, naief!=null ? [[naief, 'Je rekende goed, maar het jaar 0 bestaat niet. Ging je over de grens tussen v.C. en n.C.?']] : [[T - 1, 'Je ging niet over de grens tussen v.C. en n.C.: dan pas je niets aan.']]), sol:uitl }); }, {een:true});
+  } };
+
 Object.assign(ICONS, {
   z_optel:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>',
   z_volg:'<path d="M3 20h5v-5h5v-5h5V5h3"/><path d="M4 15.5l3-3M9 10.5l3-3"/>'
@@ -2275,13 +2646,14 @@ const CHEAT_OPTEL = `<h3>Spiekbriefje · optellen</h3><table>
   <tr><td>haakjes</td><td>een negatief getal na een bewerkingsteken staat tussen haakjes: 4 + (${MIN}9)</td></tr></table>`;
 SEC.optel = { id:'optel', ic:'z_optel', nav:'Optellen', title:'Gehele getallen optellen',
   tip:'Een positief getal optellen: naar rechts op de getallenas. Een negatief getal optellen: naar links. Een negatief getal na een bewerkingsteken staat tussen haakjes.',
-  cheat:CHEAT_OPTEL, cards:[OP.patroon, OP.sprong, OP.leger, OP.regel, OP.ber1, OP.ber2, OP.temp, OP.echt, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2] };
+  cheat:CHEAT_OPTEL, cards:[OP.patroon, OP.sprong, OP.leger, OP.regel, OP.ber1, OP.ber2, OP.temp, OP.lift, OP.duik, OP.bank, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2, OP.tijd] };
 (function(){ const s = document.createElement('style'); s.textContent = `
   .m5-gedaan{display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 .4rem} .m5-ok{background:var(--ok-bg); color:var(--ok); border-radius:.5rem; padding:.15rem .55rem; font-weight:700}
   .m5-teller{font-size:.85rem; font-weight:700; color:var(--accent-dark); text-transform:uppercase; letter-spacing:.04em}
   .m5-rk{padding:.4rem 0 .6rem; border-bottom:1px solid var(--accent-soft)} .m5-rk .q{padding:.2rem 0}
   .m5-vb{font-weight:700; font-size:1.1rem}
   .m5-besluit{margin-top:.6rem}
+  .m5-tlijn{display:flex; flex-wrap:wrap; gap:.25rem; margin:.4rem 0; font-weight:700} .m5-tlijn span{border-radius:.4rem; padding:.1rem .5rem} .m5-tlijn .vc{background:#e8efff; color:#1d4ed8} .m5-tlijn .nc{background:#fdeaea; color:#c01f1f} .m5-tlijn span:nth-child(3){margin-right:.6rem}
   .m5-patroon{display:flex; flex-direction:column; gap:.15rem; font-size:1.2rem; font-variant-numeric:tabular-nums} .m5-ok-r{display:flex; gap:.5rem; align-items:center} .m5-vink{color:var(--ok); font-weight:900}
   `; document.head.append(s); })();
 /* ============================================================
@@ -2353,12 +2725,12 @@ function bogKaart(b, st, save, lijst){
   const toon = () => { host.innerHTML = '';
     if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`));
       bogen(host, st, save, 'g' + st.i, {opg:P[st.i], onOk:()=>{ st.i++; save(); toon(); }}); }
-    else { host.append(el('div', 'm4-regel nieuw', '✅ Alle drie juist uitgewerkt. Zo werk je ook op papier: zet in gedachten een boog onder de bewerking die eerst moet.'));
+    else { allesJuist(host, 'Je werkte telkens eerst de haakjes uit, dan maal en gedeeld door, en pas dan plus en min. Zo werk je ook op papier.');
       host.append(el('div', 'm5-gedaan', P.map(E => `<span class="m5-ok">✓ ${zT(E)} = ${zS(ZX.waarde(E).k)}</span>`).join(''))); } };
   toon();
 }
 VG.bog1 = { title:'Wat eerst?', lvl:1,
-  instr:'Klik op het bewerkingsteken van de bewerking die eerst moet. Typ de uitkomst onder de boog en druk op Enter. Zo reken je regel per regel verder.',
+  instr:'Klik op het bewerkingsteken van de bewerking die eerst moet. Typ de uitkomst onder de boog en ga naar de volgende regel. De kleur toont welke stap van het stappenplan je zet.',
   build(b, st, save){ bogKaart(b, st, save, VT.bog1); } };
 VG.bog2 = { title:'Wat eerst? Met haakjes', lvl:1,
   instr:'Nu staan er ook haakjes. Klik op het bewerkingsteken van de bewerking die eerst moet en typ de uitkomst onder de boog.',
@@ -2435,21 +2807,27 @@ VG.verhaal = { title:'Rekenverhalen', lvl:2,
 
 /* ---------- 8 zoek de fout ---------- */
 VG.fout = { title:'Zoek de fout', lvl:2,
-  instr:'In elke uitwerking zit één fout. Klik op de eerste stap die fout is en verbeter die stap.',
+  instr:'In elk schrift zit één fout. Klik op de eerste regel die fout is, kies wat er misging en verbeter die regel.',
   build(b, st, save){
     const R = makeR(st);
     const F = R.shuffle([
-      () => { const a = R.int(5, 20), x = R.int(2, 6), y = R.int(2, 6); return [`${a} − ${x} · ${y}`, `${a - x} · ${y}`, 0, 'Maal gaat voor min: eerst ' + x + ' · ' + y + '.']; },
-      () => { const q = R.int(2, 5), m = R.int(2, 6), k = R.int(2, 5); return [`${zS(-q*m)} + ${q*k} : ${q}`, `${zS(-q*m + q*k)} : ${q}`, 0, `Gedeeld door gaat voor plus: eerst ${q*k} : ${q}.`]; },
-      () => { const a = R.int(2, 6), x = R.int(2, 9), y = R.int(2, 9); return [`${a} · (${x} − ${y})`, `${a*x} − ${y}`, 0, 'Eerst wat tussen haakjes staat.']; },
-      () => { const a = R.int(-9, 9), x = R.int(3, 9), y = R.int(2, 8); return [`${zS(a)} − ${x} + ${y}`, `${zS(a)} − ${x + y}`, 0, `Plus en min reken je van links naar rechts: eerst ${zS(a)} − ${x}.`]; },
-      () => { const a = R.int(3, 15), x = R.int(2, 5), y = R.int(2, 6); return [`${a} − ${x} · ${zP(-y)}`, `${a} − ${x*y}`, 0, `${x} · ${zP(-y)} = ${zS(-x*y)}. Kijk naar het teken.`]; },
-      () => { const a = R.int(3, 15), x = R.int(2, 5), y = R.int(2, 6); return [`${a} − ${x} · ${zP(-y)}`, `${a - x*y}`, 1, `${a} − ${zP(-x*y)}: een negatief getal aftrekken is het tegengestelde optellen, dus ${a} + ${x*y}.`]; }]).slice(0, 2).map(f => f());
-    F.forEach(([E, fout, k, why], i) => {
-      const L = ZX.stappen(E, false); const juist = L[k + 1];
-      const W = L.slice(1, k + 1).concat([fout]); const rest = ZX.stappen(fout); if(rest) W.push(...rest.slice(1));
-      errBlock(b, st, save, 'f' + i, { nr:'abcd'[i] + ')', task:zT(E), lines:W.map(l => '= ' + zT(l)), wrong:k, cons:W.map((_, j) => j).filter(j => j>k), why,
-        fixMQ:{html:`<span class="m5-opg">${zT(L[k])}</span> {{z:a,mdh}}`, check:V=>chkZ(V.a, ZX.waarde(juist), {opg:L[k]}), sol:'= ' + zT(juist)} }); });
+      () => { const a = R.int(5, 20), x = R.int(2, 6), y = R.int(2, 6); return [`${a} − ${x} · ${y}`, `${a - x} · ${y}`, 0, 'vol', 'Maal gaat voor min: eerst ' + x + ' · ' + y + '.']; },
+      () => { const q = R.int(2, 5), m = R.int(2, 6), k = R.int(2, 5); return [`${zS(-q*m)} + ${q*k} : ${q}`, `${zS(-q*m + q*k)} : ${q}`, 0, 'vol', `Gedeeld door gaat voor plus: eerst ${q*k} : ${q}.`]; },
+      () => { const a = R.int(2, 6), x = R.int(2, 9), y = R.int(2, 9); return [`${a} · (${x} − ${y})`, `${a*x} − ${y}`, 0, 'vol', 'Eerst wat tussen haakjes staat.']; },
+      () => { const a = R.int(-9, 9), x = R.int(3, 9), y = R.int(2, 8); return [`${zS(a)} − ${x} + ${y}`, `${zS(a)} − ${x + y}`, 0, 'vol', `Plus en min reken je van links naar rechts: eerst ${zS(a)} − ${x}.`]; },
+      () => { const a = R.int(3, 15), x = R.int(2, 5), y = R.int(2, 6); return [`${a} − ${x} · ${zP(-y)}`, `${a} − ${x*y}`, 0, 'tek', `${x} · ${zP(-y)} = ${zS(-x*y)}: een positief getal maal een negatief getal is negatief.`]; },
+      () => { const a = R.int(3, 15), x = R.int(2, 5), y = R.int(2, 6); return [`${a} − ${x} · ${zP(-y)}`, `${a - x*y}`, 1, 'teg', `${a} − ${zP(-x*y)}: een negatief getal aftrekken is het tegengestelde optellen, dus ${a} + ${x*y}.`]; },
+      () => { const a = R.int(-12, 12), x = R.int(3, 9), y = R.int(3, 9); return [`${zS(a)} + ${x} · ${zP(-y)}`, `${zS(a)} + ${zP(-(x*y + x))}`, 0, 'rek', `${x} · ${zP(-y)} = ${zS(-x*y)}, niet ${zS(-(x*y + x))}: dat is een rekenfout in de tafel van ${x}.`]; }]).slice(0, 3).map(f => f());
+    const WIE = R.shuffle(['Lotte', 'Mats', 'Noor', 'Yassin', 'Elise']);
+    if(st.i==null) st.i = 0; const host = el('div'); b.append(host);
+    const toon = () => { host.innerHTML = '';
+      if(st.i < F.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${F.length}`)); const [E, fout, k, oz, why] = F[st.i];
+        const L = ZX.stappen(E, false); const juist = L[k + 1];
+        const W = L.slice(1, k + 1).concat([fout]); const rest = ZX.stappen(fout); if(rest) W.push(...rest.slice(1));
+        schriftFout(host, st, save, 'f' + st.i, { wie:WIE[st.i], task:zT(E), lines:W.map(l => '= ' + zT(l)), wrong:k, cons:W.map((_, j) => j).filter(j => j>k), oorzaak:oz, why,
+          fixMQ:{html:`<span class="m5-opg">${zT(L[k])}</span> {{z:a,mdh}}`, check:V=>chkZ(V.a, ZX.waarde(juist), {opg:L[k]}), sol:'= ' + zT(juist)}, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); } }); }
+      else allesJuist(host, 'Je vond elke fout en verbeterde ze. Kijk bij je eigen werk altijd naar de volgorde, de tekens en de tegengestelde.'); };
+    toon();
   } };
 
 /* ---------- verdieping ---------- */
