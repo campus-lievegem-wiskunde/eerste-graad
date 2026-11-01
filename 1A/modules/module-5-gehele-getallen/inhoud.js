@@ -3369,6 +3369,22 @@ EI.schakel = { title:'Mag je schakelen?', lvl:1,
       [`(${zS(x)} − ${zP(y)}) − ${zP(z)}`, `${zS(x)} − (${zS(y)} − ${zP(z)})`, 'Bij aftrekken mag je niet schakelen.'],
       [`(${zS(f)} · ${zP(g)}) · ${zP(h)}`, `${zS(f)} · (${zS(g)} · ${zP(h)})`, 'Bij vermenigvuldigen mag je schakelen.']],
       'Optellen en vermenigvuldigen zijn <b>associatief</b>: je mag schakelen (schakeleigenschap). Bij aftrekken en delen mag dat niet.'); } };
+/* een eigenschap ontdekken: eerst uitrekenen, dan verschijnt de eigenschap met haar naam */
+function eigKaart(title, instr, maak, naam, regel){ return { title, lvl:1, instr,
+  build(b, st, save){ const R = makeR(st); const L = maak(R);
+    const Pn = paneel(b); const vak = el('div', 'm5-eig', '<p class="m5-eig-v">Wat valt je op?</p>'); Pn.vis.append(vak);
+    const toon = () => { vak.innerHTML = `<p class="m5-eig-n">${naam}</p>${regel}`; vak.classList.add('af'); };
+    stapKop(Pn.stap, 1, 'Reken uit of vul aan.');
+    mQ(Pn.stap, st, save, 'e', { html:L.map(([h], i) => h.replace('{{u}}', `{{u:v${i}}}`)).join('<span class="m5-nl"></span>'), check:V=>allOf(L.map(([, T], i) => ['v' + i, chkG(V['v' + i], T)])), onOk:s => { toon(); if(!s && !Pn.stap.querySelector('.m5-juist')) allesJuist(Pn.stap, `Dit is het <b>${naam}</b>.`); } }); } }; }
+EI.neutraal = eigKaart('Het neutraal element', 'Reken uit. Wat gebeurt er met een getal als je er 0 bij optelt of het met 1 vermenigvuldigt?',
+  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30), d = nz(R, -30, 30), e = nz(R, -30, 30); return [[`${zS(a)} + 0 ${isq} {{u}}`, a], [`0 + ${zP(c)} ${isq} {{u}}`, c], [`${zS(d)} · 1 ${isq} {{u}}`, d], [`1 · ${zP(e)} ${isq} {{u}}`, e]]; },
+  'neutraal element', `<p><b>0</b> is het neutraal element voor de optelling:</p><p class="m5-eig-f"><i>a</i> + 0 = 0 + <i>a</i> = <i>a</i></p><p><b>1</b> is het neutraal element voor de vermenigvuldiging:</p><p class="m5-eig-f"><i>a</i> · 1 = 1 · <i>a</i> = <i>a</i></p><p>Het getal verandert niet.</p>`);
+EI.symm = eigKaart('Het symmetrisch element', 'Vul aan. Welk getal moet je bij een getal optellen om 0 te krijgen?',
+  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30), d = nz(R, -30, 30), e = nz(R, -30, 30); return [[`${zS(a)} + ${zP(-a)} ${isq} {{u}}`, 0], [`${zS(c)} + {{u}} ${isq} 0`, -c], [`{{u}} + ${zP(d)} ${isq} 0`, -d], [`<span class="txt">het tegengestelde van</span> ${zS(e)} <span class="txt">is</span> {{u}}`, -e]]; },
+  'symmetrisch element', `<p>Het symmetrisch element van <i>a</i> voor de optelling is het <b>tegengestelde</b> ${MIN}<i>a</i>:</p><p class="m5-eig-f"><i>a</i> + (${MIN}<i>a</i>) = (${MIN}<i>a</i>) + <i>a</i> = 0</p><p>Samen geven ze het neutraal element 0.</p>`);
+EI.opslorp = eigKaart('Het opslorpend element', 'Reken uit. Wat gebeurt er als 0 een factor is?',
+  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30), d = nz(R, -9, 9), e = nz(R, -9, 9); return [[`${zS(a)} · 0 ${isq} {{u}}`, 0], [`0 · ${zP(c)} ${isq} {{u}}`, 0], [`${zS(d)} · ${zP(e)} · 0 ${isq} {{u}}`, 0], [`${zS(a)} · {{u}} ${isq} 0`, 0]]; },
+  'opslorpend element', `<p><b>0</b> is het opslorpend element voor de vermenigvuldiging:</p><p class="m5-eig-f"><i>a</i> · 0 = 0 · <i>a</i> = 0</p><p>Staat er een factor 0, dan is het product 0, hoe groot de andere factoren ook zijn.</p>`);
 EI.vul = { title:'Bijzondere getallen', lvl:1,
   instr:'Welk getal ontbreekt? Denk aan 0, 1 en het tegengestelde.',
   build(b, st, save){
@@ -3381,7 +3397,7 @@ EI.vul = { title:'Bijzondere getallen', lvl:1,
       () => { const a = n(); return [`${zS(a)} · {{u:a}} ${isq} ${zS(-a)}`, -1, `Maal ${MIN}1 geeft het tegengestelde.`]; }]).map(f => f());
     reeks(b, L.length, (g, i, nr) => { const [h, T, why] = L[i]; mQ(g, st, save, 'v' + i, { nr, html:h, check:V=>chkG(V.a, T), sol:why }); });
   } };
-const EIG5 = [['w', 'wisseleigenschap'], ['s', 'schakeleigenschap'], ['n', 'neutraal element'], ['y', 'symmetrisch element'], ['o', 'opslorpend element']];
+const EIG5 = [['w', 'wisseleigenschap (commutatief)'], ['s', 'schakeleigenschap (associatief)'], ['n', 'neutraal element'], ['y', 'symmetrisch element'], ['o', 'opslorpend element']];
 EI.benoem = { title:'Welke eigenschap?', lvl:1,
   instr:'Welke eigenschap wordt hier gebruikt?',
   build(b, st, save){
@@ -3432,15 +3448,15 @@ EI.tegen = { title:'Zoek een tegenvoorbeeld', lvl:3,
         check:V=>{ const X = e.k.map(k => getal(V[k])); if(X.some(x => x==null)) return {info:true, msg:'Vul bij elke letter een geheel getal in.'}; return e.f(X) ? {ok:true, msg:e.s(X) + '. ' + e.t} : {ok:false, msg:e.m}; } }); }, {een:true});
   } };
 const CHEAT_EIG = `<h3>Spiekbriefje · eigenschappen</h3><table>
-  <tr><td>wisselen</td><td>mag bij + en ·: ${MIN}3 + 5 = 5 + (${MIN}3), maar niet bij − en :</td></tr>
-  <tr><td>schakelen</td><td>mag bij + en ·: (${MIN}2 · 5) · 7 = ${MIN}2 · (5 · 7), maar niet bij − en :</td></tr>
+  <tr><td>wisseleigenschap<br>(commutatief)</td><td>mag bij + en ·: ${MIN}3 + 5 = 5 + (${MIN}3), maar niet bij − en :</td></tr>
+  <tr><td>schakeleigenschap<br>(associatief)</td><td>mag bij + en ·: (${MIN}2 · 5) · 7 = ${MIN}2 · (5 · 7), maar niet bij − en :</td></tr>
   <tr><td>neutraal element</td><td>0 voor +: <i>a</i> + 0 = <i>a</i>; 1 voor ·: <i>a</i> · 1 = <i>a</i></td></tr>
   <tr><td>symmetrisch element</td><td>het tegengestelde: <i>a</i> + (${MIN}<i>a</i>) = 0</td></tr>
   <tr><td>opslorpend element</td><td>0 voor ·: <i>a</i> · 0 = 0</td></tr>
   <tr><td>handig rekenen</td><td>zet getallen die samen 0, 10 of 100 geven naast elkaar: 4 · (${MIN}17) · 25 = 4 · 25 · (${MIN}17) = ${MIN}1 700</td></tr></table>`;
 SEC.eig = { id:'eig', ic:'z_eig', nav:'Eigenschappen', title:'Eigenschappen van de bewerkingen',
-  tip:'Bij optellen en vermenigvuldigen mag je wisselen en schakelen. Zo kan je handig rekenen. Bij aftrekken en delen mag dat niet.',
-  cheat:CHEAT_EIG, cards:[EI.wissel, EI.schakel, EI.vul, EI.benoem, EI.gelijk, EI.handig, EI.alle, EI.tegen] };
+  tip:'Optellen en vermenigvuldigen zijn commutatief (je mag wisselen) en associatief (je mag schakelen). Zo kan je handig rekenen. Bij aftrekken en delen mag dat niet.',
+  cheat:CHEAT_EIG, cards:[EI.wissel, EI.schakel, EI.neutraal, EI.symm, EI.opslorp, EI.vul, EI.benoem, EI.gelijk, EI.handig, EI.alle, EI.tegen] };
 
 /* ============================================================ 9 distributiviteit */
 const DI = {};
@@ -3537,6 +3553,11 @@ SEC.distr = { id:'distr', ic:'z_distr', nav:'Distributiviteit', title:'Distribut
   .m5-recht .rh-a{fill:#e4f6f7; stroke:var(--ink); stroke-width:2} .m5-recht .rh-b{fill:#fff1d6; stroke:var(--ink); stroke-width:2}
   .m5-recht .rh-l{font-size:18px; font-weight:800; fill:var(--ink)} .m5-recht .rh-t{font-size:19px; font-weight:700; fill:#173436}
   .m5-rs{margin-top:.6rem}
+  .m5-eig{border:2px dashed var(--orange); border-radius:.7rem; padding:.7rem .9rem; display:flex; flex-direction:column; gap:.3rem; min-height:6rem; justify-content:center}
+  .m5-eig p{margin:0} .m5-eig-v{color:var(--ink-soft); font-size:1.2rem; text-align:center}
+  .m5-eig.af{border-style:solid; border-color:var(--ok); background:var(--ok-bg); animation:m5-in .4s both}
+  .m5-eig-n{font-weight:800; font-size:1.2rem; color:var(--accent-dark); text-transform:uppercase; letter-spacing:.04em}
+  .m5-eig-f{font-size:1.25rem; font-weight:700; text-align:center; padding:.2rem 0}
   .m5-nl{flex-basis:100%; height:0}
   `; document.head.append(s); })();
 /* ============================================================

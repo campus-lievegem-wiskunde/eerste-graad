@@ -503,7 +503,7 @@ export const SITES = [
     "id": "eig",
     "naam": "Eigenschappen",
     "toets": false,
-    "vragen": 34
+    "vragen": 37
    },
    {
     "id": "distr",
