@@ -458,16 +458,106 @@ export const SITES = [
   "prefix": "m5_gehele_v1_",
   "onderdelen": [
    {
+    "id": "getal",
+    "naam": "Gehele getallen",
+    "toets": false,
+    "vragen": 43
+   },
+   {
+    "id": "abs",
+    "naam": "Absolute waarde",
+    "toets": false,
+    "vragen": 40
+   },
+   {
+    "id": "orde",
+    "naam": "Ordenen",
+    "toets": false,
+    "vragen": 24
+   },
+   {
     "id": "optel",
     "naam": "Optellen",
     "toets": false,
     "vragen": 48
    },
    {
+    "id": "aftrek",
+    "naam": "Aftrekken",
+    "toets": false,
+    "vragen": 39
+   },
+   {
+    "id": "maal",
+    "naam": "Vermenigvuldigen",
+    "toets": false,
+    "vragen": 34
+   },
+   {
+    "id": "deel",
+    "naam": "Delen",
+    "toets": false,
+    "vragen": 45
+   },
+   {
+    "id": "eig",
+    "naam": "Eigenschappen",
+    "toets": false,
+    "vragen": 34
+   },
+   {
+    "id": "distr",
+    "naam": "Distributiviteit",
+    "toets": false,
+    "vragen": 34
+   },
+   {
+    "id": "gedur",
+    "naam": "Gedurige som en product",
+    "toets": false,
+    "vragen": 30
+   },
+   {
     "id": "volg",
     "naam": "Volgorde van bewerkingen",
     "toets": false,
     "vragen": 28
+   },
+   {
+    "id": "mix",
+    "naam": "Alles door elkaar",
+    "toets": false,
+    "vragen": 36
+   },
+   {
+    "id": "fout",
+    "naam": "Zoek de fout",
+    "toets": false,
+    "vragen": 5
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
    }
   ]
  },

@@ -2376,6 +2376,436 @@ function schriftFout(host, st, save, id, e){ /* e: {wie, task, lines, wrong, con
   @media (max-width:600px){ .m5-bs small{display:none} .m5-kamp{min-height:120px} .m5-lnaam{min-width:0; flex:1 1 100%} }
   `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
 /* ============================================================
+   1A MODULE 5 · GEREEDSCHAP VOOR DE ANDERE ONDERDELEN
+   - reeks na elkaar (opgave 1 van 3 …) met groen vak op het einde
+   - getal kiezen op de getallenas, getallen rangschikken, venndiagram,
+     bewerkingstabel, patroon met staafdiagram, schrift met een fout
+   ============================================================ */
+/* opgaven na elkaar: bouw(host, i, klaar) maakt opgave i; na de laatste een groen vak */
+function naElkaar(b, st, save, n, bouw, slot, gedaan){
+  if(st.i==null) st.i = 0; const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
+  const toon = () => { lijst.innerHTML = gedaan ? gedaan.slice(0, st.i).map(t => `<span class="m5-ok">✓ ${t}</span>`).join('') : '';
+    host.innerHTML = '';
+    if(st.i < n){ if(n>1) host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${n}`)); const i = st.i; bouw(host, i, () => { if(st.i===i){ st.i++; save(); setTimeout(toon, 900); } }); }
+    else allesJuist(host, slot); };
+  toon(); }
+
+/* ---------- een getal kiezen op de getallenas ---------- */
+/* o: {lo, hi, punten, sprongen, vraag, T, fout:[[v, msg]], na(host) na een juiste klik} */
+function asKies(host, st, save, id, o){
+  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const s = st[id] || (st[id] = {}); const B = {lo:o.lo, hi:o.hi};
+  const P = paneel(host); const fig = el('div', 'm5-asbox'); P.vis.append(fig);
+  const k1 = stapKop(P.stap, 1, o.vraag); const fb = el('div', 'fb'); P.stap.append(fb);
+  const k2 = o.na ? stapKop(P.stap, 2, o.naKop || 'Schrijf het op') : null; const vak = el('div'); P.stap.append(vak);
+  let geest = null;
+  const teken = () => { const pt = (o.punten||[]).slice(); if(s.ok) pt.push({x:o.T, cls:'eind', lab:o.lab}); fig.innerHTML = asSvg(Object.assign({}, B, {punten:pt, sprongen:s.ok ? (o.sprongen||[]) : [], geest:s.ok ? null : geest, alt:`getallenas van ${B.lo} tot ${B.hi}`}));
+    fig.classList.toggle('sleep', !s.ok); k1.classList.toggle('klaar', !!s.ok); if(k2) k2.classList.toggle('uit', !s.ok); };
+  fig.addEventListener('pointermove', e => { if(s.ok) return; const v = asKlik(fig.querySelector('svg'), e, B); if(v!==geest){ geest = v; teken(); } });
+  fig.addEventListener('pointerleave', () => { if(s.ok) return; geest = null; teken(); });
+  fig.addEventListener('click', e => { if(s.ok) return; const v = asKlik(fig.querySelector('svg'), e, B);
+    if(v===o.T){ s.ok = true; save(); fb.className = 'fb ok'; fb.innerHTML = '✅ Juist! ' + (o.why||''); teken(); verder(); if(!o.na){ CLres(qid, true); if(o.onOk) o.onOk(); } return; }
+    const f = (o.fout||[]).find(x => x[0]===v); fb.className = 'fb bad'; fb.innerHTML = `❌ Je klikte op ${zS(v)}. ` + (f ? f[1] : (o.whyBad||'')); CLres(qid, false); });
+  function verder(){ if(!o.na || vak.firstChild) return; o.na(vak, () => { CLres(qid, true); if(o.onOk) o.onOk(); }); }
+  teken(); if(s.ok){ fb.className = 'fb ok'; fb.innerHTML = '✅ Juist! ' + (o.why||''); verder(); }
+}
+
+/* ---------- getallen rangschikken: klik ze in de juiste volgorde ---------- */
+function rangschik(host, st, save, id, o){ /* o: {getallen:[{w (waarde), h (html)}], op (true: van klein naar groot), nr} */
+  const qid = QID(id); const quiz = QZ; if(!quiz) CLvraag(qid);
+  const s = st[id] || (st[id] = {v:[]}); const G = o.getallen;
+  const box = el('div', 'q m5-rang'); host.append(box);
+  box.append(el('div', 'q-text', (o.nr ? `<span class="q-num">${o.nr}</span>` : '') + `Klik de getallen aan van <b>${o.op===false ? 'groot naar klein' : 'klein naar groot'}</b>.`));
+  const pool = el('div', 'm5-pool'), rij = el('div', 'm5-rij'); const act = el('div', 'q-act'); const ctl = el('button', 'btn', 'Controleer'); ctl.type = 'button'; const wis = el('button', 'btn ghost', '↺ Wis'); wis.type = 'button'; act.append(ctl, wis);
+  const fb = el('div', 'fb'); box.append(pool, rij, act, fb);
+  const juist = G.map((g, i) => i).sort((a, b) => o.op===false ? G[b].w - G[a].w : G[a].w - G[b].w);
+  const teken = () => { pool.innerHTML = ''; rij.innerHTML = '';
+    G.forEach((g, i) => { if(s.v.includes(i)) return; const c = el('button', 'm5-chip', g.h); c.type = 'button'; c.addEventListener('click', () => { if(s.lock) return; s.v.push(i); save(); fb.className = 'fb'; fb.textContent = ''; teken(); }); pool.append(c); });
+    s.v.forEach((i, j) => { if(j) rij.append(el('span', 'm5-rteken', o.op===false ? '&gt;' : '&lt;')); const c = el('button', 'm5-chip in', G[i].h); c.type = 'button'; c.addEventListener('click', () => { if(s.lock) return; s.v = s.v.slice(0, j); save(); teken(); }); rij.append(c); });
+    if(!s.v.length) rij.append(el('span', 'm5-rleeg', 'Klik op een getal hierboven.')); };
+  const goed = () => s.v.length===G.length && s.v.every((i, j) => G[i].w===G[juist[j]].w);
+  function run(silent){ if(s.v.length < G.length){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Klik eerst alle getallen aan.'; } return; }
+    const ok = goed(); fb.className = 'fb ' + (ok ? 'ok' : 'bad'); fb.innerHTML = ok ? '✅ Juist! ' + (o.why||'') : '❌ Nog niet juist. ' + (o.whyBad || 'Hoe verder links op de getallenas, hoe kleiner het getal.');
+    s.checked = true; save(); if(!silent && !quiz) CLres(qid, ok); }
+  ctl.addEventListener('click', () => run()); wis.addEventListener('click', () => { if(s.lock) return; s.v = []; save(); fb.className = 'fb'; fb.textContent = ''; teken(); });
+  teken();
+  if(quiz){ ctl.hidden = true; quiz.push({pts:o.pts||1, grade:goed, reveal:ok => { fb.className = 'fb ' + (ok ? 'ok' : 'bad'); fb.innerHTML = ok ? '' : 'Juist: ' + juist.map(i => G[i].h).join(o.op===false ? ' &gt; ' : ' &lt; '); }, lock:() => { s.lock = true; }}); }
+  else if(s.checked) run(true);
+}
+
+/* ---------- venndiagram: sleep de getallen naar de juiste plaats ---------- */
+/* zones: pos (enkel ℤ⁺), nul (ℤ⁺ en ℤ⁻), neg (enkel ℤ⁻), buiten (niet in ℤ) */
+function venn(host, st, save, id, o){ /* o: {items:[[html, zone]]} */
+  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const s = st[id] || (st[id] = {p:{}}); const P = paneel(host, 'breed-l');
+  const vd = el('div', 'm5-venn'); P.vis.append(vd);
+  vd.innerHTML = `<svg viewBox="0 0 420 270" class="m5-venn-svg" aria-hidden="true"><rect x="10" y="10" width="400" height="200" rx="14" class="vn-z"/><text x="26" y="36" class="vn-l">ℤ</text>
+    <ellipse cx="150" cy="112" rx="118" ry="84" class="vn-p"/><ellipse cx="270" cy="112" rx="118" ry="84" class="vn-m"/><text x="70" y="48" class="vn-l p">ℤ⁺</text><text x="330" y="48" class="vn-l m">ℤ⁻</text><text x="16" y="232" class="vn-s">niet in ℤ</text></svg>`;
+  const ZONES = {pos:[7, 22, 30, 50], nul:[43, 30, 14, 40], neg:[63, 22, 30, 50], buiten:[3, 81, 94, 16]};
+  const bak = {}; Object.entries(ZONES).forEach(([z, [l, t, w, h]]) => { const d = el('div', 'm5-vbak'); d.dataset.z = z; Object.assign(d.style, {left:l + '%', top:t + '%', width:w + '%', height:h + '%'}); vd.append(d); bak[z] = d; });
+  stapKop(P.stap, 1, 'Sleep elk getal naar de juiste plaats in het venndiagram. Aantikken en dan op een plaats tikken kan ook.');
+  const pool = el('div', 'pool m5-vpool'); P.stap.append(pool); const fb = el('div', 'fb'); P.stap.append(fb);
+  P.stap.append(el('p', 'm5-tip', 'ℤ⁺ = {0, 1, 2, 3, …} en ℤ⁻ = {…, −3, −2, −1, 0}. Een getal dat niet geheel is, staat buiten ℤ.'));
+  const grp = 'venn' + id; const chips = o.items.map(([h, z], i) => { const c = el('span', 'chip', h); c.dataset.grp = grp; c.dataset.i = i;
+    draggable(c, (x, y) => { const z2 = Object.keys(bak).find(k => inRect(bak[k], x, y)); if(z2) zet(c, z2); else terug(c); }); return c; });
+  function zet(c, z){ const i = +c.dataset.i; s.p[i] = z; bak[z].append(c); const ok = o.items[i][1]===z; c.classList.remove('chip-ok', 'chip-bad'); c.classList.add(ok ? 'chip-ok' : 'chip-bad'); if(ok) c.dataset.locked = '1'; save(); controle(); }
+  function terug(c){ delete s.p[+c.dataset.i]; c.classList.remove('chip-ok', 'chip-bad'); pool.append(c); save(); }
+  function controle(){ const fout = chips.filter(c => s.p[c.dataset.i] && o.items[c.dataset.i][1]!==s.p[c.dataset.i]);
+    if(fout.length){ fb.className = 'fb bad'; fb.innerHTML = '❌ Het rode getal staat nog niet goed. ' + (o.whyBad || 'Is het positief, negatief, 0, of geen geheel getal?'); }
+    else fb.className = 'fb', fb.textContent = '';
+    if(chips.every(c => o.items[c.dataset.i][1]===s.p[c.dataset.i]) && !s.ok){ s.ok = true; save(); CLres(qid, true); allesJuist(P.stap, o.why || '0 hoort bij ℤ⁺ en bij ℤ⁻: het staat in het gemeenschappelijke deel.'); }
+    else if(fout.length && !s.ok) CLres(qid, false); }
+  Object.values(bak).forEach(d => d.addEventListener('click', e => { if(e.target.closest('.chip')) return; if(selChip && selChip.dataset.grp===grp){ const c = selChip; clearSel(); zet(c, d.dataset.z); } }));
+  chips.forEach(c => { const z = s.p[c.dataset.i]; if(z) zet(c, z); else pool.append(c); });
+  if(s.ok && !P.stap.querySelector('.m5-juist')) allesJuist(P.stap, o.why || '0 hoort bij ℤ⁺ en bij ℤ⁻.');
+}
+
+/* ---------- bewerkingstabel: vul elk vak in ---------- */
+function tabel(host, st, save, id, o){ /* o: {op:'+'|'−'|'·'|':', rij:[...], kol:[...], open (aantal open vakken; standaard alle)} */
+  const qid = QID(id); const quiz = QZ; if(!quiz) CLvraag(qid);
+  const s = st[id] || (st[id] = {v:{}}); const f = (a, b) => o.op==='+' ? a + b : o.op==='−' ? a - b : o.op==='·' ? a*b : a/b;
+  const box = el('div', 'q m5-tab'); host.append(box); const t = el('table', 'm5-btab'); box.append(t);
+  let h = `<tr><th class="op">${o.op}</th>${o.kol.map(k => `<th>${zS(k)}</th>`).join('')}</tr>`;
+  o.rij.forEach((r, i) => { h += `<tr><th>${zS(r)}</th>${o.kol.map((k, j) => `<td><input type="text" class="inp" inputmode="numeric" autocomplete="off" data-k="${i}_${j}" aria-label="${zS(r)} ${o.op} ${zP(k)}"></td>`).join('')}</tr>`; });
+  t.innerHTML = h;
+  const ins = [...t.querySelectorAll('input')]; ins.forEach(i => { i.value = s.v[i.dataset.k] || ''; i.addEventListener('input', () => { s.v[i.dataset.k] = i.value; i.classList.remove('ok', 'bad'); save(); }); });
+  const act = el('div', 'q-act'); const btn = el('button', 'btn', 'Controleer'); btn.type = 'button'; act.append(btn); const fb = el('div', 'fb'); box.append(act, fb);
+  const W = k => { const [i, j] = k.split('_').map(Number); return f(o.rij[i], o.kol[j]); };
+  const goed = i => rdZ({t:i.value, z:true})===W(i.dataset.k);
+  function run(silent){ if(ins.some(i => !i.value.trim())){ if(!silent){ fb.className = 'fb info'; fb.textContent = 'Vul eerst alle vakken in.'; } return; }
+    let fout = 0; ins.forEach(i => { const g = goed(i); if(!g) fout++; i.classList.remove('ok', 'bad'); i.classList.add(g ? 'ok' : 'bad'); });
+    fb.className = 'fb ' + (fout ? 'bad' : 'ok'); fb.innerHTML = fout ? `❌ ${fout===1 ? 'Eén vak klopt' : fout + ' vakken kloppen'} nog niet. Reken: getal links ${o.op} getal boven.` : '✅ Juist! ' + (o.why||'');
+    s.checked = true; save(); if(!silent && !quiz) CLres(qid, !fout); }
+  btn.addEventListener('click', () => run());
+  if(quiz){ btn.hidden = true; quiz.push({pts:o.pts||1, grade:() => ins.every(goed), reveal:() => run(true), lock:() => ins.forEach(i => i.readOnly = true)}); }
+  else if(s.checked) run(true);
+}
+
+/* ---------- patroon met staafdiagram: reken van boven naar onder ---------- */
+/* o: {a, B (tweede getallen), op:'+'|'−'|'·', vraag, opts, ans, why, slot} */
+function patroon(b, st, save, o){
+  if(!st.k) st.k = {}; if(st.i==null) st.i = 0; const f = x => o.op==='·' ? o.a*x : o.op==='−' ? o.a - x : o.a + x; const T = o.B.map(f);
+  const lab = x => `${o.op} ${zP(x)}`, som = x => `${zP(o.a)} ${o.op} ${zP(x)}`.replace(/^\((.*?)\) /, (m, g) => o.op==='·' ? m : g + ' ');
+  const P = paneel(b); const staaf = el('div'); P.vis.append(staaf);
+  const lo = Math.min(0, ...T) - 1, hi = Math.max(0, ...T) + 1;
+  stapKop(P.stap, 1, 'Reken uit, van boven naar onder.'); const lijst = el('div'), g = el('div'); P.stap.append(lijst, g);
+  const k2 = stapKop(P.stap, 2, 'Wat valt je op?'); const bes = el('div'); P.stap.append(bes);
+  const toon = anim => { lijst.innerHTML = vinkLijst(o.B.slice(0, st.i).map((x, j) => `${som(x)} = ${zS(T[j])}`));
+    staaf.innerHTML = staafSvg({lab:o.B.map(lab), w:o.B.map((x, j) => j < st.i ? T[j] : null), lo, hi, nu:st.i, nieuw:anim ? st.i - 1 : -1});
+    g.innerHTML = ''; k2.classList.toggle('uit', st.i < o.B.length);
+    if(st.i < o.B.length){ const i = st.i;
+      mQ(g, st, save, 'p' + i, { html:`${som(o.B[i])} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T[i], [[-T[i], 'Kijk naar het patroon: hoe veranderen de uitkomsten telkens?']]),
+        onOk:silent=>{ if(!silent && st.i===i){ st.k[i] = 1; st.i++; save(); setTimeout(()=>toon(true), 500); } } });
+      const fo = g.querySelector('.m4-teken button'); if(fo && anim) fo.focus({preventScroll:true}); }
+    else if(!bes.firstChild) qChoice(bes, st, save, 'bes', { html:o.vraag, opts:o.opts, ans:o.ans, why:o.why, whyBad:'Kijk naar de staven: hoe veranderen ze van stap tot stap?',
+      after:ok=>{ if(ok && !bes.querySelector('.m5-juist')) allesJuist(bes, o.slot); } }); };
+  toon(false);
+}
+
+/* ---------- zoek de fout in het schrift: kaart met opgaven na elkaar ---------- */
+/* maak(R) geeft [[opgave, foute regel, k (index van de foute stap), oorzaak, waarom], …] */
+const WIE5 = ['Lotte', 'Mats', 'Noor', 'Yassin', 'Elise', 'Bram', 'Amira'];
+function schriftKaart(title, lvl, maak, n=2){ return { title, lvl, instr:'In elk schrift zit één fout. Klik op de eerste regel die fout is, kies wat er misging en verbeter die regel.',
+  build(b, st, save){ const R = makeR(st); const F = maak(R).slice(0, n); const WIE = R.shuffle(WIE5);
+    naElkaar(b, st, save, F.length, (host, i, klaar) => { const [E, fout, k, oz, why] = F[i];
+      const L = ZX.stappen(E, false); const juist = L[k + 1];
+      const W = L.slice(1, k + 1).concat([fout]); const rest = ZX.stappen(fout); if(rest) W.push(...rest.slice(1));
+      schriftFout(host, st, save, 'f' + i, { wie:WIE[i], task:zT(E), lines:W.map(l => '= ' + zT(l)), wrong:k, cons:W.map((_, j) => j).filter(j => j>k), oorzaak:oz, why,
+        fixMQ:{html:`<span class="m5-opg">${zT(L[k])}</span> {{z:a,mdh}}`, check:V=>chkZ(V.a, ZX.waarde(juist), {opg:L[k]}), sol:'= ' + zT(juist)}, onOk:klaar }); },
+      'Je vond elke fout en verbeterde ze.'); } }; }
+
+/* waar of niet waar, en de tekens < = > */
+const WNW = [['w', 'waar'], ['n', 'niet waar']];
+const PNN = [['+', 'positief'], ['-', 'negatief'], ['0', 'nul']];
+const PN = [['+', 'positief'], ['-', 'negatief']];
+const tk = n => n>0 ? '+' : n<0 ? '-' : '0';
+
+(function(){ const css = `
+  .m5-rang .q-text{margin-bottom:.3rem}
+  .m5-pool{display:flex; flex-wrap:wrap; gap:.4rem; min-height:2.6rem}
+  .m5-rij{display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; min-height:2.8rem; margin:.4rem 0; padding:.35rem .5rem; border:2px dashed var(--border); border-radius:.6rem}
+  .m5-chip{font:inherit; font-size:1.15rem; font-weight:700; min-width:2.6rem; padding:.2rem .6rem; border:2px solid var(--tq); border-radius:.55rem; background:var(--card); color:var(--ink); cursor:pointer}
+  .m5-chip:hover{border-color:var(--orange); background:var(--or-soft)} .m5-chip.in{background:var(--tq-soft)}
+  .m5-rteken{font-weight:900; color:var(--accent-dark)} .m5-rleeg{color:var(--ink-soft); font-size:.9rem; font-style:italic}
+  .m5-venn{position:relative; width:100%; max-width:520px; margin:0 auto; aspect-ratio:420 / 270}
+  .m5-venn-svg{position:absolute; inset:0; width:100%; height:100%}
+  .m5-venn .vn-z{fill:var(--card); stroke:var(--ink); stroke-width:2} .m5-venn .vn-p{fill:rgba(214,40,40,.08); stroke:#d62828; stroke-width:2} .m5-venn .vn-m{fill:rgba(29,78,216,.08); stroke:#1d4ed8; stroke-width:2}
+  .m5-venn .vn-l{font-size:20px; font-weight:800; fill:var(--ink)} .m5-venn .vn-s{font-size:13px; font-weight:700; fill:var(--ink-soft)} .m5-venn .vn-l.p{fill:#c01f1f} .m5-venn .vn-l.m{fill:#1d4ed8}
+  .m5-vbak{position:absolute; display:flex; flex-wrap:wrap; gap:.2rem; align-content:center; justify-content:center; border-radius:.5rem; cursor:pointer}
+  .m5-vbak .chip{font-size:.95rem; padding:.05rem .4rem}
+  .m5-vpool{min-height:2.6rem}
+  .m5-btab{border-collapse:collapse; font-size:1.1rem; font-weight:700; font-variant-numeric:tabular-nums}
+  .m5-btab th, .m5-btab td{border:1.5px solid var(--border); padding:.2rem; text-align:center; min-width:3.6rem}
+  .m5-btab th{background:var(--tq-soft)} .m5-btab th.op{background:var(--orange); color:#173436; font-size:1.3rem}
+  .m5-btab input{width:3.4rem; height:2.1rem; text-align:center; font:inherit; box-sizing:border-box}
+  .m5-tab{overflow-x:auto}
+  `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
+/* ============================================================
+   ONDERDELEN 1 TOT 3 · GEHELE GETALLEN, ABSOLUTE WAARDE, ORDENEN
+   ============================================================ */
+Object.assign(ICONS, {
+  z_getal:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 12h3M16 9.5v5M13.5 12h5"/>',
+  z_abs:'<path d="M6 4v16M18 4v16"/><path d="M10 12h4"/>',
+  z_orde:'<path d="M3 15h18"/><path d="M6 12v6M12 12v6M18 12v6"/><path d="M8 7h8l-2-2M16 7l-2 2"/>'
+});
+const VERZ = {Z:'ℤ', Zp:'ℤ⁺', Zm:'ℤ⁻', Z0:'ℤ₀', N:'ℕ', Zp0:'ℤ⁺₀', Zm0:'ℤ⁻₀'};
+const inV = (x, v) => v==='Z' ? true : v==='Zp' || v==='N' ? x>=0 : v==='Zm' ? x<=0 : v==='Z0' ? x!==0 : v==='Zp0' ? x>0 : x<0;
+const GG = {};
+/* ---------- 1 positief, negatief of nul ---------- */
+GG.pnn = { title:'Positief, negatief of nul?', lvl:1,
+  instr:'Een positief getal is groter dan 0, een negatief getal is kleiner dan 0. Het toestandsteken (+ of −) staat voor het getal. Is 0 positief of negatief?',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([nz(R, -20, -1), nz(R, 1, 20), 0, -R.int(21, 99), R.int(21, 99), nz(R, -9, -1)]);
+    reeks(b, L.length, (g, i, nr) => { const x = L[i]; const h = x>0 && R.f() < .4 ? '+' + x : zS(x);
+      qChoice(g, st, save, 'k' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:PNN, ans:tk(x), alt:x===0 ? [] : [],
+        why: x===0 ? '0 is positief én negatief: 0 hoort bij ℤ⁺ en bij ℤ⁻. Kies hier "nul".' : x>0 ? 'Het getal is groter dan 0.' : 'Er staat een minteken voor: het getal is kleiner dan 0.',
+        whyBad:'Kijk naar het toestandsteken voor het getal.' }); }, {een:false});
+  } };
+/* ---------- 2 het toestandsteken in het echt ---------- */
+GG.ctx = { title:'Een getal met een teken', lvl:1,
+  instr:'Schrijf elke situatie als een geheel getal. Kies het teken in het tekenvak (+ boven, − onder) en typ het getal.',
+  build(b, st, save){
+    const R = makeR(st);
+    const C = R.shuffle([
+      n => [`${n} m onder de zeespiegel`, -n, 'm'], n => [`${n} m boven de zeespiegel`, n, 'm'], n => [`het vriest ${n} graden`, -n, '°C'],
+      n => [`${n} euro schuld`, -n, 'euro'], n => [`${n} verdiepingen onder de grond`, -n, ''], n => [`het jaar ${n * 50} voor Christus`, -n*50, ''],
+      n => [`een winst van ${n} euro`, n, 'euro'], n => [`${n} punten verliezen`, -n, 'punten']]).slice(0, 6).map(f => f(R.int(2, 18)));
+    reeks(b, C.length, (g, i, nr) => { const [tx, T, u] = C[i];
+      mQ(g, st, save, 'c' + i, { nr, html:`<span class="txt">${tx}:</span> {{u:a,t}} <span class="txt">${u}</span>`, check:V=>chkGt(V.a, T), sol:zS(T) }); }, {een:true});
+  } };
+/* ---------- 3 venndiagram ---------- */
+GG.venn = { title:'Het venndiagram', lvl:1,
+  instr:'ℤ⁺ zijn de positieve gehele getallen met 0, ℤ⁻ de negatieve gehele getallen met 0. Sleep elk getal naar de juiste plaats.',
+  build(b, st, save){
+    const R = makeR(st); const it = R.shuffle([[zS(nz(R, 1, 20)), 'pos'], [zS(R.int(21, 150)), 'pos'], [zS(nz(R, -20, -1)), 'neg'], [zS(-R.int(21, 150)), 'neg'], ['0', 'nul'], [R.pick(['2,5', '0,7', `${MIN}1,5`]), 'buiten'], [R.pick(['½', '¾', `${MIN}⅓`]), 'buiten'], ['+' + R.int(2, 9), 'pos']]);
+    venn(b, st, save, 'v', {items:it, why:'0 hoort bij ℤ⁺ én bij ℤ⁻: het staat in het gemeenschappelijke deel. Een kommagetal of breuk is geen geheel getal.'});
+  } };
+/* ---------- 4 ∈ of ∉ ---------- */
+GG.el = { title:'Hoort het erbij? ∈ of ∉', lvl:1,
+  instr:'∈ betekent "is een element van", ∉ betekent "is geen element van". ℤ₀ zijn de gehele getallen zonder 0, ℕ = ℤ⁺ = {0, 1, 2, …}.',
+  build(b, st, save){
+    const R = makeR(st); const V = ['Z', 'Zp', 'Zm', 'Z0', 'N', 'Zp0', 'Zm0'];
+    const L = []; for(let k=0; k<200 && L.length<8; k++){ const x = R.pick([0, nz(R, -15, 15), nz(R, -15, 15)]), v = R.pick(V); if(L.some(l => l[0]===x && l[1]===v)) continue; if(L.filter(l => inV(l[0], l[1])).length > 5 && inV(x, v)) continue; L.push([x, v]); }
+    reeks(b, L.length, (g, i, nr) => { const [x, v] = L[i]; const ok = inV(x, v);
+      qChoice(g, st, save, 'e' + i, { nr, html:`<span class="m5-groot">${zS(x)} … ${VERZ[v]}</span>`, opts:[['in', '∈'], ['uit', '∉']], sym:true, ans:ok ? 'in' : 'uit',
+        why:`${zS(x)} ${ok ? '∈' : '∉'} ${VERZ[v]}.`, whyBad:'ℤ⁺: 0 en de positieve getallen. ℤ⁻: 0 en de negatieve getallen. Een 0 onderaan betekent: zonder 0.' }); });
+  } };
+/* ---------- 5 ⊂ of ⊄ ---------- */
+GG.deel = { title:'Deelverzameling: ⊂ of ⊄', lvl:2,
+  instr:'A ⊂ B betekent: elk element van A is ook een element van B. Zoek je één element van A dat niet in B zit, dan is A ⊄ B.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = R.shuffle([['ℕ', 'ℤ', 1, 'Elk natuurlijk getal is een geheel getal.'], ['ℤ', 'ℕ', 0, `${MIN}1 ∈ ℤ, maar ${MIN}1 ∉ ℕ.`], ['ℤ⁻', 'ℤ₀', 0, '0 ∈ ℤ⁻, maar 0 ∉ ℤ₀.'], ['ℤ⁻₀', 'ℤ₀', 1, 'De negatieve getallen zonder 0 zitten allemaal in ℤ₀.'],
+      ['ℤ⁺', 'ℕ', 1, 'ℤ⁺ en ℕ zijn dezelfde verzameling.'], [`{${MIN}3, 0, 2}`, 'ℤ⁻', 0, '2 ∉ ℤ⁻.'], [`{${MIN}5, ${MIN}1}`, 'ℤ⁻₀', 1, 'Beide getallen zijn negatief.'], ['ℤ₀', 'ℤ', 1, 'Zonder 0 blijven het gehele getallen.'], ['{0}', 'ℤ⁺₀', 0, '0 ∉ ℤ⁺₀.']]).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => { const [A, B, ok, why] = L[i];
+      qChoice(g, st, save, 'd' + i, { nr, html:`<span class="m5-groot">${A} … ${B}</span>`, opts:[['in', '⊂'], ['uit', '⊄']], sym:true, ans:ok ? 'in' : 'uit', why, whyBad:'Zoek een element van de eerste verzameling dat niet in de tweede zit.' }); });
+  } };
+/* ---------- verdieping ---------- */
+GG.wnw = { title:'Waar of niet waar?', lvl:3,
+  instr:'Lees elke uitspraak goed. Is ze altijd waar?',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = R.shuffle([['Elk natuurlijk getal is een geheel getal.', 'w', 'ℕ ⊂ ℤ.'], ['Elk geheel getal is een natuurlijk getal.', 'n', `${MIN}4 is geheel, maar niet natuurlijk.`],
+      ['0 is een element van ℤ₀.', 'n', 'ℤ₀ is ℤ zonder 0.'], ['Er bestaat een grootste negatief geheel getal.', 'w', `${MIN}1 is het grootste negatieve gehele getal.`], ['Er bestaat een kleinste negatief geheel getal.', 'n', 'Je kunt altijd nog 1 aftrekken.'],
+      ['ℤ⁺ ∩ ℤ⁻ = {0}.', 'w', '0 is het enige getal dat in allebei zit.'], ['ℤ⁺ ∪ ℤ⁻ = ℤ.', 'w', 'Elk geheel getal is positief, negatief of 0.'], ['ℤ⁺₀ ∪ ℤ⁻₀ = ℤ.', 'n', '0 zit in geen van beide.']]).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => { const [z, ans, why] = L[i]; qChoice(g, st, save, 'w' + i, { nr, html:z, opts:WNW, ans, why, whyBad:'Zoek een voorbeeld dat de uitspraak tegenspreekt, of denk aan 0.' }); }, {een:true});
+  } };
+GG.tel = { title:'Hoeveel elementen?', lvl:3,
+  instr:'Schrijf de elementen in gedachten op en tel ze.',
+  build(b, st, save){
+    const R = makeR(st); const a = -R.int(3, 9), c = R.int(2, 8), d = R.int(2, 6), e = -R.int(5, 12);
+    const L = [[`{<i>x</i> ∈ ℤ | ${zS(a)} &lt; <i>x</i> &lt; ${c}}`, c - a - 1], [`{<i>x</i> ∈ ℤ | ${zS(a)} ≤ <i>x</i> ≤ ${c}}`, c - a + 1], [`{<i>x</i> ∈ ℤ⁻ | <i>x</i> ≥ ${zS(e)}}`, -e + 1], [`{<i>x</i> ∈ ℤ₀ | ${zS(-d)} ≤ <i>x</i> ≤ ${d}}`, 2*d]];
+    reeks(b, L.length, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 't' + i, { nr, html:`${h} heeft {{u:a}} <span class="txt">elementen</span>`, check:V=>chkG(V.a, T, [[T + 1, 'Let op: &lt; betekent dat de grens er niet bij hoort.'], [T - 1, 'Vergeet 0 niet, of de grens als er ≤ of ≥ staat.']]), sol:`${T} elementen` }); }, {een:true});
+  } };
+GG.welkeV = { title:'Welke verzameling?', lvl:2,
+  instr:'Welke verzameling wordt hier opgesomd? Let op de 0 en op de puntjes.',
+  build(b, st, save){
+    const R = makeR(st); const O = ['N', 'Z', 'Zp', 'Zm', 'Z0', 'Zp0', 'Zm0'].map(v => [v, VERZ[v]]);
+    const L = R.shuffle([[`{0, 1, 2, 3, …}`, 'N', ['Zp'], 'ℕ en ℤ⁺ zijn dezelfde verzameling: 0 en de positieve getallen.'], [`{…, ${MIN}3, ${MIN}2, ${MIN}1, 0}`, 'Zm', [], 'De negatieve getallen en 0.'], [`{1, 2, 3, …}`, 'Zp0', [], 'De positieve getallen zonder 0.'],
+      [`{…, ${MIN}3, ${MIN}2, ${MIN}1}`, 'Zm0', [], 'De negatieve getallen zonder 0.'], [`{…, ${MIN}2, ${MIN}1, 1, 2, …}`, 'Z0', [], 'Alle gehele getallen behalve 0.'], [`{…, ${MIN}2, ${MIN}1, 0, 1, 2, …}`, 'Z', [], 'Alle gehele getallen.']]);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans, alt, why] = L[i]; qChoice(g, st, save, 'v' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:O, sym:true, ans, alt, why, whyAlt:why }); }, {een:true});
+  } };
+const CHEAT_GETAL = `<h3>Spiekbriefje · gehele getallen</h3><table>
+  <tr><td>ℤ</td><td>de gehele getallen: {…, ${MIN}2, ${MIN}1, 0, 1, 2, …}</td></tr>
+  <tr><td>ℤ⁺ = ℕ</td><td>0 en de positieve gehele getallen</td></tr><tr><td>ℤ⁻</td><td>0 en de negatieve gehele getallen</td></tr>
+  <tr><td>ℤ₀</td><td>de gehele getallen zonder 0 (ook ℤ⁺₀ en ℤ⁻₀)</td></tr>
+  <tr><td>∈ ∉</td><td>is (geen) element van: ${MIN}3 ∈ ℤ, ${MIN}3 ∉ ℕ</td></tr><tr><td>⊂ ⊄</td><td>is (geen) deelverzameling van: ℕ ⊂ ℤ</td></tr></table>`;
+SEC.getal = { id:'getal', ic:'z_getal', nav:'Gehele getallen', title:'Gehele getallen en verzamelingen',
+  tip:'Een geheel getal is een natuurlijk getal met een toestandsteken: + of −. 0 heeft geen teken: het is positief én negatief.',
+  cheat:CHEAT_GETAL, cards:[GG.pnn, GG.ctx, GG.venn, GG.el, GG.deel, GG.welkeV, GG.wnw, GG.tel] };
+
+/* ============================================================ 2 absolute waarde en tegengestelde */
+const AB = {};
+AB.afst = { title:'Afstand tot 0', lvl:1,
+  instr:'De absolute waarde van een getal is de afstand van dat getal tot 0 op de getallenas. Een afstand is nooit negatief.',
+  build(b, st, save){
+    const R = makeR(st); const L = [nz(R, -9, -2), R.int(2, 9), nz(R, -9, -3)];
+    naElkaar(b, st, save, L.length, (host, i, klaar) => { const x = L[i]; const B = asBereik([x, -x], 12);
+      asKies(host, st, save, 'a' + i, Object.assign({}, B, { punten:[{x, cls:'start', lab:zS(x)}], vraag:`Het punt staat bij <b>${zS(x)}</b>. Klik op het getal dat even ver van 0 ligt, aan de andere kant.`, T:-x,
+        sprongen:[{van:0, naar:x, lab:String(Math.abs(x)), cls:'pos'}, {van:0, naar:-x, lab:String(Math.abs(x)), cls:'pos'}], why:`${zS(x)} en ${zS(-x)} liggen allebei ${Math.abs(x)} stappen van 0.`, whyBad:'Tel de stappen van het punt tot 0 en spring even ver aan de andere kant.',
+        naKop:'Vul aan', na:(vak, ok) => mQ(vak, st, save, 'u' + i, { noCL:true, html:`|${zS(x)}| ${isq} {{u:a}} <span class="txt">en</span> |${zS(-x)}| ${isq} {{u:b}}`, check:V=>allOf([['a', chkG(V.a, Math.abs(x), [[x, 'Een absolute waarde is nooit negatief.']])], ['b', chkG(V.b, Math.abs(x), [[-Math.abs(x), 'Een absolute waarde is nooit negatief.']])]]), onOk:s=>{ if(!s) ok(); } }), onOk:klaar })); },
+      'De absolute waarde is de afstand tot 0. Een getal en zijn tegengestelde hebben dezelfde absolute waarde.', L.map(x => `|${zS(x)}| = ${Math.abs(x)}`));
+  } };
+AB.teg = { title:'Het tegengestelde', lvl:1,
+  instr:'Het tegengestelde van een getal ligt even ver van 0, aan de andere kant. Het tegengestelde van 5 is −5, het tegengestelde van −5 is 5. Je schrijft het met een minteken: −(−5) = 5.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([nz(R, -20, -1), R.int(1, 20), nz(R, -20, -1), R.int(21, 99), -R.int(21, 99), 0]);
+    reeks(b, L.length, (g, i, nr) => { const x = L[i];
+      mQ(g, st, save, 't' + i, { nr, html:`<span class="txt">het tegengestelde van</span> ${zS(x)} ${isq} {{u:a}}`, check:V=>chkG(V.a, -x, [[x, 'Het tegengestelde ligt aan de andere kant van 0: verander het teken.']]), sol:`${MIN}${zP(x)} ${isq} ${zS(-x)}` }); });
+  } };
+AB.ber = { title:'Absolute waarde en tegengestelde', lvl:1,
+  instr:'Bereken. |…| is de absolute waarde, een minteken voor de haakjes is het tegengestelde.',
+  build(b, st, save){
+    const R = makeR(st); const p = () => R.int(2, 20);
+    const L = R.shuffle([[x => `|${zS(-x)}|`, x => x], [x => `|${x}|`, x => x], [x => `${MIN}(${zS(-x)})`, x => x], [x => `${MIN}(+${x})`, x => -x], [x => `${MIN}|${zS(-x)}|`, x => -x], [x => `|${MIN}(${zS(-x)})|`, x => x], [x => `${MIN}(${MIN}(${zS(-x)}))`, x => -x], [x => `${MIN}|${x}|`, x => -x]]).slice(0, 8);
+    reeks(b, L.length, (g, i, nr) => { const x = p(); const [h, w] = L[i]; const T = w(x);
+      mQ(g, st, save, 'b' + i, { nr, html:`${h(x)} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), hint: (h(x).match(/[(|−]/g)||[]).length > 2 ? ['Werk van binnen naar buiten: eerst wat het dichtst bij het getal staat.'] : undefined, sol:`${h(x)} ${isq} ${zS(T)}` }); });
+  } };
+AB.welke = { title:'Welke getallen?', lvl:2,
+  instr:'Zoek alle gehele getallen die passen. Er zijn er soms twee, soms één, soms geen. Typ ze gescheiden door een puntkomma, bijvoorbeeld 4; −4. Is er geen, typ dan geen.',
+  build(b, st, save){
+    const R = makeR(st); const n = R.int(2, 15), m = R.int(2, 15);
+    const L = R.shuffle([[`|<i>x</i>| = ${n}`, [n, -n]], ['|<i>x</i>| = 0', [0]], [`|<i>x</i>| = ${MIN}${m}`, []], [`${MIN}<i>x</i> = ${n}`, [-n]], [`${MIN}<i>x</i> = ${MIN}${m}`, [m]], [`|<i>x</i>| = ${m} en <i>x</i> &lt; 0`, [-m]]]).slice(0, 5);
+    const lees = t => { t = nrm(t||'').toLowerCase(); if(/^geen/.test(t)) return []; const d = t.split(/[;]|\sen\s|\sof\s/).map(x => x.trim()).filter(Boolean); const v = d.map(x => rdZ({t:x, z:true})); return v.some(x => x==null) ? null : v; };
+    reeks(b, L.length, (g, i, nr) => { const [h, S] = L[i];
+      mQ(g, st, save, 'w' + i, { nr, html:`${h}: <i>x</i> ${isq} {{g:a}}`, check:V=>{ const v = lees((V.a||{}).t); if(v==null) return {info:true, msg:'Typ de getallen gescheiden door een puntkomma, of typ geen.'};
+          const ok = v.length===S.length && S.every(x => v.includes(x)); return ok ? {ok:true} : {ok:false, msg: S.length===2 && v.length===1 ? 'Er is nog een tweede getal.' : !S.length ? 'Een absolute waarde kan niet negatief zijn.' : ''}; },
+        sol:S.length ? S.map(zS).join(' of ') : 'geen' }); }, {een:true});
+  } };
+AB.reken = { title:'Rekenen met absolute waarden', lvl:2,
+  instr:'Bereken eerst elke absolute waarde. Reken daarna uit.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2, 3, 4, 5].map(k => { const a = nz(R, -30, 30), c = nz(R, -30, 30);
+      return k % 3===0 ? `|${zS(a)}| + |${zS(c)}|` : k % 3===1 ? `|${zS(a)}| − |${zS(c)}|` : `${MIN}|${zS(a)}| + ${zP(c)}`; });
+    reeks(b, L.length, (g, i, nr) => { const E = L[i]; const T = ZX.waarde(E).k;
+      mQ(g, st, save, 'r' + i, { nr, html:`${E} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), hint:['Schrijf eerst elke absolute waarde als getal. Een absolute waarde is nooit negatief.'], sol:`${E} ${isq} ${zS(T)}` }); });
+  } };
+AB.vgl = { title:'Vergelijk zonder te rekenen', lvl:3,
+  instr:'Vul in met &lt;, = of &gt;.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(3, 12), c = R.int(3, 12);
+    const L = R.shuffle([[`|${MIN}${a}|`, `${MIN}${a}`, a, -a], [`${MIN}|${MIN}${c}|`, `${MIN}(${MIN}${c})`, -c, c], [`|${MIN}${a}|`, `|${a}|`, a, a], [`${MIN}(${MIN}${a})`, `|${MIN}${c}|`, a, c], [`${MIN}|${a}|`, `${MIN}|${MIN}${c}|`, -a, -c], [`|${a} − ${a + c}|`, `${c}`, c, c]]);
+    reeks(b, L.length, (g, i, nr) => { const [l, r, x, y] = L[i]; const ans = x<y ? '<' : x>y ? '>' : '=';
+      qChoice(g, st, save, 'v' + i, { nr, html:`<span class="m5-groot">${l} … ${r}</span>`, opts:VGL, sym:true, ans, why:`${l} = ${zS(x)} en ${r} = ${zS(y)}.` }); });
+  } };
+AB.hoeveel = { title:'Hoeveel gehele getallen?', lvl:3,
+  instr:'Hoeveel gehele getallen voldoen aan de voorwaarde?',
+  build(b, st, save){
+    const R = makeR(st); const n = R.int(3, 12), m = R.int(3, 12), k = R.int(2, 6);
+    const L = [[`|<i>x</i>| &lt; ${n}`, 2*n - 1], [`|<i>x</i>| ≤ ${m}`, 2*m + 1], [`|<i>x</i>| ≤ ${k} en <i>x</i> ≠ 0`, 2*k], [`${k} ≤ |<i>x</i>| ≤ ${k + 3}`, 8]];
+    reeks(b, L.length, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 'h' + i, { nr, html:`${h}: {{u:a}} <span class="txt">gehele getallen</span>`, check:V=>chkG(V.a, T, [[T - 1, 'Vergeet 0 of de grens niet.'], [Math.floor(T/2), 'Ook de negatieve getallen tellen mee.']]), sol:`${T}` }); }, {een:true});
+  } };
+AB.ctx = { title:'Absolute waarde in het echt', lvl:2,
+  instr:'De absolute waarde is de afstand tot 0. Lees goed wat er gevraagd wordt.',
+  build(b, st, save){
+    const R = makeR(st); const d = R.int(5, 40), t = R.int(2, 15), s = R.int(10, 90), a = R.int(2, 5);
+    const L = [[`Een duiker zwemt op ${zS(-d)} m. Hoeveel meter is hij van het wateroppervlak verwijderd?`, d, 'm'], [`Het is ${zS(-t)} °C. Hoeveel graden onder nul is dat?`, t, '°C'],
+      [`Het saldo van Lina is € ${zS(-s)}. Hoeveel euro schuld heeft ze?`, s, 'euro'], [`Een lift staat op verdieping ${zS(-a)}. Hoeveel verdiepingen is hij van het gelijkvloers (verdieping 0) verwijderd?`, a, 'verdiepingen']];
+    reeks(b, L.length, (g, i, nr) => { const [tx, T, eh] = L[i]; mQ(g, st, save, 'c' + i, { nr, html:`<span class="txt">${tx}</span> {{u:a}} <span class="txt">${eh}</span>`, check:V=>chkG(V.a, T, [[-T, 'Een afstand is nooit negatief: neem de absolute waarde.']]), sol:`${T} ${eh}` }); }, {een:true});
+  } };
+const CHEAT_ABS = `<h3>Spiekbriefje · absolute waarde en tegengestelde</h3><table>
+  <tr><td>|${MIN}7| = 7</td><td>de absolute waarde is de afstand tot 0; ze is nooit negatief</td></tr>
+  <tr><td>${MIN}(${MIN}7) = 7</td><td>het tegengestelde: aan de andere kant van 0, even ver</td></tr>
+  <tr><td>${MIN}|${MIN}7| = ${MIN}7</td><td>werk van binnen naar buiten</td></tr></table>`;
+SEC.abs = { id:'abs', ic:'z_abs', nav:'Absolute waarde', title:'Absolute waarde en tegengestelde',
+  tip:'De absolute waarde is de afstand tot 0. Het tegengestelde vind je door het getal te spiegelen in 0.',
+  cheat:CHEAT_ABS, cards:[AB.afst, AB.teg, AB.ber, AB.welke, AB.reken, AB.ctx, AB.vgl, AB.hoeveel] };
+
+/* ============================================================ 3 ordenen en de getallenas */
+const OR = {};
+OR.lees = { title:'Lees af op de getallenas', lvl:1,
+  instr:'Welk getal hoort bij elk punt?',
+  build(b, st, save){
+    const R = makeR(st); const lo = -R.int(8, 12), hi = lo + 16; const X = R.shuffle([...Array(hi - lo - 1).keys()].map(k => lo + 1 + k).filter(x => x)).slice(0, 4).sort((x, y) => x - y);
+    const lab = R.shuffle(['A', 'B', 'C', 'D']);
+    b.append(el('div', 'm4-vis', asSvg({lo, hi, punten:X.map((x, j) => ({x, lab:lab[j]})), alt:'getallenas met punten', maxw:640})));
+    reeks(b, X.length, (g, i, nr) => { const j = lab.indexOf('ABCD'[i]); mQ(g, st, save, 'l' + i, { nr, html:`${'ABCD'[i]} ${isq} {{u:a}}`, check:V=>chkG(V.a, X[j]), sol:zS(X[j]) }); });
+  } };
+OR.verd = { title:'Getallenas met een eigen verdeling', lvl:2,
+  instr:'Niet elk streepje is 1. Zoek eerst hoeveel één stap waard is.',
+  build(b, st, save){
+    const R = makeR(st); const stap = R.pick([2, 5, 10, 25]), n0 = -R.int(3, 6), n = 12; const W = k => (n0 + k)*stap;
+    const ks = R.shuffle([...Array(n + 1).keys()].filter(k => k!==-n0 && k!==-n0 + 1 && k)).slice(0, 3);
+    const W2 = 640, pad = 30, X = k => pad + k*(W2 - 2*pad)/n;
+    let s = `<line class="as-l" x1="${pad-14}" y1="60" x2="${W2-pad+12}" y2="60"/><path class="as-pk" d="M${W2-pad+18} 60 l-9 -5 v10z"/>`;
+    for(let k=0; k<=n; k++) s += `<line class="as-t${W(k)===0 ? ' nul' : ''}" x1="${fx(X(k))}" y1="53" x2="${fx(X(k))}" y2="67"/>`;
+    [-n0, -n0 + 1].forEach(k => { s += sT(X(k), 84, zS(W(k)), W(k)===0 ? 't as-0' : 'k'); });
+    ks.forEach((k, j) => { s += `<circle class="as-p" cx="${fx(X(k))}" cy="60" r="7"/>` + sT(X(k), 38, 'PQR'[j], 'as-lab'); });
+    b.append(el('div', 'm4-vis', svgWrap(W2, 100, s, {alt:'getallenas met een eigen verdeling', maxw:640, cls:'m5-as'})));
+    reeks(b, ks.length, (g, i, nr) => { mQ(g, st, save, 'v' + i, { nr, html:`${'PQR'[i]} ${isq} {{u:a}}`, check:V=>chkG(V.a, W(ks[i]), [[n0 + ks[i], `Eén stap is ${stap}, niet 1.`]]), hint:[`Van 0 naar ${stap} is één stap. Elke stap is dus ${stap} waard.`], sol:zS(W(ks[i])) }); });
+  } };
+OR.vgl = { title:'Groter of kleiner?', lvl:1,
+  instr:'Vul in met &lt; of &gt;. Op de getallenas ligt het kleinste getal het meest links.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([[nz(R, -9, -1), R.int(1, 9)], [-R.int(2, 9), -R.int(10, 19)], [0, nz(R, -9, -1)], [-R.int(11, 20), -R.int(1, 10)], [R.int(1, 15), 0], [-R.int(20, 60), R.int(1, 5)]]);
+    reeks(b, L.length, (g, i, nr) => { const [x, y] = R.f() < .5 ? L[i] : L[i].slice().reverse(); const ans = x<y ? '<' : '>';
+      qChoice(g, st, save, 'g' + i, { nr, html:`<span class="m5-groot">${zS(x)} … ${zS(y)}</span>`, opts:VGL.filter(o => o[0]!=='='), sym:true, ans, why:`${zS(x<y ? x : y)} ligt links van ${zS(x<y ? y : x)} op de getallenas.`, whyBad:'Bij negatieve getallen: hoe groter de absolute waarde, hoe kleiner het getal.' }); });
+  } };
+OR.rang = { title:'Rangschik', lvl:1,
+  instr:'Klik de getallen in de juiste volgorde aan. Klik je fout, klik dan op een getal in de rij om terug te gaan.',
+  build(b, st, save){
+    const R = makeR(st); const G = () => { const S = new Set(); while(S.size<6) S.add(R.pick([nz(R, -20, 20), -R.int(1, 9), R.int(0, 9)])); return R.shuffle([...S]).map(w => ({w, h:zS(w)})); };
+    rangschik(b, st, save, 'r1', {getallen:G(), nr:'a)'}); rangschik(b, st, save, 'r2', {getallen:G(), op:false, nr:'b)'});
+  } };
+OR.groen = { title:'Temperaturen in Groenland', lvl:2,
+  instr:'In Nuuk (Groenland) is het in de winter flink koud. Bekijk de gemiddelde temperatuur per maand.',
+  build(b, st, save){
+    const R = makeR(st); const M = ['jan', 'feb', 'maa', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const T = [-8, -8, -9, -4, 1, 4, 7, 6, 3, -2, -5, -7].map(t => t + R.int(-1, 1));
+    b.append(el('div', 'm4-vis m5-twee', [0, 6].map(k => `<table class="m5-btab"><tr>${M.slice(k, k + 6).map(m => `<th>${m}</th>`).join('')}</tr><tr>${T.slice(k, k + 6).map(t => `<td>${zS(t)}</td>`).join('')}</tr></table>`).join('')));
+    const mn = Math.min(...T), mx = Math.max(...T);
+    const kies = (id, nr, html, ans, why) => qChoice(b.querySelector('.m4-items') || b, st, save, id, { nr, html, opts:M.map((m, j) => ['' + j, m]), ans, alt:M.map((m, j) => '' + j).filter(j => T[+j]===T[+ans] && j!==ans), why });
+    const g = el('div', 'm4-items een'); b.append(g);
+    kies('k1', 'a)', 'In welke maand is het het koudst?', '' + T.indexOf(mn), `${zS(mn)} °C is de laagste temperatuur.`);
+    kies('k2', 'b)', 'In welke maand is het het warmst?', '' + T.indexOf(mx), `${zS(mx)} °C is de hoogste temperatuur.`);
+    mQ(g, st, save, 'n', { nr:'c)', html:`<span class="txt">In hoeveel maanden is het gemiddeld kouder dan 0 °C?</span> {{u:a}}`, check:V=>chkG(V.a, T.filter(t => t<0).length), sol:'' + T.filter(t => t<0).length });
+    const r = el('div'); g.append(r); rangschik(r, st, save, 'r', {getallen:R.shuffle(T.slice(0, 6).map((w, j) => ({w, h:`${M[j]}: ${zS(w)}°`}))), nr:'d)', why:'Van de koudste naar de warmste maand.'});
+  } };
+OR.race = { title:'Getallenas-race', lvl:2,
+  instr:'Klik zo snel mogelijk op het getal dat bovenaan staat. 10 getallen, de tijd loopt. Dit spel telt niet mee.',
+  build(b, st, save){
+    const box = el('div', 'm5-race'); b.append(box); let timer = null;
+    const intro = () => { box.innerHTML = ''; box.append(el('p', '', st.best ? `Jouw beste tijd: <b>${(st.best/10).toFixed(1)} s</b>.` : 'Klaar? Start de race.')); const go = el('button', 'btn', '▶ Start'); go.type = 'button'; go.addEventListener('click', start); box.append(go); };
+    function start(){ const R = makeR({seed:1 + Math.floor(Math.random()*2e9)}); const lo = -15, hi = 15; let k = 0, fout = 0; const t0 = Date.now();
+      box.innerHTML = ''; const kop = el('div', 'm5-race-kop'), fig = el('div', 'm5-asbox sleep'), fb = el('div', 'fb'); box.append(kop, fig, fb);
+      let doel = nz(R, lo + 1, hi - 1);
+      const teken = () => { kop.innerHTML = `<span>Getal ${k + 1} / 10</span> <b class="m5-race-doel">${zS(doel)}</b> <span>${fout} fout</span>`; fig.innerHTML = asSvg({lo, hi, alt:'getallenas van −15 tot 15'}); };
+      fig.onclick = e => { const v = asKlik(fig.querySelector('svg'), e, {lo, hi});
+        if(v===doel){ k++; fb.className = 'fb ok'; fb.textContent = '✓'; if(k>=10){ const t = Math.round((Date.now() - t0)/100) + fout*20; if(!st.best || t < st.best){ st.best = t; save(); } box.innerHTML = ''; box.append(el('div', 'qz-groot', (t/10).toFixed(1) + ' s'), el('p', '', `${fout} keer fout (2 s straf per fout). ${st.best===t ? 'Dat is jouw beste tijd!' : 'Jouw beste tijd: ' + (st.best/10).toFixed(1) + ' s.'}`)); const nog = el('button', 'btn', '↻ Nog eens'); nog.type = 'button'; nog.addEventListener('click', start); box.append(nog); return; }
+          let d; do{ d = nz(R, lo + 1, hi - 1); }while(d===doel); doel = d; teken(); }
+        else { fout++; fb.className = 'fb bad'; fb.textContent = `Dat is ${zS(v)}.`; teken(); } };
+      teken(); }
+    intro();
+  } };
+OR.midden = { title:'Tussen en in het midden', lvl:3,
+  instr:'Denk aan de getallenas. Teken hem in gedachten of op een kladblad.',
+  build(b, st, save){
+    const R = makeR(st); const a = -R.int(5, 30), c = R.int(3, 30), d = -R.int(4, 20)*2, e = R.int(1, 10)*2 + (d % 4 ? 0 : 2);
+    const L = [[`Hoeveel gehele getallen liggen er tussen ${zS(a)} en ${c}?`, c - a - 1], [`Welk getal ligt precies in het midden van ${zS(d)} en ${zS(e)}?`, (d + e)/2],
+      [`Welk geheel getal ligt ${c} plaatsen links van ${zS(a)}?`, a - c], [`Het midden van ${zS(a)} en een ander getal is ${zS(a + c)}. Wat is dat andere getal?`, a + 2*c]];
+    reeks(b, L.length, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 'm' + i, { nr, html:`<span class="txt">${h}</span> {{u:a}}`, check:V=>chkG(V.a, T), sol:zS(T) }); }, {een:true});
+  } };
+OR.rang2 = { title:'Rangschik met absolute waarden', lvl:3,
+  instr:'Bereken eerst in gedachten elke uitdrukking. Rangschik dan.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 9), e = R.int(2, 9);
+    const G = [[`|${MIN}${a}|`, a], [`${MIN}|${c}|`, -c], [`${MIN}(${MIN}${d})`, d], [`${MIN}|${MIN}${e}|`, -e], [`${MIN}(+${a + 1})`, -a - 1], ['0', 0]];
+    const S = new Set(), U = G.filter(([, w]) => S.has(w) ? false : (S.add(w), true));
+    rangschik(b, st, save, 'r', {getallen:R.shuffle(U.map(([h, w]) => ({w, h}))), why:'Bereken eerst elke uitdrukking: dan kun je ze op de getallenas zetten.'});
+  } };
+const CHEAT_ORDE = `<h3>Spiekbriefje · ordenen</h3><table>
+  <tr><td>getallenas</td><td>hoe meer naar links, hoe kleiner: ${MIN}8 &lt; ${MIN}3 &lt; 0 &lt; 2</td></tr>
+  <tr><td>twee negatieve getallen</td><td>het getal met de grootste absolute waarde is het kleinste: ${MIN}15 &lt; ${MIN}4</td></tr>
+  <tr><td>verdeling</td><td>zoek eerst hoeveel één streepje waard is</td></tr></table>`;
+SEC.orde = { id:'orde', ic:'z_orde', nav:'Ordenen', title:'Ordenen en de getallenas',
+  tip:'Op de getallenas staan de getallen van klein (links) naar groot (rechts). Elk negatief getal is kleiner dan 0 en dan elk positief getal.',
+  cheat:CHEAT_ORDE, cards:[OR.lees, OR.vgl, OR.rang, OR.verd, OR.groen, OR.race, OR.midden, OR.rang2] };
+(function(){ const s = document.createElement('style'); s.textContent = `
+  .m5-twee{display:flex; flex-wrap:wrap; gap:.5rem} .m5-twee .m5-btab th, .m5-twee .m5-btab td{min-width:2.9rem}
+  .m5-race{display:flex; flex-direction:column; gap:.5rem}
+  .m5-race-kop{display:flex; gap:1rem; align-items:center; font-weight:700; color:var(--accent-dark)} .m5-race-doel{font-size:2rem; color:var(--ink); min-width:3rem; text-align:center}
+  `; document.head.append(s); })();
+/* ============================================================
    ONDERDEEL · OPTELLEN VAN GEHELE GETALLEN
    basis: getallen tot 20 (met tekenvak), oefenen: tot 100, verdieping: groter en redeneren
    ============================================================ */
@@ -2657,6 +3087,562 @@ SEC.optel = { id:'optel', ic:'z_optel', nav:'Optellen', title:'Gehele getallen o
   .m5-patroon{display:flex; flex-direction:column; gap:.15rem; font-size:1.2rem; font-variant-numeric:tabular-nums} .m5-ok-r{display:flex; gap:.5rem; align-items:center} .m5-vink{color:var(--ok); font-weight:900}
   `; document.head.append(s); })();
 /* ============================================================
+   ONDERDELEN 5 TOT 7 · AFTREKKEN, VERMENIGVULDIGEN, DELEN
+   ============================================================ */
+Object.assign(ICONS, {
+  z_aftrek:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
+  z_maal:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.6"/>',
+  z_deel:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="8.5" r="1.3"/><circle cx="12" cy="15.5" r="1.3"/>'
+});
+const verT = (a, b) => `${zS(a)} − ${zP(b)}`;
+const AF = {};
+/* ---------- 1 patroon ---------- */
+AF.patroon = { title:'Ontdek het patroon', lvl:1,
+  instr:'Reken de verschillen van boven naar onder uit. Kijk hoe de staven veranderen.',
+  build(b, st, save){ const R = makeR(st); const a = R.pick([2, 3, 4, -2, -3]);
+    patroon(b, st, save, {a, B:[3, 2, 1, 0, -1, -2, -3], op:'−', vraag:'Wat gebeurt er als je een <b>negatief</b> getal aftrekt?', opts:[['g', 'de uitkomst wordt groter'], ['k', 'de uitkomst wordt kleiner']], ans:'g',
+      why:`Telkens 1 minder aftrekken geeft 1 meer. ${verT(a, -2)} = ${zS(a + 2)}: hetzelfde als ${somT(a, 2)}.`, slot:'Een negatief getal aftrekken maakt de uitkomst groter: je telt het tegengestelde op.'}); } };
+/* ---------- 2 tweelingsommen ---------- */
+AF.tweeling = { title:'Tweelingsommen', lvl:1,
+  instr:'Reken beide bewerkingen uit. Wat valt je op?',
+  build(b, st, save){
+    const R = makeR(st); const P = [[nz(R, -9, 9), R.int(2, 9)], [nz(R, -9, 9), -R.int(2, 9)], [-R.int(2, 9), -R.int(2, 9)]];
+    naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, c] = P[i], T = a - c;
+      const Pn = paneel(host); const B = asBereik([a, T]); Pn.vis.append(el('div', '', asSvg(Object.assign({}, B, {sprongen:[{van:a, naar:T, lab:`${MIN} ${zP(c)}`, cls:T<a ? 'neg' : 'pos'}], punten:[{x:a, cls:'start'}, {x:T}], alt:'getallenas', maxw:520}))));
+      Pn.vis.append(el('p', 'm5-tip', `${MIN} ${zP(c)} en + ${zP(-c)}: dezelfde sprong.`));
+      stapKop(Pn.stap, 1, 'Reken beide uit.');
+      mQ(Pn.stap, st, save, 't' + i, { noCL:false, html:`${verT(a, c)} ${isq} {{u:a,t}} <span class="txt">en</span> ${somT(a, -c)} ${isq} {{u:b,t}}`, check:V=>allOf([['a', chkGt(V.a, T)], ['b', chkGt(V.b, T)]]),
+        hint:[`Kijk naar de sprong op de getallenas: start bij ${zS(a)}.`], onOk:s=>{ if(!s) klaar(); } }); },
+      'Aftrekken is hetzelfde als het tegengestelde optellen: a − b = a + (−b).', P.map(([a, c]) => `${verT(a, c)} = ${somT(a, -c)} = ${zS(a - c)}`));
+  } };
+/* ---------- 3 het stappenplan: tegengestelde optellen ---------- */
+AF.stap = { title:'Tel het tegengestelde op', lvl:1,
+  instr:'Schrijf het verschil als een som: verander het minteken in een plusteken en neem het tegengestelde van de tweede term. Reken dan uit.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([[nz(R, -15, 15), R.int(2, 15)], [nz(R, -15, 15), -R.int(2, 15)], [-R.int(2, 15), R.int(2, 15)], [R.int(2, 15), -R.int(2, 15)], [-R.int(2, 15), -R.int(2, 15)], [R.int(1, 9), R.int(10, 20)]]);
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i], T = a - c;
+      mQ(g, st, save, 's' + i, { nr, html:`${verT(a, c)} ${isq} ${zS(a)} + <span class="m4-par">(</span>{{u:t,t}}<span class="m4-par">)</span> ${isq} {{u:r,t}}`,
+        check:V=>allOf([['t', chkGt(V.t, -c, [[c, 'Neem het tegengestelde van de tweede term.']])], ['r', chkGt(V.r, T)]]),
+        hint:[`Het tegengestelde van ${zS(c)} is ${zS(-c)}.`, {u:'Vul aan.', line:`${somT(a, -c)} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T).ok, show:`${somT(a, -c)} ${isq} ${zS(T)}`}], meer:somMeer(a, -c),
+        sol:`${verT(a, c)} ${isq} ${somT(a, -c)} ${isq} ${zS(T)}` }); });
+  } };
+/* ---------- 4 tekenparen wegwerken ---------- */
+AF.paar = { title:'Twee tekens na elkaar', lvl:1,
+  instr:'Staan er twee tekens na elkaar, schrijf dan één teken. Twee gelijke tekens worden +, twee verschillende tekens worden −. Kies het teken en reken uit.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([['+', -1], ['−', -1], ['+', 1], ['−', 1], ['−', -1], ['+', -1]]).map(([o, s]) => [nz(R, -15, 15), o, s*R.int(2, 15)]);
+    reeks(b, P.length, (g, i, nr) => { const [a, o, c] = P[i]; const nieuw = (o==='+') === (c>0) ? '+' : '-'; const T = o==='+' ? a + c : a - c; const ct = c<0 ? `(${zS(c)})` : `(+${c})`;
+      mQ(g, st, save, 'p' + i, { nr, html:`${zS(a)} ${o} ${ct} ${isq} ${zS(a)} {{s:t}} ${Math.abs(c)} ${isq} {{u:r,t}}`,
+        check:V=>allOf([['t', (V.t||{}).s===nieuw ? {ok:true} : {ok:false, msg: nieuw==='+' ? 'Twee gelijke tekens: plus.' : 'Twee verschillende tekens: min.'}], ['r', chkGt(V.r, T)]]),
+        sol:`${zS(a)} ${o} ${ct} ${isq} ${zS(a)} ${nieuw==='+' ? '+' : MIN} ${Math.abs(c)} ${isq} ${zS(T)}` }); });
+  } };
+/* ---------- 5 bereken tot 100, vrij vak ---------- */
+AF.vrij = { title:'Bereken tot 100', lvl:2,
+  instr:'Werk uit in het vak. De tussenstap met het tegengestelde mag je schrijven of overslaan.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 1, 2, 3, 4, 5]).map(k => [nz(R, -60, 60), (k % 2 ? -1 : 1)*R.int(5, 60)]);
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i]; const E = verT(a, c);
+      mQ(g, st, save, 'v' + i, { nr, html:`<span class="m5-opg">${E}</span> {{z:a,h}}`, check:V=>chkZ(V.a, ZX.waarde(E), {opg:E}), hint:['Schrijf als som: tel het tegengestelde op.', ['Zo begin je:', `= ${somT(a, -c)}`]], sol:uitwH([E, somT(a, -c), zS(a - c)]) }); });
+  } };
+/* ---------- 6 verschil in het echt ---------- */
+AF.verschil = { title:'Hoeveel verschil?', lvl:2,
+  instr:'Het verschil is de grootste waarde min de kleinste waarde. Schrijf de aftrekking en reken uit.',
+  build(b, st, save){
+    const R = makeR(st); const t1 = -R.int(3, 14), t2 = R.int(2, 15), v1 = -R.int(1, 3), v2 = R.int(2, 8), d = -R.int(5, 25), m = R.int(3, 12), j = R.int(2, 8)*100, k = R.int(1, 9)*100;
+    const L = [[`'s Nachts was het ${zS(t1)} °C, 's middags ${zS(t2)} °C. Hoeveel graden is het opgewarmd?`, t2, t1, '°C'],
+      [`Je neemt de lift van parking ${zS(v1)} naar verdieping ${v2}. Hoeveel verdiepingen ga je omhoog?`, v2, v1, 'verdiepingen'],
+      [`Een duiker zwemt op ${zS(d)} m, een meeuw vliegt op ${m} m boven het water. Hoeveel meter zit er tussen?`, m, d, 'm'],
+      [`Een tempel werd gebouwd in ${j} v.C. (${zS(-j)}), een andere in ${k} v.C. (${zS(-k)}). Hoeveel jaar zit er tussen?`, Math.max(-j, -k), Math.min(-j, -k), 'jaar']];
+    reeks(b, L.length, (g, i, nr) => { const [tx, hoog, laag, u] = L[i]; const T = hoog - laag;
+      mQ(g, st, save, 'd' + i, { nr, html:`<span class="txt">${tx}</span> ${zS(hoog)} − ${zP(laag)} ${isq} {{u:a}} <span class="txt">${u}</span>`, check:V=>chkG(V.a, T, [[hoog + laag, 'Een negatief getal aftrekken: tel het tegengestelde op.']]),
+        hint:[`${zS(hoog)} − ${zP(laag)} ${isq} ${somT(hoog, -laag)}`], sol:`${zS(hoog)} − ${zP(laag)} ${isq} ${somT(hoog, -laag)} ${isq} ${T}` }); }, {een:true});
+  } };
+/* ---------- verdieping ---------- */
+AF.groot = { title:'Grote getallen', lvl:3,
+  instr:'Bereken.',
+  build(b, st, save){
+    const R = makeR(st); const g = () => R.int(12, 950)*R.pick([1, 5, 10]);
+    const P = [[-g(), g()], [g(), -g()], [-g(), -g()], [g(), g()], [-g(), -g()], [-g(), g()]];
+    reeks(b, P.length, (gg, i, nr) => { const [a, c] = P[i]; mQ(gg, st, save, 'g' + i, { nr, html:`${verT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, a - c), sol:`${verT(a, c)} ${isq} ${somT(a, -c)} ${isq} ${zS(a - c)}` }); });
+  } };
+AF.slier = { title:'Rekenslierten', lvl:3,
+  instr:'Volg de pijlen. Vul elk vak in.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = [0, 1, 2].map(() => { let x = nz(R, -30, 30); const S = []; for(let k=0; k<4; k++){ const c = nz(R, -25, 25), op = R.pick(['+', '−']); const y = op==='+' ? x + c : x - c; S.push([op, c, y]); x = y; } return S; });
+    const st0 = L.map(S => S[0][2] - (S[0][0]==='+' ? S[0][1] : -S[0][1]));
+    reeks(b, L.length, (g, i, nr) => { const S = L[i];
+      mQ(g, st, save, 's' + i, { nr, html:`<span class="m5-slier">${zS(st0[i])}</span> ${S.map(([op, c], k) => `<span class="m5-pijl">${op} ${zP(c)} →</span> {{u:v${k}}}`).join(' ')}`,
+        check:V=>allOf(S.map(([, , y], k) => ['v' + k, chkG(V['v' + k], y)])), sol:S.map(([, , y]) => zS(y)).join(' → ') }); }, {een:true});
+  } };
+AF.aanvul = { title:'Vul aan', lvl:3,
+  instr:'Welk getal ontbreekt?',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2, 3, 4, 5].map(k => { const a = nz(R, -40, 40), c = nz(R, -40, 40); return [a, c, a - c, k % 2]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, c, d, voor] = L[i];
+      mQ(g, st, save, 'a' + i, { nr, html: voor ? `{{u:a}} − ${zP(c)} ${isq} ${zS(d)}` : `${zS(a)} − {{u:a}} ${isq} ${zS(d)}`, check:V=>chkG(V.a, voor ? a : c, [[voor ? d - c : d - a, 'Controleer: vul je getal in en reken.']]), sol:`${verT(a, c)} ${isq} ${zS(d)}` }); });
+  } };
+const CHEAT_AFTREK = `<h3>Spiekbriefje · aftrekken</h3><table>
+  <tr><td>regel</td><td>aftrekken = het tegengestelde optellen<div class="m4-line">${verT(3, 8)} ${isq} ${somT(3, -8)} ${isq} ${MIN}5</div><div class="m4-line">${verT(-4, -6)} ${isq} ${somT(-4, 6)} ${isq} 2</div></td></tr>
+  <tr><td>twee tekens</td><td>+ (+…) en − (${MIN}…) worden +; + (${MIN}…) en − (+…) worden ${MIN}</td></tr>
+  <tr><td>verschil</td><td>grootste waarde min kleinste waarde</td></tr></table>`;
+SEC.aftrek = { id:'aftrek', ic:'z_aftrek', nav:'Aftrekken', title:'Gehele getallen aftrekken',
+  tip:'Aftrekken is het tegengestelde optellen: 5 − (−3) = 5 + 3. Zo maak je van elk verschil een som.',
+  cheat:CHEAT_AFTREK, cards:[AF.patroon, AF.tweeling, AF.stap, AF.paar, AF.vrij, AF.verschil, AF.groot, AF.slier, AF.aanvul] };
+
+/* ============================================================ 6 vermenigvuldigen */
+const prT = (a, b) => `${zS(a)} · ${zP(b)}`;
+const MA = {};
+MA.patroon1 = { title:'Ontdek het patroon (1)', lvl:1,
+  instr:'Reken de producten van boven naar onder uit. Kijk hoe de staven veranderen.',
+  build(b, st, save){ const R = makeR(st); const a = R.pick([2, 3, 4]);
+    patroon(b, st, save, {a, B:[3, 2, 1, 0, -1, -2, -3], op:'·', vraag:'Een positief getal maal een negatief getal is …', opts:[['+', 'positief'], ['-', 'negatief']], ans:'-',
+      why:`Telkens ${a} minder: ${prT(a, -2)} = ${zS(-2*a)}.`, slot:'Positief maal negatief geeft negatief.'}); } };
+MA.patroon2 = { title:'Ontdek het patroon (2)', lvl:1,
+  instr:'Nu is het eerste getal negatief. Reken van boven naar onder.',
+  build(b, st, save){ const R = makeR(st); const a = R.pick([-2, -3, -4]);
+    patroon(b, st, save, {a, B:[3, 2, 1, 0, -1, -2, -3], op:'·', vraag:'Een negatief getal maal een negatief getal is …', opts:[['+', 'positief'], ['-', 'negatief']], ans:'+',
+      why:`De uitkomsten worden telkens ${-a} groter: ${prT(a, -2)} = ${zS(-2*a)}.`, slot:'Negatief maal negatief geeft positief. Zelfde teken: positief, verschillend teken: negatief.'}); } };
+MA.sprong = { title:'Herhaalde sprongen', lvl:1,
+  instr:'4 · (−3) betekent: 4 keer een sprong van −3, vanaf 0. Kijk op de getallenas en vul in.',
+  build(b, st, save){
+    const R = makeR(st); const P = [[R.int(2, 4), -R.int(2, 4)], [R.int(3, 5), -R.int(2, 3)], [R.int(2, 4), R.int(2, 4)]];
+    naElkaar(b, st, save, P.length, (host, i, klaar) => { const [n, c] = P[i], T = n*c;
+      const Pn = paneel(host); const B = asBereik([0, T], 14); const sp = []; for(let k=0; k<n; k++) sp.push({van:k*c, naar:(k + 1)*c, lab:zP(c), cls:c<0 ? 'neg' : 'pos'});
+      Pn.vis.append(el('div', '', asSvg(Object.assign({}, B, {sprongen:sp, punten:[{x:0, cls:'start'}, {x:T}], alt:'getallenas met herhaalde sprongen', maxw:560}))));
+      stapKop(Pn.stap, 1, `${n} sprongen van ${zP(c)}.`);
+      mQ(Pn.stap, st, save, 'h' + i, { html:`${Array(n).fill(zP(c)).join(' + ')} ${isq} ${prT(n, c)} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T), onOk:s=>{ if(!s) klaar(); } }); },
+      'Een positief getal maal een negatief getal: herhaald een negatief getal optellen. De uitkomst is negatief.', P.map(([n, c]) => `${prT(n, c)} = ${zS(n*c)}`));
+  } };
+MA.min = { title:'Minnetjes tellen', lvl:1,
+  instr:'Reken niet uit. Tel de mintekens: een even aantal geeft een positief product, een oneven aantal een negatief product.',
+  build(b, st, save){
+    const R = makeR(st); const L = [2, 3, 3, 4, 4, 5].map(n => { const f = []; for(let k=0; k<n; k++) f.push(R.sign()*R.int(1, 9)); return f; });
+    reeks(b, L.length, (g, i, nr) => { const f = L[i]; const m = f.filter(x => x<0).length; const ans = m % 2 ? '-' : '+';
+      qChoice(g, st, save, 'm' + i, { nr, html:`<span class="m5-groot">${f.map((x, k) => k ? zP(x) : zS(x)).join(' · ')}</span>`, opts:PN, ans, why:`${m} ${m===1 ? 'minteken' : 'mintekens'}: ${m % 2 ? 'oneven, dus negatief' : 'even, dus positief'}.`, whyBad:'Tel enkel de mintekens van de factoren.' }); }, {een:true});
+  } };
+MA.ber = { title:'Bereken', lvl:1,
+  instr:'Kies eerst het teken: zelfde teken geeft +, verschillend teken geeft −. Vermenigvuldig dan de absolute waarden.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle(['--', '--', '+-', '+-', '-+', '-+', '++', '-+']).map(s => [(s[0]==='-' ? -1 : 1)*R.int(2, 10), (s[1]==='-' ? -1 : 1)*R.int(2, 10)]);
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i], T = a*c;
+      mQ(g, st, save, 'b' + i, { nr, html:`${prT(a, c)} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T), hint:[(a<0)===(c<0) ? 'Zelfde teken: het product is positief.' : 'Verschillend teken: het product is negatief.', {u:'Vul aan.', line:`${prT(a, c)} ${isq} ${T<0 ? MIN : '+'} (${Math.abs(a)} · ${Math.abs(c)}) ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T).ok, show:zS(T)}], sol:`${prT(a, c)} ${isq} ${zS(T)}` }); });
+  } };
+MA.tabel = { title:'Bewerkingstabel', lvl:2,
+  instr:'Vul de tabel in: het getal links maal het getal boven.',
+  build(b, st, save){ const R = makeR(st); tabel(b, st, save, 't', {op:'·', rij:R.shuffle([-3, 2, -5, 4, -1].map(x => x*(R.f() < .5 ? 1 : 1))).slice(0, 4), kol:R.shuffle([-2, 6, -7, 3, -9]).slice(0, 4), why:'Zelfde teken: positief, verschillend teken: negatief.'}); } };
+MA.pir = { title:'Productpiramide', lvl:2,
+  instr:'Elk vak is het product van de twee vakken eronder. Kies bij elke steen het teken en vul het getal in.',
+  build(b, st, save){ const R = makeR(st); const B = [0, 0, 0].map(() => R.sign()*R.int(1, 4)); if(B.every(x => x>0)) B[1] = -B[1];
+    piramide(b, st, save, 'p', {basis:B, op:'·', open:[10, 11, 20]}); } };
+MA.ctx = { title:'Vermenigvuldigen in het echt', lvl:2,
+  instr:'Schrijf in gedachten een vermenigvuldiging en vul de uitkomst in.',
+  build(b, st, save){
+    const R = makeR(st); const n = R.int(3, 8), d = R.int(2, 6), u = R.int(3, 7), g = R.int(2, 4), p = R.int(4, 9), k = R.int(5, 15);
+    const L = [[`De temperatuur daalt ${n} uur lang telkens ${d} graden per uur. Hoeveel is de temperatuur in totaal veranderd?`, -n*d, '°C', `${n} · ${zP(-d)}`],
+      [`Een duiker daalt ${u} keer ${g} m. Hoeveel meter is zijn hoogte veranderd?`, -u*g, 'm', `${u} · ${zP(-g)}`],
+      [`Bij een spel verlies je ${p} punten per fout. Je maakt ${k} fouten. Hoeveel punten verandert je score?`, -p*k, 'punten', `${k} · ${zP(-p)}`]];
+    reeks(b, L.length, (gg, i, nr) => { const [tx, T, eh, op] = L[i]; mQ(gg, st, save, 'c' + i, { nr, html:`<span class="txt">${tx}</span> {{u:a}} <span class="txt">${eh}</span>`, check:V=>chkG(V.a, T, [[-T, 'De verandering is een daling of een verlies: negatief.']]), hint:[`Schrijf als vermenigvuldiging: ${op}.`], sol:`${op} ${isq} ${zS(T)}` }); }, {een:true});
+  } };
+MA.groot = { title:'Meer factoren', lvl:3,
+  instr:'Bepaal eerst het teken (tel de mintekens), reken dan de absolute waarden uit. Zoek handige paren.',
+  build(b, st, save){
+    const R = makeR(st); const L = [[-25, R.int(2, 9), -4], [R.int(2, 9), -5, -R.int(2, 9), 2], [-2, -3, -R.int(2, 5), -R.int(2, 5)], [R.pick([-50, 50]), -R.int(3, 9), -2], [-R.int(11, 30), -R.int(3, 9)], [-1, -1, -1, -R.int(10, 99)]];
+    reeks(b, L.length, (g, i, nr) => { const f = L[i]; const T = f.reduce((p, x) => p*x, 1); const E = f.map((x, k) => k ? zP(x) : zS(x)).join(' · ');
+      mQ(g, st, save, 'g' + i, { nr, html:`${E} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${E} ${isq} ${zS(T)}` }); });
+  } };
+MA.vgl = { title:'Vergelijk zonder te rekenen', lvl:3,
+  instr:'<i>a</i> is negatief en <i>b</i> is positief (geen van beide is 0). Is de uitdrukking positief of negatief?',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([['<i>a</i> · <i>b</i>', '-'], ['<i>a</i> · <i>a</i>', '+'], ['<i>a</i> · <i>a</i> · <i>a</i>', '-'], [`${MIN}<i>a</i> · <i>b</i>`, '+'], ['<i>a</i> · <i>b</i> · <i>b</i>', '-'], [`(${MIN}<i>b</i>) · <i>a</i>`, '+']]);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans] = L[i]; qChoice(g, st, save, 'v' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:PN, ans, why:'Tel de negatieve factoren: even geeft positief, oneven geeft negatief.', whyBad:'Probeer het met getallen: a = −2 en b = 3.' }); }, {een:true});
+  } };
+const CHEAT_MAAL = `<h3>Spiekbriefje · vermenigvuldigen</h3><table>
+  <tr><td>zelfde teken</td><td>positief: ${prT(-3, -4)} ${isq} 12</td></tr><tr><td>verschillend teken</td><td>negatief: ${prT(-3, 4)} ${isq} ${MIN}12</td></tr>
+  <tr><td>meer factoren</td><td>even aantal mintekens: positief, oneven aantal: negatief</td></tr></table>`;
+SEC.maal = { id:'maal', ic:'z_maal', nav:'Vermenigvuldigen', title:'Gehele getallen vermenigvuldigen',
+  tip:'Bepaal eerst het teken, vermenigvuldig dan de absolute waarden. Zelfde teken: +, verschillend teken: −.',
+  cheat:CHEAT_MAAL, cards:[MA.patroon1, MA.patroon2, MA.sprong, MA.min, MA.ber, MA.tabel, MA.pir, MA.ctx, MA.groot, MA.vgl] };
+
+/* ============================================================ 7 delen */
+const dlT = (a, b) => `${zS(a)} : ${zP(b)}`;
+const DE = {};
+DE.omg = { title:'Delen met controle', lvl:1,
+  instr:'Delen is de omgekeerde bewerking van vermenigvuldigen. Vul het quotiënt in en controleer met een vermenigvuldiging.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle(['+-', '-+', '--', '-+', '+-', '--']).map(s => { const q = (s[0]==='-' ? -1 : 1)*R.int(2, 9), c = (s[1]==='-' ? -1 : 1)*R.int(2, 9); return [q*c, c]; });
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i], T = a/c;
+      mQ(g, st, save, 'o' + i, { nr, html:`${dlT(a, c)} ${isq} {{u:q,t}} <span class="txt">want</span> {{u:p,t}} · ${zP(c)} ${isq} ${zS(a)}`, check:V=>allOf([['q', chkGt(V.q, T)], ['p', chkGt(V.p, T)]]), sol:`${dlT(a, c)} ${isq} ${zS(T)} want ${zP(T)} · ${zP(c)} ${isq} ${zS(a)}` }); }, {een:true});
+  } };
+DE.teken = { title:'Positief of negatief?', lvl:1,
+  instr:'Reken niet uit. Zelfde teken geeft een positief quotiënt, verschillend teken een negatief quotiënt.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle(['--', '+-', '-+', '++', '--', '-+']).map(s => { const q = R.int(2, 12), c = R.int(2, 9); return [(s[0]==='-' ? -1 : 1)*q*c, (s[1]==='-' ? -1 : 1)*c]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, c] = L[i]; qChoice(g, st, save, 't' + i, { nr, html:`<span class="m5-groot">${dlT(a, c)}</span>`, opts:PN, ans:a/c>0 ? '+' : '-', why:(a<0)===(c<0) ? 'Zelfde teken: positief.' : 'Verschillend teken: negatief.' }); });
+  } };
+DE.ber = { title:'Bereken', lvl:1,
+  instr:'Kies eerst het teken, deel dan de absolute waarden.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle(['--', '--', '+-', '+-', '-+', '-+', '++', '-+']).map(s => { const q = R.int(2, 10), c = R.int(2, 10); return [(s[0]==='-' ? -1 : 1)*q*c, (s[1]==='-' ? -1 : 1)*c]; });
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i], T = a/c;
+      mQ(g, st, save, 'b' + i, { nr, html:`${dlT(a, c)} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T), hint:[(a<0)===(c<0) ? 'Zelfde teken: het quotiënt is positief.' : 'Verschillend teken: het quotiënt is negatief.', {u:'Vul aan.', line:`${dlT(a, c)} ${isq} ${T<0 ? MIN : '+'} (${Math.abs(a)} : ${Math.abs(c)}) ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T).ok, show:zS(T)}], sol:`${dlT(a, c)} ${isq} ${zS(T)}` }); });
+  } };
+DE.ber2 = { title:'Bereken met grotere getallen', lvl:2,
+  instr:'Bereken. Een negatief getal typ je met een minteken.',
+  build(b, st, save){
+    const R = makeR(st); const P = [0, 1, 2, 3, 4, 5].map(k => { const c = R.sign()*R.pick([2, 3, 4, 5, 6, 8, 12, 15, 25]), q = R.sign()*R.int(3, 20); return [q*c, c]; });
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i]; mQ(g, st, save, 'c' + i, { nr, html:`${dlT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, a/c), hint:['Bepaal eerst het teken. Deel dan de absolute waarden.'], sol:`${dlT(a, c)} ${isq} ${zS(a/c)}` }); });
+  } };
+DE.gem = { title:'Gemiddelde temperatuur', lvl:2,
+  instr:'Het gemiddelde: tel alle getallen op en deel door het aantal getallen.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2].map(() => { for(let k=0; k<300; k++){ const T = [0, 0, 0, 0, 0].map(() => R.int(-15, 6)); const s = T.reduce((p, x) => p + x, 0); if(s % 5===0 && s<0) return T; } return [-4, -6, 2, -7, 0]; });
+    const D = ['ma', 'di', 'wo', 'do', 'vr'];
+    reeks(b, L.length, (g, i, nr) => { const T = L[i]; const s = T.reduce((p, x) => p + x, 0);
+      mQ(g, st, save, 'g' + i, { nr, html:`<span class="txt">${T.map((t, j) => `${D[j]} ${zS(t)} °C`).join(', ')}. Gemiddelde:</span> {{u:a}} <span class="txt">°C</span>`, check:V=>chkG(V.a, s/5, [[s, 'Dat is de som. Deel nog door 5.']]),
+        hint:['Tel eerst de vijf temperaturen op.', {u:'Vul aan.', line:`<span class="txt">som:</span> {{u:a}}`, check:V=>chkG(V.a, s).ok, show:zS(s)}, `Deel de som door 5: ${zS(s)} : 5.`], sol:`(${T.map(zS).join(' + ').replace(/\+ −/g, '+ (−').replace(/\(−(\d+)/g, '(−$1)')}) : 5 ${isq} ${zS(s)} : 5 ${isq} ${zS(s/5)}` }); }, {een:true});
+  } };
+DE.wnw = { title:'Waar of niet waar?', lvl:2,
+  instr:'Denk na over 0 en over de tekens.',
+  build(b, st, save){
+    const R = makeR(st); const n = R.int(2, 9);
+    const L = R.shuffle([[`0 : ${zP(-n)} ${isq} 0`, 'w', `0 gedeeld door een getal (niet 0) is 0.`], [`${zS(-n)} : 0 ${isq} 0`, 'n', 'Delen door 0 kan niet.'], [`${zS(-n)} : ${zP(-n)} ${isq} 1`, 'w', 'Een getal gedeeld door zichzelf is 1.'], [`${n} : ${zP(-1)} ${isq} ${n}`, 'n', `Delen door ${MIN}1 geeft het tegengestelde: ${zS(-n)}.`],
+      [`${zS(-12)} : 3 ${isq} 3 : ${zP(-12)}`, 'n', 'Bij delen mag je niet wisselen.'], [`${zS(-24)} : ${zP(-6)} ${isq} 24 : 6`, 'w', 'Zelfde teken: het quotiënt is positief.']]).slice(0, 5);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans, why }); });
+  } };
+DE.aanvul = { title:'Vul aan', lvl:3,
+  instr:'Welk getal ontbreekt?',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2, 3, 4, 5].map(k => { const q = R.sign()*R.int(2, 15), c = R.sign()*R.int(2, 12); return [q*c, c, q, k % 3]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, c, q, w] = L[i];
+      const html = w===0 ? `{{u:a}} : ${zP(c)} ${isq} ${zS(q)}` : w===1 ? `${zS(a)} : {{u:a}} ${isq} ${zS(q)}` : `${zS(a)} : ${zP(c)} ${isq} {{u:a}}`;
+      mQ(g, st, save, 'a' + i, { nr, html, check:V=>chkG(V.a, w===0 ? a : w===1 ? c : q), sol:`${dlT(a, c)} ${isq} ${zS(q)}` }); });
+  } };
+DE.groot = { title:'Delen met grote getallen', lvl:3,
+  instr:'Bereken. Zoek een handige manier.',
+  build(b, st, save){
+    const R = makeR(st); const L = [[-R.int(11, 40)*25, 25], [R.int(11, 60)*-50, -50], [-R.int(101, 999)*4, -4], [R.int(21, 99)*-12, 12], [-R.int(10, 99)*100, -R.int(2, 9)*100]];
+    reeks(b, L.length, (g, i, nr) => { const [a, c] = L[i]; const T = a/c; mQ(g, st, save, 'g' + i, { nr, html:`${dlT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${dlT(a, c)} ${isq} ${zS(T)}` }); });
+  } };
+const CHEAT_DEEL = `<h3>Spiekbriefje · delen</h3><table>
+  <tr><td>regel</td><td>zoals vermenigvuldigen: zelfde teken +, verschillend teken ${MIN}<div class="m4-line">${dlT(-12, -3)} ${isq} 4</div><div class="m4-line">${dlT(12, -3)} ${isq} ${MIN}4</div></td></tr>
+  <tr><td>controle</td><td>quotiënt · deler = deeltal</td></tr><tr><td>0</td><td>0 : ${zP(-5)} = 0, maar delen door 0 kan niet</td></tr></table>`;
+SEC.deel = { id:'deel', ic:'z_deel', nav:'Delen', title:'Gehele getallen delen',
+  tip:'Delen is de omgekeerde bewerking van vermenigvuldigen. De tekenregel is dezelfde: zelfde teken +, verschillend teken −.',
+  cheat:CHEAT_DEEL, cards:[DE.omg, DE.teken, DE.ber, DE.ber2, DE.gem, DE.wnw, DE.aanvul, DE.groot] };
+(function(){ const s = document.createElement('style'); s.textContent = `
+  .m5-slier{display:inline-flex; align-items:center; justify-content:center; min-width:2.6rem; height:2.4rem; border:2px solid var(--tq); border-radius:.5rem; background:var(--tq-soft); padding:0 .4rem}
+  .m5-pijl{font-size:1rem; color:var(--accent-dark); white-space:nowrap}
+  `; document.head.append(s); })();
+/* ============================================================
+   ONDERDELEN 8 EN 9 · EIGENSCHAPPEN, DISTRIBUTIVITEIT
+   ============================================================ */
+Object.assign(ICONS, {
+  z_eig:'<path d="M4 8h7M7.5 4.5v7M14 8h6M4 17h6M14 15h6M14 19h6"/>',
+  z_distr:'<rect x="3" y="6" width="18" height="12" rx="1"/><path d="M11 6v12"/>'
+});
+/* letters cursief, rekentekens netjes */
+const ltH = s => zT(s).replace(/(^|[^a-z<])([a-z])(?![a-z>])/g, '$1<i>$2</i>');
+const GL = [['=', 'gelijk'], ['≠', 'niet gelijk']];
+const EI = {};
+/* twee uitdrukkingen uitrekenen en vergelijken; P = [[E1, E2, uitleg]] */
+function vglKaart(b, st, save, P, slot){
+  naElkaar(b, st, save, P.length, (host, i, klaar) => { const [E1, E2, why] = P[i]; const T1 = ZX.waarde(E1).k, T2 = ZX.waarde(E2).k;
+    const Pn = paneel(host); Pn.vis.append(el('div', 'm5-vgl2', `<div>${zT(E1)}</div><div class="m5-vq">${T1===T2 ? '=' : '≠'}<span>?</span></div><div>${zT(E2)}</div>`));
+    stapKop(Pn.stap, 1, 'Reken beide kanten uit.'); const s1 = el('div'), s2 = el('div', 'm5-rs'); Pn.stap.append(s1, s2);
+    const k2 = stapKop(s2, 2, 'Zijn de uitkomsten gelijk?'); k2.classList.add('uit'); const vr = el('div'); s2.append(vr);
+    const verder = () => { k2.classList.remove('uit'); if(vr.firstChild) return;
+      qChoice(vr, st, save, 'k' + i, { html:'', opts:GL, sym:true, ans:T1===T2 ? '=' : '≠', why, whyBad:'Vergelijk de twee uitkomsten die je net berekende.', after:(ok, nieuw) => { if(ok){ Pn.vis.querySelector('.m5-vq').classList.add('af'); if(nieuw) klaar(); } } }); };
+    mQ(s1, st, save, 'r' + i, { html:`${zT(E1)} ${isq} {{u:a,t}}<span class="m5-nl"></span>${zT(E2)} ${isq} {{u:b,t}}`, check:V=>allOf([['a', chkGt(V.a, T1)], ['b', chkGt(V.b, T2)]]), onOk:() => verder() }); },
+    slot, P.map(([E1, E2]) => `${zT(E1)} ${ZX.waarde(E1).k===ZX.waarde(E2).k ? '=' : '≠'} ${zT(E2)}`));
+}
+EI.wissel = { title:'Mag je wisselen?', lvl:1,
+  instr:'Wissel de twee getallen van plaats. Blijft de uitkomst gelijk? Reken beide kanten uit en vergelijk.',
+  build(b, st, save){ const R = makeR(st); const a = nz(R, -9, 9), c = nz(R, -9, 9), f = nz(R, -9, 9), h = nz(R, -9, 9);
+    let x = nz(R, -9, 9), y = nz(R, -9, 9); while(x===y) y = nz(R, -9, 9);
+    vglKaart(b, st, save, [[`${zS(a)} + ${zP(c)}`, `${zS(c)} + ${zP(a)}`, 'Bij optellen mag je de termen wisselen.'], [`${zS(x)} − ${zP(y)}`, `${zS(y)} − ${zP(x)}`, 'Bij aftrekken mag je niet wisselen: je krijgt het tegengestelde.'],
+      [`${zS(f)} · ${zP(h)}`, `${zS(h)} · ${zP(f)}`, 'Bij vermenigvuldigen mag je de factoren wisselen.']],
+      'Optellen en vermenigvuldigen zijn <b>commutatief</b>: je mag wisselen (wisseleigenschap). Bij aftrekken mag dat niet.'); } };
+EI.schakel = { title:'Mag je schakelen?', lvl:1,
+  instr:'Zet de haakjes op een andere plaats. Blijft de uitkomst gelijk? Reken beide kanten uit en vergelijk.',
+  build(b, st, save){ const R = makeR(st); const a = nz(R, -9, 9), c = nz(R, -9, 9), d = nz(R, -9, 9), x = nz(R, -9, 9), y = nz(R, -6, 6), z = nz(R, -6, 6), f = R.sign()*R.int(2, 4), g = R.sign()*R.int(2, 4), h = R.sign()*R.int(2, 4);
+    vglKaart(b, st, save, [[`(${zS(a)} + ${zP(c)}) + ${zP(d)}`, `${zS(a)} + (${zS(c)} + ${zP(d)})`, 'Bij optellen mag je schakelen.'],
+      [`(${zS(x)} − ${zP(y)}) − ${zP(z)}`, `${zS(x)} − (${zS(y)} − ${zP(z)})`, 'Bij aftrekken mag je niet schakelen.'],
+      [`(${zS(f)} · ${zP(g)}) · ${zP(h)}`, `${zS(f)} · (${zS(g)} · ${zP(h)})`, 'Bij vermenigvuldigen mag je schakelen.']],
+      'Optellen en vermenigvuldigen zijn <b>associatief</b>: je mag schakelen (schakeleigenschap). Bij aftrekken en delen mag dat niet.'); } };
+EI.vul = { title:'Bijzondere getallen', lvl:1,
+  instr:'Welk getal ontbreekt? Denk aan 0, 1 en het tegengestelde.',
+  build(b, st, save){
+    const R = makeR(st); const n = () => nz(R, -40, 40);
+    const L = R.shuffle([() => { const a = n(); return [`${zS(a)} + {{u:a}} ${isq} ${zS(a)}`, 0, 'Het neutraal element voor de optelling is 0.']; },
+      () => { const a = n(); return [`{{u:a}} · ${zP(a)} ${isq} ${zS(a)}`, 1, 'Het neutraal element voor de vermenigvuldiging is 1.']; },
+      () => { const a = n(); return [`${zS(a)} + {{u:a}} ${isq} 0`, -a, `Een getal plus zijn tegengestelde is 0. Het tegengestelde van ${zS(a)} is ${zS(-a)}: het symmetrisch element.`]; },
+      () => { const a = n(); return [`${zS(a)} · {{u:a}} ${isq} 0`, 0, '0 is opslorpend voor de vermenigvuldiging: elk getal maal 0 is 0.']; },
+      () => { const a = n(); return [`{{u:a}} + ${zP(a)} ${isq} 0`, -a, `Het tegengestelde van ${zS(a)} is ${zS(-a)}.`]; },
+      () => { const a = n(); return [`${zS(a)} · {{u:a}} ${isq} ${zS(-a)}`, -1, `Maal ${MIN}1 geeft het tegengestelde.`]; }]).map(f => f());
+    reeks(b, L.length, (g, i, nr) => { const [h, T, why] = L[i]; mQ(g, st, save, 'v' + i, { nr, html:h, check:V=>chkG(V.a, T), sol:why }); });
+  } };
+const EIG5 = [['w', 'wisseleigenschap'], ['s', 'schakeleigenschap'], ['n', 'neutraal element'], ['y', 'symmetrisch element'], ['o', 'opslorpend element']];
+EI.benoem = { title:'Welke eigenschap?', lvl:1,
+  instr:'Welke eigenschap wordt hier gebruikt?',
+  build(b, st, save){
+    const R = makeR(st); const n = () => nz(R, -20, 20); const a = n(), c = n(), d = n(), e = n(), f = n(), g = n(), h = n();
+    const L = R.shuffle([[`${zS(a)} + ${zP(c)} ${isq} ${zS(c)} + ${zP(a)}`, 'w'], [`(${zS(d)} · ${zP(e)}) · ${zP(f)} ${isq} ${zS(d)} · (${zS(e)} · ${zP(f)})`, 's'], [`${zS(g)} + 0 ${isq} ${zS(g)}`, 'n'],
+      [`${zS(h)} + ${zP(-h)} ${isq} 0`, 'y'], [`${zS(a)} · 0 ${isq} 0`, 'o'], [`1 · ${zP(c)} ${isq} ${zS(c)}`, 'n'], [`${zS(d)} · ${zP(e)} ${isq} ${zS(e)} · ${zP(d)}`, 'w']]).slice(0, 6);
+    const W = {w:'De getallen wisselen van plaats.', s:'De haakjes staan op een andere plaats.', n:'Er verandert niets aan het getal: 0 bij plus, 1 bij maal.', y:'Een getal plus zijn tegengestelde geeft 0.', o:'Maal 0 geeft altijd 0.'};
+    reeks(b, L.length, (gg, i, nr) => { const [h2, ans] = L[i]; qChoice(gg, st, save, 'e' + i, { nr, html:`<span class="m5-groot">${h2}</span>`, opts:EIG5, ans, why:W[ans] }); }, {een:true});
+  } };
+EI.gelijk = { title:'Gelijk of niet?', lvl:2,
+  instr:'Reken niet uit. Kies = als beide kanten altijd dezelfde uitkomst geven.',
+  build(b, st, save){
+    const R = makeR(st); const n = () => nz(R, -30, 30); const a = n(), c = n(), d = n();
+    const L = R.shuffle([[`${zS(a)} − ${zP(c)} … ${zS(c)} − ${zP(a)}`, '≠', 'Bij aftrekken mag je niet wisselen.'], [`${zS(a)} · ${zP(c)} · ${zP(d)} … ${zS(d)} · ${zP(a)} · ${zP(c)}`, '=', 'Bij vermenigvuldigen mag je wisselen en schakelen.'],
+      [`${zS(a)} + ${zP(c)} + ${zP(d)} … ${zS(d)} + ${zP(c)} + ${zP(a)}`, '=', 'Bij optellen mag je wisselen en schakelen.'], [`(${zS(a)} − ${zP(c)}) − ${zP(d)} … ${zS(a)} − (${zS(c)} − ${zP(d)})`, '≠', 'Bij aftrekken mag je niet schakelen.'],
+      [`${zS(a)} − ${zP(c)} … ${zS(a)} + ${zP(-c)}`, '=', 'Aftrekken is het tegengestelde optellen.'], [`${zS(a*4)} : 4 … 4 : ${zP(a*4)}`, '≠', 'Bij delen mag je niet wisselen.']]);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'g' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:GL, sym:true, ans, why }); }, {een:true});
+  } };
+EI.handig = { title:'Handig rekenen', lvl:2,
+  instr:'Wissel en schakel slim zodat je makkelijk kan rekenen. Werk uit in het vak.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(11, 89), c = R.int(3, 19), d = R.int(21, 79), m = R.int(3, 19), p = R.int(11, 49);
+    const L = R.shuffle([`-${a} + ${c} + ${a}`, `4 · (-${m}) · 25`, `-${d} + ${c} + (-${100 - d})`, `(-2) · ${m} · (-5)`, `${p} + (-${c}) + (-${p}) + ${c} + (-7)`, `-25 · ${R.int(3, 9)} · (-4)`]).slice(0, 4);
+    reeks(b, L.length, (g, i, nr) => vrijOpg(g, st, save, 'h' + i, nr, L[i], {k:'mh', hint:['Zoek getallen die samen 0, 10 of 100 geven (bij +) of 10 of 100 (bij ·). Zet ze naast elkaar: je mag wisselen en schakelen.']}));
+  } };
+/* verdieping */
+EI.alle = { title:'Voor alle … ?', lvl:3,
+  instr:'∀ betekent "voor alle", ∃! betekent "er bestaat precies één". Is de uitspraak waar of niet waar?',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = R.shuffle([['∀ <i>a</i> ∈ ℤ: <i>a</i> + 0 = <i>a</i>', 'w', '0 is het neutraal element voor de optelling.'], ['∀ <i>a</i>, <i>b</i> ∈ ℤ: <i>a</i> − <i>b</i> = <i>b</i> − <i>a</i>', 'n', 'Tegenvoorbeeld: 5 − 2 = 3, maar 2 − 5 = −3.'],
+      ['∀ <i>a</i> ∈ ℤ, ∃! <i>b</i> ∈ ℤ: <i>a</i> + <i>b</i> = 0', 'w', 'Elk geheel getal heeft precies één tegengestelde.'], ['∀ <i>a</i> ∈ ℤ₀, ∃! <i>b</i> ∈ ℤ: <i>a</i> · <i>b</i> = 1', 'n', 'Voor 2 bestaat er geen geheel getal b met 2 · b = 1.'],
+      ['∀ <i>a</i>, <i>b</i> ∈ ℤ: <i>a</i> · <i>b</i> = <i>b</i> · <i>a</i>', 'w', 'Vermenigvuldigen is commutatief.'], ['∀ <i>a</i> ∈ ℤ: <i>a</i> · 0 = 0', 'w', '0 is opslorpend voor de vermenigvuldiging.'],
+      ['∀ <i>a</i>, <i>b</i> ∈ ℤ: <i>a</i> − <i>b</i> ∈ ℤ', 'w', 'Het verschil van twee gehele getallen is altijd een geheel getal.'], ['∀ <i>a</i>, <i>b</i> ∈ ℤ₀: <i>a</i> : <i>b</i> ∈ ℤ', 'n', 'Tegenvoorbeeld: 3 : 2 is geen geheel getal.']]).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'a' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans, why }); }, {een:true});
+  } };
+EI.tegen = { title:'Zoek een tegenvoorbeeld', lvl:3,
+  instr:'Kies zelf gehele getallen die tonen dat de uitspraak <b>niet altijd</b> waar is.',
+  build(b, st, save){
+    const getal = v => { const x = rdZ(v); return x; };
+    const L = [
+      {h:`<i>a</i> − <i>b</i> = <i>b</i> − <i>a</i>`, k:['a', 'b'], t:'Aftrekken is niet commutatief.', f:([a, c]) => a - c !== c - a, m:'Met die getallen klopt de gelijkheid toevallig wel. Kies twee verschillende getallen.', s:([a, c]) => `${zS(a)} − ${zP(c)} = ${zS(a - c)} en ${zS(c)} − ${zP(a)} = ${zS(c - a)}`},
+      {h:`(<i>a</i> − <i>b</i>) − <i>c</i> = <i>a</i> − (<i>b</i> − <i>c</i>)`, k:['a', 'b', 'c'], t:'Aftrekken is niet associatief.', f:([a, c, d]) => (a - c) - d !== a - (c - d), m:'Met die getallen klopt de gelijkheid toevallig wel. Probeer een andere c.', s:([a, c, d]) => `(${zS(a)} − ${zP(c)}) − ${zP(d)} = ${zS(a - c - d)} en ${zS(a)} − (${zS(c)} − ${zP(d)}) = ${zS(a - c + d)}`},
+      {h:`|<i>a</i> + <i>b</i>| = |<i>a</i>| + |<i>b</i>|`, k:['a', 'b'], t:'De absolute waarde van een som is niet altijd de som van de absolute waarden.', f:([a, c]) => Math.abs(a + c) !== Math.abs(a) + Math.abs(c), m:'Met die getallen klopt de gelijkheid toevallig wel. Wat als de tekens verschillen?', s:([a, c]) => `|${zS(a)} + ${zP(c)}| = ${Math.abs(a + c)} en |${zS(a)}| + |${zS(c)}| = ${Math.abs(a) + Math.abs(c)}`},
+      {h:`<i>a</i> · <i>b</i> &gt; <i>a</i>`, k:['a', 'b'], t:'Vermenigvuldigen maakt een getal niet altijd groter.', f:([a, c]) => !(a*c > a), m:'Met die getallen klopt het wel. Probeer een negatief getal.', s:([a, c]) => `${zS(a)} · ${zP(c)} = ${zS(a*c)}, en dat is niet groter dan ${zS(a)}`}];
+    reeks(b, L.length, (g, i, nr) => { const e = L[i];
+      mQ(g, st, save, 't' + i, { nr, html:`<span class="txt">Uitspraak:</span> <span class="m5-groot">${e.h}</span><span class="m5-nl"></span>${e.k.map(k => `<i>${k}</i> ${isq} {{u:${k}}}`).join(' <span class="txt">en</span> ')}`,
+        check:V=>{ const X = e.k.map(k => getal(V[k])); if(X.some(x => x==null)) return {info:true, msg:'Vul bij elke letter een geheel getal in.'}; return e.f(X) ? {ok:true, msg:e.s(X) + '. ' + e.t} : {ok:false, msg:e.m}; } }); }, {een:true});
+  } };
+const CHEAT_EIG = `<h3>Spiekbriefje · eigenschappen</h3><table>
+  <tr><td>wisselen</td><td>mag bij + en ·: ${MIN}3 + 5 = 5 + (${MIN}3), maar niet bij − en :</td></tr>
+  <tr><td>schakelen</td><td>mag bij + en ·: (${MIN}2 · 5) · 7 = ${MIN}2 · (5 · 7), maar niet bij − en :</td></tr>
+  <tr><td>neutraal element</td><td>0 voor +: <i>a</i> + 0 = <i>a</i>; 1 voor ·: <i>a</i> · 1 = <i>a</i></td></tr>
+  <tr><td>symmetrisch element</td><td>het tegengestelde: <i>a</i> + (${MIN}<i>a</i>) = 0</td></tr>
+  <tr><td>opslorpend element</td><td>0 voor ·: <i>a</i> · 0 = 0</td></tr>
+  <tr><td>handig rekenen</td><td>zet getallen die samen 0, 10 of 100 geven naast elkaar: 4 · (${MIN}17) · 25 = 4 · 25 · (${MIN}17) = ${MIN}1 700</td></tr></table>`;
+SEC.eig = { id:'eig', ic:'z_eig', nav:'Eigenschappen', title:'Eigenschappen van de bewerkingen',
+  tip:'Bij optellen en vermenigvuldigen mag je wisselen en schakelen. Zo kan je handig rekenen. Bij aftrekken en delen mag dat niet.',
+  cheat:CHEAT_EIG, cards:[EI.wissel, EI.schakel, EI.vul, EI.benoem, EI.gelijk, EI.handig, EI.alle, EI.tegen] };
+
+/* ============================================================ 9 distributiviteit */
+const DI = {};
+/* rechthoekmodel: hoogte a, breedtes b en c */
+function rechtSvg(a, c, d, o={}){ const W = 440, H = 170, x0 = 60, y0 = 30, h = 110; const tot = Math.abs(c) + Math.abs(d); const w1 = Math.max(70, (W - x0 - 20)*Math.abs(c)/tot), w2 = W - x0 - 20 - w1;
+  let s = `<rect class="rh-a" x="${x0}" y="${y0}" width="${fx(w1)}" height="${h}"/><rect class="rh-b" x="${fx(x0 + w1)}" y="${y0}" width="${fx(w2)}" height="${h}"/>`;
+  s += sT(x0 + w1/2, y0 - 14, zS(c), 'rh-l') + sT(x0 + w1 + w2/2, y0 - 14, zS(d), 'rh-l') + sT(x0 - 22, y0 + h/2, zS(a), 'rh-l');
+  s += sT(x0 + w1/2, y0 + h/2, o.p!=null ? zS(o.p) : `${zS(a)} · ${zP(c)}`, 'rh-t') + sT(x0 + w1 + w2/2, y0 + h/2, o.q!=null ? zS(o.q) : `${zS(a)} · ${zP(d)}`, 'rh-t');
+  return svgWrap(W, H, s, {alt:'rechthoekmodel', maxw:460, cls:'m5-recht'}); }
+DI.recht = { title:'Het rechthoekmodel', lvl:1,
+  instr:'Het getal voor de haakjes vermenigvuldig je met elke term tussen de haakjes. Vul de twee vakken in en tel op.',
+  build(b, st, save){
+    const R = makeR(st); const P = [[R.int(2, 6), R.int(2, 9), -R.int(2, 9)], [-R.int(2, 6), R.int(2, 9), R.int(2, 9)], [-R.int(2, 6), R.int(2, 9), -R.int(2, 9)]];
+    naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, c, d] = P[i], p = a*c, q = a*d;
+      const Pn = paneel(host); const fig = el('div', '', rechtSvg(a, c, d)); Pn.vis.append(fig, el('p', 'm5-groot', `${zS(a)} · (${zS(c)} + ${zP(d)})`));
+      stapKop(Pn.stap, 1, 'Reken elk vak uit.');
+      mQ(Pn.stap, st, save, 'v' + i, { html:`${zS(a)} · ${zP(c)} ${isq} {{u:p,t}}<span class="m5-nl"></span>${zS(a)} · ${zP(d)} ${isq} {{u:q,t}}`, check:V=>allOf([['p', chkGt(V.p, p)], ['q', chkGt(V.q, q)]]),
+        onOk:s=>{ fig.innerHTML = rechtSvg(a, c, d, {p, q}); if(Pn.stap.querySelector('.m5-rs')) return; const k2 = el('div', 'm5-rs'); Pn.stap.append(k2); stapKop(k2, 2, 'Tel de twee vakken op.');
+          mQ(k2, st, save, 's' + i, { html:`${zS(a)} · (${zS(c)} + ${zP(d)}) ${isq} ${zS(p)} + ${zP(q)} ${isq} {{u:r,t}}`, check:V=>chkGt(V.r, p + q), onOk:s2=>{ if(!s2) klaar(); } }); } }); },
+      'Distributiviteit: <i>a</i> · (<i>b</i> + <i>c</i>) = <i>a</i> · <i>b</i> + <i>a</i> · <i>c</i>.', P.map(([a, c, d]) => `${zS(a)} · (${zS(c)} + ${zP(d)}) = ${zS(a*c + a*d)}`));
+  } };
+DI.uit = { title:'Haakjes uitwerken', lvl:1,
+  instr:'Vermenigvuldig het getal voor de haakjes met elke term. Vul de producten in en reken uit.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([[-R.int(2, 9), R.int(2, 9), R.int(2, 9), '+'], [R.int(2, 9), R.int(2, 9), R.int(2, 9), '−'], [-R.int(2, 9), R.int(2, 9), R.int(2, 9), '−'], [-R.int(2, 9), -R.int(2, 9), R.int(2, 9), '+'], [R.int(2, 9), -R.int(2, 9), R.int(2, 9), '−']]);
+    reeks(b, P.length, (g, i, nr) => { const [a, c, d, op] = P[i]; const q = op==='+' ? a*d : -a*d; const T = a*c + q;
+      mQ(g, st, save, 'u' + i, { nr, html:`${zS(a)} · (${zS(c)} ${op} ${d}) ${isq} {{u:p,t}} + ({{u:q,t}}) ${isq} {{u:r,t}}`, check:V=>allOf([['p', chkGt(V.p, a*c)], ['q', chkGt(V.q, q, [[-q, op==='−' ? `Let op het minteken: ${zS(a)} · (${MIN}${d}) = ${zS(-a*d)}.` : 'Kijk naar de tekens.']])], ['r', chkGt(V.r, T)]]),
+        hint:[`${zS(a)} · ${zP(c)} en ${zS(a)} · ${zP(op==='+' ? d : -d)}`], sol:`${zS(a)} · ${zP(c)} + ${zS(a)} · ${zP(op==='+' ? d : -d)} ${isq} ${zS(a*c)} + ${zP(q)} ${isq} ${zS(T)}` }); }, {een:true});
+  } };
+DI.ontbreek = { title:'Vul aan', lvl:2,
+  instr:'Welk getal ontbreekt? Kijk naar de twee producten.',
+  build(b, st, save){
+    const R = makeR(st); const P = [0, 1, 2, 3, 4].map(k => [nz(R, -9, 9), nz(R, -9, 9), nz(R, -9, 9), k % 3]);
+    reeks(b, P.length, (g, i, nr) => { const [a, c, d, w] = P[i];
+      const L = [w===0 ? '{{u:a}}' : zS(a), w===1 ? '{{u:a}}' : zS(c), w===2 ? '{{u:a}}' : zP(d)];
+      mQ(g, st, save, 'o' + i, { nr, html:`${L[0]} · (${L[1]} + ${L[2]}) ${isq} ${zS(a*c)} + ${zP(a*d)}`, check:V=>chkG(V.a, [a, c, d][w]), sol:`${zS(a)} · (${zS(c)} + ${zP(d)}) ${isq} ${zS(a*c)} + ${zP(a*d)}` }); });
+  } };
+DI.handig = { title:'Handig rekenen', lvl:2,
+  instr:'Schrijf het tweede getal als een som of verschil met een rond getal. Reken dan met de distributiviteit.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([[R.int(3, 9), 100, -R.int(1, 3)], [-R.int(3, 9), 100, R.int(1, 4)], [-R.int(3, 9), 100, -R.int(1, 3)], [R.int(3, 9), -100, R.int(1, 3)], [-R.int(11, 15), 10, R.int(1, 2)]]).slice(0, 4);
+    reeks(b, P.length, (g, i, nr) => { const [a, r, e] = P[i]; const n = r + e;
+      mQ(g, st, save, 'h' + i, { nr, html:`${zS(a)} · ${zP(n)} ${isq} ${zS(a)} · (${zS(r)} ${e<0 ? '−' : '+'} ${Math.abs(e)}) ${isq} {{u:p}} + ({{u:q}}) ${isq} {{u:r}}`,
+        check:V=>allOf([['p', chkG(V.p, a*r)], ['q', chkG(V.q, a*e)], ['r', chkG(V.r, a*n)]]), hint:[`Vermenigvuldig ${zS(a)} met ${zS(r)} en met ${zS(e)}.`], sol:`${zS(a*r)} + ${zP(a*e)} ${isq} ${zS(a*n)}` }); }, {een:true});
+  } };
+DI.buiten = { title:'Buiten haakjes brengen', lvl:2,
+  instr:'Beide producten hebben dezelfde factor. Breng die factor buiten haakjes en reken handig.',
+  build(b, st, save){
+    const R = makeR(st); const P = [100, -100, 100, -100].map(t => { const a = R.sign()*R.int(2, 15), c = R.int(11, 89); return [a, c, t - c]; });
+    reeks(b, P.length, (g, i, nr) => { const [a, c, e] = P[i]; const s = c + e;
+      mQ(g, st, save, 'b' + i, { nr, html:`${zS(a)} · ${c} + ${zS(a)} · ${zP(e)} ${isq} ${zS(a)} · ({{u:s}}) ${isq} {{u:r}}`, check:V=>allOf([['s', chkG(V.s, s)], ['r', chkG(V.r, a*s)]]),
+        hint:[`${c} + ${zP(e)} ${isq} ${zS(s)}`], sol:`${zS(a)} · (${c} + ${zP(e)}) ${isq} ${zS(a)} · ${zP(s)} ${isq} ${zS(a*s)}` }); }, {een:true});
+  } };
+/* met letters: vrij vak */
+function letterOpg(g, st, save, id, nr, E, hint=true){
+  const T = ZX.waarde(E);
+  mQ(g, st, save, id, { nr, html:`<span class="m5-opg">${ltH(E)}</span> {{z:a,mh}}`, check:V=>chkZ(V.a, T, {opg:E}),
+    hint:hint ? ['Vermenigvuldig het getal voor de haakjes met elke term tussen de haakjes. Let op de tekens.'] : undefined, sol:`${ltH(E)} ${isq} ${ZX.H(T).replace(/ · <i>/g, '<i>')}` }); }
+DI.letter = { title:'Met letters', lvl:2,
+  instr:'Werk de haakjes weg. Een letter vermenigvuldig je zoals een getal: 3 · <i>x</i> schrijf je als 3<i>x</i>.',
+  build(b, st, save){
+    const R = makeR(st); const x = () => R.pick(['x', 'a', 'y']); const n = () => R.int(2, 9);
+    const L = [() => `${n()} · (${x()} + ${n()})`, () => `-${n()} · (${x()} + ${n()})`, () => `${n()} · (${x()} - ${n()})`, () => `-${n()} · (${x()} - ${n()})`, () => `-(${x()} - ${n()})`, () => `-${n()} · (${n()} - ${x()})`];
+    const P = L.map(f => f());
+    reeks(b, P.length, (g, i, nr) => letterOpg(g, st, save, 'l' + i, nr, P[i]), {een:true});
+  } };
+/* verdieping */
+DI.twee = { title:'Langere haakjes', lvl:3,
+  instr:'Werk de haakjes weg. Vermenigvuldig met elke term.',
+  build(b, st, save){
+    const R = makeR(st); const n = () => R.int(2, 9);
+    const P = [`-${n()} · (a - ${n()}b + ${n()})`, `${n()} · (-x + ${n()}y - ${n()})`, `-(${n()}a - b - ${n()})`, `-${n()} · (-${n()}x + ${n()})`];
+    reeks(b, P.length, (g, i, nr) => letterOpg(g, st, save, 't' + i, nr, P[i], false), {een:true});
+  } };
+DI.groot = { title:'Slim met grote getallen', lvl:3,
+  instr:'Bereken zo handig mogelijk. Je mag de tussenstappen schrijven.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(12, 48), c = R.int(3, 9), d = R.int(21, 79), e = R.int(13, 37);
+    const P = [`-${a} · 99`, `${c} · (-1002)`, `-${e} · ${d} - ${e} · ${100 - d}`, `-25 · (40 - ${c})`, `${e} · (-101)`];
+    reeks(b, P.length, (g, i, nr) => vrijOpg(g, st, save, 'g' + i, nr, P[i], {k:'mh', hint:false}), {een:true});
+  } };
+const CHEAT_DISTR = `<h3>Spiekbriefje · distributiviteit</h3><table>
+  <tr><td>regel</td><td><i>a</i> · (<i>b</i> + <i>c</i>) = <i>a</i> · <i>b</i> + <i>a</i> · <i>c</i><div class="m4-line">${MIN}3 · (5 + (${MIN}2)) = ${MIN}15 + 6 = ${MIN}9</div></td></tr>
+  <tr><td>met letters</td><td>${MIN}4 · (<i>x</i> − 2) = ${MIN}4<i>x</i> + 8</td></tr>
+  <tr><td>een min voor de haakjes</td><td>${MIN}(<i>x</i> − 7) = ${MIN}<i>x</i> + 7: elk teken verandert</td></tr>
+  <tr><td>handig</td><td>7 · 98 = 7 · (100 − 2) = 700 − 14 = 686</td></tr></table>`;
+SEC.distr = { id:'distr', ic:'z_distr', nav:'Distributiviteit', title:'Distributiviteit en handig rekenen',
+  tip:'Het getal voor de haakjes vermenigvuldig je met elke term tussen de haakjes. Let telkens op het teken.',
+  cheat:CHEAT_DISTR, cards:[DI.recht, DI.uit, DI.ontbreek, DI.handig, DI.buiten, DI.letter, DI.twee, DI.groot] };
+(function(){ const s = document.createElement('style'); s.textContent = `
+  .m5-vgl2{display:flex; flex-direction:column; align-items:center; gap:.3rem; font-size:1.35rem; font-weight:700; font-variant-numeric:tabular-nums; padding:.4rem 0}
+  .m5-vq{width:2.4rem; height:2.4rem; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--or-soft); border:2px solid var(--orange); font-size:0; color:var(--accent-dark)}
+  .m5-vq span{font-size:1.2rem} .m5-vq.af{font-size:1.35rem; background:var(--ok-bg); border-color:var(--ok)} .m5-vq.af span{display:none}
+  .m5-recht .rh-a{fill:#e4f6f7; stroke:var(--ink); stroke-width:2} .m5-recht .rh-b{fill:#fff1d6; stroke:var(--ink); stroke-width:2}
+  .m5-recht .rh-l{font-size:18px; font-weight:800; fill:var(--ink)} .m5-recht .rh-t{font-size:19px; font-weight:700; fill:#173436}
+  .m5-rs{margin-top:.6rem}
+  .m5-nl{flex-basis:100%; height:0}
+  `; document.head.append(s); })();
+/* ============================================================
+   ONDERDEEL 10 · GEDURIGE SOM EN GEDURIG PRODUCT
+   ============================================================ */
+Object.assign(ICONS, {
+  z_gedur:'<path d="M3 12h3M9 12h3M15 12h3M4.5 10.5v3M16.5 10.5v3"/><path d="M20 9l1.5 3L20 15"/>'
+});
+/* som zonder haakjes: −5 + 8 − 3 */
+const kaalS = t => t.map((x, i) => i ? (x<0 ? ' − ' : ' + ') + dz(Math.abs(x)) : zS(x)).join('');
+const kleurS = t => t.map((x, i) => `<span class="m5-term ${x<0 ? 'neg' : 'pos'}">${i ? (x<0 ? '− ' : '+ ') + dz(Math.abs(x)) : zS(x)}</span>`).join(' ');
+const somV = t => t.reduce((p, x) => p + x, 0);
+const GD = {};
+GD.stap = { title:'Plustermen en mintermen', lvl:1,
+  instr:'Tel eerst alle plustermen samen, dan alle mintermen. Reken daarna de twee uitkomsten samen.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2, 3].map(k => { const n = k<2 ? 4 : 5; const t = []; for(let j=0; j<n; j++) t.push((j===0 || R.f() < .5 ? -1 : 1)*R.int(1, 12)); if(t.every(x => x<0)) t[1] = -t[1]; return t; });
+    reeks(b, L.length, (g, i, nr) => { const t = L[i]; const p = somV(t.filter(x => x>0)), m = somV(t.filter(x => x<0));
+      mQ(g, st, save, 's' + i, { nr, html:`<span class="m5-groot m5-som">${kleurS(t)}</span><span class="m5-nl"></span><span class="txt m5-pl">plustermen samen</span> {{u:p,t}} <span class="txt m5-mi">mintermen samen</span> {{u:m,t}} <span class="txt">uitkomst</span> {{u:r,t}}`,
+        check:V=>allOf([['p', chkGt(V.p, p)], ['m', chkGt(V.m, m)], ['r', chkGt(V.r, p + m)]]),
+        hint:[`De plustermen zijn ${t.filter(x => x>0).join(', ')}.`, `Reken tot slot ${zS(p)} + ${zP(m)}.`], sol:`${zS(p)} + ${zP(m)} ${isq} ${zS(p + m)}` }); }, {een:true});
+  } };
+GD.paar = { title:'Eerst de tekenparen', lvl:1,
+  instr:'Schrijf de som zonder haakjes: kies voor elk tekenpaar één teken. Reken dan uit.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2].map(() => { const a = nz(R, -15, 15); const T = [0, 1, 2, 3].map(() => [R.pick(['+', '−']), R.sign()*R.int(1, 15)]); return [a, T]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, T] = L[i]; const nieuw = T.map(([o, c]) => (o==='+') === (c>0) ? '+' : '-'); const val = a + somV(T.map(([o, c]) => o==='+' ? c : -c));
+      const E = zS(a) + T.map(([o, c]) => ` ${o} (${c<0 ? MIN : '+'}${c<0 ? -c : c})`).join('');
+      mQ(g, st, save, 'p' + i, { nr, html:`<span class="m5-groot">${E}</span><span class="m5-nl"></span>${isq} ${zS(a)} ${T.map(([, c], k) => `{{s:s${k}}} ${Math.abs(c)}`).join(' ')} ${isq} {{u:r,t}}`,
+        check:V=>allOf(T.map((_, k) => ['s' + k, (V['s' + k]||{}).s===nieuw[k] ? {ok:true} : {ok:false, msg:'Twee gelijke tekens worden +, twee verschillende tekens worden −.'}]).concat([['r', chkGt(V.r, val)]])),
+        sol:`${E} ${isq} ${kaalS([a].concat(T.map(([o, c]) => o==='+' ? c : -c)))} ${isq} ${zS(val)}` }); }, {een:true});
+  } };
+GD.vrij = { title:'Bereken de gedurige som', lvl:2,
+  instr:'Werk uit in het vak. Je mag eerst de tekenparen wegwerken en daarna plustermen en mintermen samentellen.',
+  build(b, st, save){
+    const R = makeR(st); const t = () => R.int(2, 60);
+    const L = [0, 1, 2, 3].map(k => { let s = zS(-t()); for(let j=0; j<3 + (k>1 ? 1 : 0); j++){ const o = R.pick(['+', '−']), c = R.sign()*t(); s += ` ${o} ${zP(c)}`; } return s; });
+    reeks(b, L.length, (g, i, nr) => vrijOpg(g, st, save, 'v' + i, nr, L[i], {k:'h', hint:['Werk eerst de tekenparen weg: twee gelijke tekens worden +, twee verschillende tekens worden −.', 'Tel dan alle plustermen samen en alle mintermen samen.']}), {een:true});
+  } };
+GD.prod = { title:'Gedurig product', lvl:1,
+  instr:'Bepaal eerst het teken: tel de mintekens. Vermenigvuldig dan de absolute waarden.',
+  build(b, st, save){
+    const R = makeR(st); const L = [3, 3, 4, 4, 3, 4].map(n => { const f = []; for(let k=0; k<n; k++) f.push(R.sign()*R.int(1, n===3 ? 5 : 3)); if(f.every(x => x>0)) f[0] = -f[0]; return f; });
+    reeks(b, L.length, (g, i, nr) => { const f = L[i]; const T = f.reduce((p, x) => p*x, 1); const m = f.filter(x => x<0).length; const E = f.map((x, k) => k ? zP(x) : zS(x)).join(' · ');
+      mQ(g, st, save, 'p' + i, { nr, html:`${E} ${isq} {{u:a,t}}`, check:V=>chkGt(V.a, T),
+        hint:[`${m} ${m===1 ? 'minteken' : 'mintekens'}: ${m % 2 ? 'oneven, dus negatief' : 'even, dus positief'}.`, `${f.map(x => Math.abs(x)).join(' · ')} ${isq} ${Math.abs(T)}`], sol:`${E} ${isq} ${zS(T)}` }); });
+  } };
+GD.kassa = { title:'De kassabon', lvl:2,
+  instr:'Bedragen die je betaalt zijn positief, kortingen en bonnen zijn negatief. Reken het totaal uit.',
+  build(b, st, save){
+    const R = makeR(st);
+    const W = [['Sportschoenen', 45, 90], ['T-shirt', 8, 25], ['Rugzak', 20, 45], ['Drinkbus', 6, 15], ['Pet', 9, 19], ['Voetbal', 12, 30]];
+    const K = [['Korting solden', 5, 20], ['Waardebon', 5, 15], ['Klantenkaart', 2, 6], ['Actie 2e halve prijs', 4, 12]];
+    const L = [0, 1].map(() => { const A = R.shuffle(W.slice()).slice(0, 3).map(([n, lo, hi]) => [n, R.int(lo, hi)]); const B = R.shuffle(K.slice()).slice(0, 2).map(([n, lo, hi]) => [n, -R.int(lo, hi)]); return R.shuffle(A.concat(B)); });
+    reeks(b, L.length, (g, i, nr) => { const T = L[i]; const tot = somV(T.map(x => x[1])), kort = somV(T.filter(x => x[1]<0).map(x => x[1]));
+      const bon = `<div class="m5-bon"><div class="bn-kop">🧾 SPORTWINKEL</div>${T.map(([n, v]) => `<div class="bn-r"><span>${n}</span><b class="${v<0 ? 'neg' : ''}">€ ${zS(v)}</b></div>`).join('')}<div class="bn-r tot"><span>TOTAAL</span><b>€ ?</b></div></div><span class="m5-nl"></span>`;
+      mQ(g, st, save, 'k' + i, { nr, html:`${bon}<span class="txt">Hoeveel korting kreeg je in totaal?</span> {{u:k}} <span class="txt">€</span><span class="m5-nl"></span><span class="txt">Hoeveel moet je betalen?</span> {{u:t}} <span class="txt">€</span>`,
+        check:V=>allOf([['k', chkG(V.k, kort, [[-kort, 'Een korting is een negatief bedrag.']])], ['t', chkG(V.t, tot)]]),
+        hint:['Tel eerst de negatieve bedragen samen: dat is de korting.', 'Tel daarna alle bedragen samen.'], sol:`${kaalS(T.map(x => x[1]))} ${isq} ${zS(tot)}` }); }, {een:true});
+  } };
+GD.handig = { title:'Handig vermenigvuldigen', lvl:2,
+  instr:'Bepaal het teken. Zoek daarna factoren die samen 10 of 100 geven. Werk uit in het vak.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(3, 19), c = R.int(3, 9), d = R.int(11, 29);
+    const L = R.shuffle([`-4 · ${a} · (-25)`, `2 · (-${d}) · 5 · (-1)`, `-5 · ${c} · (-2) · (-3)`, `(-50) · (-${c}) · 2`, `-${a} · (-20) · 5`]).slice(0, 4);
+    reeks(b, L.length, (g, i, nr) => vrijOpg(g, st, save, 'h' + i, nr, L[i], {k:'mh', hint:['Tel de mintekens: een even aantal geeft een positief product.', 'Zet factoren die samen 10 of 100 geven naast elkaar: 2 · 5, 4 · 25, 20 · 5.']}), {een:true});
+  } };
+/* verdieping */
+GD.schrap = { title:'Tegengestelden schrappen', lvl:3,
+  instr:'Zoek tegengestelde getallen: samen zijn ze 0. Bereken zo snel mogelijk.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(21, 99), c = R.int(101, 499), d = R.int(11, 49), e = R.int(3, 19), n = 2*R.int(20, 50), m = R.int(5, 9);
+    const L = [[`${zS(-a)} + ${c} + ${a} + ${zP(-c)} + ${zP(-e)}`, -e], [`${d} − ${c} + ${zP(-d)} + ${c} − ${e}`, -e],
+      [`1 − 2 + 3 − 4 + 5 − 6 + … + ${n - 1} − ${n}`, -n/2], [`${MIN}1 − 2 − 3 − 4 − … − ${m*2}`, -(m*2)*(m*2 + 1)/2],
+      [`(${MIN}1) · (${MIN}1) · (${MIN}1) · … · (${MIN}1) <span class="txt">met ${2*m + 1} factoren</span>`, -1]];
+    reeks(b, L.length, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 's' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${h} ${isq} ${zS(T)}` }); }, {een:true});
+  } };
+GD.tram = { title:'De tram en het spel', lvl:3,
+  instr:'Schrijf een gedurige som en reken uit.',
+  build(b, st, save){
+    const R = makeR(st); const s0 = R.int(12, 40); const H = [0, 1, 2, 3, 4].map(() => [R.int(0, 12), R.int(0, 12)]);
+    let nu = s0; H.forEach(h => { if(h[1] > nu + h[0]) h[1] = nu + h[0]; nu += h[0] - h[1]; });
+    const tram = `<table class="m5-btab m5-tram"><tr><th>halte</th>${H.map((_, k) => `<th>${k + 1}</th>`).join('')}</tr><tr><td>op</td>${H.map(h => `<td>+${h[0]}</td>`).join('')}</tr><tr><td>af</td>${H.map(h => `<td>${MIN}${h[1]}</td>`).join('')}</tr></table>`;
+    const r = [R.int(5, 20), -R.int(5, 25), R.int(-10, 15), -R.int(1, 20), R.int(5, 25)]; const tot = somV(r); const mis = R.int(1, 4);
+    const L = [[`<span class="txt">In de tram zitten ${s0} mensen. 🚋</span>${tram}<span class="txt">Hoeveel mensen zitten er na halte 5 in de tram?</span> {{u:a}}`, nu, `${s0} ${H.map(h => `+ ${h[0]} − ${h[1]}`).join(' ')} ${isq} ${nu}`],
+      [`<span class="txt">Bij een spel scoor je per ronde punten: ${r.map((x, k) => k===mis ? '?' : zS(x)).join(' ; ')}. Je eindscore is ${zS(tot)}. Hoeveel punten scoorde je in ronde ${mis + 1}?</span> {{u:a}}`, r[mis], `${r.map((x, k) => k===mis ? '?' : zP(x)).join(' + ')} ${isq} ${zS(tot)}, dus ? ${isq} ${zS(r[mis])}`]];
+    reeks(b, L.length, (g, i, nr) => { const [h, T, sol] = L[i]; mQ(g, st, save, 't' + i, { nr, html:h, check:V=>chkG(V.a, T), sol }); }, {een:true});
+  } };
+const CHEAT_GEDUR = `<h3>Spiekbriefje · gedurige som en product</h3><table>
+  <tr><td>gedurige som</td><td>1. werk de tekenparen weg<span class="m5-nl"></span>2. tel de plustermen samen en de mintermen samen<span class="m5-nl"></span>3. reken de twee uitkomsten samen
+    <div class="m4-line">${MIN}5 + 8 − (+3) − (${MIN}4) ${isq} ${MIN}5 + 8 − 3 + 4 ${isq} 12 − 8 ${isq} 4</div></td></tr>
+  <tr><td>tegengestelden</td><td>tegengestelde termen schrap je: ${MIN}37 + 12 + 37 ${isq} 12</td></tr>
+  <tr><td>gedurig product</td><td>even aantal mintekens: +, oneven aantal: ${MIN}<div class="m4-line">${MIN}2 · 3 · (${MIN}5) ${isq} 30</div></td></tr></table>`;
+SEC.gedur = { id:'gedur', ic:'z_gedur', nav:'Gedurige som en product', title:'Gedurige som en gedurig product',
+  tip:'Bij een lange som tel je eerst alle plustermen samen en alle mintermen samen. Bij een lang product tel je eerst de mintekens.',
+  cheat:CHEAT_GEDUR, cards:[GD.stap, GD.paar, GD.prod, GD.vrij, GD.kassa, GD.handig, GD.schrap, GD.tram] };
+(function(){ const s = document.createElement('style'); s.textContent = `
+  .m5-term{border-radius:.35rem; padding:0 .25rem} .m5-term.pos{background:#fde1df; color:#9b1c13} .m5-term.neg{background:#dbe7ff; color:#1d4ed8}
+  .m5-pl{color:#9b1c13; font-weight:700} .m5-mi{color:#1d4ed8; font-weight:700}
+  .m5-bon{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:.95rem; font-weight:500; background:#fffdf5; border:1.5px dashed #b9a97a; border-radius:.3rem; padding:.6rem .9rem; width:100%; max-width:20rem; margin:.3rem 0 .5rem; color:#1f2a2b}
+  .bn-kop{text-align:center; font-weight:800; letter-spacing:.08em; margin-bottom:.3rem} .bn-r{display:flex; justify-content:space-between; gap:1rem; padding:.05rem 0} .bn-r b.neg{color:#b42318}
+  .bn-r.tot{border-top:1.5px dashed #b9a97a; margin-top:.3rem; padding-top:.3rem}
+  .m5-tram th, .m5-tram td{font-weight:600; min-width:2.2rem; padding:.15rem} .m5-tram{margin:.3rem 0}
+  `; document.head.append(s); })();
+/* ============================================================
    ONDERDEEL · VOLGORDE VAN BEWERKINGEN
    basis: bogen (klik wat eerst moet), oefenen: vrij vak, verdieping: [ ], grote getallen, Game 24
    ============================================================ */
@@ -2714,7 +3700,7 @@ const opgN = (R, lijst, n, o) => { const L = R.shuffle(lijst).slice(0, n); while
 function vrijOpg(g, st, save, id, nr, E, o={}){
   const L = ZX.stappen(E), T = ZX.waarde(E);
   mQ(g, st, save, id, { nr, html:`<span class="m5-opg">${zT(E)}</span> {{z:a,${o.k || 'mdh'}}}`, check:V=>chkZ(V.a, T, {opg:E}),
-    hint: o.hint===false ? undefined : ['Welke bewerking moet eerst? Denk aan de trap: eerst haakjes, dan · en : van links naar rechts, dan + en − van links naar rechts.', ['Zo begin je:', '= ' + zT(L[1])]],
+    hint: o.hint===false ? undefined : o.hint ? o.hint : ['Welke bewerking moet eerst? Denk aan de trap: eerst haakjes, dan · en : van links naar rechts, dan + en − van links naar rechts.', ['Zo begin je:', '= ' + zT(L[1])]],
     sol:uitwH(L) });
 }
 
@@ -2882,8 +3868,333 @@ SEC.volg = { id:'volg', ic:'z_volg', nav:'Volgorde van bewerkingen', title:'Volg
   .m5-groot{font-size:1.3rem; font-weight:700}
   .m5-24{display:inline-flex; gap:.4rem} .m5-kaart{display:inline-flex; align-items:center; justify-content:center; min-width:2.6rem; height:3.2rem; padding:0 .4rem; border:2px solid var(--orange); border-radius:.5rem; background:var(--or-soft); font-size:1.3rem; font-weight:900}
   `; document.head.append(s); })();
-/* volgorde van de onderdelen in het menu (proefstuk: optellen en volgorde van bewerkingen) */
-const ORDER = ['optel', 'volg'];
+/* ============================================================
+   ONDERDEEL 12 · ALLES DOOR ELKAAR EN VRAAGSTUKKEN
+   + ZOEK DE FOUT (schriften van leerlingen)
+   ============================================================ */
+Object.assign(ICONS, {
+  z_mix:'<path d="M4 7h4l8 10h4M4 17h4l2.5-3M13.5 10L16 7h4M18 5l2 2-2 2M18 15l2 2-2 2"/>'
+});
+const MX = {};
+const OPS4 = [['+', '+'], ['−', '−'], ['·', '·'], [':', ':']];
+/* een willekeurige bewerking met twee gehele getallen (deling gaat altijd op) */
+function bew2(R, max=60){ const op = R.pick(['+', '−', '·', ':']);
+  if(op==='·'){ const a = nz(R, -12, 12), c = nz(R, -9, 9); return [`${zS(a)} · ${zP(c)}`, a*c]; }
+  if(op===':'){ const q = nz(R, -12, 12), c = nz(R, -9, 9); return [`${zS(q*c)} : ${zP(c)}`, q]; }
+  const a = nz(R, -max, max), c = nz(R, -max, max); return op==='+' ? [`${zS(a)} + ${zP(c)}`, a + c] : [`${zS(a)} − ${zP(c)}`, a - c]; }
+MX.mix = { title:'Alles door elkaar', lvl:2,
+  instr:'Optellen, aftrekken, vermenigvuldigen en delen door elkaar. Kijk eerst goed welke bewerking er staat.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2, 3, 4, 5, 6, 7].map(() => bew2(R));
+    reeks(b, L.length, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 'm' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${h} ${isq} ${zS(T)}` }); });
+  } };
+MX.welke = { title:'Welke bewerking?', lvl:2,
+  instr:'Welk bewerkingsteken hoort op de plaats van het vakje?',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = [0, 1, 2, 3, 4, 5].map(() => { for(let k=0; k<100; k++){ const op = R.pick(['+', '−', '·', ':']); let a, c;
+        if(op===':'){ c = nz(R, -6, 6); a = c*nz(R, -8, 8); } else { a = nz(R, -12, 12); c = nz(R, -9, 9); }
+        const v = {'+':a + c, '−':a - c, '·':a*c, ':':a/c}; const T = v[op]; if(Object.keys(v).filter(o => v[o]===T).length===1) return [a, c, op, T]; }
+      return [-6, 3, ':', -2]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, c, op, T] = L[i];
+      qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${zS(a)} <span class="m5-hok">?</span> ${zP(c)} ${isq} ${zS(T)}</span>`, opts:OPS4, sym:true, ans:op, why:`${zS(a)} ${op} ${zP(c)} ${isq} ${zS(T)}`, whyBad:'Probeer elke bewerking uit en let op het teken.' }); }, {een:true});
+  } };
+MX.vgl = { title:'Groter of kleiner?', lvl:2,
+  instr:'Vergelijk de twee kanten. Soms hoef je niet eens uit te rekenen.',
+  build(b, st, save){
+    const R = makeR(st); const VGL3 = [['<', '&lt;'], ['=', '='], ['>', '&gt;']];
+    const a = R.int(11, 99), c = R.int(2, 9), d = R.int(2, 9);
+    const L = R.shuffle([[`${zS(-a)} · ${c}`, '0', -a*c, 0], [`${zS(-c)} · ${zP(-d)}`, `${zS(-c)} − ${d}`, c*d, -c - d], [`${zS(-a)} : ${zP(-1)}`, `${a}`, a, a],
+      [`${zS(-c)} − ${zP(-d)}`, `${zS(-c)} + ${d}`, -c + d, -c + d], [`${zS(-2)} · ${zP(-2)} · ${zP(-2)}`, `${zS(-2)} − 2 − 2`, -8, -6], [`|${zS(-a)}|`, `${zS(-a)}`, a, -a]]);
+    reeks(b, L.length, (g, i, nr) => { const [l, r, x, y] = L[i]; const ans = x<y ? '<' : x>y ? '>' : '=';
+      qChoice(g, st, save, 'v' + i, { nr, html:`<span class="m5-groot">${l} <span class="m5-hok">?</span> ${r}</span>`, opts:VGL3, sym:true, ans, why:`Links ${zS(x)}, rechts ${zS(y)}.` }); }, {een:true});
+  } };
+MX.slier = { title:'Rekenslierten', lvl:2,
+  instr:'Volg de pijlen. Vul elk vak in.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = [0, 1, 2].map(() => { let x = nz(R, -12, 12); const s0 = x; const S = []; for(let k=0; k<4; k++){ let op = R.pick(['+', '−', '·', ':']), c;
+        if(op===':'){ const del = [-5, -4, -3, -2, 2, 3, 4, 5].filter(d => x % d===0 && x!==0); if(!del.length) op = '·'; else c = R.pick(del); }
+        if(op==='·'){ c = Math.abs(x) > 20 ? R.pick([-1, 2, -2]) : nz(R, -4, 4); }
+        if(op==='+' || op==='−') c = nz(R, -15, 15);
+        const y = op==='+' ? x + c : op==='−' ? x - c : op==='·' ? x*c : x/c; S.push([op, c, y]); x = y; } return [s0, S]; });
+    reeks(b, L.length, (g, i, nr) => { const [s0, S] = L[i];
+      mQ(g, st, save, 's' + i, { nr, html:`<span class="m5-slier">${zS(s0)}</span> ${S.map(([op, c], k) => `<span class="m5-pijl">${op} ${zP(c)} →</span> {{u:v${k}}}`).join(' ')}`,
+        check:V=>allOf(S.map(([, , y], k) => ['v' + k, chkG(V['v' + k], y)])), sol:S.map(([, , y]) => zS(y)).join(' → ') }); }, {een:true});
+  } };
+/* vraagstukken: de leerling schrijft zelf de bewerking in het vrije vak */
+const VS = [
+  R => { const t = -R.int(2, 9), d = R.int(3, 12); return [`Om 6 uur is het ${zS(t)} °C. Tegen de middag is het ${d} graden warmer. Hoeveel graden is het dan?`, `${zS(t)} + ${d}`, '°C']; },
+  R => { const t = R.int(1, 8), d = R.int(10, 20); return [`Het is ${t} °C. 's Nachts daalt de temperatuur ${d} graden. Hoeveel graden is het 's nachts?`, `${t} − ${d}`, '°C']; },
+  R => { const s = R.int(20, 90), k = R.int(3, 6)*10, n = R.int(2, 4); return [`Je hebt € ${s} op je rekening. Je koopt ${n} games van € ${k} per stuk. Hoeveel staat er nog op je rekening?`, `${s} − ${n} · ${k}`, 'euro']; },
+  R => { const d = R.int(3, 8)*5, n = R.int(2, 5); return [`Een duiker zwemt op ${zS(-d)} m. Hij duikt nog ${n} keer 4 m dieper. Op welke hoogte zwemt hij dan?`, `${zS(-d)} − ${n} · 4`, 'm']; },
+  R => { const v = -R.int(1, 3), u = R.int(4, 9); return [`Een lift vertrekt op verdieping ${zS(v)} en stijgt ${u} verdiepingen. Daarna daalt hij 3 verdiepingen. Op welke verdieping stopt hij?`, `${zS(v)} + ${u} − 3`, '']; },
+  R => { const n = R.int(4, 9), p = R.int(2, 4)*5, j = R.int(3, 6); return [`Bij een quiz krijg je 10 punten per juist antwoord en verlies je ${p} punten per fout antwoord. Mo heeft ${j} juiste en ${n} foute antwoorden. Hoeveel punten heeft hij?`, `${j} · 10 − ${n} · ${p}`, 'punten']; },
+  R => { const T = [0, 1, 2, 3].map(() => R.int(-9, 3)); const s = T.reduce((p, x) => p + x, 0); if(s % 4) T[3] -= s % 4; const s2 = T.reduce((p, x) => p + x, 0); return [`De temperatuur om middernacht was vier dagen na elkaar ${T.map(zS).join(' °C, ')} °C. Wat is de gemiddelde temperatuur?`, `(${T.map((x, k) => k ? zP(x) : zS(x)).join(' + ')}) : 4`, '°C', s2/4]; },
+  R => { const g = R.int(5, 9)*100, l = R.int(20, 60); return [`Julius Caesar werd geboren in het jaar ${zS(-100)} (100 v.C.). Een tempel werd ${g} jaar vroeger gebouwd. In welk jaar? Schrijf het als een negatief getal.`, `${zS(-100)} − ${g}`, '']; }];
+function vsKaart(title, sel){ return { title, lvl:2,
+  instr:'Schrijf de bewerking in het vak en reken uit. Elke stap op een nieuwe regel.',
+  build(b, st, save){ const R = makeR(st); const L = R.shuffle(sel.map(i => VS[i])).map(f => f(R));
+    reeks(b, L.length, (g, i, nr) => { const [tx, E, eh] = L[i]; const T = ZX.waarde(E).k;
+      mQ(g, st, save, 'v' + i, { nr, html:`<span class="txt">${tx}</span> {{z:a,mdh}}`, check:V=>chkZ(V.a, T), hint:['Schrijf eerst een bewerking met de getallen uit de tekst.', ['Zo kan je beginnen:', zT(E)]], sol:`${zT(E)} ${isq} ${zS(T)}${eh ? ' ' + eh : ''}` }); }, {een:true}); } }; }
+MX.vs1 = vsKaart('Vraagstukken (1)', [0, 2, 4]);
+MX.vs2 = vsKaart('Vraagstukken (2)', [1, 3, 5, 6]);
+/* verdieping */
+MX.magisch = { title:'Magisch vierkant', lvl:3,
+  instr:'In een magisch vierkant is de som van elke rij, elke kolom en elke diagonaal gelijk. Vul de lege vakken in.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = [0, 1].map(() => { let M = [[-3, 2, 1], [4, 0, -4], [-1, -2, 3]]; const k = R.pick([1, 2, 3, -2]), c = R.int(-12, 4);
+      for(let r=R.int(0, 3); r>0; r--) M = M[0].map((_, j) => M.map(row => row[j]).reverse()); if(R.f() < .5) M = M.map(row => row.slice().reverse());
+      return M.map(row => row.map(x => k*x + c)); });
+    const open = [[0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
+    reeks(b, L.length, (g, i, nr) => { const M = L[i]; const S = M[0][0] + M[0][1] + M[0][2];
+      const cel = (r, c) => open.some(([x, y]) => x===r && y===c) ? `{{u:c${r}${c}}}` : `<b>${zS(M[r][c])}</b>`;
+      mQ(g, st, save, 'm' + i, { nr, html:`<span class="txt">De som is telkens ${zS(S)}.</span><span class="m5-nl"></span><table class="m5-magisch">${[0, 1, 2].map(r => `<tr>${[0, 1, 2].map(c => `<td>${cel(r, c)}</td>`).join('')}</tr>`).join('')}</table>`,
+        check:V=>allOf(open.map(([r, c]) => ['c' + r + c, chkG(V['c' + r + c], M[r][c])])),
+        sol:M.map(row => row.map(zS).join(' ; ')).join(' / ') }); }, {een:true});
+  } };
+MX.raad = { title:'Raad het getal', lvl:3,
+  instr:'Werk terug: doe telkens de omgekeerde bewerking.',
+  build(b, st, save){
+    const R = makeR(st);
+    const L = [0, 1, 2, 3].map(k => { const x = nz(R, -15, 15), m = R.pick([-2, -3, -4, -5, 2, 3]), p = nz(R, -20, 20);
+      if(k % 2) return [`Ik denk aan een getal. Ik tel er ${zS(p)} bij en vermenigvuldig de som met ${zS(m)}. Ik krijg ${zS((x + p)*m)}.`, x, `(${zS((x + p)*m)}) : ${zP(m)} − ${zP(p)} ${isq} ${zS(x)}`];
+      return [`Ik denk aan een getal. Ik vermenigvuldig het met ${zS(m)} en tel er ${zS(p)} bij. Ik krijg ${zS(x*m + p)}.`, x, `(${zS(x*m + p)} − ${zP(p)}) : ${zP(m)} ${isq} ${zS(x)}`]; });
+    reeks(b, L.length, (g, i, nr) => { const [tx, T, sol] = L[i]; mQ(g, st, save, 'r' + i, { nr, html:`<span class="txt">${tx} Aan welk getal dacht ik?</span> {{u:a}}`, check:V=>chkG(V.a, T), sol }); }, {een:true});
+  } };
+const CHEAT_MIX = `<h3>Spiekbriefje · alles door elkaar</h3><table>
+  <tr><td>+</td><td>zelfde teken: tel op en behoud het teken; verschillend teken: trek af, teken van de grootste absolute waarde</td></tr>
+  <tr><td>−</td><td>tel het tegengestelde op: 4 − (${MIN}6) ${isq} 4 + 6</td></tr>
+  <tr><td>· en :</td><td>zelfde teken: +; verschillend teken: ${MIN}</td></tr>
+  <tr><td>vraagstuk</td><td>1. schrijf een bewerking met de getallen uit de tekst 2. reken uit 3. schrijf de eenheid</td></tr></table>`;
+SEC.mix = { id:'mix', ic:'z_mix', nav:'Alles door elkaar', title:'Alles door elkaar en vraagstukken',
+  tip:'Kijk eerst welke bewerking er staat en welke regel daarbij hoort. Bij een vraagstuk schrijf je eerst een bewerking met de getallen uit de tekst.',
+  cheat:CHEAT_MIX, cards:[MX.mix, MX.welke, MX.vgl, MX.slier, MX.vs1, MX.vs2, MX.magisch, MX.raad] };
+
+/* ============================================================ zoek de fout */
+/* elke generator: R -> [opgave, foute regel, k (stap met de fout), oorzaak, waarom] */
+const FT_GEN = {
+  optel:[
+    R => { const a = R.int(3, 15), c = R.int(2, 12), d = R.int(2, 12); return [`${zS(a)} − (${MIN}${c}) + ${d}`, `${a - c} + ${d}`, 0, 'teg', `${zS(a)} − (${MIN}${c}): een negatief getal aftrekken is het tegengestelde optellen, dus ${a} + ${c}.`]; },
+    R => { const a = R.int(2, 15), c = R.int(2, 15), d = R.int(2, 9); return [`${zS(-a)} + (${MIN}${c}) − ${d}`, `${zS(-a + c)} − ${d}`, 0, 'tek', `Twee negatieve getallen optellen geeft een negatief getal: ${zS(-a)} + (${MIN}${c}) ${isq} ${zS(-a - c)}.`]; },
+    R => { const a = R.int(3, 15), c = R.int(3, 15), d = R.int(2, 9); return [`${zS(-a)} − ${c} + (${MIN}${d})`, `${zS(-a - c + 10)} + (${MIN}${d})`, 0, 'rek', `${zS(-a)} − ${c} ${isq} ${zS(-a - c)}. Dat is een rekenfout.`]; },
+    R => { const a = R.int(2, 12), c = R.int(2, 12), d = R.int(2, 9); return [`${zS(a)} − (${MIN}${c}) − ${d}`, `${a + c + d}`, 1, 'tek', `${a + c} − ${d} ${isq} ${a + c - d}: het minteken voor ${d} bleef niet staan.`]; },
+    R => { const a = R.int(2, 9), c = R.int(10, 20); return [`${zS(a)} − ${c} + ${R.int(2, 9)}`, null, 0, 'tek', `${a} − ${c} is negatief: ${zS(a - c)}.`]; }],
+  maal:[
+    R => { const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 15); return [`${zS(-a)} · (${MIN}${c}) + ${d}`, `${zS(-a*c)} + ${d}`, 0, 'tek', `Min maal min is plus: ${zS(-a)} · (${MIN}${c}) ${isq} ${a*c}.`]; },
+    R => { const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 15); return [`${zS(-a*c)} : (${MIN}${c}) − ${d}`, `${zS(-a)} − ${d}`, 0, 'tek', `Zelfde teken: het quotiënt is positief, ${zS(-a*c)} : (${MIN}${c}) ${isq} ${a}.`]; },
+    R => { const a = R.int(2, 5), c = R.int(2, 5), d = R.int(2, 4); return [`${a} · (${MIN}${c}) · (${MIN}${d})`, `${zS(-a*c*d)}`, 1, 'tek', `${zS(-a*c)} · (${MIN}${d}): min maal min is plus, dus ${a*c*d}.`]; },
+    R => { const a = R.int(3, 9), c = R.int(3, 9), d = R.int(2, 15); return [`${zS(-a)} · ${c} − ${d}`, `${zS(-(a*c + a))} − ${d}`, 0, 'rek', `${a} · ${c} ${isq} ${a*c}: een fout in de tafel van ${a}.`]; }],
+  volg:[
+    R => { const a = R.int(5, 20), x = R.int(2, 6), y = R.int(2, 6); return [`${zS(-a)} − ${x} · ${y}`, `${zS(-a - x)} · ${y}`, 0, 'vol', `Maal gaat voor min: eerst ${x} · ${y}.`]; },
+    R => { const q = R.int(2, 5), m = R.int(2, 6), k = R.int(2, 5); return [`${zS(-q*m)} + ${q*k} : ${q}`, `${zS(-q*m + q*k)} : ${q}`, 0, 'vol', `Gedeeld door gaat voor plus: eerst ${q*k} : ${q}.`]; },
+    R => { const a = R.int(2, 6), x = R.int(2, 9), y = R.int(2, 9); return [`${zS(-a)} · (${x} − ${y})`, `${zS(-a*x)} − ${y}`, 0, 'vol', 'Eerst wat tussen haakjes staat.']; },
+    R => { const a = R.int(3, 15), x = R.int(2, 5), y = R.int(2, 6); return [`${a} − ${x} · (${MIN}${y})`, `${a - x*y}`, 1, 'teg', `${a} − (${MIN}${x*y}): een negatief getal aftrekken is het tegengestelde optellen, dus ${a} + ${x*y}.`]; }],
+  diep:[
+    R => { const a = R.int(2, 9), c = R.int(3, 9), d = R.int(10, 19), e = R.int(2, 5), w = d - e; return [`${zS(-a)} − [${c} − (${MIN}${d} + ${e})]`, `${zS(-a)} − ${zP(c - w)}`, 1, 'teg', `${c} − (${MIN}${w}): een negatief getal aftrekken is het tegengestelde optellen, dus ${c} + ${w}.`]; },
+    R => { const a = R.int(2, 6), c = R.int(2, 6), d = R.int(2, 6), e = R.int(2, 6); return [`${zS(-a)} · ${c} − ${d} · (${MIN}${e})`, null, 1, 'tek', `${d} · (${MIN}${e}) is negatief: ${zS(-d*e)}.`]; },
+    R => { const q = R.int(2, 5), k = R.int(2, 6), d = R.int(2, 9); return [`${zS(-d)} − ${q*k} : (${MIN}${q}) · 2`, null, 0, 'tek', `${q*k} : (${MIN}${q}) ${isq} ${zS(-k)}: verschillend teken geeft een negatief quotiënt.`]; }]
+};
+/* foute regel automatisch maken als die null is: neem de juiste stap en verander het teken van de eerste uitkomst */
+function ftMaak(R, f){ const r = f(R); if(r[1]) return r; const k = r[2];
+  const L = ZX.stappen(r[0], false); if(!L || !L[k + 1]) return r;
+  const t = ZX.parse(L[k]); const e = ZX.klaar(t)[0]; const v = ZX.val(e).k; if(!v) return r;
+  const prev = ZX.val; ZX.val = n => n===e ? {k:-v, x:{}} : prev(n);
+  try{ r[1] = ZX.str(ZX.vervang(t, new Set([e]))); } finally { ZX.val = prev; }
+  return r; }
+const FT = {};
+const ftKaart = (title, lvl, soort, n) => schriftKaart(title, lvl, R => R.shuffle(FT_GEN[soort].slice()).map(f => ftMaak(R, f)).filter(x => x[1]), n);
+FT.optel = ftKaart('Optellen en aftrekken', 1, 'optel', 2);
+FT.maal = ftKaart('Vermenigvuldigen en delen', 1, 'maal', 2);
+FT.volg = ftKaart('Volgorde van bewerkingen', 2, 'volg', 3);
+FT.mix = schriftKaart('Gemengd', 2, R => R.shuffle(FT_GEN.optel.concat(FT_GEN.maal, FT_GEN.volg)).map(f => ftMaak(R, f)).filter(x => x[1]), 3);
+FT.diep = ftKaart('Lange opgaven', 3, 'diep', 3);
+SEC.fout = { id:'fout', ic:'fout', nav:'Zoek de fout', title:'Zoek de fout',
+  tip:'Klik in het schrift op de eerste regel die fout is. Kies dan wat er misging en verbeter die regel. Zo leer je je eigen fouten herkennen.',
+  cards:[FT.optel, FT.maal, FT.volg, FT.mix, FT.diep] };
+(function(){ const s = document.createElement('style'); s.textContent = `
+  .m5-hok{display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; border:2px dashed var(--orange); border-radius:.4rem; color:var(--orange); font-size:1rem; vertical-align:middle}
+  .m5-magisch{border-collapse:collapse; margin:.4rem 0} .m5-magisch td{width:4.4rem; height:3rem; border:2px solid var(--tq); text-align:center; font-size:1.2rem}
+  .m5-magisch input{width:3.8rem}
+  `; document.head.append(s); })();
+/* ============================================================
+   SNELLE QUIZ · 10 vragen tegen de klok (telt niet mee)
+   ============================================================ */
+Object.assign(ICONS, {
+  m_quiz:'<circle cx="12" cy="13" r="8"/><path d="M12 13V9M12 13l3 2M10 3h4"/>'
+});
+const SQ = {
+  ch:(q, opts, ans, show) => ({kind:'ch', q, opts, ans, show}),
+  w:(q, check, show) => ({kind:'w', q, check, show})
+};
+const sqG = (h, T) => SQ.w(`${h} ${isq} {{u:a}}`, V=>chkG(V.a, T), zS(T));
+const QUIZ = [
+  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30); return sqG(`${zS(a)} + ${zP(c)}`, a + c); },
+  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30); return sqG(`${zS(a)} − ${zP(c)}`, a - c); },
+  R => { const a = nz(R, -12, 12), c = nz(R, -12, 12); return sqG(`${zS(a)} · ${zP(c)}`, a*c); },
+  R => { const q = nz(R, -12, 12), c = nz(R, -9, 9); return sqG(`${zS(q*c)} : ${zP(c)}`, q); },
+  R => { const a = nz(R, -99, 99); return sqG(`|${zS(a)}|`, Math.abs(a)); },
+  R => { const a = nz(R, -99, 99); return SQ.w(`<span class="txt">het tegengestelde van</span> ${zS(a)} ${isq} {{u:a}}`, V=>chkG(V.a, -a), zS(-a)); },
+  R => { let a = nz(R, -50, 50), c = nz(R, -50, 50); while(a===c) c = nz(R, -50, 50); return SQ.ch(`${zS(a)} … ${zS(c)}`, [['<', '&lt;'], ['>', '&gt;']], a<c ? '<' : '>', a<c ? '&lt;' : '&gt;'); },
+  R => { const f = [0, 1, 2, 3].map(() => R.sign()*R.int(2, 9)); const m = f.filter(x => x<0).length; return SQ.ch(`Is ${f.map((x, k) => k ? zP(x) : zS(x)).join(' · ')} positief of negatief?`, PN, m % 2 ? '-' : '+', m % 2 ? 'negatief' : 'positief'); },
+  R => { const t = [nz(R, -15, 15), nz(R, -15, 15), nz(R, -15, 15), nz(R, -15, 15)]; return sqG(kaalS(t), somV(t)); },
+  R => { const a = nz(R, -20, 20), c = R.int(2, 6), d = nz(R, -6, 6); return sqG(`${zS(a)} + ${c} · ${zP(d)}`, a + c*d); },
+  R => { const a = nz(R, -9, 9), c = R.int(2, 9), d = R.int(2, 9); return sqG(`${zS(a)} · (${c} − ${d})`, a*(c - d)); },
+  R => { const [h, ans, show] = R.pick([['−3 ∈ ℕ', 'n', 'niet waar'], ['0 ∈ ℤ⁺', 'w', 'waar'], ['−5 ∈ ℤ⁻', 'w', 'waar'], ['ℕ ⊂ ℤ', 'w', 'waar'], ['ℤ ⊂ ℕ', 'n', 'niet waar'], ['0 ∈ ℤ₀', 'n', 'niet waar']]); return SQ.ch(`${h}`, WNW, ans, show); },
+  R => { const [h, ans] = R.pick([[`${MIN}4 + 7 ${isq} 7 + (${MIN}4)`, 'w'], [`(${MIN}2 · 5) · 3 ${isq} ${MIN}2 · (5 · 3)`, 's'], [`${MIN}9 · 0 ${isq} 0`, 'o'], [`${MIN}6 + 6 ${isq} 0`, 'y'], [`1 · (${MIN}8) ${isq} ${MIN}8`, 'n']]); return SQ.ch(`Welke eigenschap? ${h}`, EIG5, ans, EIG5.find(o => o[0]===ans)[1]); }
+];
+function quizKaart(gens){ return (b, st, save) => {
+  const N = 10, T = 180, root = el('div', 'qz'); b.append(root);
+  let timer = null; const stop = () => { if(timer){ clearInterval(timer); timer = null; } };
+  const mm = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  function intro(){
+    stop(); root.innerHTML = '';
+    root.append(el('p', 'qz-intro', N + ' vragen, ' + mm(T) + ' minuten. Hoeveel krijg jij juist? Deze quiz telt niet mee.'));
+    if(st.best) root.append(el('p', 'qz-sub', 'Jouw beste score: <b>' + st.best.score + ' / ' + N + '</b>' + (st.best.time != null ? ' in ' + mm(st.best.time) : '') + '.'));
+    const go = el('button', 'btn', '▶ Start de quiz'); go.type = 'button'; go.addEventListener('click', run); root.append(go);
+  }
+  function run(){
+    stop(); root.innerHTML = '';
+    const R = makeR({seed:1 + Math.floor(Math.random() * 2e9)});
+    const order = []; while(order.length < N) R.shuffle(gens.map((g, i) => i)).forEach(i => { if(order.length < N) order.push(i); });
+    const Qs = order.map(i => gens[i](R));
+    const top = el('div', 'qz-top'), klok = el('span', 'qz-klok', mm(T)), prog = el('span'), sc = el('span');
+    top.append(klok, prog, sc);
+    const balk = el('div', 'qz-balk', '<span style="width:100%"></span>'), vak = el('div', 'qz-vak'), fb = el('div', 'fb');
+    root.append(top, balk, vak, fb);
+    let k = 0, score = 0, over = T, bezig = false; const mis = [], t0 = Date.now();
+    timer = setInterval(() => { if(!root.isConnected){ stop(); return; } over--; klok.textContent = mm(Math.max(0, over)); klok.classList.toggle('laag', over <= 20); balk.firstChild.style.width = Math.max(0, over / T * 100) + '%'; if(over <= 0) einde(true); }, 1000);
+    function toon(){
+      bezig = false; fb.className = 'fb'; fb.textContent = '';
+      prog.textContent = 'Vraag ' + (k + 1) + ' / ' + N; sc.textContent = '✓ ' + score;
+      const q = Qs[k]; vak.innerHTML = '';
+      if(q.kind === 'ch'){ vak.append(el('div', 'qz-q m4-line', q.q)); const ant = el('div', 'qz-ant'); vak.append(ant);
+        q.opts.forEach(o => { const bt = el('button', 'btn ghost qz-opt', o[1]); bt.type = 'button'; bt.addEventListener('click', () => antwoord(o[0] === q.ans, bt)); ant.append(bt); }); }
+      else {
+        const line = el('div', 'qz-q m4-line', tokens(q.q)); vak.append(line); const V = {};
+        const M = mountW(line, V, ()=>{}, ()=>{ M.clear(); }, () => go());
+        const ok = el('button', 'btn', 'OK'); ok.type = 'button'; const ant = el('div', 'qz-ant'); ant.append(ok); vak.append(ant);
+        const go = () => { if(bezig) return; if(M.empty()){ fb.className = 'fb'; fb.textContent = 'Vul eerst je antwoord in.'; return; }
+          let r; try{ r = q.check(V) || {}; }catch(e){ r = {}; } if(r.info){ fb.className = 'fb info'; fb.innerHTML = r.msg || ''; return; }
+          M.mark(Object.fromEntries(Object.keys(M.W).map(x => [x, !!r.ok]))); M.lock(); antwoord(!!r.ok); };
+        ok.addEventListener('click', go);
+        const f = line.querySelector('input'); if(f) f.focus({preventScroll:true});
+      }
+    }
+    function antwoord(goed, bt){
+      if(bezig) return; bezig = true; const q = Qs[k];
+      if(goed) score++; else mis.push(q);
+      if(bt) bt.classList.add(goed ? 'goed' : 'fout');
+      vak.querySelectorAll('button').forEach(x => { x.disabled = true; });
+      fb.className = 'fb ' + (goed ? 'ok' : 'bad'); fb.innerHTML = goed ? 'Juist!' : 'Juist was: <b>' + q.show + '</b>';
+      sc.textContent = '✓ ' + score;
+      setTimeout(() => { if(!timer) return; k++; if(k >= N) einde(false); else toon(); }, goed ? 700 : 2200);
+    }
+    function einde(tijdOm){
+      if(!timer && !tijdOm) return; stop(); const gebruikt = Math.min(T, Math.round((Date.now() - t0) / 1000));
+      const best = !st.best || score > st.best.score || (score === st.best.score && gebruikt < (st.best.time || 1e9));
+      if(best){ st.best = {score, time:tijdOm ? null : gebruikt}; save(); }
+      root.innerHTML = '';
+      root.append(el('div', 'qz-groot', score + ' / ' + N));
+      root.append(el('p', '', (tijdOm ? 'De tijd is om. ' : 'Klaar in ' + mm(gebruikt) + '. ') + (best && score > 0 ? 'Dat is jouw beste score!' : 'Jouw beste score: ' + st.best.score + ' / ' + N + '.')));
+      if(mis.length){ root.append(el('p', 'qz-sub', 'Dit ging nog mis:')); const ul = el('ul', 'qz-mis');
+        mis.forEach(q => ul.append(el('li', '', `<span class="m4-line" style="display:inline-flex">${q.q.replace(/\{\{[^}]*\}\}/g, '…').replace(/ ?<span class="m4-is">=<\/span> …$/, '')}</span> → <b>${q.show}</b>`))); root.append(ul); }
+      if(tijdOm && k < N) root.append(el('p', 'qz-sub', (N - k) + ' vragen kwamen niet meer aan bod.'));
+      const nog = el('button', 'btn', '↻ Nog eens'); nog.type = 'button'; nog.addEventListener('click', run); root.append(nog);
+    }
+    toon();
+  }
+  intro();
+}; }
+SEC.quiz = { id:'quiz', ic:'m_quiz', nav:'Snelle quiz', title:'Snelle quiz: hoe snel ben jij?',
+  tip:'Tien korte vragen tegen de klok. De quiz telt niet mee: speel hem zo vaak je wil en probeer je beste score te verbeteren.',
+  cards:[ { title:'Quiz gehele getallen', noReset:true, build:quizKaart(QUIZ) } ] };
+(function(){ const css = `
+  .qz{display:flex; flex-direction:column; gap:.7rem}
+  .qz-top{display:flex; flex-wrap:wrap; gap:.6rem 1.2rem; align-items:center; font-weight:700; color:var(--accent-dark)}
+  .qz-klok{font-variant-numeric:tabular-nums; font-size:1.4rem} .qz-klok.laag{color:var(--bad)}
+  .qz-balk{height:.55rem; border-radius:999px; background:var(--accent-soft); overflow:hidden}
+  .qz-balk span{display:block; height:100%; background:var(--orange); transition:width 1s linear}
+  .qz-q{font-size:1.2rem; line-height:1.7}
+  .qz-ant{display:flex; flex-wrap:wrap; gap:.5rem; align-items:center}
+  .qz-opt.goed{border-color:var(--ok); background:var(--ok-bg)} .qz-opt.fout{border-color:var(--bad); background:var(--bad-bg)}
+  .qz-groot{font-size:2.2rem; font-weight:700; color:var(--accent-dark)}
+  .qz-mis{margin:.2rem 0 0; padding-left:1.2rem; line-height:1.9}
+  .qz-sub{color:var(--ink-soft)}
+  `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
+/* ============================================================
+   PROEFTOETSEN 1–3 · op 20 punten, alle onderdelen door elkaar
+   ============================================================ */
+const TOETS_TIP = 'Een proeftoets op 20 punten over de hele module. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk zonder spiekbriefje en zonder rekenmachine.';
+const tRij = (b, L, fn) => { const g = el('div', 'm4-items'); b.append(g); L.forEach((x, i) => { const row = el('div', 'm4-wn'); g.append(row); fn(row, x, i, 'abcdefgh'[i] + ')'); }); };
+/* 1. verzamelingen (2 pt) */
+function tVerz(b, st, save){
+  const R = makeR(st); const V = [['ℕ', x => x>=0], ['ℤ⁺', x => x>=0], ['ℤ⁻', x => x<=0], ['ℤ₀', x => x!==0]];
+  const L = R.shuffle([0, nz(R, -20, -1), R.int(1, 30), nz(R, -9, -1), R.int(2, 9)]).slice(0, 4).map((x, k) => [x, V[(k + R.int(0, 3)) % 4]]);
+  tRij(b, L, (row, [x, [n, f]], i, nr) => qChoice(row, st, save, 'v' + i, { nr, html:`<span class="m5-groot">${zS(x)} … ${n}</span>`, opts:[['in', '∈'], ['uit', '∉']], sym:true, ans:f(x) ? 'in' : 'uit' }));
+}
+/* 2. absolute waarde en ordenen (2 pt) */
+function tOrde(b, st, save){
+  const R = makeR(st); const G = []; while(G.length < 5){ const x = R.int(-25, 25); if(!G.includes(x)) G.push(x); }
+  rangschik(b, st, save, 'r', { getallen:G.map(w => ({w, h:zS(w)})), op:R.f() < .5, pts:2 });
+  const a = nz(R, -40, -2), c = nz(R, -15, 15), d = nz(R, -15, 15);
+  reeks(b, 2, (g, i, nr) => { const [h, T] = i ? [`|${zS(c)}| − |${zS(d)}|`, Math.abs(c) - Math.abs(d)] : [`|${zS(a)}| + ${zP(a)}`, 0]; mQ(g, st, save, 'a' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${h} ${isq} ${zS(T)}` }); });
+}
+/* 3. optellen en aftrekken (3 pt) */
+function tPlus(b, st, save){
+  const R = makeR(st); const L = R.shuffle([0, 1, 2, 3, 4, 5]).map(k => { const a = nz(R, -60, 60), c = (k % 2 ? -1 : 1)*R.int(2, 60); return k<3 ? [`${zS(a)} + ${zP(c)}`, a + c] : [`${zS(a)} − ${zP(c)}`, a - c]; });
+  reeks(b, 6, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 'p' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${h} ${isq} ${zS(T)}` }); });
+}
+/* 4. vermenigvuldigen en delen (3 pt) */
+function tMaal(b, st, save){
+  const R = makeR(st); const L = R.shuffle([0, 1, 2, 3, 4, 5]).map(k => { const a = R.sign()*R.int(2, 12), c = (k % 2 ? -1 : 1)*R.int(2, 9); return k<3 ? [`${zS(a)} · ${zP(c)}`, a*c] : [`${zS(a*c)} : ${zP(c)}`, a]; });
+  reeks(b, 6, (g, i, nr) => { const [h, T] = L[i]; mQ(g, st, save, 'm' + i, { nr, html:`${h} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${h} ${isq} ${zS(T)}` }); });
+}
+/* 5. gedurige som en product (2 pt) */
+function tGedur(b, st, save){
+  const R = makeR(st); const t = () => R.int(2, 40);
+  let s = zS(-t()); for(let j=0; j<4; j++) s += ` ${R.pick(['+', '−'])} ${zP(R.sign()*t())}`;
+  const f = [R.sign()*R.int(2, 5), -R.int(2, 5), R.sign()*R.int(2, 5), -R.pick([2, 5, 10])]; const p = f.map((x, k) => k ? zP(x) : zS(x)).join(' · ');
+  reeks(b, 2, (g, i, nr) => vrijOpg(g, st, save, 'g' + i, nr, i ? p : s, {k:'h', hint:false}), {een:true});
+}
+/* 6. volgorde van bewerkingen (4 pt) */
+function tVolg(b, st, save){
+  const R = makeR(st); const L = opgN(R, VT.vrij1, 2).concat(opgN(R, VT.vrij2, 1), opgN(R, VT.vierk, 1, {lim:200}));
+  reeks(b, 4, (g, i, nr) => vrijOpg(g, st, save, 'o' + i, nr, L[i], {k:i===3 ? 'mdhv' : 'mdh', hint:false}), {een:true});
+}
+/* 7. distributiviteit (2 pt) */
+function tDistr(b, st, save){
+  const R = makeR(st); const x = R.pick(['x', 'a']), n = R.int(2, 9), m = R.int(2, 9), a = R.int(3, 9);
+  const E = R.pick([`-${n} · (${x} - ${m})`, `-${n} · (${m} + ${x})`, `${n} · (-${x} + ${m})`]); const r = R.pick([98, 99, 102, 101]);
+  reeks(b, 2, (g, i, nr) => i ? mQ(g, st, save, 'h', { nr, html:`<span class="txt">Reken handig:</span> ${zS(-a)} · ${r} ${isq} {{u:a}}`, check:V=>chkG(V.a, -a*r), sol:`${zS(-a)} · (100 ${r<100 ? '−' : '+'} ${Math.abs(r - 100)}) ${isq} ${zS(-a*100)} ${r<100 ? '+' : '−'} ${a*Math.abs(r - 100)} ${isq} ${zS(-a*r)}` })
+    : letterOpg(g, st, save, 'l', nr, E, false), {een:true});
+}
+/* 8. eigenschappen (1 pt) */
+function tEig(b, st, save){
+  const R = makeR(st); const a = nz(R, -20, 20), c = nz(R, -20, 20), d = nz(R, -9, 9);
+  const L = R.shuffle([[`${zS(a)} + ${zP(c)} ${isq} ${zS(c)} + ${zP(a)}`, 'w'], [`(${zS(a)} · ${zP(c)}) · ${zP(d)} ${isq} ${zS(a)} · (${zS(c)} · ${zP(d)})`, 's'], [`${zS(a)} + ${zP(-a)} ${isq} 0`, 'y'], [`${zS(c)} · 0 ${isq} 0`, 'o'], [`${zS(d)} · 1 ${isq} ${zS(d)}`, 'n']]).slice(0, 2);
+  const g = el('div', 'm4-items een'); b.append(g);
+  L.forEach(([h, ans], i) => { const row = el('div', 'm4-wn'); g.append(row); qChoice(row, st, save, 'e' + i, { nr:'ab'[i] + ')', html:`<span class="m5-groot">${h}</span>`, opts:EIG5, ans }); });
+}
+/* 9. vraagstuk (1 pt) */
+const tVraag = i => (b, st, save) => { const R = makeR(st); const [tx, E, eh] = VS[[2, 5, 6][i]](R); const T = ZX.waarde(E).k;
+  mQ(b, st, save, 'v', { html:`<span class="txt">${tx}</span> {{z:a,mdh}}`, check:V=>chkZ(V.a, T), sol:`${zT(E)} ${isq} ${zS(T)}${eh ? ' ' + eh : ''}` }); };
+function bigToets(i){ return [
+  {sec:'Gehele getallen', pts:2, prompt:'Vul aan met ∈ of ∉.', build:tVerz},
+  {sec:'Ordenen en absolute waarde', pts:2, build:tOrde},
+  {sec:'Optellen en aftrekken', pts:3, prompt:'Bereken.', build:tPlus},
+  {sec:'Vermenigvuldigen en delen', pts:3, prompt:'Bereken.', build:tMaal},
+  {sec:'Gedurige som en gedurig product', pts:2, prompt:'Bereken. Schrijf de tussenstappen.', build:tGedur},
+  {sec:'Volgorde van de bewerkingen', pts:4, prompt:'Bereken. Schrijf de tussenstappen.', build:tVolg},
+  {sec:'Distributiviteit', pts:2, prompt:'Werk de haakjes weg en reken handig.', build:tDistr},
+  {sec:'Eigenschappen', pts:1, prompt:'Welke eigenschap wordt gebruikt?', build:tEig},
+  {sec:'Vraagstuk', pts:1, prompt:'Schrijf een bewerking en reken uit.', build:tVraag(i)}
+]; }
+[0, 1, 2].forEach(i => { SEC['toets' + (i+1)] = { id:'toets' + (i+1), ic:'toets', nav:'Proeftoets ' + (i+1), title:'Proeftoets ' + (i+1), tip:TOETS_TIP,
+  cards:[ { title:'Proeftoets ' + (i+1), noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, bigToets(i)) } ] }; });
+/* volgorde van de onderdelen in het menu */
+const ORDER = ['getal', 'abs', 'orde', 'optel', 'aftrek', 'maal', 'deel', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'toets1', 'toets2', 'toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
