@@ -542,6 +542,12 @@ export const SITES = [
     "vragen": 0
    },
    {
+    "id": "spel",
+    "naam": "Spelletjes",
+    "toets": false,
+    "vragen": 0
+   },
+   {
     "id": "toets1",
     "naam": "Proeftoets 1",
     "toets": true,
