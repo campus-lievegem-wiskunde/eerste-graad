@@ -720,7 +720,7 @@ Evaluatie van de drie modules volgens de afspraken Eén oefening op één scherm
 - Animaties: machtentrap (÷ grondtal per trede), groeiende schimmel met schuifknop in de tijd, tegels die samenschuiven.
 - Controle: alle opgaven en hint-invulregels worden met brute kracht opgelost en de gevonden antwoorden met sympy nagerekend (456 van 456 juist, 3 willekeurige reeksen). Testscripts in de scratchpad van de sessie, niet in de repository.
 
-### 1A Module 5 · hoofdbewerkingen met gehele getallen (proefstuk gebouwd op 30 oktober 2026, branch claude/project-thread-cdv8j6, nog niet op main)
+### 1A Module 5 · hoofdbewerkingen met gehele getallen (proefstuk 30 oktober, volledige module 1 november 2026, branch claude/project-thread-cdv8j6, PR 53, nog niet op main)
 
 - Bron: Nando 1, module 05 (module 4 is consolidatie en valt weg). Site-id **m5**, prefix **m5_gehele_v1_**, map 1A/modules/module-5-gehele-getallen, tegel achteraan in 1A/modules (gekozen door de beheerder, 30 oktober 2026).
 - Vragen en keuzes: /mnt/project-files/1A-module-5/ (vragen_vooraf.html, Keuzes.md, schermen/ met de schetsen van het vrije vak, de bogen en de grootte van de getallen). Alles zoals aanbevolen, behalve: distributiviteit met letters al in **oefenen**, niet enkel in Verdieping.
@@ -738,7 +738,12 @@ Evaluatie van de drie modules volgens de afspraken Eén oefening op één scherm
   - Getallenas: de sprong slepen (aanklikken kan ook). Twee thermometers (voor en na, met uur), het kwik slepen en daarna de optelling schrijven.
   - Nieuwe kaarten bij Optellen: Met de lift (parking −3 tot verdieping 8), Duiker en haai, De bankapp (rood staan), en in Verdieping Voor en na Christus (het jaar 0 bestaat niet). De kaart Rekenen in het echt viel weg (de module staat nog niet open, dus de volgorde mocht nog veranderen).
   - Patroon met staafdiagram, piramide met een tekenvak per steen (productpiramide komt bij Vermenigvuldigen), Zoek de fout in het schrift van een leerling (regel aanklikken, oorzaak kiezen: tegengestelde vergeten, teken fout, volgorde fout of rekenfout, dan verbeteren), groen vak "Alles juist!" met één zin waarom.
-  - Nog te bouwen in latere onderdelen: tweelingsommen (Aftrekken), minnetjes tellen (Vermenigvuldigen), gedurige som met plustermen en mintermen, vergelijken zonder te rekenen, verschil tussen twee verdiepingen of dieptes (Aftrekken).
+  - Gebouwd in de volledige module (1 november): tweelingsommen (Aftrekken), minnetjes tellen (Vermenigvuldigen), gedurige som met plustermen en mintermen, vergelijken zonder te rekenen, verschil tussen twee verdiepingen of dieptes (Aftrekken).
+- **Volledige module (1 november 2026, op vraag van de beheerder: "een testbaar geheel")**: alle 12 onderdelen plus Zoek de fout, Snelle quiz en Proeftoets 1 tot 3 (ORDER in 98_volgorde.js: getal, abs, orde, optel, aftrek, maal, deel, eig, distr, gedur, volg, mix, fout, quiz, toets1, toets2, toets3). Elk onderdeel heeft minstens 6 kaarten in Basis en oefenen en 2 tot 3 in Verdieping (zonder hints).
+  - Nieuwe bronbestanden: 25_hulp2.js (naElkaar: opgaven na elkaar met teller en groen vak; asKies: getal aanklikken op de getallenas; rangschik; venn met ℤ, ℤ⁺ en ℤ⁻ (0 in de doorsnede); bewerkingstabel; patroon met staafdiagram; schriftKaart voor Zoek de fout), 30_getal.js (getal, abs, orde met de Groenland-tabel en de getallenas-race), 50_bew.js (aftrek, maal, deel), 60_eig.js (eig met wisselen en schakelen uitrekenen en vergelijken, ∀ en ∃!, tegenvoorbeeld; distr met rechthoekmodel, letters in het vrije vak), 70_gedur.js (plustermen en mintermen, tekenparen, kassabon, tram en spel), 85_mix.js (vraagstukken in het vrije vak, welke bewerking, magisch vierkant, raad het getal; Zoek de fout met 5 kaarten), 88_quiz.js (quizKaart van 2A M4, 13 soorten vragen), 90_toets.js.
+  - Proeftoetsen op 20: gehele getallen 2, ordenen en absolute waarde 2, optellen en aftrekken 3, vermenigvuldigen en delen 3, gedurige som en product 2, volgorde 4 (vrij vak, één met vierkante haakjes), distributiviteit 2 (letters en handig rekenen), eigenschappen 1, vraagstuk 1 (vrij vak).
+  - Notatie: ℤ⁺ en ℤ⁻ bevatten 0, ℤ₀ niet (ℤ⁺₀, ℤ⁻₀ zonder 0), ℕ = ℤ⁺.
+  - Controle: Zoek de fout-generatoren 300 keer gemaakt (de foute regel verschilt altijd van de juiste); alle kaarten op 1280 en 400 pixels zonder fouten of overloop; wisselen, rechthoekmodel, letters, quiz en verbeteren van een lege proeftoets (0 / 20) doorgespeeld.
 
 ### 2A Wiskundige problemen (23 oktober 2026, de collega-bouwer, op main sinds 23 oktober: PR 21, samengevoegd na main-merge door Claude)
 
