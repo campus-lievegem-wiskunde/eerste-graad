@@ -4277,16 +4277,23 @@ const SP_VIER = { title:'Vier op een rij met producten', noReset:true,
 
 /* ============================================================ rekenduel */
 const DU_N = 10;
-const DU_GEN = [
-  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30); return [`${zS(a)} + ${zP(c)}`, a + c]; },
-  R => { const a = nz(R, -30, 30), c = nz(R, -30, 30); return [`${zS(a)} − ${zP(c)}`, a - c]; },
-  R => { const a = nz(R, -10, 10), c = nz(R, -10, 10); return [`${zS(a)} · ${zP(c)}`, a*c]; },
-  R => { const q = nz(R, -10, 10), c = nz(R, -9, 9); return [`${zS(q*c)} : ${zP(c)}`, q]; },
-  R => { const t = [nz(R, -12, 12), nz(R, -12, 12), nz(R, -12, 12)]; return [kaalS(t), somV(t)]; },
-  R => { const a = nz(R, -15, 15), c = R.int(2, 5), d = nz(R, -6, 6); return [`${zS(a)} + ${c} · ${zP(d)}`, a + c*d]; },
-  R => { const a = nz(R, -9, 9), c = R.int(2, 9), d = R.int(2, 9); return [`${zS(a)} · (${c} − ${d})`, a*(c - d)]; },
-  R => { const a = nz(R, -40, 40), c = nz(R, -40, 40); return [`|${zS(a)}| − |${zS(c)}|`, Math.abs(a) - Math.abs(c)]; }];
-const duVraag = (seed, k) => { const R = makeR({seed:seed + k*7919}); return R.pick(DU_GEN)(R); };
+/* makkelijk: twee getallen, kleine tafels; slim: iets grotere getallen en af en toe twee bewerkingen */
+const DU_GEN = {
+  mak:[
+    R => { const a = nz(R, -12, 12), c = nz(R, -12, 12); return [`${zS(a)} + ${zP(c)}`, a + c]; },
+    R => { const a = nz(R, -12, 12), c = nz(R, -9, 9); return [`${zS(a)} − ${zP(c)}`, a - c]; },
+    R => { const a = nz(R, -6, 6), c = nz(R, -5, 5); return [`${zS(a)} · ${zP(c)}`, a*c]; },
+    R => { const q = nz(R, -6, 6), c = nz(R, -5, 5); return [`${zS(q*c)} : ${zP(c)}`, q]; },
+    R => { const a = nz(R, -20, 20); return [`|${zS(a)}|`, Math.abs(a)]; }],
+  slim:[
+    R => { const a = nz(R, -25, 25), c = nz(R, -25, 25); return [`${zS(a)} + ${zP(c)}`, a + c]; },
+    R => { const a = nz(R, -25, 25), c = nz(R, -15, 15); return [`${zS(a)} − ${zP(c)}`, a - c]; },
+    R => { const a = nz(R, -9, 9), c = nz(R, -9, 9); return [`${zS(a)} · ${zP(c)}`, a*c]; },
+    R => { const q = nz(R, -9, 9), c = nz(R, -9, 9); return [`${zS(q*c)} : ${zP(c)}`, q]; },
+    R => { const t = [nz(R, -9, 9), nz(R, -9, 9), nz(R, -9, 9)]; return [kaalS(t), somV(t)]; },
+    R => { const a = nz(R, -10, 10), d = nz(R, -5, 5); return [`${zS(a)} + 2 · ${zP(d)}`, a + 2*d]; }]
+};
+const duVraag = (seed, k, niv='mak') => { const R = makeR({seed:seed + k*7919}); return R.pick(DU_GEN[niv])(R); };
 /* het scherm: vraag, eigen cijferblok en de andere speler. o: {namen, score() -> [ik, ander], ronde, vraag:[h, T], ok() (eigen juist antwoord), status} */
 function duScherm(host){
   host.innerHTML = '';
@@ -4317,12 +4324,12 @@ function duelLokaal(box, st, save, slim){
   function volgende(seed){ if(!box.isConnected) return wis();
     if(ronde >= DU_N){ const w = sc[0] > sc[1] ? 'Jij wint!' : sc[0] < sc[1] ? 'De computer wint.' : 'Gelijkspel.'; if(sc[0] > sc[1]){ st.wins = st.wins || {}; st.wins[slim ? 'slim' : 'mak'] = (st.wins[slim ? 'slim' : 'mak'] || 0) + 1; save(); }
       score(); scherm.q.innerHTML = `<b>${w}</b>&nbsp;${sc[0]} – ${sc[1]}`; scherm.fb.className = 'fb'; scherm.fb.textContent = ''; scherm.inp.disabled = true; voetT(); return; }
-    const [h, T] = duVraag(seed, ronde); let klaar = false; score();
-    const denk = scherm.ander.querySelector('.sp-denk span'); const ms = slim ? 3000 + Math.random()*2500 : 6000 + Math.random()*3500;
+    const [h, T] = duVraag(seed, ronde, slim ? 'slim' : 'mak'); let klaar = false; score();
+    const denk = scherm.ander.querySelector('.sp-denk span'); const ms = slim ? 6000 + Math.random()*3000 : 10000 + Math.random()*4000;
     denk.style.transition = 'none'; denk.style.width = '0%'; requestAnimationFrame(() => { denk.style.transition = `width ${ms}ms linear`; denk.style.width = '100%'; });
     const eind = wie => { if(klaar) return; klaar = true; wis(); denk.style.transition = 'none'; denk.style.width = wie==='De computer' ? '100%' : '0%'; scherm.toon(h, T, wie); tm.push(setTimeout(() => { ronde++; volgende(seed); }, 1800)); };
     scherm.vraag(h, x => { if(x===T){ sc[0]++; eind('ik'); } else scherm.straf(); });
-    tm.push(setTimeout(() => { if(Math.random() < (slim ? .95 : .85)){ sc[1]++; eind('De computer'); } else { scherm.ander.querySelector('.sp-sub').textContent = 'De computer had het fout!'; tm.push(setTimeout(() => eind('niemand'), 6000)); } }, ms));
+    tm.push(setTimeout(() => { if(Math.random() < (slim ? .9 : .75)){ sc[1]++; eind('De computer'); } else { scherm.ander.querySelector('.sp-sub').textContent = 'De computer had het fout!'; tm.push(setTimeout(() => eind('niemand'), 6000)); } }, ms));
   }
   veld.append(spKnop('▶ Start het duel', '', start)); voet.append(el('span', 'sp-sub', spWinst(st)));
   return wis;
