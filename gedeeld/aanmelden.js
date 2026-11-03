@@ -149,24 +149,6 @@ let R = {}, T = {}, resNieuw = {}, toetsNieuw = {};
 /* geladen = de voortgang uit Firestore is opgehaald; zolang dat niet lukte, wordt er niets bewaard (anders overschrijft een lege
    lokale toestand wat al in Firestore staat) */
 let geladen = false;
-/* diagnose (tijdelijk): tellers en laatste fouten, mee bewaard in het veld diag van het voortgangsdocument en zichtbaar in het dashboard */
-let diag = null, diagDirty = false;
-function toestel(){
-  const u = navigator.userAgent || '';
-  const os = /CrOS/.test(u) ? 'Chromebook' : /iPad|Macintosh.*Mobile/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Macintosh/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'onbekend';
-  const br = /Edg\//.test(u) ? 'Edge' : /SamsungBrowser/.test(u) ? 'Samsung' : /Firefox|FxiOS/.test(u) ? 'Firefox' : /Chrome|CriOS/.test(u) ? 'Chrome' : /Safari/.test(u) ? 'Safari' : 'onbekend';
-  return br + ' op ' + os;
-}
-function diagFout(soort, e){
-  if(!diag) return;
-  diag.fout = (soort + ': ' + String(e && (e.code || e.name) || '') + ' ' + String(e && e.message || e || '')).slice(0, 300);
-  diag.foutOp = new Date().toISOString(); diagDirty = true;
-}
-function diagStart(oud){
-  diag = Object.assign({ sessies:0, controles:0, genegeerd:0, mislukt:0, bewaren:0, bewaardFout:0 }, oud || {});
-  diag.sessies++; diag.toestel = toestel(); diag.ua = (navigator.userAgent || '').slice(0, 250); diag.versie = 'diag1'; diagDirty = true;
-  addEventListener('error', e=>{ if(!diag) return; diag.jsfout = (String(e.message || '') + ' @ ' + String(e.filename || '').split('/').slice(-2).join('/') + ':' + (e.lineno || '')).slice(0, 300); diag.jsfoutOp = new Date().toISOString(); diagDirty = true; });
-}
 function ownKey(k){ return PREFIX && typeof k === 'string' && k.startsWith(PREFIX); }
 function wipeLocal(){ if(!PREFIX) return; ls.keys().forEach(k=>{ if(ownKey(k)) rawRemove.call(localStorage, k); }); }
 const leesJSON = v => { try{ const o = typeof v === 'string' ? JSON.parse(v) : v; return o && typeof o === 'object' ? o : {}; }catch(e){ return {}; } };
@@ -176,7 +158,7 @@ function zetVoortgang(d, dirtyNu){
   /* resultaten: samenvoegen, wat op dit toestel nieuwer is wint */
   R = Object.assign({}, leesJSON(d.data && d.data._res), d.res || {}, leesJSON(ls.get(PREFIX + '_res')), R);
   T = Object.assign({}, leesJSON(d.data && d.data._toets), d.toets || {}, leesJSON(ls.get(PREFIX + '_toets')), T);
-  try{ rawSet.call(localStorage, PREFIX + '_res', JSON.stringify(R)); rawSet.call(localStorage, PREFIX + '_toets', JSON.stringify(T)); }catch(e){ diagFout('resultaat', e); }
+  try{ rawSet.call(localStorage, PREFIX + '_res', JSON.stringify(R)); rawSet.call(localStorage, PREFIX + '_toets', JSON.stringify(T)); }catch(e){}
   const lokaal = tijd; tijd = Object.assign({}, d.tijd || {});
   Object.entries(lokaal).forEach(([k, s])=>{ tijd[k] = (tijd[k] || 0) + s; });
 }
@@ -188,10 +170,10 @@ async function ophalen(){
   return d;
 }
 async function flush(){
-  if(!ref || (!dirty.size && !tijdDirty && !diagDirty && !Object.keys(resNieuw).length && !Object.keys(toetsNieuw).length)) return;
+  if(!ref || (!dirty.size && !tijdDirty && !Object.keys(resNieuw).length && !Object.keys(toetsNieuw).length)) return;
   if(!geladen){
-    try{ await ophalen(); if(diag) diag.laatGeladen = (diag.laatGeladen || 0) + 1; ls.keys().forEach(k=>{ if(ownKey(k)) dirty.add(k); }); tijdDirty = true; }
-    catch(e){ diagFout('ophalen', e); return; }
+    try{ await ophalen(); ls.keys().forEach(k=>{ if(ownKey(k)) dirty.add(k); }); tijdDirty = true; }
+    catch(e){ return; }
   }
   const data = {};
   dirty.forEach(k=>{ const v = ls.get(k); data[k.slice(PREFIX.length)] = v == null ? F.deleteField() : v; });
@@ -202,10 +184,9 @@ async function flush(){
   const resNu = resNieuw, toetsNu = toetsNieuw; resNieuw = {}; toetsNieuw = {};
   if(Object.keys(resNu).length) payload.res = resNu;
   if(Object.keys(toetsNu).length) payload.toets = toetsNu;
-  if(diag){ diag.resNu = Object.keys(resultaten()).length; diag.resMee = keys.includes(PREFIX + '_res'); diag.bewaren++; diag.op = new Date().toISOString(); payload.diag = Object.assign({}, diag); diagDirty = false; }
   try{ await F.setDoc(ref, payload, { merge:true }); }
   catch(e){ console.warn('Opslaan in Firebase mislukt, later opnieuw', e); keys.forEach(k=>dirty.add(k)); if(tijdNu) tijdDirty = true;
-    resNieuw = Object.assign(resNu, resNieuw); toetsNieuw = Object.assign(toetsNu, toetsNieuw); if(diag){ diag.bewaardFout++; diagFout('bewaren', e); } }
+    resNieuw = Object.assign(resNu, resNieuw); toetsNieuw = Object.assign(toetsNu, toetsNieuw); }
 }
 async function afmelden(){
   await flush().catch(()=>{});
@@ -231,16 +212,14 @@ function watchTime(){
   }, 5000);
 }
 /* resultaten per vraag (1 = juist bij de laatste controle, 0 = fout) en proeftoetsscores */
-function resultaten(){ return leesJSON(ls.get(PREFIX + '_res')); }
 function koppelResultaten(){
   R = Object.assign(leesJSON(ls.get(PREFIX + '_res')), R); T = Object.assign(leesJSON(ls.get(PREFIX + '_toets')), T);
   window.CL = {
     vraag(){},
     res(id, ok, info){
-      if(diag){ diag.controles++; diagDirty = true; }
-      if(info){ if(diag) diag.genegeerd++; return; }
+      if(info) return;
       R[id] = ok ? 1 : 0; resNieuw[id] = R[id];
-      try{ localStorage.setItem(PREFIX + '_res', JSON.stringify(R)); }catch(e){ if(diag){ diag.mislukt++; diagFout('resultaat', e); } throw e; }
+      localStorage.setItem(PREFIX + '_res', JSON.stringify(R));
     },
     toets(key, score, n){ T[key] = { score, n, datum: Date.now() }; toetsNieuw[key] = T[key]; localStorage.setItem(PREFIX + '_toets', JSON.stringify(T)); }
   };
@@ -348,14 +327,11 @@ async function start(u){
   /* gedeelde Chromebook: wis wat een vorige gebruiker hier achterliet */
   if(ls.get('cl_uid') !== u.uid){ wipeLocal(); try{ rawSet.call(localStorage, 'cl_uid', u.uid); }catch(e){} }
   /* voortgang ophalen, tot drie keer; lukt het niet, dan werkt de pagina verder en probeert flush het opnieuw vóór het bewaren */
-  let oudDiag = null, ophaalFout = null, pogingen = 0;
   for(const wacht of [0, 1500, 4000]){
     if(wacht) await new Promise(r=>setTimeout(r, wacht));
-    pogingen++;
-    try{ const d = await ophalen(); oudDiag = d.diag; ophaalFout = null; break; }
-    catch(e){ console.warn('Voortgang ophalen mislukt', e); ophaalFout = e; }
+    try{ await ophalen(); break; }
+    catch(e){ console.warn('Voortgang ophalen mislukt', e); }
   }
-  diagStart(oudDiag); diag.ophaalPogingen = pogingen; if(ophaalFout) diagFout('ophalen', ophaalFout);
   ls.keys().forEach(k=>{ if(ownKey(k)) dirty.add(k); });
   koppelResultaten(); watchStorage(); watchTime();
   const s = el('script'); s.src = INHOUD;

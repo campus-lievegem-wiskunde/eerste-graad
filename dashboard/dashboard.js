@@ -148,7 +148,7 @@ function verwerk(site, d){
   Object.entries(res).forEach(([id, ok])=>{ const o = sectieVan(site, id); if(o) per[o.id][ok ? 'juist' : 'fout']++; });
   let totaal = 0; Object.entries(d.tijd || {}).forEach(([k, s])=>{ totaal += s; if(per[k]) per[k].tijd = s; });
   const tScore = {}; Object.entries(toets).forEach(([key, t])=>{ const o = site.onderdelen.find(x=>key.startsWith(x.id + '_')); if(o) tScore[o.id] = t; });
-  return { per, totaal, toets:tScore, niv, dg, vrij:site.vrij ? vrijScores(d) : {}, bijgewerkt:d.bijgewerkt, diag:d.diag, nRes:Object.keys(res).length };
+  return { per, totaal, toets:tScore, niv, dg, vrij:site.vrij ? vrijScores(d) : {}, bijgewerkt:d.bijgewerkt };
 }
 /* Vrij oefenen (gedeeld/vrij-oefenen.js): data.scores = { "hoofdstuk|getallen|bewerking": { n, l, b, d } } → per hoofdstuk
    het aantal reeksen, de laatste score (van de meest recente reeks) en de beste score, plus de keuzes zelf */
@@ -259,17 +259,6 @@ async function overzicht(pane, g, sites){
   t.append(tb); wrap.append(t); pane.append(wrap);
   pane.append(el('div', 'legend-s', '<b>Cel:</b> deel van alle vragen van de site juist, met werktijd · <span class="l1">weinig</span><span class="l2">bezig</span><span class="l3">goed op weg</span><span class="l4">(bijna) alles juist</span> · klik op een site voor de tabel per onderdeel'));
 }
-/* diagnose (tijdelijk): wat de module van deze leerling meestuurde bij het bewaren */
-function diagRegel(v){
-  const g = v.diag, tijdstip = x=>x ? new Date(x).toLocaleString('nl-BE') : '';
-  if(!g) return el('p', 'mini diag', `<b>Diagnose:</b> nog niets ontvangen (de leerling opende de module nog niet sinds de diagnose online staat). Resultaten in Firebase: ${v.nRes || 0}.`);
-  const p = el('p', 'mini diag', `<b>Diagnose:</b> ${esc(g.toestel || '?')} · ${g.sessies || 0}× geopend · ${g.controles || 0}× gecontroleerd`
-    + `${g.genegeerd ? ` (${g.genegeerd} zonder score)` : ''} · resultaten op het toestel: ${g.resNu ?? '?'}, in Firebase: ${v.nRes || 0}`
-    + ` · ${g.bewaren || 0}× bewaard${g.bewaardFout ? `, ${g.bewaardFout}× mislukt` : ''}${g.mislukt ? ` · ${g.mislukt}× resultaat niet in het browsergeheugen` : ''}`
-    + `${g.fout ? `<br>Laatste fout (${tijdstip(g.foutOp)}): ${esc(g.fout)}` : ''}${g.jsfout ? `<br>Laatste JavaScript-fout (${tijdstip(g.jsfoutOp)}): ${esc(g.jsfout)}` : ''}`
-    + `<br>Laatst doorgestuurd: ${tijdstip(g.op)}`);
-  p.title = g.ua || ''; return p;
-}
 function detail(pane, site, e, v){
   const old = pane.querySelector('.detail'); if(old) old.remove();
   const d = el('div', 'detail', `<h3>${esc(naamVan(e))} · ${esc(site.kort)}</h3><p class="mini">${esc(e)} · totale werktijd ${minuten(v.totaal)}${v.bijgewerkt && v.bijgewerkt.toDate ? ' · laatst actief ' + v.bijgewerkt.toDate().toLocaleString('nl-BE') : ''}</p>`);
@@ -285,7 +274,6 @@ function detail(pane, site, e, v){
       : `<td>${nm}${tt ? `<br><small class="mini">testje: ${tt.score}/${tt.n} op ${new Date(tt.datum).toLocaleDateString('nl-BE')}</small>` : ''}</td><td class="c">${p.juist}</td><td class="c">${p.fout}</td><td class="c">${o.vragen ? Math.max(0, o.vragen - p.juist - p.fout) : '–'}</td><td>${minuten(p.tijd)}</td>`)); });
   t.append(tb); const w = el('div', 'tbl-wrap'); w.append(t); d.append(w);
   if(v.dg && Object.keys(v.dg).length) d.append(doelenBlok(site, v));
-  if(ST.rol === 'beheerder' && !ST.toeschouwer) d.append(diagRegel(v)); /* diagnose enkel voor beheerders, niet voor collega's of een toeschouwer */
   const sl = el('button', 'btn ghost klein', 'Sluiten'); sl.type = 'button'; sl.onclick = ()=>d.remove(); { const _r = el('div', 'rij'); _r.append(sl); d.append(_r); }
   pane.prepend(d); d.scrollIntoView({ behavior:'smooth', block:'start' });
 }

@@ -24,7 +24,6 @@ const H = require('./helpers');
   check(r.lijn_oud_1 === 1 && r.lijn_oud_2 === 1, 'oude resultaten blijven na een mislukt ophalen');
   check(Object.keys(r).some(k=>k.startsWith('freq_')), 'nieuwe resultaten bewaard (' + Object.keys(r).length + ')');
   check(d.tijd.lijn === 600, 'werktijd van een vorig onderdeel blijft (' + d.tijd.lijn + ')');
-  check(d.diag && d.diag.ophaalPogingen === 3 && d.diag.laatGeladen === 1, 'diagnose: 3 pogingen bij het openen, later wel geladen ' + JSON.stringify(d.diag && [d.diag.ophaalPogingen, d.diag.laatGeladen]));
 
   /* 2. tweede tabblad met een oude toestand: wat het bewaart, wist niets */
   const p2 = await ctx.newPage(); p2.fouten = []; p2.on('pageerror', e=>p2.fouten.push(e.message)); await H.aanmelden(p2, '1A/modules/module-3-data/', LL); await p2.waitForTimeout(1500);
