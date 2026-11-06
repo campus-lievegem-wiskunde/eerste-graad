@@ -8163,7 +8163,7 @@ T('B-OOI-A2', 'booi_a2_lvorm', R => {
   /* L-vorm: rechthoek a op b met een rechthoek c op d weggesneden in de hoek rechtsboven */
   const s0 = 18, W = a * s0, H = b * s0, x0 = 30, y0 = 20;
   const P = [[x0, y0 + H], [x0 + W, y0 + H], [x0 + W, y0 + d * s0], [x0 + W - c * s0, y0 + d * s0], [x0 + W - c * s0, y0], [x0, y0]];
-  let s = veelhoek(P) + tekst([x0 + W / 2, y0 + H + 18], a + ' m') + tekst([x0 - 6, y0 + H / 2], b + ' m', 'end') + tekst([x0 + W - c * s0 / 2, y0 + d * s0 - 6], c + ' m') + tekst([x0 + W + 6, y0 + d * s0 / 2 + 4], d + ' m', 'start');
+  let s = veelhoek(P) + tekst([x0 + W / 2, y0 + H + 18], a + ' m') + tekst([x0 - 6, y0 + H / 2], b + ' m', 'end') + tekst([x0 + W - c * s0 / 2, y0 + d * s0 - 6], c + ' m') + tekst([x0 + W - c * s0 + 6, y0 + d * s0 / 2 + 4], d + ' m', 'start');
   s += rhoek(P[0], P[1], P[5]) + rhoek(P[1], P[2], P[0]);
   const opp = a * b - c * d, wat = R.kies(['opp', 'omtrek']);
   return {q:`Een terras heeft deze vorm.\n${wat === 'opp' ? 'Hoeveel m² tegels heb je nodig?' : 'Hoeveel meter boordsteen leg je rond het terras?'}`,
