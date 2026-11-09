@@ -365,6 +365,21 @@ function proeftoets(b, st, save, key, items){
   .data-row .dv.hi{ border-color:var(--orange); background:var(--or-soft); }
   .data-row .dv.gone{ opacity:.35; text-decoration:line-through; border-style:dashed; }
   .data-row .dv.mid{ border-color:var(--orange); background:var(--orange); color:#173436; transform:scale(1.12); }
+  /* variatiebreedte: pijl onder de geordende rij, en de thermometer */
+  .vb-rij{ position:relative; padding-bottom:3.2rem; }
+  .vb-pijl{ position:absolute; bottom:.3rem; border-top:3px solid var(--orange); text-align:center; font-weight:700; color:var(--ink); padding-top:.4rem; white-space:nowrap; }
+  .vb-pijl::before, .vb-pijl::after{ content:''; position:absolute; top:-9px; border:7.5px solid transparent; }
+  .vb-pijl::before{ left:-6px; border-right-color:var(--orange); border-left-width:0; }
+  .vb-pijl::after{ right:-6px; border-left-color:var(--orange); border-right-width:0; }
+  .vb-th svg{ width:100%; max-width:340px; height:auto; display:block; }
+  .vb-th .tube{ fill:var(--card); stroke:var(--tq); stroke-width:2; }
+  .vb-th .seg{ fill:var(--orange); }
+  .vb-th .tick{ stroke:var(--ink); stroke-width:1; opacity:.55; }
+  .vb-th .dag{ cursor:pointer; }
+  .vb-th .dag circle{ fill:var(--card); stroke:var(--tq); stroke-width:2.5; }
+  .vb-th .dag.kies circle{ fill:var(--orange); stroke:var(--orange); }
+  .vb-th text{ font-size:13px; fill:var(--ink); }
+  .vb-th .br{ fill:none; stroke:var(--orange); stroke-width:2.5; }
   .data-row button.dv{ cursor:pointer; font:inherit; font-weight:700; color:var(--ink); }
   .data-row button.dv:hover:not(:disabled){ border-color:var(--orange); }
   .ftab{ border-collapse:collapse; margin:.4rem 0; font-variant-numeric:tabular-nums; display:block; max-width:100%; overflow-x:auto; width:max-content; }
@@ -453,6 +468,7 @@ const ICONS = {
   diagram:'<path d="M3 20h18"/><rect x="5" y="11" width="3" height="9"/><rect x="10.5" y="6" width="3" height="14"/><rect x="16" y="14" width="3" height="6"/>',
   taart:'<circle cx="12" cy="12" r="8.5"/><path d="M12 12V3.5M12 12l6.5 5.5"/>',
   mislei:'<path d="M3 20h18M3 20V4"/><rect x="6" y="14" width="4" height="6"/><rect x="13" y="5" width="4" height="15"/><path d="M2 9l2-1-2-1M2 12l2-1-2-1"/>',
+  vb:'<path d="M3 20h18"/><circle cx="4.5" cy="12" r="1.8" fill="currentColor"/><circle cx="19.5" cy="12" r="1.8" fill="currentColor"/><path d="M8 12h8M10 9.5 7.5 12l2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/>',
   modus:'<path d="M3 20h18"/><circle cx="7" cy="17" r="1.6"/><circle cx="12" cy="17" r="1.6"/><circle cx="12" cy="13" r="1.6"/><circle cx="12" cy="9" r="1.6" fill="currentColor"/><circle cx="17" cy="17" r="1.6"/><circle cx="17" cy="13" r="1.6"/>',
   gem:'<path d="M3 18h18"/><path d="M12 18l-3 3h6z"/><circle cx="5" cy="15" r="1.6"/><circle cx="10" cy="15" r="1.6"/><circle cx="19" cy="15" r="1.6"/>',
   med:'<path d="M12 3v18" stroke-dasharray="2 2"/><rect x="3" y="9" width="4" height="6" rx="1"/><rect x="17" y="9" width="4" height="6" rx="1"/><rect x="10" y="9" width="4" height="6" rx="1" fill="currentColor"/>',
@@ -3093,7 +3109,7 @@ function outlierDemo(b, cfg){
 }
 
 /* ============================================================
-   ONDERDEEL 7 · MODUS EN VARIATIEBREEDTE
+   ONDERDEEL 7 · MODUS
    ============================================================ */
 const CHEAT_MATEN = `<h3>Spiekbriefje · centrummaten en spreidingsmaat</h3><table>
 <tr><td>modus</td><td>Het gegeven dat het meest voorkomt (de grootste frequentie). Kan ook bij categorische data.</td></tr>
@@ -3103,19 +3119,16 @@ const CHEAT_MATEN = `<h3>Spiekbriefje · centrummaten en spreidingsmaat</h3><tab
 <tr><td>centrummaat</td><td>Modus, gemiddelde en mediaan: een typische waarde voor de dataset.</td></tr>
 <tr><td>spreidingsmaat</td><td>Variatiebreedte: hoe ver de gegevens uit elkaar liggen.</td></tr></table>`;
 const BROERS = [0,1,1,2,1,0,3,1,2,1,0,2,1,4,1,2,0,1,2,1];
-SECTIONS.push({ id:'modus', ic:'modus', nav:'Modus en variatiebreedte', title:'Modus en variatiebreedte', cheat:CHEAT_MATEN,
-  tip:'De modus zie je meteen in een dotplot: de hoogste stapel. De variatiebreedte is de afstand tussen het kleinste en het grootste gegeven.',
+SECTIONS.push({ id:'modus', ic:'modus', nav:'Modus', title:'Modus', cheat:CHEAT_MATEN,
+  tip:'De modus is het gegeven dat het vaakst voorkomt. In een dotplot is dat de hoogste stapel, in een staafdiagram de hoogste staaf.',
   cards:[
     { title:'Klik op de modus', lvl:1, instr:'Twintig leerlingen: hoeveel broers en zussen heb je?',
       build:combo((b,st,save,key)=>dotPick(b,st,save,key,{vals:BROERS, lo:0, hi:5, xTitle:'Aantal broers en zussen', ask:'Klik op de kolom van de <b>modus</b>.', ans:[1], why:'1 komt het meest voor (9 keer): de hoogste stapel.', hint:'De modus is het gegeven dat het vaakst voorkomt: zoek de hoogste stapel.'}),
         choiceList([['Wat betekent deze modus?', 'b', 'De modus is een gegeven (1 broer of zus), niet een aantal leerlingen.']], [['a','9 leerlingen hebben broers of zussen.'],['b','De meeste leerlingen hebben 1 broer of zus.'],['c','Gemiddeld heeft een leerling 1 broer of zus.']])) },
-    { title:'Klik op het minimum en het maximum', lvl:1, instr:'Dezelfde twintig leerlingen.',
-      build:combo((b,st,save,key)=>dotPick(b,st,save,key,{vals:BROERS, lo:0, hi:5, xTitle:'Aantal broers en zussen', ask:'Klik op het <b>maximum</b>: het grootste gegeven.', ans:[4], why:'Het grootste aantal is 4. Bij 5 staat geen bolletje!', hint:'Het maximum is het grootste gegeven dat echt voorkomt.'}),
-        list([{html:'Het minimum is [[0]], het maximum is [[1]]. De variatiebreedte is [[2]].', size:'sm', mode:'numeric', check:nums([0,4,4], 1e-9, 'Variatiebreedte = maximum − minimum.'), sol:'minimum 0, maximum 4 · variatiebreedte = 4 − 0 = <b>4</b>.'}])) },
-    { title:'Modus en variatiebreedte uit een lijst', lvl:2, build:list([
-        {html:'Punten op een quiz: 7, 9, 6, 9, 8, 5, 9, 7, 10. Modus = [[0]] · variatiebreedte = [[1]]', size:'sm', check:nums([9,5]), sol:'9 komt 3 keer voor: modus <b>9</b>. Grootste 10, kleinste 5: 10 − 5 = <b>5</b>.'},
-        {html:'Temperaturen (°C): 4, −2, 3, 0, −2, 5, 1. Modus = [[0]] °C · variatiebreedte = [[1]] °C', size:'sm', check:nums([-2,7]), sol:'−2 komt 2 keer voor: modus <b>−2 °C</b>. 5 − (−2) = 5 + 2 = <b>7 °C</b>.'},
-        {html:'Lengtes (cm): 152, 160, 148, 155, 160, 149, 158. Modus = [[0]] cm · variatiebreedte = [[1]] cm', size:'sm', check:nums([160,12]), sol:'160 komt 2 keer voor. 160 − 148 = <b>12 cm</b>.'}
+    { title:'Modus uit een lijst', key:'modus_lijst', lvl:2, build:list([
+        {html:'Punten op een quiz: 7, 9, 6, 9, 8, 5, 9, 7, 10. Modus = [[0]]', mode:'numeric', check:exact(9, 'Tel hoe vaak elk getal voorkomt.'), sol:'9 komt 3 keer voor: modus <b>9</b>.'},
+        {html:'Temperaturen (°C): 4, −2, 3, 0, −2, 5, 1. Modus = [[0]] °C', check:exact(-2, 'Tel hoe vaak elk getal voorkomt.'), sol:'−2 komt 2 keer voor: modus <b>−2 °C</b>.'},
+        {html:'Lengtes (cm): 152, 160, 148, 155, 160, 149, 158. Modus = [[0]] cm', mode:'numeric', check:exact(160, 'Tel hoe vaak elk getal voorkomt.'), sol:'160 komt 2 keer voor: modus <b>160 cm</b>.'}
       ], {letters:true}) },
     { title:'Modus bij categorische data', lvl:2, instr:'Een klas noteerde haar bloedgroep.',
       build:combo(chartBox('kolom', {labels:['O+','A+','B+','AB+','O−','A−'], series:[{values:[9,8,2,1,2,2]}], yTitle:'Aantal leerlingen', step:1, yMax:10}),
@@ -3127,8 +3140,117 @@ SECTIONS.push({ id:'modus', ic:'modus', nav:'Modus en variatiebreedte', title:'M
         ], [['j','Ja'],['n','Nee']])) },
     { title:'Twee modi', lvl:2, build:list([
         {html:'Aantal goals per match: 2, 0, 3, 1, 0, 2, 4, 1, 2, 0. De twee modi zijn [[0]] en [[1]] (kleinste eerst).', size:'sm', check:nums([0,2], 1e-9, 'Tel voor elk getal hoeveel keer het voorkomt.'), sol:'0 komt 3 keer voor en 2 ook 3 keer. Er zijn twee modi: <b>0 en 2</b>.'}
-      ]) },
-    { title:'Redeneren met de variatiebreedte', lvl:3, build:list([
+      ]) }
+  ]});
+
+/* ============================================================
+   ONDERDEEL · VARIATIEBREEDTE (apart onderdeel sinds 9 november 2026)
+   De uitleg gebeurt met geordende getallen en een pijl (zoals bij de mediaan), niet met een dotplot.
+   ============================================================ */
+const MXneg = x => x<0 ? '('+nf(x)+')' : nf(x);
+/* orden de getallen, klik op het kleinste en het grootste: een pijl toont de afstand ertussen */
+function rangeOrder(b, st, save, key, cfg){
+  const vals = cfg.vals, n = vals.length, srt = sorted(vals), u = cfg.u || '';
+  const wrap = el('div','vb-rij'), row = el('div','data-row'), pijl = el('div','vb-pijl'); pijl.hidden = true; wrap.append(row, pijl);
+  const bar = el('div','viz-bar'), out = el('div','readout bigq');
+  const sortBtn = el('button','btn','▶ Orden van klein naar groot'); sortBtn.type='button'; bar.append(sortBtn);
+  b.append(wrap, bar, out);
+  st.ends = st.ends || [];
+  let boxes = [];
+  function build(arr){ row.innerHTML=''; boxes = arr.map((x,i)=>{ const k = el('button','dv', nf(x)); k.type='button'; k.dataset.i=i; row.append(k); return k; }); }
+  function zetPijl(){ if(pijl.hidden || !boxes.length) return; const a = boxes[0], z = boxes[n-1];
+    /* loopt de rij over twee lijnen (gsm), dan gaat de pijl tot de rechterrand van de breedste lijn */
+    const rechts = z.offsetTop===a.offsetTop ? z.offsetLeft+z.offsetWidth : Math.max(...boxes.map(k=>k.offsetLeft+k.offsetWidth));
+    pijl.style.left = a.offsetLeft+'px'; pijl.style.width = (rechts-a.offsetLeft)+'px'; }
+  function paint(){
+    boxes.forEach((k,i)=>k.classList.toggle('mid', st.ends.includes(i)));
+    const klaar = st.ends.length===2;
+    pijl.hidden = !klaar;
+    if(klaar){ pijl.innerHTML = `variatiebreedte = ${nf(srt[n-1])} − ${MXneg(srt[0])}`; zetPijl();
+      out.innerHTML = `Het kleinste gegeven (het <b>minimum</b>) is ${nf(srt[0])}${u}, het grootste (het <b>maximum</b>) is ${nf(srt[n-1])}${u}. De pijl is de afstand ertussen: reken die hieronder uit.`; }
+    else out.innerHTML = st.ends.length ? 'Goed zo. Klik nu op het andere uiterste.' : 'Klik op het <b>kleinste</b> en op het <b>grootste</b> getal.';
+  }
+  async function doSort(anim){
+    if(anim){ /* FLIP-animatie: elk vakje schuift naar zijn plaats */
+      const first = boxes.map(k=>k.getBoundingClientRect());
+      const order = vals.map((x,i)=>i).sort((a,c)=>vals[a]-vals[c]||a-c);
+      order.forEach(i=>row.append(boxes[i]));
+      boxes.forEach((k,i)=>{ const r1=k.getBoundingClientRect(); k.style.transition='none'; k.style.transform=`translate(${first[i].left-r1.left}px,${first[i].top-r1.top}px)`; });
+      await new Promise(r=>requestAnimationFrame(r));
+      boxes.forEach(k=>{ k.style.transition='transform .8s ease'; k.style.transform=''; k.classList.add('hi'); });
+      await sleep(900);
+    }
+    build(srt); st.sorted = true; save(); sortBtn.disabled = true; paint();
+  }
+  row.addEventListener('click', e=>{
+    const k = e.target.closest('.dv'); if(!k) return;
+    if(!st.sorted){ out.innerHTML = 'Orden eerst de getallen van klein naar groot.'; return; }
+    const i = +k.dataset.i; if(st.ends.includes(i) || st.ends.length===2) return;
+    if(i!==0 && i!==n-1){ k.classList.add('shake'); setTimeout(()=>k.classList.remove('shake'),400); out.innerHTML = 'Na het ordenen staat het kleinste getal vooraan en het grootste achteraan.'; return; }
+    st.ends.push(i); save(); paint();
+  });
+  sortBtn.addEventListener('click', ()=>doSort(true));
+  window.addEventListener('resize', zetPijl);
+  build(vals);
+  if(st.sorted) doSort(false); else out.innerHTML = `${n} gegevens. Hoe ver liggen ze uit elkaar? Orden ze eerst.`;
+}
+/* thermometer met de temperaturen van een week: klik op de koudste en de warmste dag */
+function thermoPick(b, st, save, key, cfg){
+  const {dagen, lo, hi} = cfg, T = dagen.map(d=>d[1]), mn = Math.min(...T), mx = Math.max(...T);
+  const k = 17, top = 26, W = 300, H = top+(hi-lo)*k+50, y = t => top+(hi-t)*k, tx = 70;
+  const [L, R] = MUnaast(b); const v = el('div','viz vb-th'); L.append(v);
+  const out = el('div','readout'); R.append(out);
+  st.th = st.th || [];
+  function teken(){
+    const kies = st.th.map(i=>T[i]), klaar = kies.includes(mn) && kies.includes(mx);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Thermometer met de temperatuur van elke dag">`;
+    s += `<rect class="tube" x="${tx-9}" y="${top-14}" width="18" height="${(hi-lo)*k+28}" rx="9"/><circle class="tube" cx="${tx}" cy="${y(lo)+28}" r="15"/>`;
+    if(klaar) s += `<rect class="seg" x="${tx-5}" y="${y(mx)}" width="10" height="${(mx-mn)*k}" rx="3"/>`;
+    for(let t=lo; t<=hi; t++){ const groot = t%2===0;
+      s += `<line class="tick" x1="${tx-9-(groot?10:5)}" x2="${tx-9}" y1="${y(t)}" y2="${y(t)}"/>`;
+      if(groot) s += `<text x="${tx-24}" y="${y(t)+4}" text-anchor="end">${nf(t)}</text>`; }
+    s += `<text x="${tx-24}" y="${top-12}" text-anchor="end">°C</text>`;
+    dagen.forEach(([d,t],i)=>{ s += `<g class="dag${st.th.includes(i)?' kies':''}" data-i="${i}"><line class="tick" x1="${tx+9}" x2="${tx+38}" y1="${y(t)}" y2="${y(t)}"/><circle cx="${tx+46}" cy="${y(t)}" r="8"/><text x="${tx+60}" y="${y(t)+4}">${d}: ${nf(t)} °C</text></g>`; });
+    if(klaar){ const bx = tx+170; s += `<path class="br" d="M${bx-8},${y(mx)} H${bx} V${y(mn)} H${bx-8}"/><text x="${bx+6}" y="${(y(mx)+y(mn))/2+4}" font-weight="700">? °C</text>`; }
+    v.innerHTML = s+'</svg>';
+    out.innerHTML = klaar ? `De koudste dag: ${nf(mn)} °C. De warmste dag: ${nf(mx)} °C. Het oranje stuk is de variatiebreedte: reken uit hoeveel graden dat is.`
+      : st.th.length ? 'Goed zo. Klik nu op de andere dag.' : 'Klik op de <b>koudste</b> en op de <b>warmste</b> dag.';
+  }
+  v.addEventListener('click', e=>{ const g = e.target.closest('.dag'); if(!g) return; const i = +g.dataset.i; if(st.th.includes(i)) return;
+    if(T[i]!==mn && T[i]!==mx){ out.innerHTML = `${dagen[i][0]} is niet de koudste en ook niet de warmste dag. Kijk naar de onderste en de bovenste stip.`; return; }
+    st.th.push(i); save(); teken(); });
+  teken();
+  return R;
+}
+const VB_PUNTEN = [12,15,8,17,11,14,9,16,13];
+const VB_WEEK = [['ma',-3],['di',1],['wo',4],['do',7],['vr',5],['za',-1],['zo',2]];
+SECTIONS.push({ id:'vb', ic:'vb', nav:'Variatiebreedte', title:'Variatiebreedte', cheat:CHEAT_MATEN,
+  tip:'Orden eerst. De variatiebreedte is de afstand tussen het kleinste en het grootste gegeven: grootste − kleinste. Het is één getal.',
+  cards:[
+    { title:'Variatiebreedte: zo werkt het', key:'vb_uitleg', lvl:1, instr:'Negen leerlingen kregen hun punten op 20 terug. Liggen die punten dicht bij elkaar of ver uit elkaar?',
+      build:(b,st,save,key)=>{
+        b.append(el('p','', 'De <b>variatiebreedte</b> zegt hoe ver de gegevens uit elkaar liggen: <b>variatiebreedte = grootste gegeven − kleinste gegeven</b>.'));
+        rangeOrder(b, st, save, key, {vals:VB_PUNTEN});
+        qBlock(b, st, save, key+'_a', {html:'Variatiebreedte = [[0]] punten', mode:'numeric', check:exact(9, 'Grootste − kleinste.'), hint:vbHint(VB_PUNTEN), sol:'17 − 8 = <b>9</b> punten.'});
+        qChoice(b, st, save, 'b', {html:'Lena zegt: "De variatiebreedte is van 8 tot 17." Klopt dat?', ans:'n', opts:[['j','Ja'],['n','Nee']], why:'De variatiebreedte is één getal: de afstand 17 − 8 = 9.'});
+        qChoice(b, st, save, 'c', {html:'Klas A heeft een variatiebreedte van 3 punten, klas B van 12 punten. Wat betekent dat?', ans:'a', opts:[['a','In klas A liggen de punten dichter bij elkaar.'],['b','Klas B haalde betere punten.'],['c','Klas B heeft meer leerlingen.']], why:'De variatiebreedte zegt hoe ver de gegevens uit elkaar liggen, niet hoe goed ze zijn.'});
+      } },
+    { title:'De thermometer', key:'vb_thermo', lvl:2, instr:'De temperatuur om 7 uur ’s morgens, een week lang.',
+      build:(b,st,save,key)=>{
+        const R = thermoPick(b, st, save, key, {dagen:VB_WEEK, lo:-6, hi:10});
+        qBlock(R, st, save, key+'_a', {html:'Variatiebreedte = [[0]] °C', mode:'numeric', check:exact(10, 'Warmste − koudste. Let op het minteken: 7 − (−3) = 7 + 3.'), hint:vbHint(VB_WEEK.map(d=>d[1])), sol:'7 − (−3) = 7 + 3 = <b>10 °C</b>.'});
+        qBlock(R, st, save, key+'_b', {html:'Een andere week: 4, −5, 6, 1, 9, 3, 0. Variatiebreedte = [[0]] °C', mode:'numeric', check:exact(14, 'Warmste − koudste. Let op het minteken.'), hint:vbHint([4,-5,6,1,9,3,0]), sol:'9 − (−5) = 9 + 5 = <b>14 °C</b>.'});
+        qChoice(R, st, save, 'c', {html:'In Oostende ligt de temperatuur een week tussen 5 °C en 9 °C, in Bastenaken tussen −4 °C en 8 °C. Waar is de variatiebreedte het grootst?', ans:'b', opts:[['o','Oostende'],['b','Bastenaken']], why:'Oostende: 9 − 5 = 4 °C. Bastenaken: 8 − (−4) = 12 °C.'});
+      } },
+    { title:'Klik op het minimum en het maximum', key:'vb_minmax', lvl:2, instr:'Twintig leerlingen: hoeveel broers en zussen heb je? Elk bolletje is één leerling.',
+      build:combo((b,st,save,key)=>dotPick(b,st,save,key,{vals:BROERS, lo:0, hi:5, xTitle:'Aantal broers en zussen', ask:'Klik op het <b>maximum</b>: het grootste gegeven.', ans:[4], why:'Het grootste aantal is 4. Bij 5 staat geen bolletje!', hint:'Het maximum is het grootste gegeven dat echt voorkomt.'}),
+        list([{html:'Het minimum is [[0]], het maximum is [[1]]. De variatiebreedte is [[2]].', size:'sm', mode:'numeric', check:nums([0,4,4], 1e-9, 'Variatiebreedte = maximum − minimum.'), sol:'minimum 0, maximum 4 · variatiebreedte = 4 − 0 = <b>4</b>.'}])) },
+    { title:'Variatiebreedte uit een lijst', key:'vb_lijst', lvl:2, build:list([
+        {html:'Punten op een quiz: 7, 9, 6, 9, 8, 5, 9, 7, 10. Variatiebreedte = [[0]]', mode:'numeric', check:exact(5, 'Grootste − kleinste.'), hint:vbHint([7,9,6,9,8,5,9,7,10]), sol:'Grootste 10, kleinste 5: 10 − 5 = <b>5</b>.'},
+        {html:'Temperaturen (°C): 4, −2, 3, 0, −2, 5, 1. Variatiebreedte = [[0]] °C', mode:'numeric', check:exact(7, 'Grootste − kleinste. Let op het minteken.'), hint:vbHint([4,-2,3,0,-2,5,1]), sol:'5 − (−2) = 5 + 2 = <b>7 °C</b>.'},
+        {html:'Lengtes (cm): 152, 160, 148, 155, 160, 149, 158. Variatiebreedte = [[0]] cm', mode:'numeric', check:exact(12, 'Grootste − kleinste.'), hint:vbHint([152,160,148,155,160,149,158]), sol:'160 − 148 = <b>12 cm</b>.'}
+      ], {letters:true}) },
+    { title:'Redeneren met de variatiebreedte', key:'vb_redeneren', lvl:3, build:list([
         {html:'De variatiebreedte van een reeks is 18. Het kleinste getal is 37. Wat is het grootste getal? [[0]]', mode:'numeric', check:exact(55), sol:'maximum − 37 = 18, dus maximum = 37 + 18 = <b>55</b>.'},
         {html:'Reeks: 12, 15, 9, 20, 14. Je voegt één getal toe. Welk getal kan je toevoegen zodat de variatiebreedte 15 wordt? Geef het grootste. [[0]]', mode:'numeric', check:exact(24), sol:'Nu: 20 − 9 = 11. Wil je 15: een nieuw maximum 9 + 15 = <b>24</b> (of een nieuw minimum 20 − 15 = 5).'},
         {html:'Mila scoort 6, 8, 7 en 9 bij een spel. Daarna haalt ze een 10. Variatiebreedte voor de 10: [[0]] · na de 10: [[1]]', size:'sm', check:nums([3,4]), sol:'Voor: 9 − 6 = 3. Na: 10 − 6 = <b>4</b>.'}
@@ -3492,8 +3614,12 @@ const MXgenPct = r => { const c = rPick(r, MXPCTX); const T = rPick(r, [20,25,40
    RENDERS VOOR DE NIEUWE OPGAVEN
    ============================================================ */
 function MXmodusEx(b, st, save, key, d){
-  list(d.map(({c,v,m,vb})=>({ html:`${c.t}: ${MXlist(v)}.<br>Modus = [[0]]${c.u} · variatiebreedte = [[1]]${c.u}`, size:'sm', check:nums([m, vb], 1e-9, 'Modus: tel hoe vaak elk getal voorkomt. Variatiebreedte: grootste − kleinste.'),
-    sol:`${nf(m)} komt ${countOf(v,m)} keer voor: modus <b>${nf(m)}${c.u}</b>. Grootste ${nf(Math.max(...v))}, kleinste ${nf(Math.min(...v))}: ${nf(Math.max(...v))} − ${MXn(Math.min(...v))} = <b>${nf(vb)}${c.u}</b>.` })), {letters:true})(b, st, save, key);
+  list(d.map(({c,v,m})=>({ html:`${c.t}: ${MXlist(v)}.<br>Modus = [[0]]${c.u}`, check:exact(m, 'Tel hoe vaak elk getal voorkomt.'),
+    sol:`${nf(m)} komt ${countOf(v,m)} keer voor, vaker dan elk ander getal: modus <b>${nf(m)}${c.u}</b>.` })), {letters:true})(b, st, save, key);
+}
+function MXvbEx(b, st, save, key, d){
+  list(d.map(({c,v,vb})=>({ html:`${c.t}: ${MXlist(v)}.<br>Variatiebreedte = [[0]]${c.u}`, check:exact(vb, 'Grootste − kleinste.'), hint:vbHint(v),
+    sol:`Grootste ${nf(Math.max(...v))}, kleinste ${nf(Math.min(...v))}: ${nf(Math.max(...v))} − ${MXn(Math.min(...v))} = <b>${nf(vb)}${c.u}</b>.` })), {letters:true})(b, st, save, key);
 }
 function MXgemEx(b, st, save, key, d, round){
   const m = mean(d.v), S = sum(d.v), n = d.v.length;
@@ -3742,8 +3868,12 @@ const MXsec = id => SECTIONS.find(s=>s.id===id).cards;
 MXsec('modus').push(
   { title:'Klik op de modus (nieuwe opgave)', lvl:1, instr:'Een klas zei hoe vaak ze dit jaar naar de film gingen. Met "Nieuwe opgave" krijg je een nieuwe klas.',
     build:fresh(MXgenDot, (b,st,save,key,d)=>dotPick(b,st,save,key,d)) },
-  { title:'Modus en variatiebreedte (nieuwe opgave)', lvl:2, instr:'Met "Nieuwe opgave" krijg je nieuwe getallen.',
+  { title:'Modus (nieuwe opgave)', key:'modus_nieuw', lvl:2, instr:'Met "Nieuwe opgave" krijg je nieuwe getallen.',
     build:fresh(MXgenModus, MXmodusEx) }
+);
+MXsec('vb').push(
+  { title:'Variatiebreedte (nieuwe opgave)', key:'vb_nieuw', lvl:2, instr:'Met "Nieuwe opgave" krijg je nieuwe getallen.',
+    build:fresh(MXgenModus, MXvbEx) }
 );
 MXsec('gem').push(
   { title:'Bereken het gemiddelde (nieuwe opgave)', lvl:1, instr:'Lukt het niet? Klik op "Toon mij hoe".',
@@ -3874,24 +4004,6 @@ const MU_SPORT = [1,2,2,3,3,3,3,4,4,4,5,5,6,7,9];     /* 15 leerlingen, uren spo
 (function(){
   /* ======================= MODUS ======================= */
   const modus = SECTIONS.find(s=>s.id==='modus').cards;
-  const vb = { title:'Variatiebreedte: zo werkt het', lvl:1, naast:false, instr:'Klik telkens op <b>Volgende stap</b> en kijk wat er in de dotplot verandert.',
-    build:(b,st,save,key)=>{
-      const XT = 'Aantal broers en zussen';
-      MUstappen(b, st, save, key, [
-        'Dezelfde twintig leerlingen. Hoe ver liggen hun antwoorden uit elkaar? Zoek eerst het <b>kleinste</b> gegeven: het <b>minimum</b> is <b>0</b>.',
-        'Zoek dan het <b>grootste</b> gegeven: het <b>maximum</b> is <b>4</b>.',
-        '<b>Variatiebreedte = maximum − minimum</b> = 4 − 0 = <b>4</b>. Dat is de breedte van de dotplot: de afstand tussen het kleinste en het grootste gegeven.',
-        'Wat zegt dat getal? Is de variatiebreedte <b>klein</b>, dan liggen de gegevens <b>dicht bij elkaar</b>. Is ze <b>groot</b>, dan liggen ze <b>ver uit elkaar</b>. Let op: de variatiebreedte is één getal (4), niet "van 0 tot 4".',
-        'Er komt een leerling bij met <b>9</b> broers en zussen. Nu is de variatiebreedte 9 − 0 = <b>9</b>. Eén uitschieter maakt de variatiebreedte veel groter, ook al blijven alle andere gegevens gelijk.'
-      ], i=>{
-        const vals = i===4 ? MU_BROERS.concat([9]) : MU_BROERS, mx = i===4 ? 9 : 4;
-        return MUdot(vals, 0, 10, {xTitle:XT, cls:(r,v)=> (v===0 || (i>=1 && v===mx)) ? 'or' : (i<2?'dim':''),
-          teken:P=>{ MUlabel(P, 0, 'min = 0'); if(i>=1 && i<2) MUlabel(P, mx, 'max = '+mx);
-            if(i>=2) MUpijl(P, 0, mx, `variatiebreedte = ${mx} − 0 = ${mx}`); }});
-      });
-      qBlock(b, st, save, key+'_a', {html:'Temperaturen in °C: 4, −2, 7, 1, 8, 3. Variatiebreedte = [[0]] °C', mode:'numeric', check:exact(10), sol:'Maximum 8, minimum −2: 8 − (−2) = <b>10 °C</b>.'});
-      qChoice(b, st, save, 'b', {html:'Klas A heeft een variatiebreedte van 3 punten, klas B van 12 punten. Wat betekent dat?', ans:'a', opts:[['a','In klas A liggen de punten dichter bij elkaar.'],['b','Klas B haalde betere punten.'],['c','Klas B heeft meer leerlingen.']], why:'De variatiebreedte zegt hoe ver de gegevens uit elkaar liggen, niet hoe goed ze zijn.'});
-    } };
   modus.unshift({ title:'Modus: zo werkt het', lvl:1, naast:false, instr:'Klik telkens op <b>Volgende stap</b> en kijk wat er in de dotplot verandert.',
     build:(b,st,save,key)=>{
       const XT = 'Aantal broers en zussen';
@@ -3910,7 +4022,6 @@ const MU_SPORT = [1,2,2,3,3,3,3,4,4,4,5,5,6,7,9];     /* 15 leerlingen, uren spo
       qBlock(b, st, save, key+'_a', {html:'Gegevens: 4, 7, 2, 7, 5, 4, 7, 1. Modus = [[0]]', mode:'numeric', check:exact(7), sol:'7 komt drie keer voor, vaker dan elk ander gegeven: modus = <b>7</b>.'});
       qChoice(b, st, save, 'b', {html:'In een dotplot staat de hoogste stapel bij 3, met 8 bolletjes. Wat is de modus?', ans:'3', opts:[['3','3'],['8','8'],['11','3 en 8']], why:'De modus is het gegeven zelf (3). Het aantal bolletjes (8) is de frequentie.'});
     } });
-  modus.splice(1, 0, vb);
 
   /* ======================= GEMIDDELDE UIT EEN FREQUENTIETABEL ======================= */
   const gem = SECTIONS.find(s=>s.id==='gem').cards;
@@ -5716,7 +5827,7 @@ const SG_MATEN = [
   {sec:'modus', go:'modus', adv:'de modus', prompt:SG_BAGHTML, build:list([{html:'De modus is [[0]] kg.', mode:'numeric', check:exact(18)}]), show:'18 kg (5 keer).'},
   {sec:'gemiddelde', go:'gem', adv:'het gemiddelde', build:list([{html:'Het gemiddelde is [[0]] kg.', check:exact(19), hint:gemHint(SG_BAG)}]), show:'380 : 20 = 19 kg.'},
   {sec:'mediaan', go:'med', adv:'de mediaan bij een even aantal gegevens', build:list([{html:'De mediaan is [[0]] kg.', check:exact(18.5), hint:medLijstHint(SG_BAG)}]), show:'Het 10de gegeven is 18 en het 11de is 19: (18 + 19) : 2 = 18,5 kg.'},
-  {sec:'variatiebreedte', go:'modus', adv:'de variatiebreedte', build:list([{html:'De variatiebreedte is [[0]] kg.', mode:'numeric', check:exact(10), hint:vbHint(SG_BAG)}]), show:'25 − 15 = 10 kg.'},
+  {sec:'variatiebreedte', go:'vb', adv:'de variatiebreedte', build:list([{html:'De variatiebreedte is [[0]] kg.', mode:'numeric', check:exact(10), hint:vbHint(SG_BAG)}]), show:'25 − 15 = 10 kg.'},
   {sec:'betekenis', go:'interp', adv:'de betekenis van een centrummaat',
     build:(b,st,save,key)=>qChoice(b,st,save,key, {html:'Wat betekent de variatiebreedte van 10 kg?', ans:'c', opts:[['a','De meeste reizigers hebben 10 kg bagage.'],['b','Gemiddeld heeft een reiziger 10 kg bagage.'],['c','De zwaarste bagage weegt 10 kg meer dan de lichtste.']]}), show:'De zwaarste bagage weegt 10 kg meer dan de lichtste.'}
 ];
@@ -6391,15 +6502,10 @@ const KAART_SLEUTELS = {
   "mislei|Klopt de krantenkop?|1":"mislei_6",
   "mislei|Wanneer mag de as niet bij 0 starten?|1":"mislei_7",
   "modus|Modus: zo werkt het|1":"modus_0",
-  "modus|Variatiebreedte: zo werkt het|1":"modus_1",
   "modus|Klik op de modus|1":"modus_2",
-  "modus|Klik op het minimum en het maximum|1":"modus_3",
   "modus|Klik op de modus (nieuwe opgave)|1":"modus_4",
-  "modus|Modus en variatiebreedte uit een lijst|1":"modus_5",
   "modus|Modus bij categorische data|1":"modus_6",
   "modus|Twee modi|1":"modus_7",
-  "modus|Modus en variatiebreedte (nieuwe opgave)|1":"modus_8",
-  "modus|Redeneren met de variatiebreedte|1":"modus_9",
   "gem|Gemiddelde uit een frequentietabel: zo werkt het|1":"gem_0",
   "gem|Gemiddelde uit een frequentietabel: oefen met de hulpkolom|1":"gem_1",
   "gem|Eerlijk verdelen|1":"gem_2",
