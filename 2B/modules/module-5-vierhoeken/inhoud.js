@@ -12,9 +12,11 @@ const CLtoets = (key, score, n) => { try{ window.CL && window.CL.toets(key, scor
 /* ---------- kleine hulpjes ---------- */
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const knop = (cls, html, fn) => { const b = el('button', cls, html); b.type = 'button'; if(fn) b.addEventListener('click', fn); return b; };
-const lees = k => { try{ return JSON.parse(localStorage.getItem(PREFIX + k) || 'null'); }catch(e){ return null; } };
-const bewaar = (k, v) => { try{ localStorage.setItem(PREFIX + k, JSON.stringify(v)); }catch(e){} };
-const wis = k => { try{ localStorage.removeItem(PREFIX + k); }catch(e){} };
+/* opslag: localStorage, met een kopie in het geheugen voor als de browser geen opslag toelaat (voorbeeldpagina, privévenster) */
+const GEHEUGEN = {};
+const lees = k => { try{ const v = localStorage.getItem(PREFIX + k); if(v != null) return JSON.parse(v); }catch(e){} return k in GEHEUGEN ? JSON.parse(GEHEUGEN[k]) : null; };
+const bewaar = (k, v) => { GEHEUGEN[k] = JSON.stringify(v); try{ localStorage.setItem(PREFIX + k, GEHEUGEN[k]); }catch(e){} };
+const wis = k => { delete GEHEUGEN[k]; try{ localStorage.removeItem(PREFIX + k); }catch(e){} };
 const nieuwZaad = () => Math.floor(Math.random() * 2147483646) + 1;
 
 /* toevalsgetallen uit een zaadgetal: dezelfde opgave komt terug na het herladen */
@@ -1086,13 +1088,15 @@ K({ id:'t_tegel', titel:'Teken met een gegeven oppervlakte of omtrek', niv:2, ma
 /* ============================================================
    OMTREK EN OPPERVLAKTE, VERDIEPING (parallellogram, ruit, trapezium), VRAAGSTUKKEN, PUZZELS
    ============================================================ */
+/* ligt punt q binnen de veelhoek? (straal naar rechts) */
+const binnen = (q, P) => { let ok = false; for(let i = 0, j = P.length - 1; i < P.length; j = i++){ const [xi, yi] = P[i], [xj, yj] = P[j]; if((yi > q[1]) !== (yj > q[1]) && q[0] < (xj - xi) * (q[1] - yi) / (yj - yi) + xi) ok = !ok; } return ok; };
 /* figuur met maten bij de zijden. pts in px, maten = tekst per zijde (i → i+1) of '' */
 function matenFig(pts, maten, o = {}){
   const W = o.b || 250, H = o.h || 165; if(!o.vast){ const xs = pts.map(p=>p[0]), dx = W / 2 - (Math.min(...xs) + Math.max(...xs)) / 2; pts = pts.map(([x, y])=>[rnd(x + dx, 1), y]); } const [mx, my] = midden(pts);
   let s = veelhoek(pts, { f:VUL, k:KL, w:2.2 });
   if(o.recht) pts.forEach((q, i)=>{ s += rhoekL(q, pts[(i + 1) % pts.length], pts[(i + pts.length - 1) % pts.length], { s:8, g:3, k:KL }); });
   pts.forEach((p, i)=>{ const q = pts[(i + 1) % pts.length]; if(!maten[i]) return; const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; let nx = q[1] - p[1], ny = -(q[0] - p[0]); const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
-    if((m[0] - mx) * nx + (m[1] - my) * ny < 0){ nx = -nx; ny = -ny; } s += tekst(rnd(m[0] + nx * (8 + 22 * Math.abs(nx)), 1), rnd(m[1] + ny * 13, 1), maten[i], { s:13, f:'var(--ink)' }); });
+    if(binnen([m[0] + nx * 4, m[1] + ny * 4], pts)){ nx = -nx; ny = -ny; } s += tekst(rnd(m[0] + nx * (8 + 22 * Math.abs(nx)), 1), rnd(m[1] + ny * 13, 1), maten[i], { s:13, f:'var(--ink)' }); });
   if(o.extra) s += o.extra;
   if(o.nr) s += tekst(12, 12, o.nr, { s:13 });
   return svg(W, H, s, { label:o.label || 'figuur', b:o.bw || W });
@@ -1131,10 +1135,10 @@ K({ id:'o_rh', titel:'De oppervlakte van een rechthoek en een vierkant', niv:1, 
 } });
 K({ id:'o_samen', titel:'Omtrek en oppervlakte van een samengestelde figuur', niv:2, maak(R){
   const B = R.int(7, 11), Hh = R.int(5, 8), T = R.int(3, B - 3), d1 = R.int(2, Hh - 2), e = R.pick(['m', 'cm']);
-  const sc = Math.min(26, 300 / B, 190 / Hh), x0 = 40, y0 = 20 + Hh * sc;
+  const sc = Math.min(26, 300 / B, 190 / Hh), x0 = 56, y0 = 22 + Hh * sc;
   const P = [[0, 0], [B, 0], [B, Hh - d1], [T, Hh - d1], [T, Hh], [0, Hh]].map(([x, y])=>[rnd(x0 + x * sc, 1), rnd(y0 - y * sc, 1)]);
   const m = [`${B} ${e}`, `${Hh - d1} ${e}`, '?', `${d1} ${e}`, `${T} ${e}`, `${Hh} ${e}`];
-  const fig = matenFig(P, m, { vast:true, b:x0 + B * sc + 50, h:y0 + 30, label:'samengestelde figuur' });
+  const fig = matenFig(P, m, { vast:true, b:x0 + B * sc + 56, h:y0 + 30, label:'samengestelde figuur' });
   const om = 2 * (B + Hh), opp = T * d1 + B * (Hh - d1);
   return { fig, tekst:`<p>Alle hoeken zijn rechte hoeken.</p>`, vragen:[
     { t:'De zijde met het vraagteken is', na:e, a:B - T, hint:[{ t:'Kijk naar de onderkant: de hele breedte is ' + B + ' ' + e + '. Trek de breedte van het smalle deel af.', a:B - T, na:e }] },

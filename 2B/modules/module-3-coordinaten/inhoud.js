@@ -12,9 +12,11 @@ const CLtoets = (key, score, n) => { try{ window.CL && window.CL.toets(key, scor
 /* ---------- kleine hulpjes ---------- */
 const el = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; return e; };
 const knop = (cls, html, fn) => { const b = el('button', cls, html); b.type = 'button'; if(fn) b.addEventListener('click', fn); return b; };
-const lees = k => { try{ return JSON.parse(localStorage.getItem(PREFIX + k) || 'null'); }catch(e){ return null; } };
-const bewaar = (k, v) => { try{ localStorage.setItem(PREFIX + k, JSON.stringify(v)); }catch(e){} };
-const wis = k => { try{ localStorage.removeItem(PREFIX + k); }catch(e){} };
+/* opslag: localStorage, met een kopie in het geheugen voor als de browser geen opslag toelaat (voorbeeldpagina, privévenster) */
+const GEHEUGEN = {};
+const lees = k => { try{ const v = localStorage.getItem(PREFIX + k); if(v != null) return JSON.parse(v); }catch(e){} return k in GEHEUGEN ? JSON.parse(GEHEUGEN[k]) : null; };
+const bewaar = (k, v) => { GEHEUGEN[k] = JSON.stringify(v); try{ localStorage.setItem(PREFIX + k, GEHEUGEN[k]); }catch(e){} };
+const wis = k => { delete GEHEUGEN[k]; try{ localStorage.removeItem(PREFIX + k); }catch(e){} };
 const nieuwZaad = () => Math.floor(Math.random() * 2147483646) + 1;
 
 /* toevalsgetallen uit een zaadgetal: dezelfde opgave komt terug na het herladen */
