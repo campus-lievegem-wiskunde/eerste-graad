@@ -2144,7 +2144,7 @@ SECTIONS.push({ id:'soort', ic:'soort', nav:'Soorten data', title:'Categorische 
       build:(b,st,save,key)=>sortBins(b,st,save,key,{bins:[['c','Categorische data'],['n','Numerieke data']], items:[
         {t:'rugnummer: 10', a:'c', why:'Een rugnummer is een naam in cijfers. Het gemiddelde rugnummer van een ploeg betekent niets.'},
         {t:'postcode: 9930', a:'c', why:'Een postcode duidt een gemeente aan. Je rekent er niet mee.'},
-        {t:'schoenmaat: 39', a:'n', why:'Een schoenmaat is een maat: een gemiddelde schoenmaat heeft betekenis.'},
+        {t:'afstand naar school: 4 km', a:'n', why:'Een afstand is een meting: een gemiddelde afstand heeft betekenis.'},
         {t:'telefoonnummer', a:'c', why:'Een telefoonnummer optellen heeft geen zin.'},
         {t:'temperatuur: 18 °C', a:'n', why:'Een temperatuur is een meting.'},
         {t:'T-shirtmaat: M', a:'c', why:'S, M, L zijn categorieën (wel met een volgorde).'},
@@ -3012,6 +3012,7 @@ function seesaw(b, st, save, key, cfg){
    ============================================================ */
 function medianStrike(b, st, save, key, cfg){
   const vals = cfg.vals, n = vals.length, srt = sorted(vals), med = median(vals);
+  const rest = n%2 ? 1 : 2; /* oneven: tot er één getal over is, even: tot er twee over zijn */
   const row = el('div','data-row'); const bar = el('div','viz-bar'); const out = el('div','readout bigq');
   const sortBtn = el('button','btn','▶ Orden van klein naar groot'); sortBtn.type='button'; bar.append(sortBtn);
   b.append(row, bar, out);
@@ -3022,7 +3023,7 @@ function medianStrike(b, st, save, key, cfg){
   function paintSorted(){
     boxes.forEach((k,i)=>{ k.classList.toggle('gone', st.gone.includes(i)); k.classList.remove('mid'); });
     const left = boxes.map((k,i)=>i).filter(i=>!st.gone.includes(i));
-    if(left.length<=2){ left.forEach(i=>boxes[i].classList.add('mid')); out.innerHTML = left.length===1 ? `Er blijft één getal over: de mediaan is <b>${nf(srt[left[0]])}</b>.` : `Er blijven twee getallen over: de mediaan ligt midden tussen ${nf(srt[left[0]])} en ${nf(srt[left[1]])}. Vul hieronder in.`; }
+    if(left.length<=rest){ left.forEach(i=>boxes[i].classList.add('mid')); out.innerHTML = left.length===1 ? `Er blijft één getal over: de mediaan is <b>${nf(srt[left[0]])}</b>.` : `Er blijven twee getallen over: de mediaan ligt midden tussen ${nf(srt[left[0]])} en ${nf(srt[left[1]])}. Vul hieronder in.`; }
     else out.innerHTML = `Streep telkens het <b>kleinste</b> en het <b>grootste</b> getal weg (klik erop). Nog ${left.length} getallen over.`;
   }
   async function doSort(anim){
@@ -3040,7 +3041,7 @@ function medianStrike(b, st, save, key, cfg){
   row.addEventListener('click', e=>{
     const k = e.target.closest('.dv'); if(!k || !st.sorted) { if(k && !st.sorted){ out.innerHTML='Orden eerst de getallen van klein naar groot.'; } return; }
     const i = +k.dataset.i; const left = boxes.map((x,j)=>j).filter(j=>!st.gone.includes(j));
-    if(left.length<=2 || st.gone.includes(i)) return;
+    if(left.length<=rest || st.gone.includes(i)) return;
     const goneL = st.gone.filter(j=>j<n/2).length, goneR = st.gone.length-goneL;
     const wantLeft = goneL<=goneR; /* afwisselend links en rechts */
     const ok = (i===left[0] && (wantLeft || goneL<goneR+1)) || (i===left[left.length-1] && (!wantLeft || goneR<goneL+1));
@@ -3198,10 +3199,10 @@ SECTIONS.push({ id:'med', ic:'med', nav:'De mediaan', title:'De mediaan: het mid
         {html:'Het middelste gegeven is het hoeveelste? Het [[0]]de', mode:'numeric', check:exact(13), sol:'(25 + 1) : 2 = <b>13</b>.'},
         {html:'Tel van links: de mediaan is Me = [[0]]', mode:'numeric', check:exact(3), hint:medTabHint([0,1,2,3,4,5],[3,5,4,6,5,2]), sol:'0: gegevens 1 tot 3 · 1: 4 tot 8 · 2: 9 tot 12 · 3: 13 tot 18. Het 13de gegeven is <b>3</b>.'}
       ], {letters:true})) },
-    { title:'Mediaan uit een frequentietabel', lvl:2, instr:'20 jongeren gaven hun schoenmaat.',
-      build:combo(html(ftabHTML(['schoenmaat','36','37','38','39','40','41','42'], [['aantal','2','3','5','4','3','2','1']])), list([
+    { title:'Mediaan uit een frequentietabel', lvl:2, instr:'20 jongeren: hoeveel uur sport je per week?',
+      build:combo(html(ftabHTML(['uren sport','0','1','2','3','4','5','6'], [['aantal','2','3','5','4','3','2','1']])), list([
         {html:'Bij 20 gegevens zijn het [[0]]de en het [[1]]de gegeven de middelste.', size:'sm', mode:'numeric', check:nums([10,11]), sol:'Even aantal: het 10de en het 11de gegeven.'},
-        {html:'De mediaan is Me = [[0]]', check:exact(38.5), hint:medTabHint([36,37,38,39,40,41,42],[2,3,5,4,3,2,1]), sol:'36: 1–2 · 37: 3–5 · 38: 6–10 · 39: 11–14. Het 10de is 38, het 11de is 39: (38 + 39) : 2 = <b>38,5</b>.'}
+        {html:'De mediaan is Me = [[0]]', check:exact(2.5), hint:medTabHint([0,1,2,3,4,5,6],[2,3,5,4,3,2,1]), sol:'0: 1–2 · 1: 3–5 · 2: 6–10 · 3: 11–14. Het 10de is 2, het 11de is 3: (2 + 3) : 2 = <b>2,5</b> uur.'}
       ], {letters:true})) },
     { title:'Wat verandert er?', lvl:3, build:choiceList([
         ['Reeks 3, 5, 6, 8, 9. Je vervangt 9 door 90. De mediaan verandert.', 'n', 'Het middelste gegeven blijft 6: de grootste waarde schuift enkel verder op.'],
@@ -3461,7 +3462,7 @@ const MXTCTX = [
   { t:'Hoeveel huisdieren heb je?', head:'aantal huisdieren', vals:[0,1,2,3,4] },
   { t:'Hoeveel broers en zussen heb je?', head:'broers en zussen', vals:[0,1,2,3,4] },
   { t:'Score op een quiz (op 5)', head:'score', vals:[1,2,3,4,5] },
-  { t:'Welke schoenmaat heb je?', head:'schoenmaat', vals:[36,37,38,39,40,41] },
+  { t:'Hoeveel boeken las je deze maand?', head:'aantal boeken', vals:[0,1,2,3,4,5] },
   { t:'Hoeveel keer per week sport je?', head:'keer sporten', vals:[0,1,2,3,4,5] }
 ];
 const MXPCTX = [
@@ -4084,31 +4085,31 @@ const CHEAT_TOESTEL = `<h3>Spiekbriefje · statistiek met het rekentoestel</h3><
 <tr><td>4. aflezen</td><td>x̄ = gemiddelde · Med = mediaan · minX en maxX: variatiebreedte = maxX − minX · n = aantal gegevens</td></tr>
 <tr><td>modus</td><td>Geeft het toestel niet: zoek zelf de grootste frequentie.</td></tr>
 <tr><td>lijst wissen</td><td>${K('data')} ${K('data')} en kies Clear, of ga op L1 staan en druk ${K('clear')}.</td></tr></table>`;
-const SCHOEN = {vals:[37,38,39,40,41,42,43,45], fr:[1,3,5,1,4,3,2,1]};
+const BOEKEN = {vals:[0,1,2,3,4,5,6,8], fr:[1,3,5,1,4,3,2,1]};
 SECTIONS.push({ id:'toestel', ic:'toestel', nav:'Met het rekentoestel', title:'Statistiek met je rekentoestel', cheat:CHEAT_TOESTEL,
   tip:'Met lijsten gaat het snel: zet de gegevens in L1 en de frequenties in L2. Het toestel berekent het gemiddelde, de mediaan, het minimum en het maximum. De modus zoek je zelf.',
   cards:[
-    { title:'Kijk hoe het werkt', lvl:1, instr:'20 jongeren gaven hun schoenmaat. Klik telkens op Volgende stap en kijk welke toetsen het toestel indrukt. Doe mee op je eigen toestel.',
-      build:combo(html(ftabHTML(['schoenmaat', ...SCHOEN.vals.map(String)], [['aantal', ...SCHOEN.fr.map(String)]])), b=>calcDemo(b, {steps:[
+    { title:'Kijk hoe het werkt', lvl:1, instr:'20 jongeren: hoeveel boeken las je deze zomer? Klik telkens op Volgende stap en kijk welke toetsen het toestel indrukt. Doe mee op je eigen toestel.',
+      build:combo(html(ftabHTML(['boeken', ...BOEKEN.vals.map(String)], [['aantal jongeren', ...BOEKEN.fr.map(String)]])), b=>calcDemo(b, {steps:[
         {say:`${K('data')}: open de lijsten.`, keys:['data']},
-        {say:'Typ de schoenmaten in L1, telkens gevolgd door enter.', keys:typeList(SCHOEN.vals)},
-        {say:`${K('▶')}: naar L2. Typ de aantallen (de frequenties).`, keys:['right', ...typeList(SCHOEN.fr)]},
+        {say:'Typ de aantallen boeken in L1, telkens gevolgd door enter.', keys:typeList(BOEKEN.vals)},
+        {say:`${K('▶')}: naar L2. Typ hoeveel jongeren elk aantal las (de frequenties).`, keys:['right', ...typeList(BOEKEN.fr)]},
         {say:`${K('2nd','sec')} ${K('data')}: het menu STAT. Kies 1:1-Var Stats.`, keys:['2nd','data','enter']},
         {say:'DATA: L1 laten staan. FRQ: met ▶ naar L2.', keys:['down','right','right']},
         {say:`Naar CALC en ${K('enter')}.`, keys:['down','enter']},
-        {say:'Lees af: n = 20 en x̄ = 40,35. Scroll naar beneden voor Med.', keys:['down','down','down','down','down','down','down','down']}
+        {say:'Lees af: n = 20 en x̄ = 3,35. Scroll naar beneden voor Med.', keys:['down','down','down','down','down','down','down','down']}
       ]})) },
-    { title:'Doe het zelf op het toestel', lvl:1, instr:'Gebruik het nagebootste toestel (of je eigen rekentoestel) met dezelfde schoenmaten.',
-      build:calcNaast(html(ftabHTML(['schoenmaat','aantal'], SCHOEN.vals.map((v,i)=>[String(v), String(SCHOEN.fr[i])]))), 'CALC', list([
+    { title:'Doe het zelf op het toestel', lvl:1, instr:'Gebruik het nagebootste toestel (of je eigen rekentoestel) met dezelfde gegevens.',
+      build:calcNaast(html(ftabHTML(['boeken','aantal jongeren'], BOEKEN.vals.map((v,i)=>[String(v), String(BOEKEN.fr[i])]))), 'CALC', list([
         {html:'n = [[0]]', mode:'numeric', check:exact(20), sol:'1 + 3 + 5 + 1 + 4 + 3 + 2 + 1 = 20 jongeren.'},
-        {html:'x̄ = [[0]]', check:exact(40.35), sol:'Het toestel geeft x̄ = 40,35.'},
-        {html:'Med = [[0]]', check:exact(40.5), sol:'Het toestel geeft Med = 40,5: het 10de gegeven is 40, het 11de is 41.'},
-        {html:'minX = [[0]] en maxX = [[1]], dus de variatiebreedte is [[2]]', size:'sm', check:nums([37,45,8]), sol:'45 − 37 = <b>8</b>.'},
-        {html:'De modus (zelf zoeken in de tabel) = [[0]]', mode:'numeric', check:exact(39), sol:'39 heeft de grootste frequentie (5).'}
+        {html:'x̄ = [[0]]', check:exact(3.35), sol:'Het toestel geeft x̄ = 3,35: gemiddeld las een jongere 3,35 boeken.'},
+        {html:'Med = [[0]]', check:exact(3.5), sol:'Het toestel geeft Med = 3,5: het 10de gegeven is 3, het 11de is 4.'},
+        {html:'minX = [[0]] en maxX = [[1]], dus de variatiebreedte is [[2]]', size:'sm', check:nums([0,8,8]), sol:'8 − 0 = <b>8</b>.'},
+        {html:'De modus (zelf zoeken in de tabel) = [[0]]', mode:'numeric', check:exact(2), sol:'2 heeft de grootste frequentie (5).'}
       ], {letters:true}), choiceList([
-        ['Wat betekent Med = 40,5 hier?', 'h', 'De helft van de jongeren heeft schoenmaat 40 of kleiner, de andere helft 41 of groter.']
-      ], [['h','De helft heeft hoogstens maat 40, de andere helft minstens maat 41.'],['x','De meeste jongeren hebben maat 40,5.']]), choiceList([
-        ['Een schoenwinkel wil weten van welke maat ze het meest moet bestellen. Welke maat kijkt ze na?', 'm', 'De modus: maat 39 komt het vaakst voor. Het gemiddelde 40,35 is zelfs geen echte schoenmaat.']
+        ['Wat betekent Med = 3,5 hier?', 'h', 'De helft van de jongeren las 3 boeken of minder, de andere helft 4 of meer.']
+      ], [['h','De helft las hoogstens 3 boeken, de andere helft minstens 4.'],['x','De meeste jongeren lazen 3,5 boeken.']]), choiceList([
+        ['De bibliotheek wil weten hoeveel boeken de meeste jongeren lazen. Welke maat kijkt ze na?', 'm', 'De modus: 2 boeken komt het vaakst voor (5 jongeren).']
       ], [['m','de modus'],['g','het gemiddelde'],['v','de variatiebreedte']])) },
     { title:'Een lijst zonder frequenties', lvl:2, instr:'Als elk gegeven apart staat, typ je alles in L1 en kies je FRQ: ONE.',
       build:calcNaast('CALC', list([
@@ -4224,8 +4225,8 @@ function txHunt(b, st, save, key, cases){
   });
 }
 const TX_CASES = [
-  {task:`Schoenmaat van 20 jongeren: ${ftabHTML(['maat','37','38','39','40','41','42','43','45'], [['aantal','1','3','5','1','4','3','2','1']])} Ruben zette de maten in L1 en de aantallen in L2. Zijn toestel toont:`,
-    scr:['1-Var:L1','1:n=8','2:x̄=40.625','5:Σx=325'], ans:'one', why:'Er zijn 20 jongeren, maar n = 8: het toestel telde elke maat maar één keer. Bij FRQ moet L2 staan in plaats van ONE. Dan krijg je n = 20 en x̄ = 40,35.'},
+  {task:`Aantal gelezen boeken van 20 jongeren: ${ftabHTML(['boeken','0','1','2','3','4','5','6','8'], [['aantal jongeren','1','3','5','1','4','3','2','1']])} Ruben zette de aantallen boeken in L1 en de frequenties in L2. Zijn toestel toont:`,
+    scr:['1-Var:L1','1:n=8','2:x̄=3.625','5:Σx=29'], ans:'one', why:'Er zijn 20 jongeren, maar n = 8: het toestel telde elk aantal boeken maar één keer. Bij FRQ moet L2 staan in plaats van ONE. Dan krijg je n = 20 en x̄ = 3,35.'},
   {task:'Wachttijden in minuten: 12, 7, 15, 9, 7, 20, 11, 8. Lies typte alles in L1 (FRQ: ONE). Haar toestel toont:',
     scr:['1-Var:L1','1:n=7','2:x̄=9.857142857','B:maxX=15'], ans:'verg', why:'Er zijn 8 wachttijden, maar n = 7. Het maximum is 15 in plaats van 20: Lies vergat 20 te typen.'},
   {task:'Dezelfde wachttijden: 12, 7, 15, 9, 7, 20, 11, 8. Arne typte alles in L1 (FRQ: ONE). Zijn toestel toont:',
@@ -5798,7 +5799,7 @@ const PXread = pts => ({sec:'Coördinaten', prompt:'Lees de coördinaat van elk 
   build:(b,st,save,key)=>coordRead(b,st,save,key,pts), show:pts.map(t=>`${t[2]}${coStr(t[0],t[1])}`).join(', ')});
 
 const PX_SORT = [['haarkleur','c'],['postcode','c'],['favoriete vak','c'],['merk van je gsm','c'],['geboorteland','c'],['lievelingsdier','c'],['kleur van je fiets','c'],['muziekstijl','c'],['rugnummer van een voetballer','c'],['soort ontbijt','c'],['taal die je thuis spreekt','c'],['telefoonnummer','c'],
-  ['aantal broers','n'],['lengte in cm','n'],['zakgeld per week','n'],['schoenmaat','n'],['temperatuur','n'],['aantal sms\'jes per dag','n'],['gewicht van je boekentas','n'],['aantal punten op een toets','n'],['tijd op de 100 m','n'],['aantal huisdieren','n'],['leeftijd in jaren','n'],['minuten fietsen naar school','n']];
+  ['aantal broers','n'],['lengte in cm','n'],['zakgeld per week','n'],['uren slaap per nacht','n'],['temperatuur','n'],['aantal sms\'jes per dag','n'],['gewicht van je boekentas','n'],['aantal punten op een toets','n'],['tijd op de 100 m','n'],['aantal huisdieren','n'],['leeftijd in jaren','n'],['minuten fietsen naar school','n']];
 
 const PX_FREQ = [
   {t:'Het aantal kinderen in het gezin van', lo:1, vals:5},
@@ -5859,7 +5860,7 @@ const POOL = [
   /* 4 soorten data */
   { fixed:[
     PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'haarkleur', a:'c'}, {t:'aantal broers', a:'n'}, {t:'postcode', a:'c'}, {t:'lengte in cm', a:'n'}, {t:'favoriete vak', a:'c'}, {t:'zakgeld per week', a:'n'}]),
-    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'schoenmaat', a:'n'}, {t:'merk van je gsm', a:'c'}, {t:'temperatuur', a:'n'}, {t:'geboorteland', a:'c'}, {t:'aantal sms\'jes per dag', a:'n'}, {t:'lievelingsdier', a:'c'}]),
+    PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'zakgeld per week', a:'n'}, {t:'merk van je gsm', a:'c'}, {t:'temperatuur', a:'n'}, {t:'geboorteland', a:'c'}, {t:'aantal sms\'jes per dag', a:'n'}, {t:'lievelingsdier', a:'c'}]),
     PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', [{t:'gewicht van je boekentas', a:'n'}, {t:'kleur van je fiets', a:'c'}, {t:'aantal punten op een toets', a:'n'}, {t:'muziekstijl', a:'c'}, {t:'tijd op de 100 m', a:'n'}, {t:'rugnummer van een voetballer', a:'c'}])],
     gen:r => { const c = PXshuf(r, PX_SORT.filter(x=>x[1]==='c')).slice(0,3), n = PXshuf(r, PX_SORT.filter(x=>x[1]==='n')).slice(0,3);
       return PQ.sort('Soorten data', 'Sleep elk gegeven naar de juiste bak.', PXshuf(r, c.concat(n)).map(([t,a])=>({t, a}))); } },
