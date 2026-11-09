@@ -3613,6 +3613,16 @@ const MXgenPct = r => { const c = rPick(r, MXPCTX); const T = rPick(r, [20,25,40
 /* ============================================================
    RENDERS VOOR DE NIEUWE OPGAVEN
    ============================================================ */
+/* het gemiddelde is gekend, één gegeven ontbreekt (basis, sinds 9 november 2026) */
+const MXgenMis = r => [4, rInt(r,5,6)].map(n=>{ const c = rPick(r, MXCTX.filter(x=>x.lo>=0)); const v = MXintMean(r, n, c.lo, c.hi); return { c, v, i:rInt(r, 0, n-1), m:mean(v) }; });
+function MXmisEx(b, st, save, key, d){
+  list(d.map(({c,v,i,m})=>{ const n = v.length, S = m*n, K = S-v[i];
+    return { html:`${c.t}: ${v.map((x,j)=>j===i?'?':nf(x)).join(', ')}.<br>Het gemiddelde is x̄ = ${nf(m)}${c.u}. Het ontbrekende gegeven is [[0]]${c.u}`, mode:'numeric',
+      check:exact(v[i], 'Som van alle gegevens = gemiddelde · aantal. Trek daar de gekende gegevens van af.'),
+      hint:{stappen:[`Som van alle ${n} gegevens = gemiddelde · aantal = [[0]] · [[1]] = [[2]]`, 'Som van de gekende gegevens: [[3]]', 'Ontbrekend gegeven = [[4]] − [[5]] = [[6]]'], ans:[m, n, S, K, S, K, v[i]],
+        extra:'Het gemiddelde maal het aantal gegevens geeft de som van álle gegevens, ook van het gegeven dat ontbreekt. Wat je daar nog tekortkomt, is het ontbrekende gegeven.'},
+      sol:`Som van alle gegevens: ${nf(m)} · ${n} = ${nf(S)}. Gekend: ${v.filter((x,j)=>j!==i).map(x=>nf(x)).join(' + ')} = ${nf(K)}. Ontbrekend: ${nf(S)} − ${nf(K)} = <b>${nf(v[i])}${c.u}</b>.` }; }), {letters:true})(b, st, save, key);
+}
 function MXmodusEx(b, st, save, key, d){
   list(d.map(({c,v,m})=>({ html:`${c.t}: ${MXlist(v)}.<br>Modus = [[0]]${c.u}`, check:exact(m, 'Tel hoe vaak elk getal voorkomt.'),
     sol:`${nf(m)} komt ${countOf(v,m)} keer voor, vaker dan elk ander getal: modus <b>${nf(m)}${c.u}</b>.` })), {letters:true})(b, st, save, key);
@@ -3883,7 +3893,9 @@ MXsec('gem').push(
   { title:'Gemiddelde uit een frequentietabel (nieuwe opgave)', lvl:2, instr:'Vermenigvuldig eerst elk gegeven met zijn frequentie.',
     build:fresh(MXtab, MXgemTabEx) },
   { title:'Eén toets erbij', lvl:3, instr:'Een denkopdracht: de nieuwe score is niet gewoon "1 meer dan het gemiddelde".',
-    build:fresh(MXgenAdd, MXaddOne) }
+    build:fresh(MXgenAdd, MXaddOne) },
+  { title:'Zoek het ontbrekende gegeven (nieuwe opgave)', key:'gem_ontbrekend', lvl:1, instr:'Eén gegeven ontbreekt, maar je kent het gemiddelde. Met "Nieuwe opgave" krijg je nieuwe getallen.',
+    build:fresh(MXgenMis, MXmisEx) }
 );
 MXsec('med').push(
   { title:'De mediaan (nieuwe opgave)', lvl:1, instr:'Een oneven aantal gegevens. Lukt het niet? Klik op "Toon mij hoe".',

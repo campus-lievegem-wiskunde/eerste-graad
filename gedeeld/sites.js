@@ -360,7 +360,7 @@ export const SITES = [
     "id": "gem",
     "naam": "Het gemiddelde",
     "toets": false,
-    "vragen": 32
+    "vragen": 34
    },
    {
     "id": "med",
