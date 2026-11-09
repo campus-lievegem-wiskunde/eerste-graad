@@ -353,13 +353,14 @@ function kaartEl(sec, kid, o = {}){
     });
     const act = el('div', 'q-act'), fb = el('div', 'fb kfb');
     act.append(knop('btn', 'Controleer', ()=>controle()));
+    const ib = knop('btn ghost ibn-btn', '🤔 Ik begrijp het niet', ()=>ikBegrijpHetNiet(kid, st.seed, ib)); ib.title = 'Uitleg en een opgelost voorbeeld met andere getallen'; act.append(ib);
     let hb = null, tb = null;
     if(inst.hint && def.niv !== 3){ hb = hintBlok(inst.hint); act.append(knop('btn ghost', '💡 Hint', ()=>{ hb.hidden = !hb.hidden; })); }
     if(inst.toon){ tb = toonBlok(inst.toon); act.append(knop('btn ghost demo-btn', '▶ Toon mij hoe', ()=>{ tb.hidden = !tb.hidden; if(!tb.hidden) tb._open(); })); }
     const sol = el('div', 'sol', inst.sol || vr.map((v, i)=>`${vr.length > 1 ? (i + 1) + '. ' : ''}${antwTekst(v)}`).join('<br>')); sol.hidden = true;
     const sl = knop('linkbtn', 'Toon oplossing', ()=>{ sol.hidden = !sol.hidden; sl.textContent = sol.hidden ? 'Toon oplossing' : 'Verberg oplossing'; });
     sl.hidden = !st.n; act.append(sl);
-    main.append(act, fb); if(hb) main.append(hb); if(tb) main.append(tb); main.append(sol);
+    main.append(act, fb); if(hb) main.append(hb); main.append(sol); if(tb) card.append(tb);
     function controle(){
       let nJ = 0, nL = 0, geldTip = false;
       vr.forEach((v, i)=>{
@@ -384,6 +385,63 @@ function kaartEl(sec, kid, o = {}){
   card._vulJuist = ()=>{ const inst = maakKaart(kid, st.seed); st.v = {}; inst.vragen.forEach((v, i)=>{ st.v[i] = voorbeeldAntw(v); }); save(); teken(); };
   teken();
   return card;
+}
+
+/* ---------- Ik begrijp het niet: uitleg en een opgelost voorbeeld met andere getallen ----------
+   De uitleg per kaart staat in m<n>/60_uitleg.js: UITLEG({ kaartid:'html', ... }).
+   Het voorbeeld is dezelfde kaart met een ander zaadgetal: nooit de opgave die de leerling voor zich heeft.
+   Er wordt niets bewaard en niets doorgegeven aan het dashboard. */
+const UITLEG = o => Object.entries(o).forEach(([k, u])=>{ if(KAARTEN[k]) KAARTEN[k].uitleg = u; });
+const vingerafdruk = inst => JSON.stringify([inst.tekst, inst.fig, inst.vragen.map(v=>[v.t, String(v.a), v.voorbeeld, v.keuzes])]);
+function voorbeeldZaad(kid, seed, ook){
+  const weg = new Set([vingerafdruk(maakKaart(kid, seed))].concat(ook || []));
+  let z = null; for(let p = 0; p < 30; p++){ z = nieuwZaad(); if(!weg.has(vingerafdruk(maakKaart(kid, z)))) return z; }
+  return z;
+}
+/* een kaart in leesstand: alle antwoorden ingevuld en groen, met de uitgewerkte oplossing */
+function voorbeeldBlok(kid, z){
+  const inst = maakKaart(kid, z), vr = inst.vragen;
+  const box = el('div', 'kaart vb-kaart');
+  const body = el('div', 'kbody' + (inst.fig && !inst.boven ? ' met-fig' : '') + (inst.figRechts ? ' fig-rechts' : '') + (inst.breed ? ' breed' : ''));
+  if(inst.fig) body.append(el('div', 'kfig', inst.fig));
+  const main = el('div', 'kmain'); body.append(main);
+  if(inst.tekst) main.append(el('div', 'ktekst', inst.tekst));
+  const lijst = el('div', 'vragen' + (inst.q2 ? ' q2' : '') + (inst.q3 ? ' q3' : '')); main.append(lijst); box.append(body);
+  vr.forEach((v, i)=>{
+    const inv = vraagInvoer(v, voorbeeldAntw(v), ()=>{}); inv.dataset.dicht = '1'; if(inv._inp){ inv._inp.readOnly = true; inv._inp.tabIndex = -1; }
+    inv._markeer(true); inv.classList.add('vb-vin');
+    const slot = box.querySelector(`[data-v="${i}"]`);
+    if(slot){ slot.append(inv); slot.classList.add('slot'); return; }
+    const q = el('div', 'q'), blok = v.soort === 'keuze' || v.soort === 'multi' || v.soort === 'eigen' || v.blok;
+    if(v.t != null && v.t !== ''){ const qt = el('div', 'q-text' + (blok ? ' block' : ''), `<span class="qt">${v.t}</span>`); if(blok) q.append(qt, inv); else { qt.append(inv); q.append(qt); } }
+    else q.append(inv);
+    if(v.soort === 'eigen' && v.eigen.tekst) q.append(el('div', 'vb-antw', 'Antwoord: <b>' + v.eigen.tekst + '</b>'));
+    lijst.append(q);
+  });
+  main.append(el('div', 'sol vb-sol', '<b>Zo los je het op</b><br>' + (inst.sol || vr.map((v, i)=>`${vr.length > 1 ? (i + 1) + '. ' : ''}${antwTekst(v)}`).join('<br>'))));
+  if(inst.mount){ try{ inst.mount(box); }catch(e){} }
+  return box;
+}
+function ikBegrijpHetNiet(kid, seed, terug){
+  const def = KAARTEN[kid], gezien = [];
+  const ov = el('div', 'ibn-over'), v = el('div', 'ibn-venster');
+  v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true'); v.setAttribute('aria-label', 'Uitleg bij ' + def.titel); v.tabIndex = -1;
+  const kop = el('div', 'ibn-kop', `<h2>🤔 Uitleg bij: ${def.titel}</h2>`);
+  const sluit = ()=>{ ov.remove(); document.body.classList.remove('ibn-open'); document.removeEventListener('keydown', esc); try{ terug && terug.focus(); }catch(e){} };
+  const esc = e=>{ if(e.key === 'Escape') sluit(); };
+  kop.append(knop('ibn-x', '✕', sluit));
+  const uit = el('div', 'ibn-uitleg', '<h3>Zo werkt het</h3>' + (def.uitleg || '<p>Lees de opgave rustig. Zoek welke gegevens je nodig hebt en kijk naar het voorbeeld hieronder.</p>'));
+  const vbKop = el('div', 'ibn-vbkop', '<h3>Een voorbeeld</h3><p>Dit is een <b>andere opgave</b> van dezelfde soort, al opgelost. Je eigen oefening los je daarna zelf op.</p>');
+  const vbVak = el('div', 'ibn-vb');
+  const nog = knop('btn ghost', '↻ Nog een voorbeeld', ()=>toonVb());
+  const terugKnop = knop('btn', 'Terug naar mijn oefening', sluit);
+  const voet = el('div', 'ibn-voet'); voet.append(nog, terugKnop);
+  function toonVb(){ const z = voorbeeldZaad(kid, seed, gezien); gezien.push(vingerafdruk(maakKaart(kid, z))); vbVak.innerHTML = ''; vbVak.append(voorbeeldBlok(kid, z)); vbVak.scrollTop = 0; }
+  v.append(kop, uit, vbKop, vbVak, voet); ov.append(v);
+  ov.addEventListener('click', e=>{ if(e.target === ov) sluit(); });
+  document.addEventListener('keydown', esc);
+  document.body.append(ov); document.body.classList.add('ibn-open'); toonVb(); v.focus();
+  return v;
 }
 
 /* ---------- eenvoudige rekenmachine (zwevend venster) ---------- */
@@ -518,7 +576,8 @@ const FIG = [
    ============================================================ */
 const niveauVan = r => r >= .9 ? 'prima' : r >= .7 ? 'goed' : r >= .5 ? 'voldoende' : 'nog niet voldoende';
 
-/* TOETS = { titel, intro, kaarten:[kid, ...] }: elke kaart wordt een vraag; elk invulvak is één punt */
+/* TOETS = { titel, intro, kaarten:[kid, ...], kan:{ kid:'Ik-kan-zin' } }: elke kaart wordt een vraag; elk invulvak is één punt.
+   Na het verbeteren: Dit kan je al / Dit oefen je nog best, met de Ik-kan-zinnen van het werkboek en een knop Oefen dit. */
 function toetsPaneel(TOETS){
   const key = 'toets', pane = el('div', 'proeftoets');
   function teken(){
@@ -554,6 +613,7 @@ function toetsPaneel(TOETS){
           if(!ok){ const f = el('div', 'fb bad', `${it.inst.vragen.length > 1 ? (i + 1) + '. ' : ''}Juist was: <b>${antwTekst(v)}</b>`); (q || lijst).append(f); }
         }
       });
+      it.goed = goed;
       if(st.klaar){ score += goed; const hd = card.querySelector('.card-head'); hd.append(el('span', 'k-mark ' + (goed === it.inst.vragen.length ? 'ok' : 'bad'), `${goed}/${it.inst.vragen.length}`));
         if(it.inst.sol){ const s = el('div', 'sol', it.inst.sol); s.hidden = true; const l = knop('linkbtn', 'Toon oplossing', ()=>{ s.hidden = !s.hidden; l.textContent = s.hidden ? 'Toon oplossing' : 'Verberg oplossing'; }); const a = el('div', 'q-act'); a.append(l); main.append(a, s); } }
       pane.append(card); if(it.inst.mount) it.inst.mount(card);
@@ -569,7 +629,8 @@ function toetsPaneel(TOETS){
       }), fb);
     } else {
       const r = score / n;
-      pane.prepend(el('div', 'score', `<div class="big">${score}/${n}</div><div>Niveau: <span class="lvl">${niveauVan(r)}</span></div><div>${r < 1 ? 'Bij elke fout staat het juiste antwoord. Oefen die onderdelen nog eens.' : 'Knap gedaan!'}</div>`));
+      const scoreEl = el('div', 'score', `<div class="big">${score}/${n}</div><div>Niveau: <span class="lvl">${niveauVan(r)}</span></div><div>${r < 1 ? 'Bij elke fout staat het juiste antwoord. Hieronder zie je wat je nog best oefent.' : 'Knap gedaan!'}</div>`);
+      pane.prepend(scoreEl); scoreEl.after(toetsFeedback(TOETS, blokken));
       act.append(knop('btn big', 'Maak een nieuwe proeftoets', ()=>{ wis(key); teken(); pane.scrollIntoView({ block:'start' }); }));
     }
     pane.append(act);
@@ -577,6 +638,24 @@ function toetsPaneel(TOETS){
   pane._vulJuist = ()=>{ const st = lees(key); TOETS.kaarten.forEach(k=>{ const inst = maakKaart(k, st.seeds[k]); st.v[k] = {}; inst.vragen.forEach((v, i)=>{ st.v[k][i] = voorbeeldAntw(v); }); }); bewaar(key, st); teken(); };
   teken();
   return pane;
+}
+
+/* feedback na de proeftoets: per Ik-kan-zin alles juist (Dit kan je al) of niet (Dit oefen je nog best) */
+function toetsFeedback(TOETS, blokken){
+  const kan = TOETS.kan || {}, groep = new Map();
+  blokken.forEach(it=>{ let zin = kan[it.k] || KAARTEN[it.k].titel.toLowerCase(); zin = zin.charAt(0).toUpperCase() + zin.slice(1); const g = groep.get(zin) || { ok:true, kid:null, fout:0 }; const af = it.goed < it.inst.vragen.length; if(af){ g.ok = false; g.fout += it.inst.vragen.length - it.goed; if(!g.kid) g.kid = it.k; } groep.set(zin, g); });
+  const box = el('div', 'tfeedback'), al = el('div', 'tf-al'), nog = el('div', 'tf-nog');
+  const ulA = el('ul'), ulN = el('ul');
+  groep.forEach((g, zin)=>{
+    if(g.ok){ ulA.append(el('li', '', '✓ ' + zin)); return; }
+    const li = el('li', '', `<span>${zin}</span>`);
+    if(typeof gaNaarKaart === 'function' && kaartSectie(g.kid)) li.append(knop('btn klein tf-oefen', 'Oefen dit →', ()=>gaNaarKaart(g.kid)));
+    ulN.append(li);
+  });
+  al.append(el('h3', '', 'Dit kan je al'), ulA.children.length ? ulA : el('p', 'tf-leeg', 'Nog niets helemaal juist. Begin bij het eerste werkpunt.'));
+  nog.append(el('h3', '', 'Dit oefen je nog best'), ulN.children.length ? ulN : el('p', 'tf-leeg', 'Niets! Je hebt alles juist.'));
+  box.append(nog, al);
+  return box;
 }
 
 /* QUIZ = [ R => ({ t, a, voor, na, geld }) ]: 10 vragen in 3 minuten, één per keer */
@@ -938,6 +1017,35 @@ K({ id:'p_munten', titel:'Geldraadsel', niv:2, maak(R){
     vragen:[geldKlik(doel, { aantal:n, oplossing:opl, soorten:[200, 100, 50, 20, 10, 5, 2, 1] })], sol:'Een mogelijke oplossing: ' + opl.map(geldNaam).join(' + ') + '. Andere oplossingen kunnen ook.' };
 } });
 
+/* ---------- MODULE 1: uitleg bij Ik begrijp het niet (per kaart) ---------- */
+UITLEG({
+  geld_tel:'<ol><li>Tel eerst de <b>biljetten</b>: begin bij het grootste.</li><li>Tel dan de <b>munten</b> in euro en daarna de centen.</li><li>Tel alles samen. Schrijf altijd twee cijfers na de komma: € 31,40.</li><li>Ligt er te weinig? Trek af: prijs – geld dat er ligt.</li></ol>',
+  geld_komma:'<p>Voor de komma staan de <b>euro</b>, na de komma de <b>cent</b>. Na de komma staan altijd <b>twee cijfers</b>.</p><p><span class="fbox">5 cent → 0,05</span> <span class="fbox">50 cent → 0,50</span></p><p>Dus 7 euro en 5 cent = € 7,05 en 7 euro en 50 cent = € 7,50.</p>',
+  geld_kassa:'<ol><li>Neem één soort munt of biljet tegelijk.</li><li>Reken: <b>aantal x waarde</b>. Bv. 12 x 20 cent = 240 cent = € 2,40.</li><li>Tel daarna alle bedragen samen.</li></ol>',
+  geld_gepast:'<p><b>Gepast betalen</b> betekent: precies het bedrag geven, zodat je niets terugkrijgt.</p><ol><li>Neem het <b>grootste</b> biljet dat nog past.</li><li>Kijk hoeveel er nog over is en neem opnieuw het grootste dat past.</li><li>Ga zo verder tot je bij 0 bent. Zo gebruik je zo weinig mogelijk munten en biljetten.</li></ol>',
+  geld_terug:'<ol><li>Reken uit hoeveel je terugkrijgt: <b>betaald – prijs</b>.</li><li>Tip: tel aan vanaf de prijs tot het bedrag waarmee je betaalt.</li><li>Kies dan het wisselgeld zoals bij gepast betalen: telkens het grootste biljet of de grootste munt die nog past.</li></ol>',
+  h_koppel:'<p>Zoek twee getallen die samen een <b>rond getal</b> geven (een tiental of honderdtal). Tel die eerst op, daarna tel je het derde getal erbij.</p><p><span class="fbox">€ 26 + € 18 + € 14</span> → € 26 + € 14 = € 40, + € 18 = € 58</p>',
+  h_dubbel:'<p><b>Het dubbel</b> = het getal x 2. <b>De helft</b> = het getal : 2.</p><p>Een <b>paar</b> = 2 stuks. Van stuks naar paren: : 2. Van paren naar stuks: x 2.</p><p>Tip bij een kommagetal: neem eerst het dubbel of de helft van de euro, dan van de cent.</p>',
+  h_x4x5:'<ul><li><b>x 4</b> = 2 keer verdubbelen (x 2, x 2).</li><li><b>: 4</b> = 2 keer halveren (: 2, : 2).</li><li><b>x 5</b> = eerst x 10, dan : 2.</li><li><b>: 5</b> = eerst : 10, dan x 2.</li></ul><p>Voorbeeld: 26 x 5 = 260 : 2 = 130.</p>',
+  h_x10:'<ul><li><b>x 10, x 100, x 1 000</b>: het getal wordt groter. De komma schuift 1, 2 of 3 plaatsen naar <b>rechts</b>. Bij een geheel getal komen er nullen bij.</li><li><b>: 10, : 100, : 1 000</b>: het getal wordt kleiner. De komma schuift 1, 2 of 3 plaatsen naar <b>links</b>.</li></ul><p>3,7 x 100 = 370 · 52 : 100 = 0,52</p>',
+  h_temp:'<p>Denk aan een <b>thermometer</b> of een getallenas.</p><ul><li><b>Warmer</b>: je gaat naar boven (rechts): + .</li><li><b>Kouder</b>: je gaat naar beneden (links): – .</li></ul><p>Onder 0 °C staat een minteken: -4 °C is kouder dan -1 °C.</p>',
+  h_negplus:'<p>Gebruik de getallenas.</p><ul><li><b>+</b> een getal: je gaat naar <b>rechts</b>.</li><li><b>–</b> een getal: je gaat naar <b>links</b>.</li></ul><p>-5 + 8: vanaf -5 acht stappen naar rechts → 3. &nbsp; 4 – 9: vanaf 4 negen stappen naar links → -5.</p>',
+  h_negmaal:'<ol><li>Reken eerst zonder mintekens: 6 x 4 = 24.</li><li>Kijk dan naar de tekens: <b>gelijke tekens → +</b>, <b>verschillende tekens → –</b>.</li></ol><p>-6 x 4 = -24 · -6 x (-4) = 24 · 24 : (-6) = -4</p>',
+  s_afronden:'<ol><li><b>Rond af</b> op een getal waarmee je makkelijk rekent (tiental, honderdtal).</li><li>Kijk naar het cijfer rechts ervan: 0 tot 4 → naar beneden, 5 tot 9 → naar boven.</li><li>Reken uit het hoofd met de afgeronde getallen. Je antwoord is een <b>schatting</b> (≈).</li></ol><p>€ 387 + € 52 ≈ € 390 + € 50 = € 440</p>',
+  s_menu:'<ol><li>Rond elke prijs af op een heel bedrag: € 2,40 ≈ € 2, € 7,80 ≈ € 8.</li><li>Reken: aantal x afgeronde prijs, voor elk gerecht.</li><li>Tel alles samen. Vergelijk met het geld dat de persoon bij heeft.</li></ol>',
+  g_gem:'<p>Het <b>gemiddelde</b> = <span class="fbox">som van alle getallen : aantal getallen</span></p><ol><li>Tel alle getallen op.</li><li>Tel hoeveel getallen er zijn.</li><li>Deel de som door het aantal.</li></ol><p>6, 8, 7 → 21 : 3 = 7</p>',
+  g_med:'<p>De <b>mediaan</b> is het getal dat <b>in het midden</b> staat.</p><ol><li>Rangschik de getallen van klein naar groot.</li><li>Oneven aantal: het middelste getal is de mediaan.</li><li>Even aantal: neem de twee middelste getallen, tel ze op en deel door 2.</li></ol><p>3 – 5 – <b>8</b> – 9 – 12 → mediaan 8 · 2 – <b>4 – 6</b> – 10 → (4 + 6) : 2 = 5</p>',
+  g_temp:'<ul><li><b>Gemiddelde</b>: tel alle temperaturen op en deel door het aantal dagen.</li><li><b>Mediaan</b>: rangschik van klein naar groot en neem het midden.</li><li>Warmer dan het gemiddelde: vergelijk elke dag met het gemiddelde.</li></ul>',
+  g_loon:'<ol><li>Tel wat er elke week verdiend werd samen.</li><li>Deel door het aantal weken: zo krijg je het gemiddelde per week.</li><li>Afronden op een heel bedrag: kijk naar de cent. 50 cent of meer → naar boven.</li></ol>',
+  g_kersen:'<ol><li>Gemiddelde prijs: tel alle prijzen op en deel door het aantal maanden.</li><li>500 g is de <b>helft</b> van 1 kg, dus de prijs : 2. 250 g is een kwart: de prijs : 4.</li></ol>',
+  r_bakker:'<ol><li><b>Schat</b> eerst: rond elke prijs af en reken uit het hoofd.</li><li>Reken dan juist met de rekenmachine: aantal x prijs, voor elk broodje, en tel samen.</li><li>Teruggeven: betaald – totaal.</li><li>Hoeveel duurder: grootste prijs – kleinste prijs.</li></ol>',
+  r_verh:'<p>In een <b>verhoudingstabel</b> doe je boven en onder telkens <b>hetzelfde</b>.</p><ol><li>Ga eerst naar 100 g: deel boven en onder door hetzelfde getal.</li><li>Ga dan naar 1 kg = 1 000 g: x 10 boven en onder.</li></ol><p>200 g → € 0,90 · : 2 → 100 g → € 0,45 · x 10 → 1 kg → € 4,50</p>',
+  r_liter:'<p>Prijs per liter = <span class="fbox">prijs : aantal liter</span></p><p>Een fles van 1,5 l voor € 1,20: € 1,20 : 1,5 = € 0,80 per liter. Vergelijk daarna de prijzen per liter: de kleinste is het goedkoopst.</p>',
+  r_sport:'<ol><li><b>Schat</b>: rond de prijzen af (€ 14,95 ≈ € 15) en reken uit het hoofd.</li><li><b>Reken</b> met de rekenmachine: aantal x prijs + aantal x prijs.</li><li>Vergelijk: ligt je antwoord dicht bij je schatting? Zo niet, reken opnieuw.</li></ol>',
+  p_som:'<p>Achteraan elke rij en onderaan elke kolom staat de <b>som</b>.</p><ol><li>Zoek een rij of kolom met maar <b>één</b> leeg vak.</li><li>Het lege vak = de som – de getallen die er al staan.</li><li>Zo komen er nieuwe rijen of kolommen met één leeg vak.</li></ol>',
+  p_munten:'<ol><li>Begin met grote munten tot je dicht bij het bedrag bent.</li><li>Tel hoeveel munten je hebt. Te weinig? Wissel een grote munt voor twee kleinere (€ 2 = € 1 + € 1).</li><li>Te veel? Wissel twee kleine munten voor één grotere.</li></ol>'
+});
+
 /* ---------- MODULE 1: onderdelen, proeftoets en snelle quiz ----------
    Nieuwe kaarten altijd achteraan een onderdeel toevoegen; kaart-id's nooit hernoemen (opslagsleutel en vraag-id). */
 const SECS = [
@@ -950,7 +1058,8 @@ const SECS = [
   { id:'quiz', nav:'Snelle quiz', title:'Snelle quiz', ic:'quiz', soort:'quiz', telt:false },
   { id:'toets', nav:'Proeftoets', title:'Proeftoets rekenen', ic:'toets', soort:'toets', sepBefore:true, rm:true, tip:'Vraag 1 tot 4: <b>zonder</b> rekenmachine. Vraag 5 tot 7: met rekenmachine.' }
 ];
-const TOETS = { titel:'Proeftoets rekenen', kaarten:['geld_tel', 'h_dubbel', 'h_temp', 's_afronden', 'g_temp', 'r_verh', 'geld_gepast'] };
+const TOETS = { titel:'Proeftoets rekenen', kaarten:['geld_tel', 'h_dubbel', 'h_temp', 's_afronden', 'g_temp', 'r_verh', 'geld_gepast'],
+  kan:{ geld_tel:'rekenen met geld', geld_gepast:'gepast betalen met zo weinig mogelijk munten en biljetten', h_dubbel:'handig rekenen (het dubbel en de helft)', h_temp:'rekenen met temperaturen onder nul', s_afronden:'zinvol afronden en uitkomsten schatten', g_temp:'het gemiddelde berekenen en de mediaan bepalen', r_verh:'vraagstukken oplossen met een verhoudingstabel' } };
 const QUIZ = [
   R=>{ const a = R.int(13, 49); return { t:`Het dubbel van ${a} =`, a:a * 2 }; },
   R=>{ const a = R.int(21, 99) * 2; return { t:`De helft van ${a} =`, a:a / 2 }; },
@@ -986,6 +1095,9 @@ const ICONS = {
   vlak:'<path d="M4 18l4-12h12l-4 12z"/>',
   ruimte:'<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   blok:'<path d="M3 10l6-3 6 3-6 3z"/><path d="M3 10v6l6 3v-6M15 10v6l-6 3"/><path d="M15 10l6-3v6l-6 3"/>',
+  hoek:'<path d="M4 20h16M4 20 17 6"/><path d="M11 20a7 7 0 0 0-2-5"/>',
+  teken:'<path d="M4 20h16M4 20V4"/><path d="M8 16l3-8 6 2-2 6z"/>',
+  vraag:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17v.01"/>',
   puzzel:'<path d="M10 3h4v3a2 2 0 1 0 4 0V3h3v7h-3a2 2 0 1 0 0 4h3v7h-7v-3a2 2 0 1 0-4 0v3H3v-7h3a2 2 0 1 0 0-4H3V3z"/>',
   quiz:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>',
   toets:'<path d="M9 4h6v3H9z"/><path d="M15 5h3v16H6V5h3"/><path d="m9 13 2 2 4-4"/>'
@@ -1042,8 +1154,17 @@ function show(id, scroll){
   try{ localStorage.setItem(PREFIX + 'tab', id); }catch(e){}
   if(scroll) window.scrollTo({ top:0, behavior:'smooth' });
 }
+/* naar de oefenkaart springen (feedback na de proeftoets) */
+function kaartSectie(kid){ return SECS.find(s=>(s.kaarten || []).includes(kid) || (s.verd || []).includes(kid)); }
+function gaNaarKaart(kid){
+  const sec = kaartSectie(kid); if(!sec) return; const inVerd = (sec.verd || []).includes(kid);
+  bewaar('stab_' + sec.id, inVerd ? 'verd' : 'oef'); show(sec.id, false);
+  const s = secEls[sec.id], t = s.querySelectorAll('.tabs .tab'); if(t.length) t[inVerd ? 1 : 0].click();
+  const c = s.querySelector(`.card[data-kaart="${kid}"]`);
+  if(c){ c.scrollIntoView({ block:'start', behavior:'smooth' }); c.classList.add('flits'); setTimeout(()=>c.classList.remove('flits'), 2200); } else window.scrollTo({ top:0, behavior:'smooth' });
+}
 /* testhaak (enkel voor de testscripts) */
-window.__m2b = { KAARTEN, maakKaart, vraagJuist, SECS };
+window.__m2b = { KAARTEN, maakKaart, vraagJuist, SECS, TOETS, ikBegrijpHetNiet, gaNaarKaart };
 if(SECS.length){
   let startId = SECS[0].id;
   try{ const h = location.hash.slice(1), t = localStorage.getItem(PREFIX + 'tab'); if(secEls[h]) startId = h; else if(t && secEls[t]) startId = t; }catch(e){}

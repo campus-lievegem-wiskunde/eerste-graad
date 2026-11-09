@@ -1398,6 +1398,65 @@ export const SITES = [
   ]
  },
  {
+  "id": "2b-m5",
+  "titel": "Module 5 · Vierhoek",
+  "kort": "Module 5",
+  "jaar": "2B",
+  "rubriek": "modules",
+  "pad": "2B/modules/module-5-vierhoeken/",
+  "prefix": "2b_m5_vierhoek_v1_",
+  "onderdelen": [
+   {
+    "id": "vierh",
+    "naam": "Vierhoeken",
+    "toets": false,
+    "vragen": 13
+   },
+   {
+    "id": "hoeken",
+    "naam": "Hoeken",
+    "toets": false,
+    "vragen": 9
+   },
+   {
+    "id": "tekenen",
+    "naam": "Tekenen",
+    "toets": false,
+    "vragen": 4
+   },
+   {
+    "id": "opp",
+    "naam": "Omtrek en oppervlakte",
+    "toets": false,
+    "vragen": 27
+   },
+   {
+    "id": "vraag",
+    "naam": "Vraagstukken",
+    "toets": false,
+    "vragen": 14
+   },
+   {
+    "id": "puzzels",
+    "naam": "Puzzels",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "quiz",
+    "naam": "Snelle quiz",
+    "toets": false,
+    "vragen": 0
+   },
+   {
+    "id": "toets",
+    "naam": "Proeftoets",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
   "id": "1a-wp",
   "titel": "Wiskundige problemen · Heuristieken",
   "kort": "Heuristieken",

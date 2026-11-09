@@ -353,13 +353,14 @@ function kaartEl(sec, kid, o = {}){
     });
     const act = el('div', 'q-act'), fb = el('div', 'fb kfb');
     act.append(knop('btn', 'Controleer', ()=>controle()));
+    const ib = knop('btn ghost ibn-btn', '🤔 Ik begrijp het niet', ()=>ikBegrijpHetNiet(kid, st.seed, ib)); ib.title = 'Uitleg en een opgelost voorbeeld met andere getallen'; act.append(ib);
     let hb = null, tb = null;
     if(inst.hint && def.niv !== 3){ hb = hintBlok(inst.hint); act.append(knop('btn ghost', '💡 Hint', ()=>{ hb.hidden = !hb.hidden; })); }
     if(inst.toon){ tb = toonBlok(inst.toon); act.append(knop('btn ghost demo-btn', '▶ Toon mij hoe', ()=>{ tb.hidden = !tb.hidden; if(!tb.hidden) tb._open(); })); }
     const sol = el('div', 'sol', inst.sol || vr.map((v, i)=>`${vr.length > 1 ? (i + 1) + '. ' : ''}${antwTekst(v)}`).join('<br>')); sol.hidden = true;
     const sl = knop('linkbtn', 'Toon oplossing', ()=>{ sol.hidden = !sol.hidden; sl.textContent = sol.hidden ? 'Toon oplossing' : 'Verberg oplossing'; });
     sl.hidden = !st.n; act.append(sl);
-    main.append(act, fb); if(hb) main.append(hb); if(tb) main.append(tb); main.append(sol);
+    main.append(act, fb); if(hb) main.append(hb); main.append(sol); if(tb) card.append(tb);
     function controle(){
       let nJ = 0, nL = 0, geldTip = false;
       vr.forEach((v, i)=>{
@@ -384,6 +385,63 @@ function kaartEl(sec, kid, o = {}){
   card._vulJuist = ()=>{ const inst = maakKaart(kid, st.seed); st.v = {}; inst.vragen.forEach((v, i)=>{ st.v[i] = voorbeeldAntw(v); }); save(); teken(); };
   teken();
   return card;
+}
+
+/* ---------- Ik begrijp het niet: uitleg en een opgelost voorbeeld met andere getallen ----------
+   De uitleg per kaart staat in m<n>/60_uitleg.js: UITLEG({ kaartid:'html', ... }).
+   Het voorbeeld is dezelfde kaart met een ander zaadgetal: nooit de opgave die de leerling voor zich heeft.
+   Er wordt niets bewaard en niets doorgegeven aan het dashboard. */
+const UITLEG = o => Object.entries(o).forEach(([k, u])=>{ if(KAARTEN[k]) KAARTEN[k].uitleg = u; });
+const vingerafdruk = inst => JSON.stringify([inst.tekst, inst.fig, inst.vragen.map(v=>[v.t, String(v.a), v.voorbeeld, v.keuzes])]);
+function voorbeeldZaad(kid, seed, ook){
+  const weg = new Set([vingerafdruk(maakKaart(kid, seed))].concat(ook || []));
+  let z = null; for(let p = 0; p < 30; p++){ z = nieuwZaad(); if(!weg.has(vingerafdruk(maakKaart(kid, z)))) return z; }
+  return z;
+}
+/* een kaart in leesstand: alle antwoorden ingevuld en groen, met de uitgewerkte oplossing */
+function voorbeeldBlok(kid, z){
+  const inst = maakKaart(kid, z), vr = inst.vragen;
+  const box = el('div', 'kaart vb-kaart');
+  const body = el('div', 'kbody' + (inst.fig && !inst.boven ? ' met-fig' : '') + (inst.figRechts ? ' fig-rechts' : '') + (inst.breed ? ' breed' : ''));
+  if(inst.fig) body.append(el('div', 'kfig', inst.fig));
+  const main = el('div', 'kmain'); body.append(main);
+  if(inst.tekst) main.append(el('div', 'ktekst', inst.tekst));
+  const lijst = el('div', 'vragen' + (inst.q2 ? ' q2' : '') + (inst.q3 ? ' q3' : '')); main.append(lijst); box.append(body);
+  vr.forEach((v, i)=>{
+    const inv = vraagInvoer(v, voorbeeldAntw(v), ()=>{}); inv.dataset.dicht = '1'; if(inv._inp){ inv._inp.readOnly = true; inv._inp.tabIndex = -1; }
+    inv._markeer(true); inv.classList.add('vb-vin');
+    const slot = box.querySelector(`[data-v="${i}"]`);
+    if(slot){ slot.append(inv); slot.classList.add('slot'); return; }
+    const q = el('div', 'q'), blok = v.soort === 'keuze' || v.soort === 'multi' || v.soort === 'eigen' || v.blok;
+    if(v.t != null && v.t !== ''){ const qt = el('div', 'q-text' + (blok ? ' block' : ''), `<span class="qt">${v.t}</span>`); if(blok) q.append(qt, inv); else { qt.append(inv); q.append(qt); } }
+    else q.append(inv);
+    if(v.soort === 'eigen' && v.eigen.tekst) q.append(el('div', 'vb-antw', 'Antwoord: <b>' + v.eigen.tekst + '</b>'));
+    lijst.append(q);
+  });
+  main.append(el('div', 'sol vb-sol', '<b>Zo los je het op</b><br>' + (inst.sol || vr.map((v, i)=>`${vr.length > 1 ? (i + 1) + '. ' : ''}${antwTekst(v)}`).join('<br>'))));
+  if(inst.mount){ try{ inst.mount(box); }catch(e){} }
+  return box;
+}
+function ikBegrijpHetNiet(kid, seed, terug){
+  const def = KAARTEN[kid], gezien = [];
+  const ov = el('div', 'ibn-over'), v = el('div', 'ibn-venster');
+  v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true'); v.setAttribute('aria-label', 'Uitleg bij ' + def.titel); v.tabIndex = -1;
+  const kop = el('div', 'ibn-kop', `<h2>🤔 Uitleg bij: ${def.titel}</h2>`);
+  const sluit = ()=>{ ov.remove(); document.body.classList.remove('ibn-open'); document.removeEventListener('keydown', esc); try{ terug && terug.focus(); }catch(e){} };
+  const esc = e=>{ if(e.key === 'Escape') sluit(); };
+  kop.append(knop('ibn-x', '✕', sluit));
+  const uit = el('div', 'ibn-uitleg', '<h3>Zo werkt het</h3>' + (def.uitleg || '<p>Lees de opgave rustig. Zoek welke gegevens je nodig hebt en kijk naar het voorbeeld hieronder.</p>'));
+  const vbKop = el('div', 'ibn-vbkop', '<h3>Een voorbeeld</h3><p>Dit is een <b>andere opgave</b> van dezelfde soort, al opgelost. Je eigen oefening los je daarna zelf op.</p>');
+  const vbVak = el('div', 'ibn-vb');
+  const nog = knop('btn ghost', '↻ Nog een voorbeeld', ()=>toonVb());
+  const terugKnop = knop('btn', 'Terug naar mijn oefening', sluit);
+  const voet = el('div', 'ibn-voet'); voet.append(nog, terugKnop);
+  function toonVb(){ const z = voorbeeldZaad(kid, seed, gezien); gezien.push(vingerafdruk(maakKaart(kid, z))); vbVak.innerHTML = ''; vbVak.append(voorbeeldBlok(kid, z)); vbVak.scrollTop = 0; }
+  v.append(kop, uit, vbKop, vbVak, voet); ov.append(v);
+  ov.addEventListener('click', e=>{ if(e.target === ov) sluit(); });
+  document.addEventListener('keydown', esc);
+  document.body.append(ov); document.body.classList.add('ibn-open'); toonVb(); v.focus();
+  return v;
 }
 
 /* ---------- eenvoudige rekenmachine (zwevend venster) ---------- */
@@ -518,7 +576,8 @@ const FIG = [
    ============================================================ */
 const niveauVan = r => r >= .9 ? 'prima' : r >= .7 ? 'goed' : r >= .5 ? 'voldoende' : 'nog niet voldoende';
 
-/* TOETS = { titel, intro, kaarten:[kid, ...] }: elke kaart wordt een vraag; elk invulvak is één punt */
+/* TOETS = { titel, intro, kaarten:[kid, ...], kan:{ kid:'Ik-kan-zin' } }: elke kaart wordt een vraag; elk invulvak is één punt.
+   Na het verbeteren: Dit kan je al / Dit oefen je nog best, met de Ik-kan-zinnen van het werkboek en een knop Oefen dit. */
 function toetsPaneel(TOETS){
   const key = 'toets', pane = el('div', 'proeftoets');
   function teken(){
@@ -554,6 +613,7 @@ function toetsPaneel(TOETS){
           if(!ok){ const f = el('div', 'fb bad', `${it.inst.vragen.length > 1 ? (i + 1) + '. ' : ''}Juist was: <b>${antwTekst(v)}</b>`); (q || lijst).append(f); }
         }
       });
+      it.goed = goed;
       if(st.klaar){ score += goed; const hd = card.querySelector('.card-head'); hd.append(el('span', 'k-mark ' + (goed === it.inst.vragen.length ? 'ok' : 'bad'), `${goed}/${it.inst.vragen.length}`));
         if(it.inst.sol){ const s = el('div', 'sol', it.inst.sol); s.hidden = true; const l = knop('linkbtn', 'Toon oplossing', ()=>{ s.hidden = !s.hidden; l.textContent = s.hidden ? 'Toon oplossing' : 'Verberg oplossing'; }); const a = el('div', 'q-act'); a.append(l); main.append(a, s); } }
       pane.append(card); if(it.inst.mount) it.inst.mount(card);
@@ -569,7 +629,8 @@ function toetsPaneel(TOETS){
       }), fb);
     } else {
       const r = score / n;
-      pane.prepend(el('div', 'score', `<div class="big">${score}/${n}</div><div>Niveau: <span class="lvl">${niveauVan(r)}</span></div><div>${r < 1 ? 'Bij elke fout staat het juiste antwoord. Oefen die onderdelen nog eens.' : 'Knap gedaan!'}</div>`));
+      const scoreEl = el('div', 'score', `<div class="big">${score}/${n}</div><div>Niveau: <span class="lvl">${niveauVan(r)}</span></div><div>${r < 1 ? 'Bij elke fout staat het juiste antwoord. Hieronder zie je wat je nog best oefent.' : 'Knap gedaan!'}</div>`);
+      pane.prepend(scoreEl); scoreEl.after(toetsFeedback(TOETS, blokken));
       act.append(knop('btn big', 'Maak een nieuwe proeftoets', ()=>{ wis(key); teken(); pane.scrollIntoView({ block:'start' }); }));
     }
     pane.append(act);
@@ -577,6 +638,24 @@ function toetsPaneel(TOETS){
   pane._vulJuist = ()=>{ const st = lees(key); TOETS.kaarten.forEach(k=>{ const inst = maakKaart(k, st.seeds[k]); st.v[k] = {}; inst.vragen.forEach((v, i)=>{ st.v[k][i] = voorbeeldAntw(v); }); }); bewaar(key, st); teken(); };
   teken();
   return pane;
+}
+
+/* feedback na de proeftoets: per Ik-kan-zin alles juist (Dit kan je al) of niet (Dit oefen je nog best) */
+function toetsFeedback(TOETS, blokken){
+  const kan = TOETS.kan || {}, groep = new Map();
+  blokken.forEach(it=>{ let zin = kan[it.k] || KAARTEN[it.k].titel.toLowerCase(); zin = zin.charAt(0).toUpperCase() + zin.slice(1); const g = groep.get(zin) || { ok:true, kid:null, fout:0 }; const af = it.goed < it.inst.vragen.length; if(af){ g.ok = false; g.fout += it.inst.vragen.length - it.goed; if(!g.kid) g.kid = it.k; } groep.set(zin, g); });
+  const box = el('div', 'tfeedback'), al = el('div', 'tf-al'), nog = el('div', 'tf-nog');
+  const ulA = el('ul'), ulN = el('ul');
+  groep.forEach((g, zin)=>{
+    if(g.ok){ ulA.append(el('li', '', '✓ ' + zin)); return; }
+    const li = el('li', '', `<span>${zin}</span>`);
+    if(typeof gaNaarKaart === 'function' && kaartSectie(g.kid)) li.append(knop('btn klein tf-oefen', 'Oefen dit →', ()=>gaNaarKaart(g.kid)));
+    ulN.append(li);
+  });
+  al.append(el('h3', '', 'Dit kan je al'), ulA.children.length ? ulA : el('p', 'tf-leeg', 'Nog niets helemaal juist. Begin bij het eerste werkpunt.'));
+  nog.append(el('h3', '', 'Dit oefen je nog best'), ulN.children.length ? ulN : el('p', 'tf-leeg', 'Niets! Je hebt alles juist.'));
+  box.append(nog, al);
+  return box;
 }
 
 /* QUIZ = [ R => ({ t, a, voor, na, geld }) ]: 10 vragen in 3 minuten, één per keer */
@@ -860,6 +939,24 @@ K({ id:'pz_latijn', titel:'Eenvoudige puzzel', niv:1, maak(R){ const S = sudokuV
 K({ id:'pz_sud4', titel:'Sudoku 4 x 4', niv:1, maak(R){ const S = sudokuVraag(R, 4, 2, 2, 9); return { tekst:'<p>In elk <b>vetgedrukt vierkant</b>, elke <b>rij</b> en elke <b>kolom</b> staan de cijfers 1 tot en met 4 juist één keer.</p>', vragen:[sudokuEigen(S, 4, 2, 2)], sol:S.opl.map(r=>r.join(' ')).join('<br>') }; } });
 K({ id:'pz_sud6', titel:'Sudoku 6 x 6', niv:2, maak(R){ const S = sudokuVraag(R, 6, 2, 3, 18); return { tekst:'<p>In elke <b>vetgedrukte rechthoek</b>, elke <b>rij</b> en elke <b>kolom</b> staan de cijfers 1 tot en met 6 juist één keer.</p><p class="klein">Tip: vul eerst één cijfer overal in.</p>', vragen:[sudokuEigen(S, 6, 2, 3)], sol:S.opl.map(r=>r.join(' ')).join('<br>') }; } });
 
+/* ---------- MODULE 3: uitleg bij Ik begrijp het niet (per kaart) ---------- */
+UITLEG({
+  r_plaats:'<p>Een vak in een rooster noem je met een <b>letter</b> en een <b>cijfer</b>.</p><ol><li>Kijk naar beneden: welke <span style="color:var(--as-x);font-weight:800">letter</span> staat onder het vak?</li><li>Kijk naar links: welk <span style="color:var(--as-y);font-weight:800">cijfer</span> staat naast het vak?</li><li>Schrijf eerst de letter, dan het cijfer: C4.</li></ol>',
+  r_zeeslag:'<ol><li>Zoek de <b>letter</b> onderaan en het <b>cijfer</b> links.</li><li>Ga met je vinger naar boven vanaf de letter en naar rechts vanaf het cijfer.</li><li>Waar ze elkaar ontmoeten, ligt het vak. Is het grijs? Dan is het <b>raak</b>.</li></ol>',
+  r_schiet:'<ol><li>Zoek het grootste schip: de langste rij grijze vakken naast elkaar of boven elkaar.</li><li>Klik in het tweede rooster precies díe vakken aan. Kijk goed naar de letter en het cijfer van elk vak.</li></ol>',
+  k_stad:'<ul><li>Een plaats: zoek de letter onder en het cijfer links van het vak.</li><li><b>Evenwijdig</b>: twee straten die nooit samenkomen. <b>Loodrecht</b>: ze kruisen onder een rechte hoek.</li><li>Door welke vakken loopt een straat? Volg de straat en schrijf elk vak op.</li></ul>',
+  k_land:'<ul><li>De stippellijnen zijn de <b>grenzen</b> tussen de streken.</li><li>Een stad zoeken: letter onder, cijfer links.</li><li><b>Grenzen</b> twee streken aan elkaar? Dan raken ze elkaar langs een grens.</li></ul>',
+  a_assen:'<ul><li>De <span style="color:var(--as-x);font-weight:800">x-as</span> is horizontaal (van links naar rechts).</li><li>De <span style="color:var(--as-y);font-weight:800">y-as</span> is verticaal (van beneden naar boven).</li><li>Coördinaten: <b>eerst x, dan y</b>. A(3,2): 3 naar rechts, 2 naar boven.</li></ul>',
+  a_zet1:'<ol><li>Begin in de oorsprong (0,0).</li><li>Het eerste getal (x): zoveel stappen naar <b>rechts</b>.</li><li>Het tweede getal (y): zoveel stappen naar <b>boven</b>.</li><li>Zet daar het punt.</li></ol><p>B(2,0) ligt op de x-as, want je gaat 0 naar boven.</p>',
+  a_aflezen:'<ol><li>Ga vanaf het punt recht naar beneden of naar boven tot de <span style="color:var(--as-x);font-weight:800">x-as</span>: dat is x.</li><li>Ga vanaf het punt recht naar links of naar rechts tot de <span style="color:var(--as-y);font-weight:800">y-as</span>: dat is y.</li><li>Links van de y-as en onder de x-as zijn de getallen <b>negatief</b>: -3.</li></ol>',
+  a_figuur:'<ol><li>Zet de punten één voor één: eerst x (naar rechts of links), dan y (naar boven of beneden).</li><li>Kijk naar de figuur die ontstaat. Zijn er rechte hoeken? Zijn de zijden even lang? Zijn er evenwijdige zijden?</li></ol>',
+  a_lijn:'<p>Leg in gedachten een <b>lat</b> langs twee punten. Ligt het derde punt ook tegen de lat? Dan liggen ze op één rechte lijn.</p><p>Tip: kijk hoeveel stappen je naar rechts en naar boven gaat van het eerste naar het tweede punt. Ga je met dezelfde stappen naar het derde punt? Dan liggen ze op één lijn.</p>',
+  a_code:'<ol><li>Neem de coördinaten van de eerste letter: eerst x, dan y.</li><li>Zoek het punt in het assenstelsel en kijk welke letter erbij staat.</li><li>Doe zo verder voor elke letter.</li></ol>',
+  pz_latijn:'<p>In elke <b>rij</b> en in elke <b>kolom</b> staat elk cijfer juist één keer.</p><ol><li>Zoek een rij of kolom waar nog maar één cijfer ontbreekt.</li><li>Kijk welk cijfer er nog niet in staat.</li></ol>',
+  pz_sud4:'<p>In elke rij, elke kolom en elk vetgedrukt vierkant staan de cijfers 1 tot 4 juist één keer.</p><ol><li>Zoek een leeg vak. Welke cijfers staan al in die rij, kolom en dat vierkant?</li><li>Blijft er maar één cijfer over? Vul het in.</li></ol>',
+  pz_sud6:'<p>In elke rij, elke kolom en elke vetgedrukte rechthoek staan de cijfers 1 tot 6 juist één keer.</p><ol><li>Neem één cijfer, bv. 1. Waar kan het in elke rechthoek nog staan?</li><li>Vul in waar maar één plaats overblijft. Doe dan hetzelfde met het volgende cijfer.</li></ol>'
+});
+
 /* ---------- MODULE 3: onderdelen, proeftoets en snelle quiz ----------
    Nieuwe kaarten altijd achteraan een onderdeel toevoegen; kaart-id's nooit hernoemen (opslagsleutel en vraag-id). */
 const SECS = [
@@ -870,7 +967,8 @@ const SECS = [
   { id:'quiz', nav:'Snelle quiz', title:'Snelle quiz', ic:'quiz', soort:'quiz', telt:false },
   { id:'toets', nav:'Proeftoets', title:'Proeftoets coördinaten', ic:'toets', soort:'toets', sepBefore:true, tip:'Vraag 5 en 6 zijn verdieping.' }
 ];
-const TOETS = { titel:'Proeftoets coördinaten', kaarten:['r_zeeslag', 'r_plaats', 'k_stad', 'k_land', 'a_aflezen', 'a_lijn'] };
+const TOETS = { titel:'Proeftoets coördinaten', kaarten:['r_zeeslag', 'r_plaats', 'k_stad', 'k_land', 'a_aflezen', 'a_lijn'],
+  kan:{ r_zeeslag:'werken met coördinaten in een rooster', r_plaats:'werken met coördinaten in een rooster', k_stad:'een plaats zoeken op een kaart met een rooster', k_land:'een plaats zoeken op een kaart met een rooster', a_aflezen:'van een punt in een assenstelsel de coördinaten opschrijven', a_lijn:'punten in een assenstelsel vergelijken (op één rechte lijn)' } };
 const QUIZ = [
   R=>{ const x = R.int(-5, 5), y = R.int(-5, 5); return { t:`Wat is de x-coördinaat van P(${minN(x)},${minN(y)})?`, a:x }; },
   R=>{ const x = R.int(-5, 5), y = R.int(-5, 5); return { t:`Wat is de y-coördinaat van Q(${minN(x)},${minN(y)})?`, a:y }; },
@@ -905,6 +1003,9 @@ const ICONS = {
   vlak:'<path d="M4 18l4-12h12l-4 12z"/>',
   ruimte:'<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   blok:'<path d="M3 10l6-3 6 3-6 3z"/><path d="M3 10v6l6 3v-6M15 10v6l-6 3"/><path d="M15 10l6-3v6l-6 3"/>',
+  hoek:'<path d="M4 20h16M4 20 17 6"/><path d="M11 20a7 7 0 0 0-2-5"/>',
+  teken:'<path d="M4 20h16M4 20V4"/><path d="M8 16l3-8 6 2-2 6z"/>',
+  vraag:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17v.01"/>',
   puzzel:'<path d="M10 3h4v3a2 2 0 1 0 4 0V3h3v7h-3a2 2 0 1 0 0 4h3v7h-7v-3a2 2 0 1 0-4 0v3H3v-7h3a2 2 0 1 0 0-4H3V3z"/>',
   quiz:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>',
   toets:'<path d="M9 4h6v3H9z"/><path d="M15 5h3v16H6V5h3"/><path d="m9 13 2 2 4-4"/>'
@@ -961,8 +1062,17 @@ function show(id, scroll){
   try{ localStorage.setItem(PREFIX + 'tab', id); }catch(e){}
   if(scroll) window.scrollTo({ top:0, behavior:'smooth' });
 }
+/* naar de oefenkaart springen (feedback na de proeftoets) */
+function kaartSectie(kid){ return SECS.find(s=>(s.kaarten || []).includes(kid) || (s.verd || []).includes(kid)); }
+function gaNaarKaart(kid){
+  const sec = kaartSectie(kid); if(!sec) return; const inVerd = (sec.verd || []).includes(kid);
+  bewaar('stab_' + sec.id, inVerd ? 'verd' : 'oef'); show(sec.id, false);
+  const s = secEls[sec.id], t = s.querySelectorAll('.tabs .tab'); if(t.length) t[inVerd ? 1 : 0].click();
+  const c = s.querySelector(`.card[data-kaart="${kid}"]`);
+  if(c){ c.scrollIntoView({ block:'start', behavior:'smooth' }); c.classList.add('flits'); setTimeout(()=>c.classList.remove('flits'), 2200); } else window.scrollTo({ top:0, behavior:'smooth' });
+}
 /* testhaak (enkel voor de testscripts) */
-window.__m2b = { KAARTEN, maakKaart, vraagJuist, SECS };
+window.__m2b = { KAARTEN, maakKaart, vraagJuist, SECS, TOETS, ikBegrijpHetNiet, gaNaarKaart };
 if(SECS.length){
   let startId = SECS[0].id;
   try{ const h = location.hash.slice(1), t = localStorage.getItem(PREFIX + 'tab'); if(secEls[h]) startId = h; else if(t && secEls[t]) startId = t; }catch(e){}

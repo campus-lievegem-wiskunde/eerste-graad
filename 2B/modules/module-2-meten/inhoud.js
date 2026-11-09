@@ -353,13 +353,14 @@ function kaartEl(sec, kid, o = {}){
     });
     const act = el('div', 'q-act'), fb = el('div', 'fb kfb');
     act.append(knop('btn', 'Controleer', ()=>controle()));
+    const ib = knop('btn ghost ibn-btn', '🤔 Ik begrijp het niet', ()=>ikBegrijpHetNiet(kid, st.seed, ib)); ib.title = 'Uitleg en een opgelost voorbeeld met andere getallen'; act.append(ib);
     let hb = null, tb = null;
     if(inst.hint && def.niv !== 3){ hb = hintBlok(inst.hint); act.append(knop('btn ghost', '💡 Hint', ()=>{ hb.hidden = !hb.hidden; })); }
     if(inst.toon){ tb = toonBlok(inst.toon); act.append(knop('btn ghost demo-btn', '▶ Toon mij hoe', ()=>{ tb.hidden = !tb.hidden; if(!tb.hidden) tb._open(); })); }
     const sol = el('div', 'sol', inst.sol || vr.map((v, i)=>`${vr.length > 1 ? (i + 1) + '. ' : ''}${antwTekst(v)}`).join('<br>')); sol.hidden = true;
     const sl = knop('linkbtn', 'Toon oplossing', ()=>{ sol.hidden = !sol.hidden; sl.textContent = sol.hidden ? 'Toon oplossing' : 'Verberg oplossing'; });
     sl.hidden = !st.n; act.append(sl);
-    main.append(act, fb); if(hb) main.append(hb); if(tb) main.append(tb); main.append(sol);
+    main.append(act, fb); if(hb) main.append(hb); main.append(sol); if(tb) card.append(tb);
     function controle(){
       let nJ = 0, nL = 0, geldTip = false;
       vr.forEach((v, i)=>{
@@ -384,6 +385,63 @@ function kaartEl(sec, kid, o = {}){
   card._vulJuist = ()=>{ const inst = maakKaart(kid, st.seed); st.v = {}; inst.vragen.forEach((v, i)=>{ st.v[i] = voorbeeldAntw(v); }); save(); teken(); };
   teken();
   return card;
+}
+
+/* ---------- Ik begrijp het niet: uitleg en een opgelost voorbeeld met andere getallen ----------
+   De uitleg per kaart staat in m<n>/60_uitleg.js: UITLEG({ kaartid:'html', ... }).
+   Het voorbeeld is dezelfde kaart met een ander zaadgetal: nooit de opgave die de leerling voor zich heeft.
+   Er wordt niets bewaard en niets doorgegeven aan het dashboard. */
+const UITLEG = o => Object.entries(o).forEach(([k, u])=>{ if(KAARTEN[k]) KAARTEN[k].uitleg = u; });
+const vingerafdruk = inst => JSON.stringify([inst.tekst, inst.fig, inst.vragen.map(v=>[v.t, String(v.a), v.voorbeeld, v.keuzes])]);
+function voorbeeldZaad(kid, seed, ook){
+  const weg = new Set([vingerafdruk(maakKaart(kid, seed))].concat(ook || []));
+  let z = null; for(let p = 0; p < 30; p++){ z = nieuwZaad(); if(!weg.has(vingerafdruk(maakKaart(kid, z)))) return z; }
+  return z;
+}
+/* een kaart in leesstand: alle antwoorden ingevuld en groen, met de uitgewerkte oplossing */
+function voorbeeldBlok(kid, z){
+  const inst = maakKaart(kid, z), vr = inst.vragen;
+  const box = el('div', 'kaart vb-kaart');
+  const body = el('div', 'kbody' + (inst.fig && !inst.boven ? ' met-fig' : '') + (inst.figRechts ? ' fig-rechts' : '') + (inst.breed ? ' breed' : ''));
+  if(inst.fig) body.append(el('div', 'kfig', inst.fig));
+  const main = el('div', 'kmain'); body.append(main);
+  if(inst.tekst) main.append(el('div', 'ktekst', inst.tekst));
+  const lijst = el('div', 'vragen' + (inst.q2 ? ' q2' : '') + (inst.q3 ? ' q3' : '')); main.append(lijst); box.append(body);
+  vr.forEach((v, i)=>{
+    const inv = vraagInvoer(v, voorbeeldAntw(v), ()=>{}); inv.dataset.dicht = '1'; if(inv._inp){ inv._inp.readOnly = true; inv._inp.tabIndex = -1; }
+    inv._markeer(true); inv.classList.add('vb-vin');
+    const slot = box.querySelector(`[data-v="${i}"]`);
+    if(slot){ slot.append(inv); slot.classList.add('slot'); return; }
+    const q = el('div', 'q'), blok = v.soort === 'keuze' || v.soort === 'multi' || v.soort === 'eigen' || v.blok;
+    if(v.t != null && v.t !== ''){ const qt = el('div', 'q-text' + (blok ? ' block' : ''), `<span class="qt">${v.t}</span>`); if(blok) q.append(qt, inv); else { qt.append(inv); q.append(qt); } }
+    else q.append(inv);
+    if(v.soort === 'eigen' && v.eigen.tekst) q.append(el('div', 'vb-antw', 'Antwoord: <b>' + v.eigen.tekst + '</b>'));
+    lijst.append(q);
+  });
+  main.append(el('div', 'sol vb-sol', '<b>Zo los je het op</b><br>' + (inst.sol || vr.map((v, i)=>`${vr.length > 1 ? (i + 1) + '. ' : ''}${antwTekst(v)}`).join('<br>'))));
+  if(inst.mount){ try{ inst.mount(box); }catch(e){} }
+  return box;
+}
+function ikBegrijpHetNiet(kid, seed, terug){
+  const def = KAARTEN[kid], gezien = [];
+  const ov = el('div', 'ibn-over'), v = el('div', 'ibn-venster');
+  v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true'); v.setAttribute('aria-label', 'Uitleg bij ' + def.titel); v.tabIndex = -1;
+  const kop = el('div', 'ibn-kop', `<h2>🤔 Uitleg bij: ${def.titel}</h2>`);
+  const sluit = ()=>{ ov.remove(); document.body.classList.remove('ibn-open'); document.removeEventListener('keydown', esc); try{ terug && terug.focus(); }catch(e){} };
+  const esc = e=>{ if(e.key === 'Escape') sluit(); };
+  kop.append(knop('ibn-x', '✕', sluit));
+  const uit = el('div', 'ibn-uitleg', '<h3>Zo werkt het</h3>' + (def.uitleg || '<p>Lees de opgave rustig. Zoek welke gegevens je nodig hebt en kijk naar het voorbeeld hieronder.</p>'));
+  const vbKop = el('div', 'ibn-vbkop', '<h3>Een voorbeeld</h3><p>Dit is een <b>andere opgave</b> van dezelfde soort, al opgelost. Je eigen oefening los je daarna zelf op.</p>');
+  const vbVak = el('div', 'ibn-vb');
+  const nog = knop('btn ghost', '↻ Nog een voorbeeld', ()=>toonVb());
+  const terugKnop = knop('btn', 'Terug naar mijn oefening', sluit);
+  const voet = el('div', 'ibn-voet'); voet.append(nog, terugKnop);
+  function toonVb(){ const z = voorbeeldZaad(kid, seed, gezien); gezien.push(vingerafdruk(maakKaart(kid, z))); vbVak.innerHTML = ''; vbVak.append(voorbeeldBlok(kid, z)); vbVak.scrollTop = 0; }
+  v.append(kop, uit, vbKop, vbVak, voet); ov.append(v);
+  ov.addEventListener('click', e=>{ if(e.target === ov) sluit(); });
+  document.addEventListener('keydown', esc);
+  document.body.append(ov); document.body.classList.add('ibn-open'); toonVb(); v.focus();
+  return v;
 }
 
 /* ---------- eenvoudige rekenmachine (zwevend venster) ---------- */
@@ -518,7 +576,8 @@ const FIG = [
    ============================================================ */
 const niveauVan = r => r >= .9 ? 'prima' : r >= .7 ? 'goed' : r >= .5 ? 'voldoende' : 'nog niet voldoende';
 
-/* TOETS = { titel, intro, kaarten:[kid, ...] }: elke kaart wordt een vraag; elk invulvak is één punt */
+/* TOETS = { titel, intro, kaarten:[kid, ...], kan:{ kid:'Ik-kan-zin' } }: elke kaart wordt een vraag; elk invulvak is één punt.
+   Na het verbeteren: Dit kan je al / Dit oefen je nog best, met de Ik-kan-zinnen van het werkboek en een knop Oefen dit. */
 function toetsPaneel(TOETS){
   const key = 'toets', pane = el('div', 'proeftoets');
   function teken(){
@@ -554,6 +613,7 @@ function toetsPaneel(TOETS){
           if(!ok){ const f = el('div', 'fb bad', `${it.inst.vragen.length > 1 ? (i + 1) + '. ' : ''}Juist was: <b>${antwTekst(v)}</b>`); (q || lijst).append(f); }
         }
       });
+      it.goed = goed;
       if(st.klaar){ score += goed; const hd = card.querySelector('.card-head'); hd.append(el('span', 'k-mark ' + (goed === it.inst.vragen.length ? 'ok' : 'bad'), `${goed}/${it.inst.vragen.length}`));
         if(it.inst.sol){ const s = el('div', 'sol', it.inst.sol); s.hidden = true; const l = knop('linkbtn', 'Toon oplossing', ()=>{ s.hidden = !s.hidden; l.textContent = s.hidden ? 'Toon oplossing' : 'Verberg oplossing'; }); const a = el('div', 'q-act'); a.append(l); main.append(a, s); } }
       pane.append(card); if(it.inst.mount) it.inst.mount(card);
@@ -569,7 +629,8 @@ function toetsPaneel(TOETS){
       }), fb);
     } else {
       const r = score / n;
-      pane.prepend(el('div', 'score', `<div class="big">${score}/${n}</div><div>Niveau: <span class="lvl">${niveauVan(r)}</span></div><div>${r < 1 ? 'Bij elke fout staat het juiste antwoord. Oefen die onderdelen nog eens.' : 'Knap gedaan!'}</div>`));
+      const scoreEl = el('div', 'score', `<div class="big">${score}/${n}</div><div>Niveau: <span class="lvl">${niveauVan(r)}</span></div><div>${r < 1 ? 'Bij elke fout staat het juiste antwoord. Hieronder zie je wat je nog best oefent.' : 'Knap gedaan!'}</div>`);
+      pane.prepend(scoreEl); scoreEl.after(toetsFeedback(TOETS, blokken));
       act.append(knop('btn big', 'Maak een nieuwe proeftoets', ()=>{ wis(key); teken(); pane.scrollIntoView({ block:'start' }); }));
     }
     pane.append(act);
@@ -577,6 +638,24 @@ function toetsPaneel(TOETS){
   pane._vulJuist = ()=>{ const st = lees(key); TOETS.kaarten.forEach(k=>{ const inst = maakKaart(k, st.seeds[k]); st.v[k] = {}; inst.vragen.forEach((v, i)=>{ st.v[k][i] = voorbeeldAntw(v); }); }); bewaar(key, st); teken(); };
   teken();
   return pane;
+}
+
+/* feedback na de proeftoets: per Ik-kan-zin alles juist (Dit kan je al) of niet (Dit oefen je nog best) */
+function toetsFeedback(TOETS, blokken){
+  const kan = TOETS.kan || {}, groep = new Map();
+  blokken.forEach(it=>{ let zin = kan[it.k] || KAARTEN[it.k].titel.toLowerCase(); zin = zin.charAt(0).toUpperCase() + zin.slice(1); const g = groep.get(zin) || { ok:true, kid:null, fout:0 }; const af = it.goed < it.inst.vragen.length; if(af){ g.ok = false; g.fout += it.inst.vragen.length - it.goed; if(!g.kid) g.kid = it.k; } groep.set(zin, g); });
+  const box = el('div', 'tfeedback'), al = el('div', 'tf-al'), nog = el('div', 'tf-nog');
+  const ulA = el('ul'), ulN = el('ul');
+  groep.forEach((g, zin)=>{
+    if(g.ok){ ulA.append(el('li', '', '✓ ' + zin)); return; }
+    const li = el('li', '', `<span>${zin}</span>`);
+    if(typeof gaNaarKaart === 'function' && kaartSectie(g.kid)) li.append(knop('btn klein tf-oefen', 'Oefen dit →', ()=>gaNaarKaart(g.kid)));
+    ulN.append(li);
+  });
+  al.append(el('h3', '', 'Dit kan je al'), ulA.children.length ? ulA : el('p', 'tf-leeg', 'Nog niets helemaal juist. Begin bij het eerste werkpunt.'));
+  nog.append(el('h3', '', 'Dit oefen je nog best'), ulN.children.length ? ulN : el('p', 'tf-leeg', 'Niets! Je hebt alles juist.'));
+  box.append(nog, al);
+  return box;
 }
 
 /* QUIZ = [ R => ({ t, a, voor, na, geld }) ]: 10 vragen in 3 minuten, één per keer */
@@ -914,6 +993,30 @@ K({ id:'pz_wegen', titel:'Hoeveel wegen de figuren?', niv:2, maak(R){
     sol:`${naam[a]}: ${S(r1)} : 3 = ${w[a]} kg · ${naam[b]}: ${S(r2)} – ${w[a]} = ${w[b]} kg · ${naam[c]}: (${S(r3)} – ${w[b]}) : 2 = ${w[c]} kg · ? = ${S(vraag)} kg` };
 } });
 
+/* ---------- MODULE 2: uitleg bij Ik begrijp het niet (per kaart) ---------- */
+const TRAP_UITLEG = (maten, stap) => `<p>Zet de maten op een trap: ${maten.map(m=>`<span class="fbox">${m}</span>`).join(' ')}</p><ul><li>Een trede <b>naar beneden</b> (naar een kleinere maat): <b>x ${stap}</b>.</li><li>Een trede <b>naar boven</b> (naar een grotere maat): <b>: ${stap}</b>.</li></ul><p>Tel het aantal treden. Schuif de komma ${stap === 100 ? 'twee plaatsen per trede' : 'één plaats per trede'}.</p>`;
+UITLEG({
+  e_kies:'<ul><li>Lengte: <b>km, m, dm, cm, mm</b>. Een deur is 2 m hoog, een munt 2 mm dik.</li><li>Massa: <b>ton, kg, g</b>. Een pak suiker weegt 1 kg.</li><li>Inhoud: <b>l, dl, cl, ml</b>. Een emmer bevat 10 l.</li><li>Oppervlakte: <b>m², dm², cm²</b> (met het tweetje).</li></ul><p>Denk na: is het groot of klein? Wat zou je meten: lengte, gewicht, inhoud of oppervlakte?</p>',
+  e_schat:'<p>Vergelijk met iets dat je kent:</p><ul><li><b>1 cm²</b>: de onderkant van een dobbelsteen.</li><li><b>1 dm²</b>: je handpalm.</li><li><b>1 m²</b>: de vloer van een kleine douche.</li></ul><p>Is het voorwerp groter of kleiner dan dat?</p>',
+  l_herleid:TRAP_UITLEG(['km', '100 m', '10 m', 'm', 'dm', 'cm', 'mm'], 10) + '<p>3,5 m = 35 dm = 350 cm (twee treden naar beneden: x 100).</p>',
+  m_herleid:TRAP_UITLEG(['ton', '100 kg', '10 kg', 'kg', '100 g', '10 g', 'g', 'dg', 'cg', 'mg'], 10) + '<p>1 ton = 1 000 kg en 1 kg = 1 000 g. 2,5 kg = 2 500 g.</p>',
+  lm_dieren:'<ol><li>Kijk van welke maat naar welke maat je moet.</li><li>Grotere maat → kleinere maat: het getal wordt <b>groter</b> (x 10, x 100, x 1 000).</li><li>Kleinere maat → grotere maat: het getal wordt <b>kleiner</b>.</li></ol><p>1 km = 1 000 m · 1 m = 100 cm · 1 cm = 10 mm · 1 ton = 1 000 kg · 1 kg = 1 000 g</p>',
+  i_herleid:TRAP_UITLEG(['l', 'dl', 'cl', 'ml'], 10) + '<p>1 l = 10 dl = 100 cl = 1 000 ml.</p>',
+  i_recept:'<ol><li>Zet elke hoeveelheid om naar ml: 1 l = 1 000 ml, 1 dl = 100 ml, 1 cl = 10 ml.</li><li>Tel alles samen.</li><li>Per persoon: deel door het aantal personen.</li></ol>',
+  i_soep:'<ol><li>Zet alles in dezelfde maat (meestal ml): 1 l = 1 000 ml.</li><li>Hoeveel porties? Deel de totale hoeveelheid door één portie.</li><li>Verdelen over glazen: deel door het aantal glazen.</li></ol>',
+  o_herleid:TRAP_UITLEG(['m²', 'dm²', 'cm²', 'mm²'], 100) + '<p>1 m² = 100 dm² = 10 000 cm².</p>',
+  o_land:'<p>Landmaten:</p><ul><li><b>1 ca</b> = 1 m²</li><li><b>1 a</b> = 100 m² (10 m op 10 m)</li><li><b>1 ha</b> = 100 a = 10 000 m² (100 m op 100 m)</li><li><b>1 km²</b> = 100 ha</li></ul><p>Elke stap is x 100 of : 100. 3 ha = 300 a = 30 000 m².</p>',
+  o_rooster:'<ul><li><b>Omtrek</b>: de lengte van de rand. Tel de zijden van de hokjes langs de rand (in cm).</li><li><b>Oppervlakte</b>: hoeveel plaats de figuur inneemt. Tel de hokjes binnenin (in cm²). Twee halve hokjes = één heel.</li></ul>',
+  o_kleur:'<ol><li>Tel de hokjes van de eerste figuur: dat is de oppervlakte.</li><li>Tel hoeveel hokjes er in het tweede rooster al gekleurd zijn.</li><li>Kleur het verschil erbij.</li></ol>',
+  o_tegels:'<ol><li>Zet alles in dezelfde maat: 1 m² = 100 dm².</li><li>Hoeveel tegels? Deel de oppervlakte door de oppervlakte van één tegel.</li><li>Planten per stuk grond: hoeveel keer past het stukje in het geheel? Doe dat aantal x het aantal planten.</li></ol>',
+  pr_sprong:'<ol><li>Lees in de tabel hoe ver elk dier springt.</li><li>Zet de getallen in <b>dezelfde maat</b> voor je vergelijkt (alles in cm, bv.).</li><li>Hoeveel verder = groot – klein. Hoeveel keer verder = groot : klein.</li></ol>',
+  pr_vraag:'<ol><li>Lees de vraag: wat moet je zoeken?</li><li>Zet de maten in dezelfde eenheid (3 m = 300 cm, 1 ton = 1 000 kg).</li><li>Kies de bewerking en reken uit. Schrijf de eenheid bij je antwoord.</li></ol>',
+  pr_meloen:'<p>In een <b>verhoudingstabel</b> doe je boven en onder telkens hetzelfde.</p><p>1 kg = 1 000 g. Van 1 000 g naar 100 g: : 10. Van 100 g naar 300 g: x 3.</p><p>€ 2,40 per kg → 100 g kost € 0,24 → 300 g kost € 0,72.</p>',
+  pr_fiets:'<p>Aan <b>20 km per uur</b> rijd je 20 km in 60 minuten.</p><ol><li>Hoeveel minuten voor 1 km? 60 : 20 = 3 minuten.</li><li>Voor de hele afstand: minuten per km x aantal km.</li><li>Tel de reistijd op bij het vertrekuur.</li></ol>',
+  pr_overbodig:'<p>Niet elk gegeven in een vraagstuk heb je nodig.</p><ol><li>Lees eerst de <b>vraag</b>.</li><li>Zoek welk gegeven je nodig hebt om ze te beantwoorden.</li><li>De andere gegevens zijn <b>overbodig</b>.</li></ol>',
+  pz_wegen:'<ol><li>Zoek een rij waarin maar <b>één soort</b> figuur staat. Deel het totaal door het aantal figuren.</li><li>Vul die waarde in bij de andere rijen. Trek af wat je al kent.</li><li>Zo vind je stap voor stap alle figuren.</li></ol>'
+});
+
 /* ---------- MODULE 2: onderdelen, proeftoets en snelle quiz ----------
    Nieuwe kaarten altijd achteraan een onderdeel toevoegen; kaart-id's nooit hernoemen (opslagsleutel en vraag-id). */
 const SECS = [
@@ -926,7 +1029,8 @@ const SECS = [
   { id:'quiz', nav:'Snelle quiz', title:'Snelle quiz', ic:'quiz', soort:'quiz', telt:false },
   { id:'toets', nav:'Proeftoets', title:'Proeftoets lengte, massa, inhoud en oppervlakte', ic:'toets', soort:'toets', sepBefore:true }
 ];
-const TOETS = { titel:'Proeftoets lengte, massa, inhoud en oppervlakte', kaarten:['o_rooster', 'e_kies', 'lm_dieren', 'i_recept', 'o_herleid', 'o_land', 'pr_vraag'] };
+const TOETS = { titel:'Proeftoets lengte, massa, inhoud en oppervlakte', kaarten:['o_rooster', 'e_kies', 'lm_dieren', 'i_recept', 'o_herleid', 'o_land', 'pr_vraag'],
+  kan:{ o_rooster:'de omtrek en de oppervlakte van een figuur bepalen', e_kies:'de juiste eenheid kiezen bij lengte, massa, inhoud en oppervlakte', lm_dieren:'lengtematen en massamaten herleiden', i_recept:'inhoudsmaten herleiden', o_herleid:'vlaktematen herleiden', o_land:'landmaten herleiden (a, ha, km²)', pr_vraag:'vraagstukken over lengte, massa en inhoud oplossen' } };
 const QUIZ = [
   R=>{ const x = R.int(2, 9); return { t:`${x} km = … m`, a:x * 1000, na:'m' }; },
   R=>{ const x = R.int(11, 99) / 10; return { t:`${nf(x)} m = … cm`, a:rnd(x * 100), na:'cm' }; },
@@ -962,6 +1066,9 @@ const ICONS = {
   vlak:'<path d="M4 18l4-12h12l-4 12z"/>',
   ruimte:'<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   blok:'<path d="M3 10l6-3 6 3-6 3z"/><path d="M3 10v6l6 3v-6M15 10v6l-6 3"/><path d="M15 10l6-3v6l-6 3"/>',
+  hoek:'<path d="M4 20h16M4 20 17 6"/><path d="M11 20a7 7 0 0 0-2-5"/>',
+  teken:'<path d="M4 20h16M4 20V4"/><path d="M8 16l3-8 6 2-2 6z"/>',
+  vraag:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17v.01"/>',
   puzzel:'<path d="M10 3h4v3a2 2 0 1 0 4 0V3h3v7h-3a2 2 0 1 0 0 4h3v7h-7v-3a2 2 0 1 0-4 0v3H3v-7h3a2 2 0 1 0 0-4H3V3z"/>',
   quiz:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>',
   toets:'<path d="M9 4h6v3H9z"/><path d="M15 5h3v16H6V5h3"/><path d="m9 13 2 2 4-4"/>'
@@ -1018,8 +1125,17 @@ function show(id, scroll){
   try{ localStorage.setItem(PREFIX + 'tab', id); }catch(e){}
   if(scroll) window.scrollTo({ top:0, behavior:'smooth' });
 }
+/* naar de oefenkaart springen (feedback na de proeftoets) */
+function kaartSectie(kid){ return SECS.find(s=>(s.kaarten || []).includes(kid) || (s.verd || []).includes(kid)); }
+function gaNaarKaart(kid){
+  const sec = kaartSectie(kid); if(!sec) return; const inVerd = (sec.verd || []).includes(kid);
+  bewaar('stab_' + sec.id, inVerd ? 'verd' : 'oef'); show(sec.id, false);
+  const s = secEls[sec.id], t = s.querySelectorAll('.tabs .tab'); if(t.length) t[inVerd ? 1 : 0].click();
+  const c = s.querySelector(`.card[data-kaart="${kid}"]`);
+  if(c){ c.scrollIntoView({ block:'start', behavior:'smooth' }); c.classList.add('flits'); setTimeout(()=>c.classList.remove('flits'), 2200); } else window.scrollTo({ top:0, behavior:'smooth' });
+}
 /* testhaak (enkel voor de testscripts) */
-window.__m2b = { KAARTEN, maakKaart, vraagJuist, SECS };
+window.__m2b = { KAARTEN, maakKaart, vraagJuist, SECS, TOETS, ikBegrijpHetNiet, gaNaarKaart };
 if(SECS.length){
   let startId = SECS[0].id;
   try{ const h = location.hash.slice(1), t = localStorage.getItem(PREFIX + 'tab'); if(secEls[h]) startId = h; else if(t && secEls[t]) startId = t; }catch(e){}
