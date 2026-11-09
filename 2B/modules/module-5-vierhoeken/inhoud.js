@@ -1096,7 +1096,7 @@ function matenFig(pts, maten, o = {}){
   let s = veelhoek(pts, { f:VUL, k:KL, w:2.2 });
   if(o.recht) pts.forEach((q, i)=>{ s += rhoekL(q, pts[(i + 1) % pts.length], pts[(i + pts.length - 1) % pts.length], { s:8, g:3, k:KL }); });
   pts.forEach((p, i)=>{ const q = pts[(i + 1) % pts.length]; if(!maten[i]) return; const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; let nx = q[1] - p[1], ny = -(q[0] - p[0]); const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
-    if(binnen([m[0] + nx * 4, m[1] + ny * 4], pts)){ nx = -nx; ny = -ny; } s += tekst(rnd(m[0] + nx * (8 + 22 * Math.abs(nx)), 1), rnd(m[1] + ny * 13, 1), maten[i], { s:13, f:'var(--ink)' }); });
+    if(binnen([m[0] + nx * 4, m[1] + ny * 4], pts)){ nx = -nx; ny = -ny; } s += tekst(rnd(m[0] + nx * 7, 1), rnd(m[1] + ny * 11, 1), maten[i], { s:13, f:'var(--ink)', a:nx > .35 ? 'start' : nx < -.35 ? 'end' : 'middle' }); });
   if(o.extra) s += o.extra;
   if(o.nr) s += tekst(12, 12, o.nr, { s:13 });
   return svg(W, H, s, { label:o.label || 'figuur', b:o.bw || W });
