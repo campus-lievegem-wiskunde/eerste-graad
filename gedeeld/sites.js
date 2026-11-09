@@ -346,15 +346,21 @@ export const SITES = [
    },
    {
     "id": "modus",
-    "naam": "Modus en variatiebreedte",
+    "naam": "Modus",
     "toets": false,
-    "vragen": 20
+    "vragen": 13
+   },
+   {
+    "id": "vb",
+    "naam": "Variatiebreedte",
+    "toets": false,
+    "vragen": 16
    },
    {
     "id": "gem",
     "naam": "Het gemiddelde",
     "toets": false,
-    "vragen": 32
+    "vragen": 34
    },
    {
     "id": "med",
