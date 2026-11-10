@@ -16,6 +16,8 @@
 
   /* ---------- bordmodus op elke oefenpagina ---------- */
   if(document.getElementById('app')){ const sb = document.createElement('script'); sb.src = new URL('bord.js', me.src).href; document.head.append(sb); }
+  /* ---------- zwevende vensters (rekenmachine, spiekbriefje, uitleg) versleepbaar op elke pagina ---------- */
+  { const sv = document.createElement('script'); sv.src = new URL('versleep.js', me.src).href; document.head.append(sv); }
 
   /* ---------- kop ---------- */
   const hdr = document.querySelector('header.top');
