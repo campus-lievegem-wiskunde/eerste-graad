@@ -1,7 +1,8 @@
-/* 2B Modules 1-4 (sites 2b-m1 tot 2b-m4), met de nep-Firebase.
+/* 2B Modules 1-5 (sites 2b-m1 tot 2b-m5), met de nep-Firebase.
    node test/modules2b.js   (eerst test/serve.sh)
    Leerling van klas 2B: tegel Modules, enkel de open modules, verborgen onderdeel weg, kaart controleren en nieuwe opgave,
-   puzzels tellen niet mee, proeftoets met score, voortgang in Firestore. Leerkracht: Bord op een kaart, niet in de proeftoets. */
+   puzzels tellen niet mee, proeftoets met score en feedback (Dit oefen je nog best, Oefen dit), Ik begrijp het niet (uitleg en een ander voorbeeld),
+   module 5: vierhoek tekenen op het rooster en de geodriehoek verslepen, voortgang in Firestore. Leerkracht: Bord op een kaart, niet in de proeftoets. */
 const H = require('./helpers');
 (async()=>{
   const { b, ctx } = await H.context({ breedte:1366 }); let ok = true; const check = (c, t)=>{ console.log((c ? 'OK   ' : 'FOUT ') + t); if(!c) ok = false; };
@@ -9,7 +10,7 @@ const H = require('./helpers');
   const LK = { uid:'lk', email:'vandaele.tom@svsl.be', displayName:'Tom Van Daele' };
   const start = { 'leerkrachten/vandaele.tom@svsl.be':{ naam:'Tom Van Daele' },
     'leerlingen/jacobs.senne@svsl.be':{ familienaam:'Jacobs', voornaam:'Senne', klas:'2B', jaar:'2', stroom:'B' },
-    'groepen/2B':{ naam:'2B', jaar:'2', stroom:'B', soort:'klas B-stroom', leerkrachten:[LK.email], leerlingen:[LL.email], aan:{ '2b-m1':{ on:true, uit:['schatten'] }, '2b-m3':{ on:true, uit:[] } } } };
+    'groepen/2B':{ naam:'2B', jaar:'2', stroom:'B', soort:'klas B-stroom', leerkrachten:[LK.email], leerlingen:[LL.email], aan:{ '2b-m1':{ on:true, uit:['schatten'] }, '2b-m3':{ on:true, uit:[] }, '2b-m5':{ on:true, uit:[] } } } };
   const p = await H.pagina(ctx, start);
   await H.aanmelden(p, '2B/modules/', LL); await p.waitForTimeout(1000);
   check(await p.locator('a.tegel[data-site="2b-m1"]:visible').count() === 1 && await p.locator('a.tegel[data-site="2b-m3"]:visible').count() === 1, 'open modules 1 en 3 staan bij Modules');
@@ -35,6 +36,16 @@ const H = require('./helpers');
   await p.evaluate(()=>document.querySelector('[data-kaart="geld_gepast"]')._vulJuist()); await p.locator('[data-kaart="geld_gepast"] .q-act .btn').first().click(); await p.waitForTimeout(100);
   check(/^Juist/.test(await p.locator('[data-kaart="geld_gepast"] .kfb').innerText()), 'gepast betalen met munten en biljetten: Juist!');
 
+  /* Ik begrijp het niet: uitleg en een opgelost voorbeeld met andere getallen, niets bewaard */
+  const resVoor = await p.evaluate(()=>localStorage.getItem('2b_m1_rekenen_v1__res'));
+  await kaart.locator('.ibn-btn').click(); await p.waitForTimeout(150);
+  const ibn = await p.evaluate(()=>{ const v = document.querySelector('.ibn-venster'); const eigen = [...document.querySelectorAll('[data-kaart="geld_komma"] .qt')].map(x=>x.textContent).join('|'); const vb = [...v.querySelectorAll('.vb-kaart .qt')].map(x=>x.textContent).join('|');
+    return { uitleg:!!v.querySelector('.ibn-uitleg li, .ibn-uitleg p'), sol:!!v.querySelector('.vb-sol'), anders:eigen !== vb && vb.length > 0, ingevuld:[...v.querySelectorAll('.vb-kaart .inp')].every(i=>i.value !== '' && i.readOnly) }; });
+  check(ibn.uitleg && ibn.sol && ibn.anders && ibn.ingevuld, 'Ik begrijp het niet: uitleg en een opgelost voorbeeld met een andere opgave');
+  await p.click('.ibn-voet .btn.ghost'); await p.waitForTimeout(100);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+  check(await p.locator('.ibn-over').count() === 0 && resVoor === await p.evaluate(()=>localStorage.getItem('2b_m1_rekenen_v1__res')), 'venster sluit met Escape en er wordt niets bewaard');
+
   /* puzzels tellen niet mee */
   await p.click('nav.side button:has-text("Puzzels")'); await p.waitForTimeout(200);
   await p.evaluate(()=>document.querySelector('[data-kaart="p_som"]')._vulJuist()); await p.locator('[data-kaart="p_som"] .q-act .btn').first().click(); await p.waitForTimeout(100);
@@ -52,11 +63,40 @@ const H = require('./helpers');
   await p.click('.proeftoets .pt-actions .btn'); await p.waitForTimeout(300);
   const sc = await p.locator('.proeftoets .score .big').innerText(); const [s1, n1] = sc.split('/').map(Number);
   check(s1 === n1 && n1 >= 20, 'proeftoets volledig juist: ' + sc);
+  check(await p.locator('.proeftoets .ibn-btn').count() === 0, 'geen knop Ik begrijp het niet in de proeftoets');
+  check(await p.locator('.tfeedback .tf-al li').count() >= 5 && /Niets/.test(await p.locator('.tfeedback .tf-nog').innerText()), 'feedback na de proeftoets: alles bij Dit kan je al');
   const toets = await p.evaluate(()=>JSON.parse(localStorage.getItem('2b_m1_rekenen_v1__toets') || '{}'));
   check(toets.toets_1 && toets.toets_1.score === s1, 'score bewaard onder toets_1');
   await p.evaluate(()=>window.dispatchEvent(new Event('pagehide'))); await p.waitForTimeout(800);
   const doc = (await H.fakedb(p))['voortgang/llb_2b-m1'];
   check(doc && doc.data && doc.data._res && doc.data._toets, 'voortgang staat in Firestore onder 2b-m1');
+  /* nieuwe proeftoets met een fout: werkpunt met Oefen dit */
+  await p.click('.proeftoets .pt-actions .btn'); await p.waitForTimeout(200);
+  await p.evaluate(()=>document.querySelector('.proeftoets')._vulJuist()); await p.waitForTimeout(100);
+  await p.locator('.proeftoets .tkaart').first().locator('.inp').first().fill('999'); await p.click('.proeftoets .pt-actions .btn'); await p.waitForTimeout(300);
+  check(await p.locator('.tfeedback .tf-nog li').count() === 1 && /geld/i.test(await p.locator('.tfeedback .tf-nog li').innerText()), 'feedback: Rekenen met geld bij Dit oefen je nog best');
+  await p.click('.tf-oefen'); await p.waitForTimeout(400);
+  check(await p.locator('section#geld:visible').count() === 1 && await p.locator('[data-kaart="geld_tel"].flits').count() === 1, 'Oefen dit springt naar de oefening Tel het geld');
+
+  /* module 5: vierhoek tekenen op het rooster */
+  await p.goto(H.B + '2B/modules/module-5-vierhoeken/'); await p.waitForTimeout(1500);
+  await p.click('nav.side button:has-text("Tekenen")'); await p.waitForTimeout(200);
+  const tk = p.locator('[data-kaart="t_teken"]');
+  const pts = await p.evaluate(()=>{ const st = JSON.parse(localStorage.getItem('2b_m5_vierhoek_v1_k_t_teken')); return window.__m2b.maakKaart('t_teken', st.seed).vragen[0].voorbeeld; });
+  await tk.locator('.teken-fig').scrollIntoViewIfNeeded();
+  const klik = async([x, y])=>{ const sv = tk.locator('.teken-fig svg'); const box = await sv.boundingBox(); const w = await sv.evaluate(s=>s.viewBox.baseVal.width); const f = box.width / w; await p.mouse.click(box.x + (12 + x * 26) * f, box.y + (12 + y * 26) * f); };
+  for(const q of [pts[2], pts[0], pts[3], pts[1]]) await klik(q);
+  await tk.locator('.q-act .btn').first().click(); await p.waitForTimeout(100);
+  check(/^Juist/.test(await tk.locator('.kfb').innerText()), 'vierhoek tekenen door hoekpunten aan te klikken (in eender welke volgorde): Juist!');
+  await klik(pts[1]); await klik([pts[1][0] + 1, pts[1][1]]); await tk.locator('.q-act .btn').first().click(); await p.waitForTimeout(100);
+  check(/Nog niet juist/.test(await tk.locator('.kfb').innerText()), 'een verkeerde vierhoek: Nog niet juist');
+  /* geodriehoek verslepen */
+  await p.click('nav.side button:has-text("Hoeken"):not(:has-text("Vier"))'); await p.waitForTimeout(200);
+  const geo = p.locator('[data-kaart="h_meten"] .geo'); await geo.scrollIntoViewIfNeeded(); const t0 = await geo.getAttribute('transform'); const gb = await geo.locator('.geo-lijf').boundingBox();
+  await p.mouse.move(gb.x + gb.width * .3, gb.y + gb.height * .8); await p.mouse.down(); await p.mouse.move(gb.x + gb.width * .3 - 120, gb.y + gb.height * .8 - 60, { steps:5 }); await p.mouse.up();
+  check(t0 !== await geo.getAttribute('transform'), 'geodriehoek kan je verslepen');
+  await p.click('[data-kaart="h_meten"] .geo-knoppen .btn >> nth=1'); await p.waitForTimeout(50);
+  check(/rotate\(1\)|rotate\(-?\d/.test(await geo.getAttribute('transform')), 'geodriehoek draait met de knoppen');
 
   /* module 3: punten zetten in het assenstelsel (x-as groen, y-as rood) */
   await p.goto(H.B + '2B/modules/module-3-coordinaten/'); await p.waitForTimeout(1500);
