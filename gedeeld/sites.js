@@ -574,6 +574,35 @@ export const SITES = [
   ]
  },
  {
+  "id": "1a-pex",
+  "titel": "Proefexamen december",
+  "kort": "Proefexamen dec.",
+  "jaar": "1A",
+  "rubriek": "modules",
+  "pad": "1A/modules/proefexamen-december/",
+  "prefix": "1a_pex_dec_v1_",
+  "onderdelen": [
+   {
+    "id": "toets1",
+    "naam": "Proefexamen 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proefexamen 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proefexamen 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
   "id": "2a-m1",
   "titel": "Module 1 · Transformaties van het vlak en symmetrie",
   "kort": "Module 1",
