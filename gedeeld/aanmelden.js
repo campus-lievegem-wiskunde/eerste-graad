@@ -301,10 +301,10 @@ async function start(u){
     document.querySelectorAll('a.tegel[data-rubriek], a.tegel[data-opdr]').forEach(t=>t.remove());
     if(B.dataset.rubriek) document.querySelectorAll('.tegels').forEach(t=>t.replaceChildren(el('p', 'leeg', 'Hier staat nog niets.')));
   }
-  /* tegels van sites enkel voor beheerders (enkelBeheerder in sites.js): weg voor andere leerkrachten en toeschouwers; leerlingen zien ze enkel als ze openstaan (tegelsFilteren) */
+  /* tegels van sites enkel voor bepaalde leerkrachten (enkelVoor in sites.js): weg voor andere leerkrachten en toeschouwers; leerlingen zien ze enkel als ze openstaan (tegelsFilteren) */
   if(rol !== 'leerling' && document.querySelector('a.tegel[data-site]')){
     try{ const { SITES } = await import('./sites.js');
-      document.querySelectorAll('a.tegel[data-site]').forEach(t=>{ const s = SITES.find(x=>x.id === t.dataset.site); if(s && !siteZichtbaar(s, rol, !!db.zandbak)) t.remove(); });
+      document.querySelectorAll('a.tegel[data-site]').forEach(t=>{ const s = SITES.find(x=>x.id === t.dataset.site); if(s && !siteZichtbaar(s, email, !!db.zandbak)) t.remove(); });
     }catch(e){ console.warn('Sites laden mislukt', e); }
   }
   resolveKlaar({ user:u, email, rol, groepen, toeschouwer:!!db.zandbak });

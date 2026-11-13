@@ -581,7 +581,9 @@ export const SITES = [
   "rubriek": "proefexamens",
   "pad": "1A/proefexamens/december/",
   "prefix": "1a_pex_dec_v1_",
-  "enkelBeheerder": true,
+  "enkelVoor": [
+   "dejaeger.jeroen@svsl.be"
+  ],
   "onderdelen": [
    {
     "id": "toets1",

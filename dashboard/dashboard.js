@@ -849,8 +849,8 @@ function wisKaart(body){
 async function laadAlles(){ await Promise.all([laadGroepen(), laadLeerkrachten()]); if(ST.rol === 'beheerder') await laadFouten().catch(e=>console.error(e)); }
 const s = await klaar;
 ST.me = s.email; ST.rol = s.rol; ST.toeschouwer = s.toeschouwer;
-/* sites enkel voor beheerders (enkelBeheerder in sites.js) weglaten voor de anderen, ook in opdrachten.js (zelfde lijst) */
-for(let i = SITES.length - 1; i >= 0; i--) if(!siteZichtbaar(SITES[i], ST.rol, ST.toeschouwer)) SITES.splice(i, 1);
+/* sites enkel voor bepaalde leerkrachten (enkelVoor in sites.js) weglaten voor de anderen, ook in opdrachten.js (zelfde lijst) */
+for(let i = SITES.length - 1; i >= 0; i--) if(!siteZichtbaar(SITES[i], ST.me, ST.toeschouwer)) SITES.splice(i, 1);
 if(s.rol === 'leerling'){
   root.append(el('div', 'tip', '<div><b>Dit dashboard is enkel voor leerkrachten.</b> Ga naar de <a href="../">oefeningen</a>.</div>'));
 } else {
