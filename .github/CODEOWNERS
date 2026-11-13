@@ -1,10 +1,13 @@
 # Wie automatisch gevraagd wordt om een pull request na te kijken. Hoort bij .github/goedkeuring.js:
-# de controle "goedkeuring" daar beslist wie echt moet goedkeuren (ook per site in gedeeld/sites.js). Houd beide gelijk.
-*                               @dejaegerjeroen
-/*/basisgeletterdheid/          @vandaelet @dejaegerjeroen
-/*/heuristieken/                @vandaelet @dejaegerjeroen
-/*/wiskundige-problemen/        @vandaelet @dejaegerjeroen
-/2B/modules/                    @vandaelet @dejaegerjeroen
-/2B/index.html                  @vandaelet @dejaegerjeroen
-/test/wiskundigeproblemen.js    @vandaelet @dejaegerjeroen
-/test/wiskundigeproblemen2b.js  @vandaelet @dejaegerjeroen
+# de controle "goedkeuring" daar beslist wie echt moet goedkeuren. Houd beide gelijk.
+# Sinds 13 november 2026 hebben enkel de gevoelige delen een eigenaar: wijzigt een pull request niets daarvan,
+# dan wordt niemand gevraagd en mag de maker zelf samenvoegen zodra de tests slagen.
+/firestore.rules                @dejaegerjeroen
+/dashboard/                     @dejaegerjeroen
+/gedeeld/                       @dejaegerjeroen
+/test/                          @dejaegerjeroen
+/.github/                       @dejaegerjeroen
+# Geen eigenaar: de lijst met sites (per site bekeken in goedkeuring.js) en de eigen tests van Tom.
+/gedeeld/sites.js
+/test/wiskundigeproblemen.js
+/test/wiskundigeproblemen2b.js

@@ -12,7 +12,7 @@ Oefensites voor wiskunde in de eerste graad, in de huisstijl van Campus Lievegem
 | `dashboard/` | Dashboard voor leerkrachten (mijn groepen, leerlingen, openzetten, voortgang) en beheer (import, leerkrachten, groepen). |
 | `gedeeld/sites.js` | Lijst van alle sites en hun onderdelen; een nieuwe site voeg je hier toe. |
 | `test/` | Lokaal testen met een nep-Firebase (`test/README.md`): rooktest en het opnieuw maken van `sites.js`. |
-| `.github/` | Automatische controles bij elke pull request: `tests` (alle tests met de nep-Firebase) en `goedkeuring` (Tom heeft enkel nog Jeroens goedkeuring nodig als hij `firestore.rules` of `.github/` wijzigt; Jeroen heeft nooit een goedkeuring nodig; zie `.github/goedkeuring.js`). |
+| `.github/` | Automatische controles bij elke pull request: `tests` (alle tests met de nep-Firebase) en `goedkeuring` (Tom heeft enkel Jeroens goedkeuring nodig als hij een gevoelig deel wijzigt: `firestore.rules`, `dashboard/`, `gedeeld/` (behalve `sites.js`), `test/` of `.github/`; zijn modules en oefeningen voegt hij zelf samen zodra de tests slagen; Jeroen heeft nooit een goedkeuring nodig; zie `.github/goedkeuring.js` en `.github/CODEOWNERS`). |
 | `firestore.rules` | Toegangsregels voor Firebase (plakken in Firestore → Rules). |
 
 Elke module staat online op `https://campus-lievegem-wiskunde.github.io/eerste-graad/1A/modules/<map>/`.
