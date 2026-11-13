@@ -2,9 +2,8 @@
    Elk bestand heeft een eigenaar. Wijzigt iemand bestanden van een andere eigenaar, dan moet die eigenaar de pull request
    goedkeuren (Approve) op de laatste commit. Wie enkel eigen bestanden wijzigt, mag zelf samenvoegen zodra de tests slagen.
    Jeroen (STANDAARD) is eigenaar van alles: zijn pull requests hebben nooit een andere goedkeuring nodig; Tom is eigenaar van zijn delen.
-   Een bestand van Jeroen vraagt enkel zijn goedkeuring als het BEWAAKT is. Sinds 13 november 2026 zijn dat de gevoelige delen:
-   firestore.rules, dashboard/, gedeelde code (gedeeld/, behalve sites.js), test/ en .github/.
-   Al de rest (modules, oefeningen, jaarpagina's, sites.js) mag Tom samenvoegen zodra de tests slagen.
+   Sinds 27 oktober 2026 vraagt een bestand van Jeroen enkel nog zijn goedkeuring als het BEWAAKT is (firestore.rules en .github/);
+   al de rest mag Tom samenvoegen zodra de tests slagen. Sinds 13 november 2026 vraagt CODEOWNERS Jeroen ook enkel daarvoor nog om na te kijken.
    gedeeld/sites.js wordt per site bekeken: het element van een site hoort bij de eigenaar van haar pad.
    Draait met de versie van main (pull_request_target) en voert geen code uit de pull request uit. */
 const EIGENAARS = [
@@ -16,7 +15,7 @@ const EIGENAARS = [
   ] },
 ];
 const STANDAARD = { wie:'dejaegerjeroen', naam:'Jeroen De Jaeger' };
-const BEWAAKT = [ /^firestore\.rules$/, /^dashboard\//, /^gedeeld\/(?!sites\.js)/, /^test\//, /^\.github\// ];
+const BEWAAKT = [ /^firestore\.rules$/, /^\.github\// ];
 const SITES = 'gedeeld/sites.js';
 
 const { GH_TOKEN, REPO, PR, GITHUB_STEP_SUMMARY } = process.env;
