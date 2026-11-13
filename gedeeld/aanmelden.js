@@ -4,7 +4,7 @@
    Andere modules (zoals het dashboard) gebruiken: import { klaar } from '…/aanmelden.js'; const s = await klaar;
    Een toeschouwer (collectie toeschouwers, bv. de directeur) werkt in een oefenomgeving: F en db wijzen dan naar
    zandbak.js: hij leest de echte gegevens, maar wat hij wijzigt blijft in deze browser. F en db zijn daarom 'let' (live bindings). */
-import { OPDRACHTEN, groepVoor, toetsSluit, opdrZichtbaar, rubriekGevuld } from './opdrachten.js';
+import { OPDRACHTEN, groepVoor, toetsSluit, opdrZichtbaar, rubriekGevuld, siteZichtbaar } from './opdrachten.js';
 const V = '10.12.2';
 export let [{ initializeApp }, A, F, C] = await Promise.all([
   import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
@@ -300,6 +300,12 @@ async function start(u){
   if(!opdrZichtbaar(rol, !!db.zandbak)){
     document.querySelectorAll('a.tegel[data-rubriek], a.tegel[data-opdr]').forEach(t=>t.remove());
     if(B.dataset.rubriek) document.querySelectorAll('.tegels').forEach(t=>t.replaceChildren(el('p', 'leeg', 'Hier staat nog niets.')));
+  }
+  /* tegels van sites enkel voor beheerders (enkelBeheerder in sites.js): weg voor andere leerkrachten en toeschouwers; leerlingen zien ze enkel als ze openstaan (tegelsFilteren) */
+  if(rol !== 'leerling' && document.querySelector('a.tegel[data-site]')){
+    try{ const { SITES } = await import('./sites.js');
+      document.querySelectorAll('a.tegel[data-site]').forEach(t=>{ const s = SITES.find(x=>x.id === t.dataset.site); if(s && !siteZichtbaar(s, rol, !!db.zandbak)) t.remove(); });
+    }catch(e){ console.warn('Sites laden mislukt', e); }
   }
   resolveKlaar({ user:u, email, rol, groepen, toeschouwer:!!db.zandbak });
   if(rol === 'leerling') tegelsFilteren(groepen);

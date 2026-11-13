@@ -19,6 +19,9 @@ export const OPDRACHTEN = [
    'iedereen' = alle leerkrachten, en leerlingen zodra iets voor hun groep openstaat. */
 export const OPDR_ZICHTBAAR = 'beheerder';
 export const opdrZichtbaar = (rol, toeschouwer) => OPDR_ZICHTBAAR === 'iedereen' || (rol === 'beheerder' && !toeschouwer);
+/* een site met enkelBeheerder:true in sites.js (bv. de proefexamens 1A, keuze van Jeroen, 13 november 2026) zien enkel beheerders in het dashboard
+   en op de jaarpagina; enkel zij kunnen ze dus openzetten. Leerlingen zien ze zodra ze voor hun groep openstaan. */
+export const siteZichtbaar = (s, rol, toeschouwer) => !s.enkelBeheerder || (rol === 'beheerder' && !toeschouwer);
 /* punten omrekenen naar de schaal van het rapport (o.op, bv. 5), op 0,1 afgerond */
 export const opSchaal = (o, totaal, max) => o.op && max ? Math.round(totaal / max * o.op * 10) / 10 : null;
 export const RUBRIEKEN_OPDR = [['toetsen', 'Toetsen'], ['huistaken', 'Huistaken'], ['rekenvaardigheden', 'Rekenvaardigheden']];
