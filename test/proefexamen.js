@@ -12,9 +12,11 @@ const H = require('./helpers');
     'leerlingen/janssens.lars@svsl.be':{ familienaam:'Janssens', voornaam:'Lars', klas:'1E', jaar:'1', stroom:'A' },
     'groepen/1ANg1':{ naam:'1ANg1', jaar:'1', stroom:'A', soort:'niveaugroep', leerkrachten:[LK], leerlingen:[LL.email], aan:{ '1a-pex':{ on:true, uit:['toets3'] } } } };
   const p = await H.pagina(ctx, start);
-  await H.aanmelden(p, '1A/modules/', LL); await p.waitForTimeout(800);
-  check(await p.locator('a.tegel[data-site="1a-pex"]:visible').count() === 1, 'tegel Proefexamen december staat open in 1A › Modules');
-  await p.goto(H.B + '1A/modules/proefexamen-december/'); await p.waitForTimeout(2000);
+  await H.aanmelden(p, '1A/', LL); await p.waitForTimeout(800);
+  check(await p.locator('a.tegel[data-site="1a-pex"]:visible').count() === 1, 'tegel Proefexamens staat open op de 1A-pagina');
+  await p.goto(H.B + '1A/proefexamens/'); await p.waitForTimeout(1500);
+  check(await p.locator('a.tegel[data-site="1a-pex"]:visible').count() === 1, 'tegel Proefexamen december staat open in 1A › Proefexamens');
+  await p.goto(H.B + '1A/proefexamens/december/'); await p.waitForTimeout(2000);
   const nav = await p.locator('nav.side .lbl').allTextContents();
   check(nav.join('|') === 'Proefexamen 1|Proefexamen 2', 'menu: ' + nav.join(', ') + ' (Proefexamen 3 staat dicht)');
   for(const sid of ['toets1', 'toets2']){

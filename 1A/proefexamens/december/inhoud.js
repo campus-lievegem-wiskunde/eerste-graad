@@ -16851,6 +16851,8 @@ return { zetQZ:v=>{ QZ = v; }, QZ:()=>QZ, zetKey:k=>{ CURKEY = k; }, PQ, POOL, P
 /* ============================================================
    PROEFEXAMEN · motor: twee delen per examen, punten, feedback pas na verbeteren
    ============================================================ */
+/* opmerking bij tekenen, meten en construeren (vraag van Jeroen, 13 november 2026) */
+const PEX_PAPIER = '✏️ <b>Oefen dit niet enkel online! Oefen dit ook op papier naast je Chromebook, met je geodriehoek, gradenboog en passer.</b> Op het examen teken je met de hand.';
 const PEX = { examens:[] };   /* elk examen: {deel1:[vragen], deel2:[vragen]} */
 const PEX_TIJD = ['Richttijd: ongeveer 30 minuten · zonder rekentoestel', 'Richttijd: ongeveer 30 minuten · met rekentoestel (knop rechtsonder)'];
 /* een proeftoetsvraag uit een andere module (M1, M2, M3) laten werken met de beoordelaars van deze motor */
@@ -16881,6 +16883,7 @@ function pexToets(b, st, save, key, items, o={}){
     const ptsTag = el('span', 'pt-pts', ''); head.append(ptsTag);
     row.append(head);
     if(q.prompt) row.append(el('div', 'q-text block pex-prompt', q.prompt));
+    if(q.papier) row.append(el('div', 'pex-papier', PEX_PAPIER));
     const body = el('div', 'pex-body'); row.append(body);
     const fb = el('div', 'fb'); row.append(fb);
     b.append(row);
@@ -17011,6 +17014,8 @@ const pexFactorIs = n => v => { const t = String(v[0]||'').replace(/\s+/g, '').r
   return {ok:true}; };
 /* een vraag (item) voor pexToets */
 const pexV = (sec, pts, prompt, build, show, waar) => ({sec, pts, prompt, build, show, waar});
+/* tekenvraag: met de opmerking om ook op papier te oefenen */
+const pexPapier = q => Object.assign(q, {papier:true});
 /* een reeks deelvragen naast elkaar (twee kolommen) */
 function pexRij(b, n, fn, o={}){ const g = el('div', 'm4-items' + (o.een ? ' een' : '')); b.append(g); for(let i=0; i<n; i++) fn(g, i, 'abcdefghij'[i] + ')'); return g; }
 /* figuur links, vragen rechts */
@@ -17133,8 +17138,8 @@ E1.orde = pexV('Ordenen', 2, '', (b, st, save) => {
   st._show = G.slice().sort((p, q) => p.w - q.w).map(g => g.h).join(' &lt; ');
 }, null, 'Module 5 › Ordenen');
 E1.begrip = pexV('Punt, rechte, halfrechte, lijnstuk', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.notatie).build(b, st, save, key), null, 'Module 2 › Punt, rechte, …');
-E1.midden = pexV('Lijnstuk en midden', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.midden).build(b, st, save, key), null, 'Module 2 › Lijnstukken tekenen');
-E1.hoekmeten = pexV('Hoeken meten', 2, 'Schat, meet en benoem de hoeken.', (b, st, save, key) => m2Kaart(() => M2.CARD.schatMeet, 1).build(b, st, save, key), null, 'Module 2 › Hoeken meten');
+E1.midden = pexPapier(pexV('Lijnstuk en midden', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.midden).build(b, st, save, key), null, 'Module 2 › Lijnstukken tekenen'));
+E1.hoekmeten = pexPapier(pexV('Hoeken meten', 2, 'Schat, meet en benoem de hoeken.', (b, st, save, key) => m2Kaart(() => M2.CARD.schatMeet, 1).build(b, st, save, key), null, 'Module 2 › Hoeken meten'));
 E1.hoekreken = pexV('Hoeken berekenen', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.rekenC).build(b, st, save, key), null, 'Module 2 › Hoeken berekenen');
 E1.centrum = pexV('Centrummaten', 3, '', (b, st, save) => {
   const R = makeR(st); const n = 9; const v = pexMetModus(R, n, 14, 34);
@@ -17290,9 +17295,9 @@ E2.as = pexV('De getallenas', 2, 'Denk aan de getallenas.', (b, st, save) => {
   st._show = L.map(([, T], i) => `${'abcd'[i]}) ${zS(T)}`).join(' · ');
 }, null, 'Module 5 › Ordenen en de getallenas');
 E2.symbolen = pexV('∈, ∉, ⊂, ⊄ of = in een figuur', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.symbolen).build(b, st, save, key), null, 'Module 2 › ∈ ∉ ⊂ ⊄ =');
-E2.tekenHoek = pexV('Hoeken tekenen', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.tekenHoek).build(b, st, save, key), null, 'Module 2 › Hoeken tekenen');
-E2.insp = pexV('Inspringende hoek', 1.5, '', (b, st, save, key) => viaMod(M2, M2.TQ.insmeten).build(b, st, save, key), null, 'Module 2 › Inspringende hoeken');
-E2.bis = pexV('Bissectrice', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.bistek).build(b, st, save, key), null, 'Module 2 › Bissectrice');
+E2.tekenHoek = pexPapier(pexV('Hoeken tekenen', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.tekenHoek).build(b, st, save, key), null, 'Module 2 › Hoeken tekenen'));
+E2.insp = pexPapier(pexV('Inspringende hoek', 1.5, '', (b, st, save, key) => viaMod(M2, M2.TQ.insmeten).build(b, st, save, key), null, 'Module 2 › Inspringende hoeken'));
+E2.bis = pexPapier(pexV('Bissectrice', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.bistek).build(b, st, save, key), null, 'Module 2 › Bissectrice'));
 E2.freq = pexV('Frequentietabel', 3, '', (b, st, save, key) => {
   const R = makeR(st); const item = M3.POOL[4].gen(R.f);
   viaMod(M3, item).build(b, st, save, key); st._show = item.show;
@@ -17430,7 +17435,7 @@ E3.vgl = pexV('Vergelijken', 2, 'Vul in met &lt;, = of &gt;.', (b, st, save) => 
   st._show = L.map(([h1, w1, h2, w2]) => `${h1} ${w1 < w2 ? '&lt;' : w1 > w2 ? '&gt;' : '='} ${h2}`).join(' · ');
 }, null, 'Module 5 › Absolute waarde en Ordenen');
 E3.snij = pexV('Snijpunten en collineaire punten', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.snij).build(b, st, save, key), null, 'Module 2 › Collineair en concurrent');
-E3.constr = pexV('Construeren', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.constr).build(b, st, save, key), null, 'Module 2 › Construeren');
+E3.constr = pexPapier(pexV('Construeren', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.constr).build(b, st, save, key), null, 'Module 2 › Construeren'));
 E3.soorten = pexV('Soorten hoeken', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.soorten).build(b, st, save, key), null, 'Module 2 › Soorten hoeken');
 E3.reden = pexV('Hoeken berekenen met een reden', 2, '', (b, st, save, key) => viaMod(M2, M2.TQ.reden).build(b, st, save, key), null, 'Module 2 › Hoeken berekenen');
 E3.toestel = pexV('Statistiek met het rekentoestel', 2, '', (b, st, save, key) => {
@@ -17501,6 +17506,7 @@ const secEls = {}, navLinks = {}, secBuilt = {};
   .pex-tabel td.l, .pex-tabel th.l{ text-align:left; }
   .pex-code{ display:flex; gap:.4rem; flex-wrap:wrap; }
   .pex-tip{ margin:.2rem 0; }
+  .pex-papier{ margin:.3rem 0 .6rem; padding:.55rem .9rem; border-radius:.7rem; border:2px solid #FCAF17; background:#FFF4DC; color:#5a3d00; }
 `; document.head.append(s); })();
 
 function buildSection(sec, num){

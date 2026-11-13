@@ -12,7 +12,7 @@ const ST = { me:null, rol:null, view:'groepen', groepen:[], leerkrachten:[], lee
 const jaarcode = g => `${g.jaar}${g.stroom}`;
 const sitesVoor = g => SITES.filter(s=>s.jaar === jaarcode(g));
 /* rubrieken in vaste volgorde; een site zonder (gekende) rubriek komt achteraan bij Andere */
-const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['vrij-oefenen', 'Bewerkingen vrij oefenen'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen']];
+const RUBRIEKEN = [['modules', 'Modules'], ['rekenvaardigheden', 'Rekenvaardigheden'], ['vrij-oefenen', 'Bewerkingen vrij oefenen'], ['basisgeletterdheid', 'Basisgeletterdheid'], ['heuristieken', 'Heuristieken'], ['wiskundige-problemen', 'Wiskundige problemen'], ['proefexamens', 'Proefexamens']];
 function perRubriek(sites){
   const groepen = RUBRIEKEN.map(([id, naam])=>({ id, naam, sites:sites.filter(s=>s.rubriek === id) }));
   const rest = sites.filter(s=>!RUBRIEKEN.some(([id])=>id === s.rubriek)); if(rest.length) groepen.push({ id:'andere', naam:'Andere', sites:rest });

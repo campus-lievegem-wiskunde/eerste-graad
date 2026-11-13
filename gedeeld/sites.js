@@ -578,8 +578,8 @@ export const SITES = [
   "titel": "Proefexamen december",
   "kort": "Proefexamen dec.",
   "jaar": "1A",
-  "rubriek": "modules",
-  "pad": "1A/modules/proefexamen-december/",
+  "rubriek": "proefexamens",
+  "pad": "1A/proefexamens/december/",
   "prefix": "1a_pex_dec_v1_",
   "onderdelen": [
    {
