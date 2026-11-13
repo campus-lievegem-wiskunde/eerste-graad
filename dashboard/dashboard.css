@@ -61,6 +61,7 @@ select.lk-add{ font-size:.82rem; padding:.15rem .4rem; }
 .btn.bekijk svg, .ond-link svg{ width:1.05em; height:1.05em; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
 .site-kop{ display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
 .site-kop .bekijk{ margin-left:auto; }
+.site-kop .bekijk + .sleutel-knop{ margin-left:0; }
 .ond-link{ display:inline-flex; color:var(--accent-dark); opacity:.55; padding:0 .15rem; border-radius:.3rem; }
 .ond-link:hover, .ond-link:focus-visible{ opacity:1; color:var(--ink); background:var(--or-soft); }
 table.dt th .th-link{ color:inherit; text-decoration:none; }

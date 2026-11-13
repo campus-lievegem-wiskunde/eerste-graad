@@ -631,3 +631,5 @@
   .tegels-4 a.tegel b{ font-size:1.25rem; }
   .leeg{ color:var(--ink-soft); font-style:italic; margin:0; }
   @media (max-width:480px){ .tegels-4{ grid-template-columns:minmax(0,1fr); } }
+/* link naar de oplossingssleutel in de tip voor leerkrachten (aanmelden.js) */
+.lk-sleutel{ margin-top:.45rem; }

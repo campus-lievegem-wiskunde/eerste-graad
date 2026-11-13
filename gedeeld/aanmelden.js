@@ -327,6 +327,9 @@ async function start(u){
       ? '<div>Je bekijkt deze module als <b>toeschouwer</b>: je ziet alle onderdelen zoals een leerkracht. Je antwoorden blijven in je oefenomgeving in deze browser; niemand anders ziet ze.</div>'
       : '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.</div>'));
     kiesAlsLeerling(email);
+    /* oplossingssleutel voor leerkrachten en beheerders ("sleutel": true in sites.js; pagina dashboard/sleutel.html) */
+    if(!db.zandbak) import('./sites.js').then(({ SITES })=>{ const x = SITES.find(y=>y.id === site), t = document.querySelector('.lk-tip > div'); if(!x || !x.sleutel || !t) return;
+      const r = el('div', 'lk-sleutel', `<a class="linkbtn" target="_blank" rel="noopener" href="${new URL('../dashboard/sleutel.html?site=' + encodeURIComponent(site), import.meta.url).href}">Oplossingssleutel</a> om af te drukken of te bewaren als pdf.`); t.append(r); }).catch(()=>{});
   }
 
   ref = F.doc(db, 'voortgang', `${u.uid}_${site}`);

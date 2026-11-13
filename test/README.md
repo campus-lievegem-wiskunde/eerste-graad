@@ -23,6 +23,7 @@ node test/resultaten.js       # resultaten nooit kwijt: mislukt ophalen bij het 
 node test/classroom.js        # Google Classroom: klas koppelen, opdracht vanzelf in Classroom, conceptpunten, vrijgeven = definitief en teruggegeven, verbinden (nep-Classroom in fake/classroom.js)
 node test/uitgroep.js          # tabblad Leerlingen van een groep: Uit groep en Verplaatsen naar (database én lijst meteen bijgewerkt)
 node test/versleep.js          # versleepbare vensters: rekenmachine, woordenboek, spiekbriefje, uitleg bij een stap, 2B-rekenmachine en TI-30XB
+node test/sleutel.js           # oplossingssleutel voor leerkrachten (dashboard/sleutel.html): 1A heuristieken, knop Sleutel in het dashboard, link in de module, niet voor leerling of toeschouwer
 ```
 
 | Bestand | Rol |

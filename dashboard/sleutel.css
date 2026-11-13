@@ -1,0 +1,67 @@
+/* Oplossingssleutel van een module (dashboard/sleutel.js): A4 staand in de huisstijl, voor leerkrachten */
+body{ font-family:"Calibri", "Carlito", "Segoe UI", sans-serif; background:#fff; color:#173436; font-size:10.5pt; }
+.sleutel{ max-width:210mm; margin:0 auto; padding:16px; }
+.sleutel, .sleutel *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.balk{ display:grid; gap:.6rem; margin:0 0 1.2rem; padding:.7rem 1rem; background:var(--tq-soft); border-radius:.8rem; }
+.balk[hidden]{ display:none; }
+.balk-rij{ display:flex; gap:.8rem; align-items:center; flex-wrap:wrap; }
+.balk-kies{ border:0; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:.3rem 1.1rem; font-size:.92rem; }
+.balk-kies legend{ font-weight:700; padding:0; margin:0 0 .2rem; }
+.kies-vak{ display:inline-flex; align-items:center; gap:.3rem; cursor:pointer; }
+.kies-vak input{ accent-color:#127A7F; width:1rem; height:1rem; }
+
+.sl-kop{ display:flex; align-items:center; gap:1.1rem; padding:0 0 .7rem; border-bottom:3px solid #3BC1C5; }
+.sl-kop img{ height:62px; flex:none; }
+.sl-eyebrow{ margin:0; font-size:.8rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#127A7F; }
+.sl-kop h1{ margin:.05rem 0; font-size:1.75rem; line-height:1.15; color:#173436; }
+.sl-onder{ margin:0; color:#4d6769; font-size:.92rem; }
+.sl-nota{ margin:.9rem 0; padding:.6rem .9rem; border:1.5px solid #FCAF17; border-radius:.6rem; background:#fff8e6; line-height:1.4; }
+.sl-inhoud h2{ margin:1rem 0 .3rem; font-size:1.15rem; color:#127A7F; }
+.sl-inhoud ol{ margin:0; padding-left:1.4rem; display:grid; gap:.15rem; }
+.sl-inhoud li[hidden]{ display:none; }
+.sl-inhoud a{ color:#173436; font-weight:700; text-decoration:none; }
+.sl-inhoud li span:last-child{ color:#4d6769; float:right; }
+
+.sl-hfst{ margin:1.6rem 0 0; }
+.sl-hfst[hidden]{ display:none; }
+.sl-hfst > h2{ margin:0 0 .2rem; padding:.3rem .7rem; font-size:1.3rem; color:#173436; background:#e3f6f7; border-left:6px solid #3BC1C5; border-radius:0 .4rem .4rem 0; }
+.sl-hfst > h2 .num{ color:#173436; }
+.sl-intro{ margin:.3rem 0 .2rem; color:#4d6769; font-style:italic; }
+.sl-groep > h3{ margin:.8rem 0 .35rem; font-size:1.02rem; color:#127A7F; text-transform:uppercase; letter-spacing:.04em; border-bottom:1.5px solid #3BC1C5; padding-bottom:.1rem; break-after:avoid; }
+.sl-item{ border:1.5px solid #3BC1C5; border-radius:.55rem; padding:.4rem .65rem .5rem; margin:0 0 .5rem; break-inside:avoid; }
+.sl-item-kop{ display:flex; align-items:baseline; gap:.5rem; margin:0 0 .25rem; font-size:.82rem; color:#4d6769; }
+.sl-nr{ font-weight:700; font-size:1rem; color:#173436; }
+.sl-label{ padding:0 .45rem; border-radius:999px; background:#127A7F; color:#fff; font-weight:700; font-size:.74rem; }
+.sl-bron{ font-style:italic; }
+.sl-code{ margin-left:auto; font-size:.74rem; }
+.sl-rij{ display:grid; grid-template-columns:minmax(0, 5fr) minmax(0, 6fr); gap:.9rem; align-items:start; }
+.sl-opg .hv-tekst{ font-size:1em; line-height:1.38; }
+.sl-opg .hv-tekst p{ margin:0 0 .3rem; }
+.sl-fig{ display:flex; justify-content:center; margin:.25rem 0; }
+.sl-fig svg, .sl-opl svg, .sl-opg svg{ max-width:100%; height:auto; }
+.sl-opl svg{ max-height:150px; width:auto; }
+.sl-opl table{ font-size:.92em; }
+.sl-keuzes{ list-style:none; margin:.3rem 0 0; padding:0; display:flex; flex-wrap:wrap; gap:.25rem .4rem; }
+.sl-keuzes li{ display:inline-flex; gap:.35rem; align-items:baseline; padding:.05rem .5rem; border:1.2px solid #bfe7e9; border-radius:.4rem; }
+.sl-keuzes li b{ color:#127A7F; }
+.sl-keuzes li.juist{ border:2px solid #FCAF17; background:#fff3d1; font-weight:700; }
+.sl-keuzes li.juist b{ color:#173436; }
+.sl-opl{ border-left:2px solid #FCAF17; padding-left:.8rem; display:grid; gap:.3rem; }
+.sl-antw{ margin:0; display:flex; gap:.5rem; align-items:baseline; }
+.sl-antw span{ font-size:.76rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#127A7F; }
+.sl-antw b{ font-size:1.08rem; padding:0 .45rem; background:#fff3d1; border-radius:.3rem; }
+.sl-extra{ margin:0; font-size:.92em; }
+.sl-stap{ display:grid; grid-template-columns:1.25rem minmax(0, 1fr); gap:.45rem; line-height:1.35; }
+.sl-stap-nr{ display:grid; place-items:center; width:1.2rem; height:1.2rem; margin-top:.08rem; border-radius:50%; background:#FCAF17; color:#3a2600; font-weight:700; font-size:.74rem; }
+.sl-stap-naam{ color:#127A7F; margin-right:.3rem; }
+.sl-stap .sol-inh{ display:inline; overflow:visible; }
+.errmsg{ padding:1rem; }
+
+@page{ size:A4; margin:12mm 13mm 14mm; @bottom-center{ content:counter(page); font-family:Calibri, Carlito, sans-serif; font-size:9pt; color:#4d6769; } }
+@media print{
+  .balk, .user-chip, .login-gate, .toeschouwer-balk{ display:none !important; }
+  .sleutel{ padding:0; max-width:none; }
+  body{ font-size:9.6pt; }
+  .sl-hfst{ break-before:page; margin-top:0; }
+}
+@media screen and (max-width:700px){ .sl-rij{ grid-template-columns:1fr; } .sl-opl{ border-left:0; border-top:2px solid #FCAF17; padding:.5rem 0 0; } }

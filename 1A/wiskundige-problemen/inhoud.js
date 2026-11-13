@@ -2090,6 +2090,38 @@ function stappenKaarten(pane){
 }
 
 /* ============================================================
+   OPLOSSINGSSLEUTEL voor leerkrachten (dashboard/sleutel.html?site=1a-wp)
+   De sleutelpagina zet window.CL_SLEUTEL_VRAAG en laadt daarna dit bestand. De module bouwt dan geen oefeningen,
+   maar geeft in window.CL_SLEUTEL per sjabloon één vast voorbeeld (altijd hetzelfde zaadgetal) met antwoord en uitwerking.
+   De leerling krijgt andere getallen; de werkwijze blijft dezelfde.
+   ============================================================ */
+const NIV_NAAM = { 1:'Instap', 2:'Moeilijker', 3:'Verdieping' };
+const hoofdletter = s => s[0].toUpperCase() + s.slice(1);
+const sleutelZaad = id => { let h = 7; for(const c of id) h = (h * 31 + c.charCodeAt(0)) % 2147483646; return h + 1; };
+function sleutelItem(t, o = {}){
+  const q = maakVraag(t.id, sleutelZaad(t.id)), u = q.uitw || {};
+  return { code:t.id, bron:q.bron ? 'naar een idee van ' + q.bron : '', labels:o.labels || [], extra:o.extra || '',
+    opgave:q.tekst, fig:q.fig || '',
+    keuzes:q.mc ? q.mc.keuzes.map((k, i)=>({ letter:LETTERS[i], tekst:k, juist:i === q.mc.juist })) : null,
+    antwoord:antwTekst(q),
+    stappen:['begrijpen', 'plannen', 'uitvoeren', 'terugkijken'].filter(f=>u[f]).map(f=>({ nr:FASE_NR[f], naam:FASEN[f], html:u[f] })) };
+}
+function bouwSleutel(){
+  const hoofdstukken = HEUR_IDS.map(h=>({ id:h, titel:hoofdletter(HEUR[h].naam), intro:HEUR[h].zin,
+    groepen:[1, 2, 3].map(n=>({ titel:NIV_NAAM[n], items:poolVan(h, [n]).map(t=>sleutelItem(t)) })).filter(g=>g.items.length) }));
+  /* Door elkaar: eigen hoofdstuk, gesorteerd op hoofdheuristiek en daarbinnen op niveau */
+  hoofdstukken.push({ id:'mix', titel:'Heuristieken door elkaar',
+    intro:'De leerling kiest zelf een heuristiek. De opgaven staan hier per hoofdheuristiek; bij elke opgave staat welke heuristieken handig zijn.',
+    groepen:HEUR_IDS.map(h=>({ titel:'Hoofdheuristiek: ' + HEUR[h].naam,
+      items:POOL.filter(t=>t.h === 'mix' && t.hoofd === h).sort((a, b)=>a.niv - b.niv).map(t=>sleutelItem(t, { labels:[NIV_NAAM[t.niv]],
+        extra:'<b>Handige heuristieken:</b> ' + t.heur.map(x=>HEUR[x].naam).join(', ') })) })).filter(g=>g.items.length) });
+  return { titel:'Problemen oplossen met heuristieken', ondertitel:'Wiskundige problemen · 1ste jaar (1A)', css:['module.css'],
+    nota:'Elke opgave in de module is een <b>sjabloon</b>: de leerling krijgt bij elke opgave andere getallen, namen en figuren. Deze sleutel toont per sjabloon <b>één vast voorbeeld</b> met het antwoord en de uitwerking in vier stappen (begrijpen, plannen, uitvoeren, terugkijken). De werkwijze is bij elke leerling dezelfde, de getallen niet.',
+    hoofdstukken };
+}
+if(window.CL_SLEUTEL_VRAAG){ window.CL_SLEUTEL = bouwSleutel(); return; }
+
+/* ============================================================
    OPBOUW: zijbalk, onderdelen en tabbladen
    ============================================================ */
 const ICONS = {
