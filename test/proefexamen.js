@@ -2,7 +2,8 @@
    node test/proefexamen.js   (eerst test/serve.sh)
    Leerling van 1ANg1: tegel zichtbaar als het proefexamen openstaat, drie proefexamens in het menu, elk met Deel 1 en Deel 2,
    rekentoestel enkel in deel 2, elke vraag heeft punten, leeg verbeteren geeft 0, het totaal komt in Firestore (toets1_0),
-   "Opnieuw met andere getallen" (20 keer per deel) zonder fouten, een verborgen proefexamen verdwijnt uit het menu. */
+   "Opnieuw met andere getallen" (20 keer per deel) zonder fouten, een verborgen proefexamen verdwijnt uit het menu,
+   enkel Jeroen (enkelVoor) ziet het proefexamen in het dashboard en op de jaarpagina. */
 const H = require('./helpers');
 (async()=>{
   const { b, ctx } = await H.context({ breedte:1366 }); let ok = true; const check = (c, t)=>{ console.log((c ? 'OK   ' : 'FOUT ') + t); if(!c) ok = false; };
@@ -41,5 +42,14 @@ const H = require('./helpers');
   const t = Object.assign({}, v.toets || {}); try{ Object.assign(t, JSON.parse((v.data || {})._toets || '{}')); }catch(e){}
   check(t.toets1_0 && t.toets1_0.score === 0 && t.toets1_0.n > 30 && t.toets2_0, 'scores van beide proefexamens in Firestore: ' + JSON.stringify(t));
   check(!p.fouten.length, 'geen JavaScript-fouten ' + p.fouten.join(' | '));
+  /* enkel de leerkrachten in enkelVoor (sites.js) zien het proefexamen in het dashboard en op de jaarpagina, ook een andere beheerder niet */
+  const COL = 'peeters.an@svsl.be', JB = { [`leerkrachten/${COL}`]:{ naam:'An Peeters' }, [`leerkrachten/${LK}`]:{ naam:'Jeroen De Jaeger' }, [`beheerders/${LK}`]:{ naam:'Jeroen De Jaeger' }, [`beheerders/${COL}`]:{ naam:'An Peeters' },
+    'groepen/1ANg1':{ naam:'1ANg1', jaar:'1', stroom:'A', soort:'niveaugroep', leerkrachten:[COL, LK], leerlingen:[], aan:{} } };
+  for(const [wie, mail, ziet] of [['andere beheerder', COL, false], ['Jeroen', LK, true]]){
+    const q = await H.pagina(ctx, JB); await H.aanmelden(q, 'dashboard/', { uid:wie, email:mail, displayName:wie }); await q.waitForTimeout(1200);
+    check(/Proefexamen/.test(await q.locator('body').innerText()) === ziet, `${wie}: proefexamen ${ziet ? '' : 'niet '}in het dashboard`);
+    await q.goto(H.B + '1A/'); await q.waitForTimeout(1200);
+    check(await q.locator('a.tegel[data-site="1a-pex"]').count() === (ziet ? 1 : 0), `${wie}: tegel Proefexamens ${ziet ? '' : 'niet '}op de 1A-pagina`);
+    check(!q.fouten.length, `${wie}: geen JavaScript-fouten ` + q.fouten.join(' | ')); await q.close(); }
   await b.close(); process.exit(ok ? 0 : 1);
 })();
