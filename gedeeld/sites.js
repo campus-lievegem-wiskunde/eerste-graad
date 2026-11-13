@@ -1499,6 +1499,7 @@ export const SITES = [
   "rubriek": "wiskundige-problemen",
   "pad": "1A/wiskundige-problemen/",
   "prefix": "1a_wp_heur_v1_",
+  "sleutel": true,
   "onderdelen": [
    {
     "id": "stappen",

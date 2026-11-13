@@ -163,6 +163,9 @@ function vrijScores(d){
 const IC_FOUT = '<svg class="ic-fout" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 2.6 19.6a1 1 0 0 0 .9 1.5h17a1 1 0 0 0 .9-1.5L12 3.2z"/><path d="M12 9.5v5"/><circle cx="12" cy="17.6" r=".4"/></svg>';
 const OOG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const moduleUrl = (s, ond)=>`../${s.pad}${ond ? '#' + encodeURIComponent(ond) : ''}`;
+/* knop "Sleutel": de oplossingssleutel van een module ("sleutel": true in sites.js) als pagina om af te drukken of te bewaren als pdf; niet voor de toeschouwer */
+const SLEUTEL_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg>';
+function sleutelKnop(s){ if(!s || !s.sleutel || ST.toeschouwer) return ''; const a = el('a', 'btn ghost klein bekijk sleutel-knop', SLEUTEL_IC + 'Sleutel'); a.href = `sleutel.html?site=${encodeURIComponent(s.id)}`; a.target = '_blank'; a.rel = 'noopener'; a.title = `Oplossingssleutel van ${s.titel}: afdrukken of bewaren als pdf`; return a; }
 function bekijkKnop(s){ const a = el('a', 'btn ghost klein bekijk', OOG + 'Bekijk'); a.href = moduleUrl(s); a.target = '_blank'; a.rel = 'noopener'; a.title = `${s.titel} openen in een nieuw tabblad`; return a; }
 
 async function paneVoortgang(pane, g){
@@ -180,7 +183,7 @@ async function paneVoortgang(pane, g){
   const dicht = el('label', 'mini ook-dicht', `<input type="checkbox" ${ST.ookDicht ? 'checked' : ''}> ook gesloten sites`);
   dicht.querySelector('input').onchange = e=>{ ST.ookDicht = e.target.checked; render(); };
   const vern = el('button', 'btn ghost klein', '↻ Vernieuwen'); vern.type = 'button'; vern.onclick = render;
-  r.append(sel); if(ST.site) r.append(bekijkKnop(ST.site)); r.append(vern, dicht); pane.append(r);
+  r.append(sel); if(ST.site) r.append(bekijkKnop(ST.site), sleutelKnop(ST.site)); r.append(vern, dicht); pane.append(r);
   if(!g.leerlingen.length){ pane.append(el('p', 'mini', 'Deze groep heeft nog geen leerlingen. Voeg ze toe bij het tabblad Leerlingen.')); return; }
   if(!ST.leerlingen) await laadLeerlingen().catch(()=>{});
   if(!ST.site) return overzicht(pane, g, zicht.filter(s=>ST.ookDicht || staatOpen(g, s)));
@@ -389,7 +392,7 @@ function paneAanUit(pane, g){
       sam.hidden = !sw.querySelector('input').checked; sam.innerHTML = `${aan} van ${n} onderdelen ${uit_ ? '▾' : '▸'}`; };
     sam.onclick = ()=>{ const k = g.id + '|' + s.id; if(ST.uitgeklapt.has(k)) ST.uitgeklapt.delete(k); else ST.uitgeklapt.add(k); klap(); };
     let rt_, kn_;
-    const kop = el('div', 'site-kop'); kop.append(sw, sam, bekijkKnop(s)); blok.append(kop);
+    const kop = el('div', 'site-kop'); kop.append(sw, sam, bekijkKnop(s), sleutelKnop(s)); blok.append(kop);
     const rt = el('label', 'rt-keuze', `<input type="checkbox" ${a.rt ? 'checked' : ''}> Knop met het rekentoestel tonen <span class="mini">(rechtsonder op elke pagina van deze module)</span>`); rt.hidden = !a.on; blok.append(rt);
     const lijst = el('div', 'onderdelen'); lijst.hidden = !a.on;
     s.onderdelen.forEach(o=>{ const l = el('label', '', `<input type="checkbox" value="${esc(o.id)}" ${(a.uit || []).includes(o.id) ? '' : 'checked'}> ${esc(o.naam)} <a class="ond-link" href="${moduleUrl(s, o.id)}" target="_blank" rel="noopener" title="${esc(o.naam)} bekijken" aria-label="${esc(o.naam)} bekijken">${OOG}</a>`); lijst.append(l); });
