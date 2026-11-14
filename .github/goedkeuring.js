@@ -3,7 +3,7 @@
    goedkeuren (Approve) op de laatste commit. Wie enkel eigen bestanden wijzigt, mag zelf samenvoegen zodra de tests slagen.
    Jeroen (STANDAARD) is eigenaar van alles: zijn pull requests hebben nooit een andere goedkeuring nodig; Tom is eigenaar van zijn delen.
    Sinds 27 oktober 2026 vraagt een bestand van Jeroen enkel nog zijn goedkeuring als het BEWAAKT is (firestore.rules en .github/);
-   al de rest mag Tom samenvoegen zodra de tests slagen.
+   al de rest mag Tom samenvoegen zodra de tests slagen. Sinds 13 november 2026 vraagt CODEOWNERS Jeroen ook enkel daarvoor nog om na te kijken.
    gedeeld/sites.js wordt per site bekeken: het element van een site hoort bij de eigenaar van haar pad.
    Draait met de versie van main (pull_request_target) en voert geen code uit de pull request uit. */
 const EIGENAARS = [
