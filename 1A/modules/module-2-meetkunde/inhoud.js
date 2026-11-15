@@ -3620,7 +3620,7 @@ function calcHint(F){
     return { titel:'Hint: de bissectrice maakt twee gelijke helften',
       stappen:[HF(tekening(kleur, 'twee even grote helften')), ...st],
       ans: H.half ? [h, h, 2*h] : [2*h, h],
-      extra:'<p>De <b>bissectrice</b> van een hoek is de halfrechte die de hoek in <b>twee even grote hoeken</b> verdeelt. De twee helften krijgen hetzelfde merkteken.</p><p>Ken je een helft, dan is de hele hoek het dubbel. Ken je de hele hoek, dan is een helft de helft daarvan.</p>' };
+      extra:'<p>De <b>bissectrice</b> van een hoek is de rechte door het hoekpunt die de hoek in <b>twee even grote hoeken</b> verdeelt. De twee helften krijgen hetzelfde merkteken.</p><p>Ken je een helft, dan is de hele hoek het dubbel. Ken je de hele hoek, dan is een helft de helft daarvan.</p>' };
   }
   if(H.gelijk){ const {k, tot, s, full} = H;
     const kleur = Array.from({length:k}, (_,i)=>G.am(O,d0+i*s,d0+(i+1)*s,{r:16, fill:i%2?HTQ:HZACHT, color:'none'}));
