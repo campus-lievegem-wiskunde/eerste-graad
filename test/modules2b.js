@@ -54,8 +54,15 @@ const H = require('./helpers');
 
   /* rekenmachine */
   await p.click('nav.side button:has-text("Gemiddelde en mediaan")'); await p.waitForTimeout(200);
-  await p.click('section#gem .rm-knop'); for(const k of ['7', 'x', '6', '=']) await p.click(`.rm-venster .rm-k:text-is("${k}")`);
-  check(await p.locator('.rm-uit').innerText() === '42', 'eenvoudige rekenmachine: 7 x 6 = 42');
+  await p.click('section#gem .rm-knop'); await p.waitForTimeout(100);
+  for(const k of ['7', '×', '6', '=']) await p.click(`#basisrekentoestel .brt-k[data-k="${k}"]`);
+  check((await p.locator('#basisrekentoestel .brt-uit').innerText()).trim() === '42', 'basisrekentoestel: 7 × 6 = 42');
+  await p.focus('#basisrekentoestel'); await p.keyboard.type('12,5+7,5'); await p.keyboard.press('Enter');
+  check((await p.locator('#basisrekentoestel .brt-uit').innerText()).trim() === '20', 'toetsenbord: 12,5 + 7,5 = 20');
+  for(const k of ['÷', '0', '=']) await p.click(`#basisrekentoestel .brt-k[data-k="${k}"]`);
+  check((await p.locator('#basisrekentoestel .brt-uit').innerText()).trim() === 'Fout', 'delen door 0 geeft Fout');
+  check(await p.locator('.rm-venster').count() === 0 && await p.locator('.ti30-fab').count() === 0, 'geen oude rekenmachine en geen TI-30XB-knop');
+  await p.click('#basisrekentoestel .brt-x');
 
   /* proeftoets */
   await p.click('nav.side button:has-text("Proeftoets")'); await p.waitForTimeout(300);
