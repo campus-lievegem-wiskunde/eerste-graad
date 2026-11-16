@@ -1224,6 +1224,77 @@ export const SITES = [
   ]
  },
  {
+  "id": "1b-wp",
+  "titel": "Wiskundige problemen oplossen · 1ste jaar B-stroom",
+  "kort": "Wiskundige problemen oplossen",
+  "jaar": "1B",
+  "rubriek": "wiskundige-problemen",
+  "pad": "1B/wiskundige-problemen/",
+  "prefix": "1b_wp_v1_",
+  "onderdelen": [
+   {
+    "id": "wpo",
+    "naam": "Problemen oplossen",
+    "toets": false,
+    "vragen": 16
+   },
+   {
+    "id": "get",
+    "naam": "Getallenleer",
+    "toets": false,
+    "vragen": 66
+   },
+   {
+    "id": "mor",
+    "naam": "Objecten en relaties",
+    "toets": false,
+    "vragen": 26
+   },
+   {
+    "id": "ooi",
+    "naam": "Omtrek en oppervlakte",
+    "toets": false,
+    "vragen": 31
+   },
+   {
+    "id": "sta",
+    "naam": "Statistiek",
+    "toets": false,
+    "vragen": 38
+   },
+   {
+    "id": "tad",
+    "naam": "Tabellen en diagrammen",
+    "toets": false,
+    "vragen": 24
+   },
+   {
+    "id": "ver",
+    "naam": "Verhoudingen",
+    "toets": false,
+    "vragen": 18
+   },
+   {
+    "id": "toets1",
+    "naam": "Proeftoets 1",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets2",
+    "naam": "Proeftoets 2",
+    "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "toets3",
+    "naam": "Proeftoets 3",
+    "toets": true,
+    "vragen": 0
+   }
+  ]
+ },
+ {
   "id": "2b-m1",
   "titel": "Module 1 · Rekenen",
   "kort": "Module 1",

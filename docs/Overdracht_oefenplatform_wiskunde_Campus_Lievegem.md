@@ -2,7 +2,7 @@
 
 Stand van 17 oktober 2026 · de beheerder
 
-Aangevuld op 23 oktober 2026 door de collega-bouwer: taakverdeling en 2A Wiskundige problemen. Aangevuld op 24 oktober 2026: automatische tests en goedkeuring op GitHub. Aangevuld op 1 november 2026 door de collega-bouwer: versleepbare vensters. Aangevuld op 29 oktober 2026: Vrij oefenen (1A en 2A) en vrij antwoordvak met tussenstappen, en bijgewerkt met alles wat op main staat tot PR 47 (ook het werk van de collega-bouwer: 1A heuristieken, 2B modules, kleuren van bouwsels).
+Aangevuld op 23 oktober 2026 door de collega-bouwer: taakverdeling en 2A Wiskundige problemen. Aangevuld op 24 oktober 2026: automatische tests en goedkeuring op GitHub. Aangevuld op 1 november 2026 door de collega-bouwer: versleepbare vensters. Aangevuld op 29 oktober 2026: Vrij oefenen (1A en 2A) en vrij antwoordvak met tussenstappen, en bijgewerkt met alles wat op main staat tot PR 47 (ook het werk van de collega-bouwer: 1A heuristieken, 2B modules, kleuren van bouwsels). Aangevuld op 16 november 2026 door de collega-bouwer: 1B Wiskundige problemen oplossen (site 1b-wp).
 
 > Openbare versie van het overdrachtsdocument (zonder namen en mailadressen). De volledige versie staat in de projectbestanden van het Claude-project (projectkennis/). Wijzig beide samen.
 
@@ -108,6 +108,7 @@ eerste-graad/
 │   │                           module-3-hoeken-evenwijdigen
 │   └── wiskundige-problemen/   index.html + inhoud.js + module.css (site 2a-wp; op main: PR 21)
 ├── 1B/  index.html             idem
+│   └── wiskundige-problemen/   index.html + inhoud.js + module.css + doelen.json (site 1b-wp: zelfde inhoud als 2B, titel Wiskundige problemen oplossen)
 ├── 2B/  index.html             idem
 ├── dashboard/                  index.html, dashboard.js, dashboard.css
 ├── gedeeld/                    stijl.css, kop.js, aanmelden.js,
@@ -811,6 +812,17 @@ Evaluatie van de drie modules volgens de afspraken Eén oefening op één scherm
 - Eenvoudige rekenmachine bij "meestal met ICT", geen bij "zonder ICT"; formulekader (.formkader) naast de vraag bij omtrek, oppervlakte en inhoud.
 - test/catalogus.js geeft de stroom mee; test: node test/wiskundigeproblemen2b.js. Geen wijziging aan firestore.rules.
 - Na het samenvoegen: de site openzetten voor groep 2B in het dashboard.
+
+### 1B Wiskundige problemen oplossen (16 november 2026, de collega-bouwer, branch tom/wiskundige-problemen-1b)
+
+- Vraag: de wiskundige problemen van 2B ook kunnen aanvinken voor 1B. In het dashboard hoort elke site bij één jaar (sitesVoor in dashboard.js), dus 1B krijgt een **eigen site** met dezelfde inhoud.
+- Site-id **1b-wp**, prefix **1b_wp_v1_**, map **1B/wiskundige-problemen/**, body data-stroom="B", tegel **Wiskundige problemen oplossen** op 1B/index.html (vóór Toetsen). Eigen voortgang: wat een leerling in 1B maakt, staat los van 2b-wp.
+- Titel enkel bij 1B: **Wiskundige problemen oplossen** (tegel, paginatitel, eyebrow "wiskundige problemen oplossen 1ste jaar", sites.js "Wiskundige problemen oplossen · 1ste jaar B-stroom"). 2A en 2B blijven "Wiskundige problemen".
+- Inhoud: alles zoals 2B (7 thema's, 3 proeftoetsen, 143 B-doelen, 219 sjablonen). inhoud.js, module.css en doelen.json zijn kopieën van 2B; enkel de eerste regel van inhoud.js verschilt. De doelen en letters komen uit de leeswijzer voor het tweede jaar; de leerkracht vinkt per onderdeel uit wat 1B nog niet moet zien.
+- **Gedeelde wijziging in de motor** (2A, 2B en 1B): de titel op het overzicht komt uit index.html (h1#kopTitel) in plaats van uit een vaste tekst in inhoud.js (const KOP in 25_schermen.js). Voor 2A en 2B verandert er niets.
+- Bouwen: build.sh met STROOM=B schrijft 2B én 1B. Wijzigt de B-inhoud, dan veranderen beide sites mee.
+- Test: node test/wiskundigeproblemen1b.js (25 keer OK: tegel en titel, thema's van de B-stroom, reeks, proeftoets, voortgang onder 1b-wp en niets onder 2b-wp, aan- en uitvinken bij Openzetten voor groep 1B, groep 2B ongewijzigd). Catalogus: 1b-wp 10 onderdelen, 219 vragen. Geen wijziging aan firestore.rules.
+- Na het samenvoegen: de site openzetten voor groep 1B in het dashboard (Mijn groepen, 1B, Openzetten).
 node test/allesopen.js   # Beheer: site openzetten voor alle groepen van een jaar
 
 ### 1A Wiskundige problemen · heuristieken (26 oktober 2026, de collega-bouwer, op main sinds 27 oktober 2026: PR 38, merge 5ed1dba)

@@ -9396,7 +9396,8 @@ function voorafLijst() {
     '<li>Wil je een stuk tekst laten <span class="acc">voorlezen</span>? Zet links Voorlezen aan en selecteer de tekst.</li></ul>';
 }
 
-const KOP = 'Oefen <em>wiskundige problemen</em>';
+/* de titel van de site staat in index.html (h1#kopTitel), zodat elke site haar eigen titel heeft (1B: Wiskundige problemen oplossen) */
+const KOP = (document.getElementById('kopTitel') || {}).innerHTML || 'Oefen <em>wiskundige problemen</em>';
 function toonThuis() {
   navActief = 'thuis'; tekenNav();
   setKop(KOP, 'Kies een thema. Tover met talent: elke reeks maakt je sterker.');
