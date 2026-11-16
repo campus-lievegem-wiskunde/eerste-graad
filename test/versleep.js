@@ -2,7 +2,8 @@
    node test/versleep.js   (eerst test/serve.sh)
    Wiskundige problemen 2A: rekenmachine en woordenboek verslepen, blijven staan bij opnieuw tekenen en scrollen,
    dubbelklik zet terug, sluiten en opnieuw openen = standaardplek. Spiekbriefje in 1A module 1: blijft in de pagina,
-   versleept zweeft het en schuift de oefening terug omhoog, sluitknop. 2B-modules en TI-30XB: dubbelklik zet terug. */
+   versleept zweeft het en schuift de oefening terug omhoog, sluitknop. Basisrekentoestel van de B-stroom (2B-modules)
+   en TI-30XB (A-stroom): dubbelklik zet terug. */
 const H = require('./helpers');
 (async()=>{
   const { b, ctx } = await H.context({ breedte:1366 }); let ok = true; const check = (c, t)=>{ console.log((c ? 'OK   ' : 'FOUT ') + t); if(!c) ok = false; };
@@ -85,22 +86,31 @@ const H = require('./helpers');
   await p.evaluate(()=>{ document.getElementById('proefuitleg').hidden = true; }); await p.waitForTimeout(60);
   check(await p.evaluate(()=>!document.getElementById('proefuitleg').classList.contains('vs-los')), 'gesloten uitlegkadertje gaat terug naar zijn plek');
 
-  /* ---------- 2B module 1: rekenmachine ---------- */
+  /* ---------- 2B module 1: het gedeelde basisrekentoestel ---------- */
   await p.goto(H.B + '2B/modules/module-1-rekenen/'); await p.waitForTimeout(1200);
-  await p.evaluate(()=>{ const b = document.querySelector('.rm-knop'); b.closest('section').hidden = false; b.click(); }); await p.waitForTimeout(120);
-  const m0 = await rect('.rm-venster');
-  await sleep('.rm-balk', -500, -200); await p.waitForTimeout(60);
-  const m1 = await rect('.rm-venster');
-  check(Math.abs(m1.l - (m0.l - 500)) <= 3, '2B-modules: rekenmachine versleepbaar');
-  await p.dblclick('.rm-balk span'); await p.waitForTimeout(80);
-  const m2 = await rect('.rm-venster');
-  check(Math.abs(m2.l - m0.l) <= 2 && Math.abs(m2.t - m0.t) <= 2, '2B-modules: dubbelklik zet ze terug');
-  await sleep('.rm-balk', -300, -100); await p.click('.rm-venster .rm-x'); await p.evaluate(()=>document.querySelector('.rm-knop').click()); await p.waitForTimeout(80);
-  const m3 = await rect('.rm-venster');
-  check(Math.abs(m3.l - m0.l) <= 2, '2B-modules: opnieuw openen op de standaardplek');
+  await p.evaluate(()=>{ const b = document.querySelector('.rm-knop'); b.closest('section').hidden = false; b.click(); }); await p.waitForTimeout(150);
+  const m0 = await rect('#basisrekentoestel');
+  check(m0.pos === 'fixed' && m0.l > 1366 / 2 && m0.t > 650 / 3, '2B-modules: basisrekentoestel opent rechtsonder (' + m0.l + ',' + m0.t + ')');
+  await sleep('#basisrekentoestel .brt-balk', -500, -200); await p.waitForTimeout(60);
+  const m1 = await rect('#basisrekentoestel');
+  check(Math.abs(m1.l - (m0.l - 500)) <= 3 && Math.abs(m1.t - (m0.t - 200)) <= 3, '2B-modules: basisrekentoestel versleepbaar');
+  await p.mouse.wheel(0, 300); await p.waitForTimeout(120);
+  check(Math.abs((await rect('#basisrekentoestel')).t - m1.t) <= 2, '2B-modules: bij scrollen blijft het op dezelfde plek op het scherm');
+  await p.dblclick('#basisrekentoestel .brt-balk b'); await p.waitForTimeout(80);
+  const m2 = await rect('#basisrekentoestel');
+  check(Math.abs(m2.l - m0.l) <= 2 && Math.abs(m2.t - m0.t) <= 2, '2B-modules: dubbelklik zet het terug');
+  await p.focus('#basisrekentoestel .vs-greep'); await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowUp');
+  const m4 = await rect('#basisrekentoestel');
+  check(Math.abs(m4.l - (m0.l - 20)) <= 2 && Math.abs(m4.t - (m0.t - 20)) <= 2, '2B-modules: pijltjestoetsen op het greepje verplaatsen het');
+  await sleep('#basisrekentoestel .brt-balk', -300, -100); await p.click('#basisrekentoestel .brt-x'); await p.evaluate(()=>document.querySelector('.rm-knop').click()); await p.waitForTimeout(80);
+  const m3 = await rect('#basisrekentoestel');
+  check(Math.abs(m3.l - m0.l) <= 2 && Math.abs(m3.t - m0.t) <= 2, '2B-modules: opnieuw openen op de standaardplek');
+  await p.click('#basisrekentoestel .brt-x');
+  await p.waitForTimeout(600);
+  check(await p.locator('.ti30-fab').count() === 0, 'B-stroom: geen knop met de TI-30XB, ook niet voor de leerkracht');
 
-  await p.click('.rm-venster .rm-x');
   /* ---------- TI-30XB ---------- */
+  await p.goto(H.B + '1A/modules/module-3-data/'); await p.waitForTimeout(1200);   /* A-stroom: daar blijft de TI-30XB */
   await p.evaluate(()=>{ localStorage.setItem('ti30xb_pos', JSON.stringify({ l:.05, t:.05 })); });
   await p.waitForFunction(()=>window.TI30XB && document.querySelector('.ti30-fab'), null, { timeout:5000 }).catch(()=>{});
   check(await p.locator('.ti30-fab').count() === 1, 'knop met het rekentoestel staat er (leerkracht)');

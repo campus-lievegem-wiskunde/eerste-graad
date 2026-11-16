@@ -141,7 +141,7 @@ function maakVraag(sj) {
   if (q.velden) q.velden = q.velden.map(vd => Object.assign({}, vd, {w:typeof vd.w === 'number' ? wv(vd.w) : vd.w}));
   if (!q.o) q.o = [];
   if (STROOM === 'B' && CALC_B[sj.id] !== undefined) q.calc = CALC_B[sj.id];
-  if (STROOM === 'B' && FK_B[sj.id] && !q.fk) q.fk = FK_B[sj.id];
+  /* B-stroom: geen formulekader meer bij de vraag (q.fk); de leerling kiest zelf op het formuleblad (16 november 2026) */
   if (STROOM === 'B' && q.calc === 'w') q.calc = 'e';
   return q;
 }
@@ -8950,7 +8950,23 @@ const FORMULES = [
   ['Balk', '', 'inhoud = l · b · h'],
   ['Kubus', '', 'inhoud = r · r · r'],
   ['Cilinder', '', 'inhoud = π · r · r · h']];
+/* ---------- formuleblad voor de B-stroom (16 november 2026, keuzes van Tom Van Daele) ----------
+   Basisformules voor omtrek, oppervlakte en volume, in woorden. Knop Formuleblad bij elke vraag van het thema
+   omtrek, oppervlakte en inhoud; het venster zweeft linksonder (smal, over de zijbalk, zodat de opgave vrij blijft)
+   en is versleepbaar (gedeeld/versleep.js).
+   Het vervangt het formulekader dat vroeger bij de vraag stond. */
+const FORMBLAD = [
+  ['Omtrek', [['rechthoek', '2 × (lengte + breedte)'], ['vierkant', '4 × zijde'], ['driehoek', 'som van de drie zijden'], ['cirkel', '2 × π × straal']]],
+  ['Oppervlakte', [['rechthoek', 'lengte × breedte'], ['vierkant', 'zijde × zijde'], ['driehoek', '{{basis × hoogte|2}}'], ['parallellogram', 'basis × hoogte'],
+    ['ruit', '{{grote diagonaal × kleine diagonaal|2}}'], ['trapezium', '{{(grote basis + kleine basis) × hoogte|2}}'], ['cirkel', 'π × straal × straal']]],
+  ['Volume', [['balk', 'lengte × breedte × hoogte'], ['kubus', 'ribbe × ribbe × ribbe']]]];
+function formBladHtml() {
+  const deel = d => '<section class="fbdeel"><h4>' + d[0] + '</h4><dl class="formlijst">' + d[1].map(f => '<dt>' + f[0] + '</dt><dd>= ' + wis(f[1]) + '</dd>').join('') + '</dl></section>';
+  return '<div class="wb paneel formpaneel formblad" id="form" role="group" aria-label="Formuleblad"><div class="paneelkop"><b>Formuleblad</b><button type="button" class="sluit" data-a="form" aria-label="Sluit het formuleblad">×</button></div>' +
+    '<div class="fbkol">' + FORMBLAD.map(deel).join('') + '<p class="klein">π ≈ 3,14</p></div></div>';
+}
 function formHtml() {
+  if (STROOM === 'B') return formBladHtml();
   const lijst = STROOM === 'B' ? FORMULES.filter(f => ['Parallellogram', 'Trapezium', 'Ruit', 'Cilinder'].indexOf(f[0]) < 0) : FORMULES;
   return '<div class="wb paneel formpaneel" id="form" role="group" aria-label="Formularium"><div class="paneelkop"><b>Formularium</b><button type="button" class="sluit" data-a="form" aria-label="Sluit het formularium">×</button></div>' +
     '<dl class="formlijst">' + lijst.map(f => '<dt>' + f[0] + '</dt><dd>' + [f[1], f[2]].filter(x => x).map(wis).join('<br>') + '</dd>').join('') + '</dl><p class="klein">π ≈ 3,14</p></div>';
@@ -9244,6 +9260,7 @@ function volgende() {
   ses.gebruikt[k.q.id] = (ses.gebruikt[k.q.id] || 0) + 1;
   ses.items.push(nieuwItem(k.q, k.lv));
   ses.sel = null; ses.stop = false; ses.paneel = null; calc.uit = ''; calc.net = false; calc.breuk = false;
+  if (brt()) brt().wis();
   toonVraag();
 }
 const huidig = () => ses.items[ses.items.length - 1];
@@ -9352,7 +9369,7 @@ function sluitBord() { const b = document.querySelector('.px-board'); if (b) { c
 let vorigeSleutel = '';
 function toon(naam, html) {
   const sleutel = naam + (naam === 'vraag' && ses ? ses.items.length : '');
-  if (naam !== 'vraag') sluitBord();
+  if (naam !== 'vraag') { sluitBord(); if (brt()) brt().sluit(); }
   scherm = naam; document.body.classList.toggle('vraagmodus', naam === 'vraag');
   /* het onderdeel dat openstaat: id van de sectie (werktijd in aanmelden.js) en sleutel tab (Fout melden) */
   const ond = navActief || 'thuis';
@@ -9391,7 +9408,7 @@ function voorafLijst() {
     '<li>Antwoord je juist, dan wordt de volgende vraag <span class="acc">moeilijker</span>. Antwoord je fout, dan wordt ze makkelijker.</li>' +
     '<li>Weet je het antwoord niet? Klik op <span class="acc">Ik weet het niet</span>. Gok niet: dan krijg je vragen die bij jou passen.</li>' +
     '<li>Bij elk thema zie je welke <span class="acc">doelen</span> je al bereikt hebt en waaraan je nog werkt. Een doel is bereikt als je de laatste keren meestal juist antwoordde.</li>' +
-    (STROOM === 'B' ? '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, het <span class="acc">Woordenboek</span> en soms de <span class="acc">Rekenmachine</span>. Staat de rekenmachine er niet, dan reken je zonder. De <span class="acc">formules</span> die je nodig hebt, staan in een kader bij de vraag.</li>'
+    (STROOM === 'B' ? '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, het <span class="acc">Woordenboek</span> en soms de <span class="acc">Rekenmachine</span>. Staat de rekenmachine er niet, dan reken je zonder. De rekenmachine en het <span class="acc">Formuleblad</span> (bij omtrek, oppervlakte en inhoud) kan je <span class="acc">verslepen</span> naar een plek die je goed uitkomt.</li>'
       : '<li>Boven de vraag vind je de <span class="acc">Markeerstift</span>, het <span class="acc">Woordenboek</span> en soms de <span class="acc">Rekenmachine</span> of het <span class="acc">Formularium</span>. Staat de rekenmachine er niet, dan reken je zonder.</li>') +
     '<li>Wil je een stuk tekst laten <span class="acc">voorlezen</span>? Zet links Voorlezen aan en selecteer de tekst.</li></ul>';
 }
@@ -9507,9 +9524,15 @@ const BOEKICOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const FORMICOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
 const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
 const tijd = () => mmss(Math.floor((Date.now() - ses.begin) / 1000));
-const metForm = q => q.form;
+const metForm = q => STROOM === 'B' ? q.d === 'ooi' : q.form;
+/* B-stroom: het gedeelde basisrekentoestel (gedeeld/basisrekentoestel.js, geladen door kop.js) in een zwevend venster rechtsonder,
+   los van de opgavekaart. In de A-stroom blijft de rekenmachine een paneel in de opgave. */
+const brt = () => STROOM === 'B' ? window.Basisrekentoestel || null : null;
+const calcOpen = () => STROOM === 'B' ? !!(brt() && brt().isOpen()) : ses.paneel === 'calc';
+document.addEventListener('basisrekentoestel', e => { const b = document.querySelector('.tools [data-a=calc]'); if (b) b.setAttribute('aria-expanded', !!e.detail.open); });
 /* formulekader naast de opgave (2B, 'met gegeven formularium'): enkel de formules die de vraag nodig heeft */
-const formKader = q => q.fk ? '<div class="formkader" role="note" aria-label="Formules">' + q.fk.map(x => '<p>' + wis(x) + '</p>').join('') + '</div>' : '';
+const FK_FORMULES = new Set(Object.keys(FK).map(k => FK[k]));
+const formKader = q => { const r = (q.fk || []).filter(x => !FK_FORMULES.has(x)); return r.length ? '<div class="formkader" role="note" aria-label="Goed om te weten">' + r.map(x => '<p>' + wis(x) + '</p>').join('') + '</div>' : ''; };
 /* leerkracht: bij welk doel en welke letter een vraag hoort */
 function lkCode(q) {
   const c = q.codes && q.codes[STROOM]; if (!c || !leerkracht()) return '';
@@ -9576,10 +9599,12 @@ function tekenAntw() {
 function toonVraag() {
   const nr = ses.items.length, it = huidig(), q = it.q, oef = ses.modus === 'o';
   let balkjes = ''; for (let i = 1; i <= ses.n; i++) balkjes += '<i class="' + (i < nr ? 'af' : i === nr ? 'nu' : '') + '"></i>';
+  if (!q.calc && brt()) brt().sluit();
+  if (ses.paneel === 'form' && !metForm(q)) ses.paneel = null;
   const tools = '<div class="tools" role="toolbar" aria-label="Hulpmiddelen">' +
     '<button type="button" class="toolknop" data-a="marker" aria-pressed="' + !!ses.marker + '">' + PENICOON + 'Markeerstift</button>' +
-    (q.calc ? '<button type="button" class="toolknop" data-a="calc" aria-expanded="' + (ses.paneel === 'calc') + '" aria-controls="calc">' + CALCICOON + 'Rekenmachine</button>' : '<span class="geencalc">Zonder rekenmachine</span>') +
-    (metForm(q) ? '<button type="button" class="toolknop" data-a="form" aria-expanded="' + (ses.paneel === 'form') + '" aria-controls="form">' + FORMICOON + 'Formularium</button>' : '') +
+    (q.calc ? '<button type="button" class="toolknop" data-a="calc" aria-expanded="' + calcOpen() + '" aria-controls="' + (STROOM === 'B' ? 'basisrekentoestel' : 'calc') + '">' + CALCICOON + 'Rekenmachine</button>' : '<span class="geencalc">Zonder rekenmachine</span>') +
+    (metForm(q) ? '<button type="button" class="toolknop" data-a="form" aria-expanded="' + (ses.paneel === 'form') + '" aria-controls="form">' + FORMICOON + (STROOM === 'B' ? 'Formuleblad' : 'Formularium') + '</button>' : '') +
     '<button type="button" class="toolknop" data-a="wb" aria-expanded="' + (ses.paneel === 'wb') + '" aria-controls="wb">' + BOEKICOON + 'Woordenboek</button></div>';
   const wat = ses.soort === 'proef' ? ses.proef.naam + ' · ' + themaVan(ses.thema).naam : ses.soort === 'fout' ? 'Mijn fouten opnieuw' : themaVan(ses.thema).naam;
   setKop('<em>' + esc(wat) + '</em>', '');
@@ -9699,7 +9724,10 @@ const ACT = {
   stop() { ses.stop = true; toonVraag(); },
   stopnee() { ses.stop = false; toonVraag(); },
   stopja() { einde(true); },
-  calc() { ses.paneel = ses.paneel === 'calc' ? null : 'calc'; toonVraag(); calcScherm(); },
+  calc() {
+    if (STROOM === 'B') { if (brt()) brt().wissel(); return; }
+    ses.paneel = ses.paneel === 'calc' ? null : 'calc'; toonVraag(); calcScherm();
+  },
   ct(el) { calcToets(el.dataset.k); }
 };
 const FORM = {

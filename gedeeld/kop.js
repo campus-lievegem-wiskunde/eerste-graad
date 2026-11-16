@@ -18,6 +18,8 @@
   if(document.getElementById('app')){ const sb = document.createElement('script'); sb.src = new URL('bord.js', me.src).href; document.head.append(sb); }
   /* ---------- zwevende vensters (rekenmachine, spiekbriefje, uitleg) versleepbaar op elke pagina ---------- */
   { const sv = document.createElement('script'); sv.src = new URL('versleep.js', me.src).href; document.head.append(sv); }
+  /* ---------- B-stroom (1B en 2B): het basisrekentoestel in plaats van de TI-30XB (gedeeld/basisrekentoestel.js) ---------- */
+  if(/^[12]b-/.test(site) || document.body.dataset.stroom === 'B'){ const sr = document.createElement('script'); sr.src = new URL('basisrekentoestel.js', me.src).href; document.head.append(sr); }
 
   /* ---------- kop ---------- */
   const hdr = document.querySelector('header.top');

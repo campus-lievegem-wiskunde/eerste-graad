@@ -25,18 +25,61 @@ const H = require('./helpers');
     'thema\'s van de B-stroom in de volgorde van de leeswijzer: ' + nav.join(', '));
   check(!/Algebra|Verzamelingen|Transformaties/.test(nav.join()), 'geen thema\'s van de A-stroom');
 
-  /* omtrek en oppervlakte: formulekader bij de vraag, geen knop Formularium */
+  /* omtrek en oppervlakte: knop Formuleblad bij elke vraag (geen formulekader meer), en het gedeelde basisrekentoestel */
   await p.click('nav.side button[data-d=ooi]'); await p.waitForTimeout(150);
   await p.click('form[data-f=keuze] button[type=submit]'); await p.waitForTimeout(300);
-  let kader = 0, knop = 0, rmEenvoudig = 0, rmTotaal = 0;
+  const vak = sel => p.evaluate(s=>{ const e = document.querySelector(s); if(!e) return null; const r = e.getBoundingClientRect(); return { l:r.left, t:r.top, r:r.right, b:r.bottom, pos:getComputedStyle(e).position }; }, sel);
+  const H_ = await p.evaluate(()=>innerHeight);
+  let kader = 0, knop = 0, rmTotaal = 0, rmBasis = 0, bladGetest = false, rmGetest = false;
   for(let i = 0; i < 10; i++){
-    kader += await p.locator('.opgave .formkader').count(); knop += await p.locator('[data-a=form]').count();
+    kader += await p.locator('.opgave .formkader').filter({ hasText:/(omtrek|oppervlakte|inhoud)[^=]*=|π/ }).count(); knop += await p.locator('.tools [data-a=form]:has-text("Formuleblad")').count();
+    if(!bladGetest){ bladGetest = true;
+      await p.click('.tools [data-a=form]'); await p.waitForTimeout(120);
+      const t = await p.locator('#form.formblad').innerText();
+      check(/Omtrek/.test(t) && /Oppervlakte/.test(t) && /Volume/.test(t) && !/Inhoud|Cilinder|cilinder/.test(t), 'formuleblad met omtrek, oppervlakte en volume');
+      check(['rechthoek', 'vierkant', 'driehoek', 'cirkel', 'parallellogram', 'ruit', 'trapezium', 'balk', 'kubus'].every(w=>t.includes(w)) && /lengte × breedte/.test(t) && /π ≈ 3,14/.test(t), 'formules in woorden voor alle afgesproken figuren');
+      const f0 = await vak('#form'), og = await vak('.opgave .tekst');
+      check(f0.pos === 'fixed' && f0.l < 40 && f0.b > H_ - 40 && f0.b <= H_, 'formuleblad zweeft linksonder op het scherm (' + Math.round(f0.l) + ',' + Math.round(f0.t) + ')');
+      check(f0.t >= og.b || f0.r <= og.l || f0.l >= og.r || f0.b <= og.t, 'formuleblad bedekt de tekst van de opgave niet');
+      check(await p.locator('#form .paneelkop .vs-greep').count() === 1, 'formuleblad heeft een greepje');
+      const kp = await vak('#form .paneelkop'); await p.mouse.move(kp.l + 120, kp.t + 12); await p.mouse.down(); await p.mouse.move(kp.l + 220, kp.t - 60, { steps:5 }); await p.mouse.up(); await p.waitForTimeout(80);
+      const f1 = await vak('#form');
+      check(Math.abs(f1.l - (f0.l + 100)) <= 3 && Math.abs(f1.t - (f0.t - 72)) <= 3, 'formuleblad versleepbaar');
+      await p.click('#form .sluit'); await p.waitForTimeout(80);
+      check(await p.locator('#form').count() === 0, 'formuleblad sluit');
+    }
     const rm = p.locator('.tools [data-a=calc]');
-    if(await rm.count()){ rmTotaal++; await rm.click(); await p.waitForTimeout(60); rmEenvoudig += await p.locator('#calc.eenvoudig').count(); await rm.click(); }
+    if(await rm.count()){ rmTotaal++; await rm.click(); await p.waitForTimeout(80);
+      rmBasis += await p.locator('#basisrekentoestel:visible').count() && !(await p.locator('#calc').count()) ? 1 : 0;
+      if(!rmGetest){ rmGetest = true;
+        check(await rm.getAttribute('aria-expanded') === 'true', 'knop Rekenmachine staat aan');
+        const r0 = await vak('#basisrekentoestel'), kaart = await vak('.opgave');
+        check(r0.pos === 'fixed' && r0.r > 1366 - 60 && r0.b > H_ - 40, 'basisrekentoestel zweeft rechtsonder op het scherm, los van de opgave');
+        check(await p.evaluate(()=>!document.getElementById('basisrekentoestel').closest('.opgave')) && r0.l >= kaart.r - 2, 'het staat niet in of op de opgavekaart');
+        const toetsen = (await p.locator('#basisrekentoestel .brt-k').allTextContents()).join(' ');
+        check(toetsen === 'C ⌫ ( ) 7 8 9 ÷ 4 5 6 × 1 2 3 − 0 , = +', 'toetsen van het basisrekentoestel: ' + toetsen);
+        for(const k of ['2', '×', '(', '3', '+', '4', ')', '=']) await p.click(`#basisrekentoestel .brt-k[data-k="${k}"]`);
+        check((await p.locator('#basisrekentoestel .brt-uit').innerText()).trim() === '14', '2 × (3 + 4) = 14');
+        check(await p.locator('#basisrekentoestel .vs-greep').count() === 1, 'greepje in de titelbalk');
+        const bk = await vak('#basisrekentoestel .brt-balk'); await p.mouse.move(bk.l + 90, bk.t + 10); await p.mouse.down(); await p.mouse.move(bk.l - 100, bk.t - 80, { steps:5 }); await p.mouse.move(bk.l - 310, bk.t - 140, { steps:5 }); await p.mouse.up(); await p.waitForTimeout(80);
+        const r1 = await vak('#basisrekentoestel');
+        check(Math.abs(r1.l - (r0.l - 400)) <= 3 && Math.abs(r1.t - (r0.t - 150)) <= 3, 'basisrekentoestel versleepbaar');
+        await p.click('.tools [data-a=marker]'); await p.waitForTimeout(100); await p.click('.tools [data-a=marker]'); await p.waitForTimeout(100);
+        const r2 = await vak('#basisrekentoestel');
+        check(r2 && Math.abs(r2.l - r1.l) <= 2 && Math.abs(r2.t - r1.t) <= 2, 'het blijft staan als de vraag opnieuw getekend wordt');
+        await p.click('#basisrekentoestel .brt-x'); await p.waitForTimeout(80);
+        check(await p.locator('.tools [data-a=calc]').getAttribute('aria-expanded') === 'false' && await p.locator('#basisrekentoestel:visible').count() === 0, 'sluitknop sluit het toestel en zet de knop uit');
+        await p.click('.tools [data-a=calc]'); await p.waitForTimeout(80);
+        const r3 = await vak('#basisrekentoestel');
+        check(Math.abs(r3.l - r0.l) <= 2 && Math.abs(r3.t - r0.t) <= 2, 'opnieuw openen: weer rechtsonder');
+      }
+      await p.locator('.tools [data-a=calc]').click(); await p.waitForTimeout(40);
+    }
     await p.evaluate(()=>__oefensite.vulJuist()); await p.click('[data-a=bevestig]'); await p.waitForTimeout(60); await p.click('[data-a=verder]'); await p.waitForTimeout(60);
   }
-  check(rmTotaal > 0 && rmEenvoudig === rmTotaal, 'altijd de eenvoudige rekenmachine (' + rmEenvoudig + ' van ' + rmTotaal + ')');
-  check(kader >= 3 && knop === 0, 'formulekader bij de vragen (' + kader + ' van 10), geen knop Formularium');
+  check(rmTotaal > 0 && rmBasis === rmTotaal, 'altijd het basisrekentoestel (' + rmBasis + ' van ' + rmTotaal + ')');
+  check(kader === 0 && knop === 10, 'knop Formuleblad bij elke vraag (' + knop + ' van 10), geen formulekader meer');
+  check(await p.locator('.ti30-fab').count() === 0 && await p.evaluate(()=>!window.TI30XB), 'geen knop rechtsonder en geen TI-30XB in de B-stroom');
   check(await p.locator('#app .niv-l').count() === 0, 'leerling ziet geen letters');
   const ls = await p.evaluate(()=>({ niv:JSON.parse(localStorage.getItem('1b_wp_v1_niv') || '{}'), dg:JSON.parse(localStorage.getItem('1b_wp_v1_doelen') || '{}'), res:JSON.parse(localStorage.getItem('1b_wp_v1__res') || '{}') }));
   check(ls.niv.ooi && ls.niv.ooi.t === 10 && ls.niv.ooi.j === 10, 'letter per thema bewaard: ' + JSON.stringify(ls.niv.ooi));
@@ -77,6 +120,8 @@ const H = require('./helpers');
   await q.click('.tab:has-text("Openzetten")'); await q.waitForTimeout(500);
   const sw = q.locator('.site-blok label.switch:has-text("Wiskundige problemen oplossen · 1ste jaar B-stroom") input');
   check(await sw.count() === 1 && await sw.isChecked(), 'Openzetten voor groep 1B toont Wiskundige problemen oplossen, aangevinkt');
+  const blok1b = q.locator('.site-blok:has(label.switch:has-text("Wiskundige problemen oplossen · 1ste jaar B-stroom"))');
+  check(await blok1b.locator('.rt-keuze').count() === 1 && await blok1b.locator('.rt-keuze:visible').count() === 0, 'B-stroom: het vinkje voor de knop met het rekentoestel is verborgen');
   await sw.uncheck(); await q.waitForTimeout(600);
   check((await H.fakedb(q))['groepen/1B'].aan['1b-wp'].on === false, 'uitvinken wordt bewaard voor groep 1B');
   await sw.check(); await q.waitForTimeout(600);

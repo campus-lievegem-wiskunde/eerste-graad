@@ -14,7 +14,7 @@ node test/toeschouwer.js      # toeschouwer (directeur): echte gegevens lezen, w
 node test/alsleerling.js      # Bekijk als leerling in een module
 node test/groepsoverzicht.js  # Beheer: namen per groep, leerlingen zonder groep, kolom Groep bij opzoeken
 node test/wiskundigeproblemen.js  # 2A Wiskundige problemen: oefenen, niveau, proeftoets, Bord en niveau in het dashboard
-node test/wiskundigeproblemen2b.js  # 2B Wiskundige problemen: thema's van de B-stroom, formulekader, eenvoudige rekenmachine, proeftoets, B-doelen in het dashboard
+node test/wiskundigeproblemen2b.js  # 2B Wiskundige problemen: thema's van de B-stroom, formuleblad, basisrekentoestel (zwevend, versleepbaar), proeftoets, B-doelen in het dashboard
 node test/wiskundigeproblemen1b.js  # 1B Wiskundige problemen oplossen (zelfde inhoud als 2B): tegel en titel, voortgang onder 1b-wp, aanvinken bij Openzetten voor groep 1B
 node test/modules2b.js        # 2B Modules 1-5: openzetten, kaart controleren, nieuwe opgave, Ik begrijp het niet, puzzels tellen niet mee, rekenmachine, proeftoets met feedback en Oefen dit, punten in het assenstelsel, vierhoek tekenen, geodriehoek, Bord
 node test/koppelteken.js      # e-mailadres met koppelteken: melding met het echte adres, nieuwe leerling met eigen adres
@@ -23,7 +23,7 @@ node test/opdrachten.js       # toetsen en taken: openzetten, module dicht, invu
 node test/resultaten.js       # resultaten nooit kwijt: mislukt ophalen bij het openen, tweede tabblad (nep-getDoc mislukt met window.__getDocFout = n)
 node test/classroom.js        # Google Classroom: klas koppelen, opdracht vanzelf in Classroom, conceptpunten, vrijgeven = definitief en teruggegeven, verbinden (nep-Classroom in fake/classroom.js)
 node test/uitgroep.js          # tabblad Leerlingen van een groep: Uit groep en Verplaatsen naar (database én lijst meteen bijgewerkt)
-node test/versleep.js          # versleepbare vensters: rekenmachine, woordenboek, spiekbriefje, uitleg bij een stap, 2B-rekenmachine en TI-30XB
+node test/versleep.js          # versleepbare vensters: rekenmachine, woordenboek, spiekbriefje, uitleg bij een stap, basisrekentoestel van de B-stroom en TI-30XB
 node test/sleutel.js           # oplossingssleutel voor leerkrachten (dashboard/sleutel.html): 1A heuristieken, knop Sleutel in het dashboard, link in de module, niet voor leerling of toeschouwer
 ```
 

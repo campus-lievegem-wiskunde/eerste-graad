@@ -9,8 +9,8 @@
    - dubbelklikken op de titelbalk zet het venster terug op de standaardplek;
    - met het toetsenbord: greepje aanklikken (Tab) en de pijltjestoetsen.
    Een nieuw venster versleepbaar maken: zet data-versleep op het element (en eventueel class "vs-kop" op de titelbalk).
-   Vensters die zichzelf al verslepen (TI-30XB, rekenmachine van de 2B-modules) krijgen hier enkel
-   dubbelklik-terugzetten en de standaardplek bij elke opening. */
+   Het basisrekentoestel van de B-stroom (gedeeld/basisrekentoestel.js) gebruikt data-versleep.
+   De TI-30XB versleept zichzelf al en krijgt hier enkel dubbelklik-terugzetten en de standaardplek bij elke opening. */
 (function(){
   'use strict';
   if(window.Versleep) return;
@@ -35,7 +35,6 @@
   .cheat.vs-los{ background:var(--card, #fff); }
   .vs-sluit{ float:right; margin-left:.5rem; width:1.7rem; height:1.7rem; border-radius:50%; border:none; background:var(--orange, #FCAF17); color:#1f2d2e; font:700 1rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; }
   .cheat:not(.vs-los) .vs-sluit{ display:none; }
-  .rm-balk .vs-greep{ opacity:.8; }
   @media print{ .vs-greep, .vs-sluit{ display:none; } .vs-los{ position:static !important; box-shadow:none; } }
   @media (prefers-reduced-motion: no-preference){ .vs-terug{ transition:left .15s, top .15s; } }`;
   const st = document.createElement('style'); st.id = 'versleep-css'; st.textContent = css; document.head.append(st);
@@ -74,7 +73,6 @@
     zet(el, r.left, r.top);
   }
   function terug(el){
-    if(el.classList.contains('rm-venster')){ el.style.left = el.style.top = el.style.right = el.style.bottom = ''; return; }
     if(el.classList.contains('ti30-win')){ ti30Standaard(el); return; }
     el.classList.remove('vs-los');
     ['left', 'top', 'right', 'bottom', 'width'].forEach(p => el.style.removeProperty(p));
@@ -163,15 +161,6 @@
       ti30Standaard(el);   /* elke opening op de standaardplek */
       el.addEventListener('dblclick', e => { if(e.target.closest('button, .lcd')) return; ti30Standaard(el); });
     }
-    if(el.classList.contains('rm-venster')){
-      const balk = el.querySelector('.rm-balk');
-      if(balk){
-        const t = balk.querySelector('span');
-        if(t && !t.querySelector('.vs-greep')){ const g = document.createElement('span'); g.className = 'vs-greep'; g.textContent = '⠿'; g.setAttribute('aria-hidden', 'true'); t.prepend(g); }
-        balk.title = 'Versleep de rekenmachine. Dubbelklik om ze terug te zetten.';
-        balk.addEventListener('dblclick', e => { if(e.target.closest('button')) return; terug(el); });
-      }
-    }
   }
 
   /* ---------- alles opvolgen wat de pagina toevoegt, verbergt of weghaalt ---------- */
@@ -180,14 +169,14 @@
     const lijst = root.matches(ALLES) ? [root] : [];
     lijst.push(...root.querySelectorAll(ALLES));
     lijst.forEach(maakVersleepbaar);
-    const eigen = root.matches('.ti30-win, .rm-venster') ? [root] : [];
-    eigen.push(...root.querySelectorAll('.ti30-win, .rm-venster'));
+    const eigen = root.matches('.ti30-win') ? [root] : [];
+    eigen.push(...root.querySelectorAll('.ti30-win'));
     eigen.forEach(eigenSlepers);
   }
   const mo = new MutationObserver(lijst => {
     for(const m of lijst){
       if(m.type === 'childList') m.addedNodes.forEach(scan);
-      else if(m.type === 'attributes' && m.target.hidden && (m.target.matches(ALLES) || m.target.matches('.rm-venster'))) terug(m.target);   /* gesloten: volgende keer op de standaardplek */
+      else if(m.type === 'attributes' && m.target.hidden && m.target.matches(ALLES)) terug(m.target);   /* gesloten: volgende keer op de standaardplek */
     }
     /* gesloten vensters (weggehaald en niet opnieuw getekend) vergeten hun plek */
     for(const id of [...plek.keys()]) if(!document.getElementById(id)) plek.delete(id);

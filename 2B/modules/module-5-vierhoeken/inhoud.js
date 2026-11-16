@@ -446,38 +446,9 @@ function ikBegrijpHetNiet(kid, seed, terug){
   return v;
 }
 
-/* ---------- eenvoudige rekenmachine (zwevend venster) ---------- */
-let RM = null;
-function rekenmachine(){
-  if(RM){ RM.hidden = !RM.hidden; return; }
-  const p = el('div', 'rm-venster'); p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'rekenmachine');
-  const balk = el('div', 'rm-balk', '<span>Rekenmachine</span>'); balk.append(knop('rm-x', '✕', ()=>{ p.hidden = true; }));
-  const sch = el('div', 'rm-scherm'), som = el('div', 'rm-som'), uit = el('div', 'rm-uit', '0'); sch.append(som, uit);
-  const keys = el('div', 'rm-keys');
-  let expr = '', klaar = false;
-  const toon = ()=>{ som.textContent = expr.replace(/\*/g, ' x ').replace(/\//g, ' : ').replace(/\+/g, ' + ').replace(/-/g, ' − ').replace(/\./g, ','); };
-  const reken = e=>{ if(!/^[\d.+\-*/() ]+$/.test(e)) return NaN; try{ const r = Function('"use strict";return (' + e + ')')(); return isFinite(r) ? r : NaN; }catch(x){ return NaN; } };
-  const druk = k=>{
-    if(k === 'C'){ expr = ''; uit.textContent = '0'; klaar = false; toon(); return; }
-    if(k === '⌫'){ expr = expr.slice(0, -1); toon(); return; }
-    if(k === '='){ const r = reken(expr); uit.textContent = isNaN(r) ? 'Fout' : nf(rnd(r, 8)); klaar = !isNaN(r); if(klaar) RM._ans = rnd(r, 8); return; }
-    const op = '+-*/'.includes(k);
-    if(klaar){ expr = op ? String(RM._ans) : ''; klaar = false; }
-    if(k === ',') k = '.';
-    expr += k; toon();
-  };
-  [['7','7'],['8','8'],['9','9'],[':','/'],['4','4'],['5','5'],['6','6'],['x','*'],['1','1'],['2','2'],['3','3'],['−','-'],['0','0'],[',',','],['=','='],['+','+'],['C','C'],['⌫','⌫'],['(','('],[')',')']].forEach(([t, k])=>{
-    keys.append(knop('rm-k' + ('/*-+'.includes(k) ? ' op' : '') + (k === '=' ? ' is' : ''), t, ()=>druk(k))); });
-  p.append(balk, sch, keys); document.body.append(p); RM = p;
-  p.addEventListener('keydown', e=>{ const m = { Enter:'=', Backspace:'⌫', Escape:'C', '*':'*', '/':'/', x:'*' }; let k = m[e.key] || e.key; if('0123456789+-*/.,()=⌫C'.includes(k) && k.length === 1 || k === '⌫'){ e.preventDefault(); druk(k); } });
-  p.tabIndex = -1;
-  /* verslepen aan de balk */
-  let sx, sy, ox, oy;
-  balk.addEventListener('pointerdown', e=>{ if(e.target.closest('button')) return; sx = e.clientX; sy = e.clientY; const r = p.getBoundingClientRect(); ox = r.left; oy = r.top; balk.setPointerCapture(e.pointerId); });
-  balk.addEventListener('pointermove', e=>{ if(sx == null) return; p.style.left = Math.max(0, Math.min(innerWidth - 60, ox + e.clientX - sx)) + 'px'; p.style.top = Math.max(0, Math.min(innerHeight - 40, oy + e.clientY - sy)) + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto'; });
-  balk.addEventListener('pointerup', ()=>{ sx = null; });
-  p.focus();
-}
+/* ---------- rekenmachine: het gedeelde basisrekentoestel van de B-stroom (gedeeld/basisrekentoestel.js, geladen door kop.js) ----------
+   Zwevend venster rechtsonder, versleepbaar. Sinds 16 november 2026 hetzelfde toestel als bij wiskundige problemen 1B en 2B. */
+function rekenmachine(){ if(window.Basisrekentoestel) window.Basisrekentoestel.wissel(); }
 
 /* ---------- eigen vraag: betalen met munten en biljetten (klikken) ----------
    doel in cent; o.min: zo weinig mogelijk stukken vereist; o.soorten: welke munten en biljetten aanklikbaar zijn */
