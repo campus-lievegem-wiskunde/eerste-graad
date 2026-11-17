@@ -467,19 +467,19 @@ export const SITES = [
     "id": "getal",
     "naam": "Gehele getallen",
     "toets": false,
-    "vragen": 43
+    "vragen": 48
    },
    {
     "id": "abs",
     "naam": "Absolute waarde",
     "toets": false,
-    "vragen": 40
+    "vragen": 45
    },
    {
     "id": "orde",
     "naam": "Ordenen",
     "toets": false,
-    "vragen": 24
+    "vragen": 44
    },
    {
     "id": "optel",
@@ -569,6 +569,12 @@ export const SITES = [
     "id": "toets3",
     "naam": "Proeftoets 3",
     "toets": true,
+    "vragen": 0
+   },
+   {
+    "id": "ktoets",
+    "naam": "Korte proeftoets",
+    "toets": false,
     "vragen": 0
    }
   ]

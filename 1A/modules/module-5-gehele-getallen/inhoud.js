@@ -2805,6 +2805,165 @@ SEC.orde = { id:'orde', ic:'z_orde', nav:'Ordenen', title:'Ordenen en de getalle
   .m5-race-kop{display:flex; gap:1rem; align-items:center; font-weight:700; color:var(--accent-dark)} .m5-race-doel{font-size:2rem; color:var(--ink); min-width:3rem; text-align:center}
   `; document.head.append(s); })();
 /* ============================================================
+   EXTRA KAARTEN BIJ DE EERSTE KLEINE TOETS (17 november 2026)
+   Achteraan de onderdelen 1 tot 3 (getal, abs, orde) en een korte proeftoets
+   over gehele getallen, absolute waarde, tegengestelde en ordenen (SEC.ktoets).
+   Afspraak van de beheerder: oefeningen bij een toets gebruiken ANDERE vraagtypes
+   en contexten dan de toets zelf (niet enkel andere getallen). Daarom: symbolen
+   lezen (niet schrijven), raadsels, waar of niet waar met ≤ en ≥, een getal
+   invullen zodat het klopt, thermometers aflezen en 0 zoeken op een getallenas.
+   ============================================================ */
+const KT = {};
+const KT_LET = ['A', 'B', 'D', 'E'];   /* geen C: lijkt op c */
+
+/* ---------- symbolen lezen: welke zin hoort bij de notatie? ---------- */
+function ktLees(R){
+  const n = R.int(2, 40);
+  return [
+    [`${MIN}${n} ∉ ℕ`, [`${MIN}${n} is geen natuurlijk getal.`, `${MIN}${n} is een natuurlijk getal.`, `ℕ is geen deelverzameling van ${MIN}${n}.`]],
+    ['<i>x</i> ∈ ℤ⁻₀', ['<i>x</i> is een strikt negatief geheel getal.', '<i>x</i> is een negatief geheel getal of 0.', '<i>x</i> is een geheel getal verschillend van 0.']],
+    ['<i>y</i> ∈ ℤ⁺', ['<i>y</i> is een positief geheel getal (0 mag ook).', '<i>y</i> is een strikt positief geheel getal (geen 0).', '<i>y</i> is een negatief geheel getal.']],
+    ['ℤ⁺₀ ⊂ ℤ₀', ['De strikt positieve gehele getallen vormen een deelverzameling van de gehele getallen zonder 0.', 'De gehele getallen zonder 0 vormen een deelverzameling van de strikt positieve gehele getallen.', 'Elk geheel getal zonder 0 is strikt positief.']],
+    ['0 ∉ ℤ₀', ['0 is geen element van de gehele getallen zonder 0.', '0 is een element van de gehele getallen zonder 0.', '0 is geen geheel getal.']],
+    ['ℤ⁻ ⊄ ℕ', ['De negatieve gehele getallen vormen geen deelverzameling van ℕ.', 'Geen enkel negatief geheel getal is een natuurlijk getal.', 'ℕ is geen deelverzameling van de negatieve gehele getallen.']],
+    [`|${MIN}${n}| = ${n}`, [`De absolute waarde van ${MIN}${n} is ${n}.`, `Het tegengestelde van ${MIN}${n} is ${n}.`, `${MIN}${n} is groter dan ${n}.`]],
+    [`${MIN}|${MIN}${n}| = ${MIN}${n}`, [`Het tegengestelde van de absolute waarde van ${MIN}${n} is ${MIN}${n}.`, `De absolute waarde van het tegengestelde van ${MIN}${n} is ${MIN}${n}.`, `Het tegengestelde van ${MIN}${n} is ${MIN}${n}.`]],
+  ];
+}
+function ktLeesQ(g, st, save, id, nr, R, z){ const [sym, opts] = z; const O = R.shuffle(opts.map((h, k) => ['' + k, h]));
+  qChoice(g, st, save, id, { nr, html:`<span class="m5-groot">${sym}</span>`, opts:O, ans:'0', why:opts[0], whyBad:'Lees symbool per symbool: ∈ is een element van, ⊂ is een deelverzameling van. Een 0 onderaan betekent: zonder 0.' }); }
+
+/* ---------- raadsels: wie ben ik? ---------- */
+function ktRaad(R){
+  const a = R.int(2, 30), b = R.int(2, 30), c = R.int(2, 30), d = R.int(2, 30);
+  return R.shuffle([
+    [`Mijn tegengestelde is ${a}.`, [-a]], [`Mijn absolute waarde is ${b} en ik ben negatief.`, [-b]], ['Ik ben gelijk aan mijn tegengestelde.', [0]],
+    [`Mijn absolute waarde is ${c}.`, [c, -c]], [`Het tegengestelde van mijn tegengestelde is ${MIN}${d}.`, [-d]], [`Mijn tegengestelde is ${MIN}${b} en mijn absolute waarde is ${b}.`, [b]]]);
+}
+const ktLeesG = t => { t = String(t||'').toLowerCase().trim(); if(/^geen/.test(t)) return []; const d = t.split(/[;]|\sen\s|\sof\s/).map(x => x.trim()).filter(Boolean); const v = d.map(x => rdZ({t:x, z:true})); return v.some(x => x==null) ? null : v; };
+function ktRaadQ(g, st, save, id, nr, r){ const [tx, S] = r;
+  mQ(g, st, save, id, { nr, html:`<span class="txt">${tx}</span> {{g:a}}`, check:V=>{ const v = ktLeesG((V.a||{}).t); if(v==null) return {info:true, msg:'Typ het getal. Zijn er twee, typ dan bijvoorbeeld 4 of −4.'};
+      const ok = v.length===S.length && S.every(x => v.includes(x)); return ok ? {ok:true} : {ok:false, msg: S.length===2 && v.length===1 ? 'Er is nog een tweede getal.' : ''}; },
+    sol:S.map(zS).join(' of ') }); }
+
+/* ---------- waar of niet waar met <, >, ≤, ≥ ---------- */
+function ktWnw(R){
+  const a = R.int(3, 25), b = R.int(3, 25), c = R.int(2, 20), d = R.int(2, 15);
+  return R.shuffle([
+    [`${MIN}${a + 1} &gt; ${MIN}${a}`, 'n', `${MIN}${a + 1} ligt links van ${MIN}${a}: het is kleiner.`], [`${MIN}${b} ≤ ${MIN}${b}`, 'w', 'Ze zijn gelijk, en ≤ laat gelijk toe.'],
+    [`${MIN}${b} &lt; ${MIN}${b}`, 'n', 'Ze zijn gelijk: dan is &lt; niet waar.'], [`0 ≥ ${MIN}${c}`, 'w', 'Elk negatief getal is kleiner dan 0.'],
+    [`${MIN}(${MIN}${d}) ≥ |${MIN}${d}|`, 'w', `Allebei gelijk aan ${d}.`], [`${MIN}|${MIN}${c}| &gt; ${MIN}${c + 1}`, 'w', `${MIN}${c} ligt rechts van ${MIN}${c + 1}.`],
+    [`|${MIN}${a}| &lt; ${MIN}(+${a})`, 'n', `${a} is groter dan ${MIN}${a}.`], [`${MIN}${d} ≥ ${d}`, 'n', 'Een negatief getal is kleiner dan een positief getal.']]);
+}
+
+/* ---------- vul een getal in zodat het klopt ---------- */
+function ktVul(R){
+  const a = R.int(3, 15), b = R.int(2, 9), c = R.int(10, 40), d = R.int(2, 6);
+  return R.shuffle([
+    [`${MIN}${a + 2} &lt; {{g:a}} &lt; ${MIN}${a}`, x => x > -a - 2 && x < -a, zS(-a - 1)], [`{{g:a}} &lt; ${MIN}${c}`, x => x < -c, `bijvoorbeeld ${zS(-c - 1)}`],
+    [`${MIN}${b} &lt; {{g:a}} &lt; 0`, x => x > -b && x < 0, `bijvoorbeeld ${zS(-1)}`], [`|${MIN}${d}| &lt; {{g:a}} &lt; ${d + 2}`, x => x > d && x < d + 2, '' + (d + 1)],
+    [`{{g:a}} ≤ ${MIN}${c}`, x => x <= -c, `bijvoorbeeld ${zS(-c)}`], [`${MIN}(${MIN}${b}) &gt; {{g:a}} &gt; ${b - 2}`, x => x < b && x > b - 2, '' + (b - 1)]]);
+}
+function ktVulQ(g, st, save, id, nr, v){ const [html, ok, sol] = v;
+  mQ(g, st, save, id, { nr, html, check:V=>{ const x = rdZ(V.a); if(x==null) return {info:true, msg:'Typ één geheel getal.'}; return ok(x) ? {ok:true} : {ok:false, msg:'Dat getal past niet. Denk aan de getallenas: links is kleiner.'}; }, sol }); }
+
+/* ---------- thermometers ---------- */
+function ktThermo(R, n = 4){
+  const steden = R.shuffle(['Oslo', 'Gent', 'Riga', 'Bern', 'Wenen', 'Praag', 'Kiev', 'Lyon']).slice(0, n);
+  const S = new Set(); const T = steden.map(() => { let v; do{ v = 2*R.int(-9, 9); }while(S.has(v)); S.add(v); return v; });
+  const bw = 90, W = bw*n, H = 260, top = 18, bot = 206, lo = -20, hi = 20; let s = '';
+  steden.forEach((naam, i) => { const cx = i*bw + 52, Y = v => bot - (v - lo)/(hi - lo)*(bot - top);
+    s += `<rect x="${cx - 7}" y="${top - 8}" width="14" height="${bot - top + 16}" rx="7" fill="#fff" stroke="#333" stroke-width="1.2"/>`;
+    s += `<circle cx="${cx}" cy="${bot + 17}" r="13" fill="#e8742c" stroke="#333" stroke-width="1.2"/><rect x="${cx - 4}" y="${fx(Y(T[i]))}" width="8" height="${fx(bot + 8 - Y(T[i]))}" fill="#e8742c"/>`;
+    for(let v = lo; v <= hi; v += 2){ const lang = v % 10===0; s += `<line x1="${cx + 7}" y1="${fx(Y(v))}" x2="${cx + (lang ? 19 : 13)}" y2="${fx(Y(v))}" stroke="#333" stroke-width="1"/>`; if(lang) s += `<text x="${cx - 12}" y="${fx(Y(v))}" text-anchor="end" dominant-baseline="central" font-size="12" fill="#173436">${zS(v)}</text>`; }
+    s += `<text x="${cx}" y="${H - 6}" text-anchor="middle" font-size="14" font-weight="700" fill="#173436">${naam}</text>`; });
+  return {svg:`<svg class="mf" viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="${n} thermometers">${s}</svg>`, steden, T};
+}
+
+/* ---------- getallenas: zoek de stap en 0 ---------- */
+function ktZoek0(R){
+  const stap = R.pick([2, 3, 4, 5, 10]), n = 12, k0 = R.int(8, 11); const W = k => (k - k0)*stap;
+  const kA = R.int(1, 3), kB = kA + R.int(3, 5);
+  const W2 = 640, pad = 30, X = k => pad + k*(W2 - 2*pad)/n;
+  let s = `<line class="as-l" x1="${pad-14}" y1="60" x2="${W2-pad+12}" y2="60"/><path class="as-pk" d="M${W2-pad+18} 60 l-9 -5 v10z"/>` + sT(W2-pad+12, 82, 'ℤ', 'k');
+  for(let k=0; k<=n; k++) s += `<line class="as-t" x1="${fx(X(k))}" y1="53" x2="${fx(X(k))}" y2="67"/>`;
+  [[kA, 'A'], [kB, 'B']].forEach(([k, l]) => { s += `<circle class="as-p" cx="${fx(X(k))}" cy="60" r="7"/>` + sT(X(k), 38, l, 'as-lab') + sT(X(k), 84, zS(W(k)), 'k'); });
+  return {svg:svgWrap(W2, 100, s, {alt:'getallenas met twee punten A en B, 0 staat er niet op', maxw:640, cls:'m5-as'}), stap, A:W(kA), B:W(kB), kA, kB, k0};
+}
+
+/* ============================================================ kaarten */
+KT.lees = { title:'Symbolen lezen', lvl:2,
+  instr:'Welke zin hoort bij de symbolen? Lees symbool per symbool.',
+  build(b, st, save){ const R = makeR(st); const L = R.shuffle(ktLees(R)).slice(0, 5);
+    reeks(b, L.length, (g, i, nr) => ktLeesQ(g, st, save, 's' + i, nr, R, L[i]), {een:true}); } };
+
+KT.raad = { title:'Wie ben ik?', lvl:2,
+  instr:'Zoek het getal. Zijn er twee getallen mogelijk, typ ze dan allebei, bijvoorbeeld 4 of −4.',
+  build(b, st, save){ const R = makeR(st); const L = ktRaad(R).slice(0, 5);
+    reeks(b, L.length, (g, i, nr) => ktRaadQ(g, st, save, 'r' + i, nr, L[i]), {een:true}); } };
+
+KT.wnw = { title:'Waar of niet waar: <, >, ≤ en ≥', lvl:2,
+  instr:'≤ betekent "kleiner dan of gelijk aan", ≥ "groter dan of gelijk aan". Reken eerst elke kant uit.',
+  build(b, st, save){ const R = makeR(st); const L = ktWnw(R).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans, why }); }); } };
+
+KT.vul = { title:'Vul een getal in zodat het klopt', lvl:2,
+  instr:'Typ één geheel getal dat past. Soms zijn er meer mogelijkheden: één is genoeg.',
+  build(b, st, save){ const R = makeR(st); const L = ktVul(R).slice(0, 6);
+    reeks(b, L.length, (g, i, nr) => ktVulQ(g, st, save, 'v' + i, nr, L[i])); } };
+
+KT.thermo = { title:'Lees de thermometers af', lvl:1,
+  instr:'Lees elke temperatuur af. Elk klein streepje is 2 graden.',
+  build(b, st, save){ const R = makeR(st); const Th = ktThermo(R); const P = paneel(b, 'breed-l'); P.vis.innerHTML = Th.svg;
+    const g = el('div', 'm4-items een'); P.stap.append(g);
+    Th.steden.forEach((s, i) => mQ(g, st, save, 't' + i, { nr:'abcd'[i] + ')', html:`<span class="txt">${s}:</span> {{u:a}} <span class="txt">°C</span>`, check:V=>chkG(V.a, Th.T[i], [[Th.T[i]/2, 'Elk klein streepje is 2 graden, niet 1.']]), sol:zS(Th.T[i]) + ' °C' }));
+    const koud = Th.steden[Th.T.indexOf(Math.min(...Th.T))];
+    const r = el('div', 'm4-wn'); g.append(r);
+    qChoice(r, st, save, 'k', { nr:'e)', html:'Waar is het het koudst?', opts:Th.steden.map(s => [s, s]), ans:koud, why:`${zS(Math.min(...Th.T))} °C is de laagste temperatuur.` }); } };
+
+KT.zoek0 = { title:'Zoek 0 op de getallenas', lvl:2,
+  instr:'0 staat niet op deze getallenas. Zoek eerst hoeveel één streepje waard is.',
+  build(b, st, save){ const R = makeR(st); const Z = ktZoek0(R); b.append(el('div', 'm4-vis', Z.svg));
+    const hint = [`Van A naar B zijn er ${Z.kB - Z.kA} streepjes.`, `Het verschil is ${zS(Z.B)} ${MIN} ${zP(Z.A)} = ${(Z.kB - Z.kA)*Z.stap}.`, `Eén streepje is ${(Z.kB - Z.kA)*Z.stap} : ${Z.kB - Z.kA} = ${Z.stap}.`];
+    const g = el('div', 'm4-items een'); b.append(g);
+    mQ(g, st, save, 'st', { nr:'a)', html:`<span class="txt">Eén streepje is</span> {{u:a}}`, check:V=>chkG(V.a, Z.stap), hint, sol:hint.join(' ') });
+    mQ(g, st, save, 'n0', { nr:'b)', html:`<span class="txt">Hoeveel streepjes rechts van B ligt 0?</span> {{u:a}}`, check:V=>chkG(V.a, Z.k0 - Z.kB), sol:`${zS(-Z.B)} : ${Z.stap} = ${Z.k0 - Z.kB}` });
+    mQ(g, st, save, 'l1', { nr:'c)', html:`<span class="txt">Welk getal ligt 2 streepjes links van A?</span> {{u:a}}`, check:V=>chkG(V.a, Z.A - 2*Z.stap), sol:zS(Z.A - 2*Z.stap) }); } };
+
+SEC.getal.cards.push(KT.lees);
+SEC.abs.cards.push(KT.raad);
+SEC.orde.cards.push(KT.wnw, KT.vul, KT.thermo, KT.zoek0);
+
+/* ============================================================ korte proeftoets */
+function ktRekenT(b, st, save){
+  const R = makeR(st); const n = () => R.int(2, 30);
+  const L = [[x => `|${MIN}${x}|`, x => x], [x => `${MIN}(${MIN}${x})`, x => x], [x => `${MIN}|${MIN}${x}|`, x => -x], [x => `${MIN}(+${x})`, x => -x],
+    [x => `|${MIN}${x}| + |${x}|`, x => 2*x], [x => `|${MIN}(${MIN}${x})|`, x => x], [x => `${MIN}|${x}| + |${MIN}${x}|`, x => 0], [x => `|${MIN}${x + 5}| ${MIN} |${MIN}5|`, x => x]];
+  reeks(b, L.length, (g, i, nr) => { const x = n(); const [h, w] = L[i]; mQ(g, st, save, 'v' + i, { nr, html:`${h(x)} ${isq} {{u:a}}`, check:V=>chkG(V.a, w(x)), sol:zS(w(x)) }); });
+}
+function ktRaadT(b, st, save){ const R = makeR(st); const L = ktRaad(R).slice(0, 4); tRij(b, L, (row, r, i, nr) => ktRaadQ(row, st, save, 'r' + i, nr, r)); }
+function ktWnwT(b, st, save){ const R = makeR(st); const L = ktWnw(R).slice(0, 4); tRij(b, L, (row, [h, ans], i, nr) => qChoice(row, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans })); }
+function ktOrdeT(b, st, save){ const R = makeR(st); const W = new Set(); const kies = () => { let v; do{ v = R.int(-9, 9); }while(W.has(v) || W.has(-v) || v===0); W.add(v); return v; };
+  const a = Math.abs(kies()), c = kies(), d = Math.abs(kies()), e = kies(), f = kies();
+  const G = [{w:a, h:`|${zS(-a)}|`}, {w:c, h:`${MIN}(${zS(-c)})`}, {w:-d, h:`${MIN}|${zS(-d)}|`}, {w:e, h:zS(e)}, {w:f, h:zS(f)}];
+  rangschik(b, st, save, 'r', { getallen:R.shuffle(G), op:true, pts:2 }); }
+function ktThermoT(b, st, save){ const R = makeR(st); const Th = ktThermo(R); const P = paneel(b, 'breed-l'); P.vis.innerHTML = Th.svg;
+  const g = el('div', 'm4-items een'); P.stap.append(g);
+  Th.steden.forEach((s, i) => mQ(g, st, save, 't' + i, { nr:'abcd'[i] + ')', html:`<span class="txt">${s}:</span> {{u:a}} <span class="txt">°C</span>`, check:V=>chkG(V.a, Th.T[i]), sol:zS(Th.T[i]) + ' °C' })); }
+function ktVulT(b, st, save){ const R = makeR(st); const L = ktVul(R).slice(0, 4); reeks(b, L.length, (g, i, nr) => ktVulQ(g, st, save, 'v' + i, nr, L[i])); }
+function ktLeesT(b, st, save){ const R = makeR(st); const L = R.shuffle(ktLees(R)).slice(0, 4); tRij(b, L, (row, z, i, nr) => ktLeesQ(row, st, save, 's' + i, nr, R, z)); }
+const KT_TOETS = () => [
+  {sec:'Absolute waarde en tegengestelde', pts:4, prompt:'Reken uit.', build:ktRekenT},
+  {sec:'Wie ben ik?', pts:2, prompt:'Zoek het getal. Zijn er twee, typ ze allebei (bijvoorbeeld 4 of −4).', build:ktRaadT},
+  {sec:'Waar of niet waar?', pts:2, build:ktWnwT},
+  {sec:'Ordenen', pts:2, build:ktOrdeT},
+  {sec:'Thermometers', pts:4, prompt:'Lees de temperaturen af. Elk klein streepje is 2 graden.', build:ktThermoT},
+  {sec:'Een getal dat past', pts:2, prompt:'Vul een geheel getal in zodat het klopt.', build:ktVulT},
+  {sec:'Symbolen lezen', pts:4, prompt:'Welke zin hoort bij de symbolen?', build:ktLeesT}];
+SEC.ktoets = { id:'ktoets', ic:'toets', nav:'Korte proeftoets', title:'Korte proeftoets: gehele getallen, absolute waarde en ordenen',
+  tip:'Een korte proeftoets op 20 punten over de onderdelen 1 tot 3. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk zonder spiekbriefje.',
+  cards:[ { title:'Korte proeftoets', noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, KT_TOETS()) } ] };
+/* ============================================================
    ONDERDEEL · OPTELLEN VAN GEHELE GETALLEN
    basis: getallen tot 20, oefenen: tot 100, verdieping: groter en redeneren
    ============================================================ */
@@ -4495,7 +4654,7 @@ function bigToets(i){ return [
 [0, 1, 2].forEach(i => { SEC['toets' + (i+1)] = { id:'toets' + (i+1), ic:'toets', nav:'Proeftoets ' + (i+1), title:'Proeftoets ' + (i+1), tip:TOETS_TIP,
   cards:[ { title:'Proeftoets ' + (i+1), noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, bigToets(i)) } ] }; });
 /* volgorde van de onderdelen in het menu */
-const ORDER = ['getal', 'abs', 'orde', 'optel', 'aftrek', 'maal', 'deel', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3'];
+const ORDER = ['getal', 'abs', 'orde', 'optel', 'aftrek', 'maal', 'deel', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3', 'ktoets'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
