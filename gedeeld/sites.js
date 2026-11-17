@@ -570,12 +570,6 @@ export const SITES = [
     "naam": "Proeftoets 3",
     "toets": true,
     "vragen": 0
-   },
-   {
-    "id": "ktoets",
-    "naam": "Korte proeftoets",
-    "toets": false,
-    "vragen": 0
    }
   ]
  },
