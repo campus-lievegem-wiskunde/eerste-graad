@@ -2806,8 +2806,8 @@ SEC.orde = { id:'orde', ic:'z_orde', nav:'Ordenen', title:'Ordenen en de getalle
   `; document.head.append(s); })();
 /* ============================================================
    EXTRA KAARTEN BIJ DE EERSTE KLEINE TOETS (17 november 2026)
-   Achteraan de onderdelen 1 tot 3 (getal, abs, orde) en een korte proeftoets
-   over gehele getallen, absolute waarde, tegengestelde en ordenen (SEC.ktoets).
+   Achteraan de onderdelen 1 tot 3 (getal, abs, orde). De korte proeftoets (ktoets) is
+   op vraag van de beheerder weer verwijderd: de gewone proeftoetsen volstaan.
    Afspraak van de beheerder: oefeningen bij een toets gebruiken ANDERE vraagtypes
    en contexten dan de toets zelf (niet enkel andere getallen). Daarom: symbolen
    lezen (niet schrijven), raadsels, waar of niet waar met ≤ en ≥, een getal
@@ -2933,36 +2933,6 @@ KT.zoek0 = { title:'Zoek 0 op de getallenas', lvl:2,
 SEC.getal.cards.push(KT.lees);
 SEC.abs.cards.push(KT.raad);
 SEC.orde.cards.push(KT.wnw, KT.vul, KT.thermo, KT.zoek0);
-
-/* ============================================================ korte proeftoets */
-function ktRekenT(b, st, save){
-  const R = makeR(st); const n = () => R.int(2, 30);
-  const L = [[x => `|${MIN}${x}|`, x => x], [x => `${MIN}(${MIN}${x})`, x => x], [x => `${MIN}|${MIN}${x}|`, x => -x], [x => `${MIN}(+${x})`, x => -x],
-    [x => `|${MIN}${x}| + |${x}|`, x => 2*x], [x => `|${MIN}(${MIN}${x})|`, x => x], [x => `${MIN}|${x}| + |${MIN}${x}|`, x => 0], [x => `|${MIN}${x + 5}| ${MIN} |${MIN}5|`, x => x]];
-  reeks(b, L.length, (g, i, nr) => { const x = n(); const [h, w] = L[i]; mQ(g, st, save, 'v' + i, { nr, html:`${h(x)} ${isq} {{u:a}}`, check:V=>chkG(V.a, w(x)), sol:zS(w(x)) }); });
-}
-function ktRaadT(b, st, save){ const R = makeR(st); const L = ktRaad(R).slice(0, 4); tRij(b, L, (row, r, i, nr) => ktRaadQ(row, st, save, 'r' + i, nr, r)); }
-function ktWnwT(b, st, save){ const R = makeR(st); const L = ktWnw(R).slice(0, 4); tRij(b, L, (row, [h, ans], i, nr) => qChoice(row, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans })); }
-function ktOrdeT(b, st, save){ const R = makeR(st); const W = new Set(); const kies = () => { let v; do{ v = R.int(-9, 9); }while(W.has(v) || W.has(-v) || v===0); W.add(v); return v; };
-  const a = Math.abs(kies()), c = kies(), d = Math.abs(kies()), e = kies(), f = kies();
-  const G = [{w:a, h:`|${zS(-a)}|`}, {w:c, h:`${MIN}(${zS(-c)})`}, {w:-d, h:`${MIN}|${zS(-d)}|`}, {w:e, h:zS(e)}, {w:f, h:zS(f)}];
-  rangschik(b, st, save, 'r', { getallen:R.shuffle(G), op:true, pts:2 }); }
-function ktThermoT(b, st, save){ const R = makeR(st); const Th = ktThermo(R); const P = paneel(b, 'breed-l'); P.vis.innerHTML = Th.svg;
-  const g = el('div', 'm4-items een'); P.stap.append(g);
-  Th.steden.forEach((s, i) => mQ(g, st, save, 't' + i, { nr:'abcd'[i] + ')', html:`<span class="txt">${s}:</span> {{u:a}} <span class="txt">°C</span>`, check:V=>chkG(V.a, Th.T[i]), sol:zS(Th.T[i]) + ' °C' })); }
-function ktVulT(b, st, save){ const R = makeR(st); const L = ktVul(R).slice(0, 4); reeks(b, L.length, (g, i, nr) => ktVulQ(g, st, save, 'v' + i, nr, L[i])); }
-function ktLeesT(b, st, save){ const R = makeR(st); const L = R.shuffle(ktLees(R)).slice(0, 4); tRij(b, L, (row, z, i, nr) => ktLeesQ(row, st, save, 's' + i, nr, R, z)); }
-const KT_TOETS = () => [
-  {sec:'Absolute waarde en tegengestelde', pts:4, prompt:'Reken uit.', build:ktRekenT},
-  {sec:'Wie ben ik?', pts:2, prompt:'Zoek het getal. Zijn er twee, typ ze allebei (bijvoorbeeld 4 of −4).', build:ktRaadT},
-  {sec:'Waar of niet waar?', pts:2, build:ktWnwT},
-  {sec:'Ordenen', pts:2, build:ktOrdeT},
-  {sec:'Thermometers', pts:4, prompt:'Lees de temperaturen af. Elk klein streepje is 2 graden.', build:ktThermoT},
-  {sec:'Een getal dat past', pts:2, prompt:'Vul een geheel getal in zodat het klopt.', build:ktVulT},
-  {sec:'Symbolen lezen', pts:4, prompt:'Welke zin hoort bij de symbolen?', build:ktLeesT}];
-SEC.ktoets = { id:'ktoets', ic:'toets', nav:'Korte proeftoets', title:'Korte proeftoets: gehele getallen, absolute waarde en ordenen',
-  tip:'Een korte proeftoets op 20 punten over de onderdelen 1 tot 3. Je krijgt pas feedback als je op “Verbeter mijn proeftoets” klikt. Werk zonder spiekbriefje.',
-  cards:[ { title:'Korte proeftoets', noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, KT_TOETS()) } ] };
 /* ============================================================
    ONDERDEEL · OPTELLEN VAN GEHELE GETALLEN
    basis: getallen tot 20, oefenen: tot 100, verdieping: groter en redeneren
@@ -4654,7 +4624,7 @@ function bigToets(i){ return [
 [0, 1, 2].forEach(i => { SEC['toets' + (i+1)] = { id:'toets' + (i+1), ic:'toets', nav:'Proeftoets ' + (i+1), title:'Proeftoets ' + (i+1), tip:TOETS_TIP,
   cards:[ { title:'Proeftoets ' + (i+1), noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, bigToets(i)) } ] }; });
 /* volgorde van de onderdelen in het menu */
-const ORDER = ['getal', 'abs', 'orde', 'optel', 'aftrek', 'maal', 'deel', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3', 'ktoets'];
+const ORDER = ['getal', 'abs', 'orde', 'optel', 'aftrek', 'maal', 'deel', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
