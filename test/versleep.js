@@ -101,6 +101,7 @@ const H = require('./helpers');
 
   await p.click('.rm-venster .rm-x');
   /* ---------- TI-30XB ---------- */
+  await p.goto(H.B + '1A/modules/module-3-data/'); await p.waitForTimeout(1200);   /* A-stroom: in de B-stroom komt de TI-30XB niet */
   await p.evaluate(()=>{ localStorage.setItem('ti30xb_pos', JSON.stringify({ l:.05, t:.05 })); });
   await p.waitForFunction(()=>window.TI30XB && document.querySelector('.ti30-fab'), null, { timeout:5000 }).catch(()=>{});
   check(await p.locator('.ti30-fab').count() === 1, 'knop met het rekentoestel staat er (leerkracht)');

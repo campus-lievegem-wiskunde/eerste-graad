@@ -1,6 +1,6 @@
 /* Basisrekentoestel voor wiskundige problemen in de B-stroom (1B en 2B).
-   kop.js laadt dit bestand enkel op de sites 1b-wp en 2b-wp. Op de andere pagina's van 1B en 2B blijft het rekentoestel
-   zoals het was (afspraak 20 november 2026).
+   kop.js laadt dit bestand enkel op de sites 1b-wp en 2b-wp. De 2B-modules houden hun eigen eenvoudige rekenmachine;
+   de TI-30XB komt nergens in de B-stroom (afspraak 20 november 2026).
    Afspraken (Tom Van Daele, 16 november 2026):
    - bij problemen oplossen in de B-stroom is het rekentoestel altijd dit basistoestel, nooit de wetenschappelijke TI-30XB;
    - toetsen: cijfers, komma, + − × ÷, =, C, ⌫ en haakjes; geen %, √, ± of geheugen;

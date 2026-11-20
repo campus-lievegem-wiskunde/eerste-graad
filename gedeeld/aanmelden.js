@@ -134,12 +134,12 @@ export function zichtbaarheid(groepen, siteId){
 }
 const DICHT = z => z.toets ? '<b>Deze module is even dicht.</b> Er staat een toets open; na de toets kan je hier weer oefenen.' : '<b>Deze module staat nog niet open.</b> Je leerkracht zet ze open wanneer je eraan mag beginnen.';
 /* knop met het rekentoestel rechtsonder (gedeeld/ti30xb.js), als de leerkracht hem aanzette voor deze module */
-/* Wiskundige problemen B (site 1b-wp en 2b-wp): geen knop rechtsonder en geen TI-30XB. Daar staat enkel de knop Rekenmachine
-   in de oefening zelf, met het basisrekentoestel (gedeeld/basisrekentoestel.js). Op de andere pagina's van 1B en 2B blijft de knop.
-   Afspraak Tom Van Daele, 16 en 20 november 2026. */
-const WP_B = () => /^[12]b-wp$/.test(document.body.dataset.site || '');
+/* B-stroom (1B en 2B): nooit de TI-30XB, dus geen knop rechtsonder (ook niet voor leerkrachten). Bij wiskundige problemen
+   (1b-wp, 2b-wp) staat het basisrekentoestel in de oefening (gedeeld/basisrekentoestel.js); de 2B-modules houden hun eigen
+   eenvoudige rekenmachine. Afspraak Tom Van Daele, 16 en 20 november 2026. */
+const B_STROOM = () => /^[12]b-/i.test(document.body.dataset.site || '') || document.body.dataset.stroom === 'B' || /^[12]B$/.test(document.body.dataset.jaar || '') || /\/[12]B\//.test(location.pathname);
 function rekentoestelKnop(){
-  if(WP_B()) return;
+  if(B_STROOM()) return;
   const knop = () => window.TI30XB && window.TI30XB.fab && window.TI30XB.fab();
   if(window.TI30XB) return knop();
   const sc = document.createElement('script'); sc.src = new URL('ti30xb.js', import.meta.url).href; sc.onload = knop; document.head.append(sc);
@@ -330,7 +330,7 @@ async function start(u){
     const m = document.querySelector('.info-box');
     if(m) m.insertAdjacentElement('afterend', el('div', 'tip lk-tip', db.zandbak
       ? '<div>Je bekijkt deze module als <b>toeschouwer</b>: je ziet alle onderdelen zoals een leerkracht. Je antwoorden blijven in je oefenomgeving in deze browser; niemand anders ziet ze.</div>'
-      : '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. ' + (WP_B() ? '' : 'De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.') + '</div>'));
+      : '<div>Je bekijkt deze module als <b>' + rol + '</b>: je ziet altijd alle onderdelen. Leerlingen zien enkel wat jij openzet in het dashboard. ' + (B_STROOM() ? '' : 'De knop met het rekentoestel rechtsonder krijgen ze alleen als je hem aanzet.') + '</div>'));
     kiesAlsLeerling(email);
     /* oplossingssleutel voor leerkrachten en beheerders ("sleutel": true in sites.js; pagina dashboard/sleutel.html) */
     if(!db.zandbak) import('./sites.js').then(({ SITES })=>{ const x = SITES.find(y=>y.id === site), t = document.querySelector('.lk-tip > div'); if(!x || !x.sleutel || !t) return;

@@ -127,9 +127,16 @@ const H = require('./helpers');
   await sw.check(); await q.waitForTimeout(600);
   check((await H.fakedb(q))['groepen/1B'].aan['1b-wp'].on === true, 'opnieuw aanvinken wordt bewaard');
   check(!(await H.fakedb(q))['groepen/2B'].aan['1b-wp'], 'groep 2B blijft ongewijzigd');
-  /* buiten wiskundige problemen blijft het rekentoestel zoals het was (afspraak 20 november 2026): 2B-module 1 */
+  /* B-stroom: nergens de TI-30XB (afspraak 20 november 2026). 2B-module 1 houdt haar eigen eenvoudige rekenmachine. */
   await q.goto(H.B + '2B/modules/module-1-rekenen/'); await q.waitForTimeout(2000);
-  check(await q.locator('.ti30-fab').count() === 1 && await q.evaluate(()=>!window.Basisrekentoestel), '2B-module: knop met de TI-30XB blijft, geen basisrekentoestel');
+  check(await q.locator('.ti30-fab').count() === 0 && await q.evaluate(()=>!window.TI30XB && !window.Basisrekentoestel), '2B-module: geen TI-30XB-knop, geen basisrekentoestel (eigen rekenmachine)');
+  for(const u of ['1B/rekenvaardigheden/', '2B/rekenvaardigheden/', '1B/toetsen/', '2B/huistaken/']){
+    await q.goto(H.B + u); await q.waitForTimeout(1500);
+    check(await q.locator('.ti30-fab').count() === 0, u + ': geen TI-30XB-knop');
+  }
+  /* A-stroom blijft: leerkracht ziet de knop */
+  await q.goto(H.B + '1A/modules/module-3-data/'); await q.waitForTimeout(2000);
+  check(await q.locator('.ti30-fab').count() === 1, '1A: knop met de TI-30XB blijft');
   check(!q.fouten.length, 'leerkracht: geen JavaScript-fouten ' + q.fouten.join(' | '));
   await b.close(); process.exit(ok ? 0 : 1);
 })();

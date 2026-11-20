@@ -19,7 +19,7 @@
   /* ---------- zwevende vensters (rekenmachine, spiekbriefje, uitleg) versleepbaar op elke pagina ---------- */
   { const sv = document.createElement('script'); sv.src = new URL('versleep.js', me.src).href; document.head.append(sv); }
   /* ---------- wiskundige problemen B (1b-wp en 2b-wp): het basisrekentoestel (gedeeld/basisrekentoestel.js) ----------
-     Enkel bij problemen oplossen in de B-stroom; op de andere pagina's blijft het rekentoestel zoals het was (20 november 2026). */
+     Enkel bij problemen oplossen; de 2B-modules houden hun eigen eenvoudige rekenmachine. De TI-30XB komt nergens in de B-stroom (aanmelden.js). */
   if(/^[12]b-wp$/.test(site)){ const sr = document.createElement('script'); sr.src = new URL('basisrekentoestel.js', me.src).href; document.head.append(sr); }
 
   /* ---------- kop ---------- */

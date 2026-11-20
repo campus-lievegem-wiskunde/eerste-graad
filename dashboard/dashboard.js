@@ -394,7 +394,7 @@ function paneAanUit(pane, g){
     let rt_, kn_;
     const kop = el('div', 'site-kop'); kop.append(sw, sam, bekijkKnop(s), sleutelKnop(s)); blok.append(kop);
     const rt = el('label', 'rt-keuze', `<input type="checkbox" ${a.rt ? 'checked' : ''}> Knop met het rekentoestel tonen <span class="mini">(rechtsonder op elke pagina van deze module)</span>`); rt.hidden = !a.on; blok.append(rt);
-    if(/^[12]b-wp$/.test(s.id || '')) rt.style.display = 'none';   /* wiskundige problemen B: geen knop rechtsonder, enkel het basisrekentoestel in de oefening (20 november 2026) */
+    if(/B$/.test(s.jaar || '')) rt.style.display = 'none';   /* B-stroom: nooit de TI-30XB, dus geen knop rechtsonder (20 november 2026) */
     const lijst = el('div', 'onderdelen'); lijst.hidden = !a.on;
     s.onderdelen.forEach(o=>{ const l = el('label', '', `<input type="checkbox" value="${esc(o.id)}" ${(a.uit || []).includes(o.id) ? '' : 'checked'}> ${esc(o.naam)} <a class="ond-link" href="${moduleUrl(s, o.id)}" target="_blank" rel="noopener" title="${esc(o.naam)} bekijken" aria-label="${esc(o.naam)} bekijken">${OOG}</a>`); lijst.append(l); });
     const knoppen = el('div', 'rij'); knoppen.style.marginLeft = '3.1rem'; knoppen.hidden = !a.on;
