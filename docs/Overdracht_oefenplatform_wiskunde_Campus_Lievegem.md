@@ -619,6 +619,7 @@ mQ(g, st, save, 'w' + i, {
 
 - De leerlingen hebben de **TI-30XB MultiView**. Eén nagebootst toestel voor het hele platform: **gedeeld/ti30xb.js** (geen TI-logo, wel de tekst TI-30XB MultiView).
 - Gebruik in een pagina: `<script src=".../gedeeld/ti30xb.js">` en `TI30XB.create(parent, {size:'11px', store:'sleutel'})`. Geeft `{el, btn, press(code), reset(), setLists(ls), screenText()}`. Met `store` onthoudt het toestel geheugen, lijsten, instellingen en geschiedenis in localStorage.
+- **Niet bij wiskundige problemen B** (20 november 2026): op de sites 1b-wp en 2b-wp komt de knop niet en is het vinkje in het dashboard verborgen. Op de andere pagina's van 1B en 2B blijft de knop. Zie Basisrekentoestel en formuleblad bij wiskundige problemen B.
 - **Per module aan of uit** (18 oktober): in het dashboard, Openzetten, staat bij elke open module het vinkje 'Knop met het rekentoestel tonen', bewaard als groepen/<id>.aan.<site>.rt. Leerlingen krijgen de knop alleen als een van hun groepen hem aanzette; leerkrachten zien hem altijd. aanmelden.js zet de knop (rekentoestelKnop), niet meer kop.js. Geen wijziging aan firestore.rules nodig.
 - **Knop rechtsonder** op een oefenpagina: een mini-toestel in turkoois (ontwerp B, gekozen 18 oktober), zelfde verhoudingen als het toestel; klikken opent het grote toestel in een zwevend venster dat je versleept aan de turkooise balk of de rand (de pagina blijft bruikbaar). Sinds 1 november 2026 opent het telkens rechtsonder en zet dubbelklikken op de rand het terug (gedeeld/versleep.js, zie Versleepbare vensters). kop.js zet de knop en laadt ti30xb.js als dat nodig is. In code: TI30XB.icon(), TI30XB.open(), TI30XB.fab().
 - Eigen pagina **rekentoestel/** (groot toestel, toetsenbord werkt), tegel Hulpmiddelen op de startpagina, zonder data-site dus altijd zichtbaar.
@@ -636,6 +637,21 @@ mQ(g, st, save, 'w' + i, {
 - Vensters die zichzelf al versleepten, krijgen enkel dubbelklik-terugzetten en de standaardplek bij elke opening: het **TI-30XB-venster** (de onthouden plek ti30xb_pos wordt niet meer gebruikt) en de **rekenmachine van de 2B-modules**.
 - Vervangt de open PR 52 (sleepcode in de bron van wiskundige problemen, met onthouden plek): die is gesloten. Haal plaatsPaneel en de sleepcode uit 22_hulp.js en 25_schermen.js van de projectbron en de regels voor .paneelkop uit module.css voor je wiskundige problemen opnieuw bouwt; versleep.js laat een paneel met eigen sleepcode (⠿ via .paneelkop b::before) wel met rust. De kleine verbetering uit PR 52 (label van het L-vormige terras op de juiste plaats in 2A) zit in deze PR.
 - Test: node test/versleep.js. Geen wijziging aan firestore.rules.
+
+### Basisrekentoestel en formuleblad bij wiskundige problemen B (20 november 2026, de collega-bouwer, branch tom/basisrekentoestel-problemen)
+
+- **Afspraak:** bij **problemen oplossen in de B-stroom** (wiskundige problemen 1B en 2B, sites 1b-wp en 2b-wp) is het rekentoestel altijd een **basisrekentoestel**, nooit de TI-30XB. Het zweeft over de pagina en is versleepbaar; het staat niet vast in de opgave. **Op de andere pagina's** van 1B en 2B (modules, rekenvaardigheden, toetsen, huistaken) **blijft het rekentoestel zoals het was**: de knop met de TI-30XB rechtsonder en de eigen rekenmachine van de 2B-modules.
+- Dit vervangt PR 66 (branch tom/basisrekentoestel-b, 16 november 2026), die het basisrekentoestel op alle B-pagina's zette. Deze branch neemt daaruit enkel het deel voor wiskundige problemen over; PR 66 mag gesloten worden.
+- Keuzes van de collega-bouwer (aanvinkbare pagina, 16 november 2026), nu beperkt tot wiskundige problemen B:
+  - De **knop rechtsonder met de TI-30XB verdwijnt** op 1b-wp en 2b-wp, ook voor leerkrachten. Enkel de knop Rekenmachine in de oefening zelf blijft. aanmelden.js (WP_B: site-id 1b-wp of 2b-wp) zet de knop niet; in het dashboard is het vinkje 'Knop met het rekentoestel tonen' verborgen bij die twee sites. Een bewaarde waarde aan.<site>.rt blijft staan maar doet niets.
+  - **gedeeld/basisrekentoestel.js**, door kop.js enkel geladen op 1b-wp en 2b-wp. Het vervangt het paneel .rm.eenvoudig (met %) in de opgave.
+  - Toetsen: cijfers, komma, + − × ÷, =, C, ⌫ en haakjes. Geen %, √, ± of geheugen. Tekens × en ÷ zoals op een echt toestel.
+  - Het opent **zwevend rechtsonder op het scherm**, los van de opgavekaart.
+- Werking: `Basisrekentoestel.wissel()`, `.open()`, `.sluit()`, `.wis()`, `.isOpen()`; bij openen en sluiten krijgt document de gebeurtenis `basisrekentoestel` (detail.open). Het venster (#basisrekentoestel, class .brt, data-versleep) wordt versleept door gedeeld/versleep.js: greepje ⠿, pijltjestoetsen, dubbelklik zet terug, de plek wordt niet onthouden. Eigen ontleder (geen eval): voorrangsregels, haakjes, 2(3 + 4), delen door 0 geeft Fout. Op het bord of in volledig scherm hangt het venster in dat scherm.
+- In wiskundige problemen: de knop Rekenmachine opent het gedeelde toestel (functies brt en calcOpen). Het blijft open bij een volgende vraag, wordt dan leeggemaakt, en sluit bij een vraag zonder rekenmachine en bij elk ander scherm. In de A-stroom (2A) blijft de rekenmachine een paneel in de opgave.
+- **Formuleblad** bij elke vraag van het thema omtrek, oppervlakte en inhoud (metForm: STROOM B en q.d === 'ooi'): knop Formuleblad, versleepbaar venster (.paneel.formblad) linksonder. Inhoud in woorden: omtrek van rechthoek, vierkant, driehoek en cirkel; oppervlakte van rechthoek, vierkant, driehoek, parallellogram, ruit, trapezium en cirkel; volume van balk en kubus; π ≈ 3,14; geen cilinder. Het formulekader bij de vraag is weg; formKader toont enkel nog "1 liter = 1 dm³ = 1 000 cm³". De A-stroom houdt het Formularium.
+- De bron van wiskundige problemen in het project loopt achter: de wijziging staat rechtstreeks in de gebouwde 1B-, 2A- en 2B/wiskundige-problemen/inhoud.js en module.css. Wie opnieuw bouwt uit de bron, neemt ze eerst over (maakVraag, volgende, toon, formHtml, metForm, formKader, toonVraag, voorafLijst, actie calc).
+- Tests: test/wiskundigeproblemen1b.js en 2b.js (formuleblad, basisrekentoestel rechtsonder en versleepbaar, geen TI-30XB, vinkje verborgen; 2B-module 1 houdt de TI-30XB-knop). test/versleep.js en test/modules2b.js ongewijzigd. Geen wijziging aan firestore.rules.
 
 ### 2A Module 1 · transformaties (18 oktober 2026, op main sinds 18 oktober: PR 1, merge f8cb09b)
 
@@ -814,6 +830,7 @@ Evaluatie van de drie modules volgens de afspraken Eén oefening op één scherm
 - Site-id **2b-wp**, prefix **2b_wp_v1_**, map **2B/wiskundige-problemen/**, body data-stroom="B", tegel op 2B/index.html. Zelfde motor als 2A Wiskundige problemen.
 - Breedtethema en de zes dieptethema's van de B-stroom (Problemen oplossen, Getallenleer, Objecten en relaties, Omtrek en oppervlakte, Statistiek, Tabellen en diagrammen, Verhoudingen; id's in sites.js), 143 B-doelen in doelen.json, 219 sjablonen, 3 proeftoetsen in drie delen van 15 vragen.
 - Eenvoudige rekenmachine bij "meestal met ICT", geen bij "zonder ICT"; formulekader (.formkader) naast de vraag bij omtrek, oppervlakte en inhoud.
+  - Sinds 20 november 2026: het gedeelde basisrekentoestel in een zwevend venster en een formuleblad in plaats van het formulekader. Zie Basisrekentoestel en formuleblad bij wiskundige problemen B.
 - test/catalogus.js geeft de stroom mee; test: node test/wiskundigeproblemen2b.js. Geen wijziging aan firestore.rules.
 - Na het samenvoegen: de site openzetten voor groep 2B in het dashboard.
 

@@ -384,3 +384,11 @@ body.vraagmodus .wpin{gap:8px}
 /* formulekader naast de opgave (2B: 'met gegeven formularium', zoals op de toets) */
 .formkader{margin:10px 0 0;padding:8px 12px;border:2px solid var(--tq);border-radius:10px;background:var(--tq-soft, #e8f8f8);font-size:15px;display:inline-block;max-width:100%}
 .formkader p{margin:2px 0}
+/* formuleblad voor de B-stroom: smal zwevend venster linksonder (over de zijbalk, de opgave blijft vrij), versleepbaar (16 november 2026) */
+.paneel.formblad,.opgave .paneel.formblad{position:fixed;left:8px;right:auto;top:auto;bottom:8px;width:min(346px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;z-index:2600;padding:8px 10px}
+.formblad .paneelkop{margin-bottom:2px}
+.formblad h4{margin:0 0 3px;font-size:15px;color:var(--accent-dark);border-bottom:2px solid var(--orange)}
+.formblad .fbdeel{margin-bottom:5px}
+.formblad .formlijst{font-size:14px;gap:1px 6px;align-items:center}
+.formblad .formlijst .br{font-size:13px}
+.formblad .klein{margin:0;font-size:13px}
