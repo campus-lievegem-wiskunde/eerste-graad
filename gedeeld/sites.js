@@ -1067,38 +1067,8 @@ export const SITES = [
     "vragen": 107
    },
    {
-    "id": "alg",
-    "naam": "Algebra",
-    "toets": false,
-    "vragen": 67
-   },
-   {
-    "id": "vvg",
-    "naam": "Verhoudingen",
-    "toets": false,
-    "vragen": 73
-   },
-   {
     "id": "mor",
     "naam": "Objecten en relaties",
-    "toets": false,
-    "vragen": 33
-   },
-   {
-    "id": "mei",
-    "naam": "Eigenschappen",
-    "toets": false,
-    "vragen": 54
-   },
-   {
-    "id": "ooi",
-    "naam": "Omtrek en oppervlakte",
-    "toets": false,
-    "vragen": 59
-   },
-   {
-    "id": "tra",
-    "naam": "Transformaties",
     "toets": false,
     "vragen": 33
    },
@@ -1109,16 +1079,46 @@ export const SITES = [
     "vragen": 91
    },
    {
+    "id": "mei",
+    "naam": "Eigenschappen",
+    "toets": false,
+    "vragen": 54
+   },
+   {
     "id": "tad",
     "naam": "Tabellen en diagrammen",
     "toets": false,
     "vragen": 24
    },
    {
+    "id": "ooi",
+    "naam": "Omtrek en oppervlakte",
+    "toets": false,
+    "vragen": 59
+   },
+   {
     "id": "vzm",
     "naam": "Verzamelingen",
     "toets": false,
     "vragen": 89
+   },
+   {
+    "id": "tra",
+    "naam": "Transformaties",
+    "toets": false,
+    "vragen": 33
+   },
+   {
+    "id": "alg",
+    "naam": "Algebra",
+    "toets": false,
+    "vragen": 67
+   },
+   {
+    "id": "vvg",
+    "naam": "Verhoudingen",
+    "toets": false,
+    "vragen": 73
    },
    {
     "id": "toets1",

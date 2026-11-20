@@ -8484,21 +8484,22 @@ const NIV = ['', 'E', 'D', 'C', 'B', 'A'];
 const LETTERS = ['D', 'C', 'B', 'A'];
 const LIDX = {D:2, C:3, B:4, A:5};
 
-/* thema's in de volgorde van de toets: eerst het breedtethema, dan de domeinen (onderdeel-id's liggen vast) */
+/* thema's: eerst het breedtethema, dan de domeinen (onderdeel-id's liggen vast) */
 const THEMAS_ALLE = {
+  /* 2A: volgorde van het jaarverloop (keuze van Tom, 18 november 2026): algebra na de merkwaardige producten, verhoudingen na RE/OE/NE */
   A: [
     {k:'wpo', naam:'Wiskundige problemen oplossen', kort:'Problemen oplossen', code:'WPO', breed:true,
       oms:'Problemen in een context en zonder context: goed lezen, een plan maken, rekenen en controleren.'},
     {k:'get', naam:'Getallenleer', code:'GET', oms:'Rekenen met getallen, breuken en procenten, afronden, schatten, tijd en eenheden.'},
-    {k:'alg', naam:'Algebra', code:'ALG', oms:'Lettervormen, machten, getalwaarde, formules en patronen.'},
-    {k:'vvg', naam:'Verhoudingen en vergelijkingen', kort:'Verhoudingen', code:'VVG', oms:'Verhoudingen, schaal, procenten, evenredige verbanden en vergelijkingen.'},
     {k:'mor', naam:'Meetkundige objecten en relaties', kort:'Objecten en relaties', code:'MOR', oms:'Vlakke figuren en ruimtefiguren herkennen, hoeken meten, aanzichten en coördinaten.'},
-    {k:'mei', naam:'Meetkundige eigenschappen', kort:'Eigenschappen', code:'MEI', oms:'Hoeken, driehoeken en vierhoeken, bijzondere lijnen, symmetrie en congruentie.'},
-    {k:'ooi', naam:'Omtrek, oppervlakte en inhoud', kort:'Omtrek en oppervlakte', code:'OOI', oms:'Omtrek, oppervlakte en inhoud van figuren en ruimtefiguren.'},
-    {k:'tra', naam:'Transformaties', code:'TRA', oms:'Spiegeling, puntspiegeling, verschuiving en rotatie.'},
     {k:'sta', naam:'Statistiek', code:'STA', oms:'Frequentietabellen, diagrammen, gemiddelde, mediaan, modus en variatiebreedte.'},
+    {k:'mei', naam:'Meetkundige eigenschappen', kort:'Eigenschappen', code:'MEI', oms:'Hoeken, driehoeken en vierhoeken, bijzondere lijnen, symmetrie en congruentie.'},
     {k:'tad', naam:'Tabellen en diagrammen', code:'TAD', oms:'Gegevens aflezen, vergelijken en verwerken uit tabellen, diagrammen en infografieken.'},
-    {k:'vzm', naam:'Verzamelingen', code:'VZM', oms:'Elementen, deelverzamelingen, doorsnede, unie, verschil en venndiagrammen.'}],
+    {k:'ooi', naam:'Omtrek, oppervlakte en inhoud', kort:'Omtrek en oppervlakte', code:'OOI', oms:'Omtrek, oppervlakte en inhoud van figuren en ruimtefiguren.'},
+    {k:'vzm', naam:'Verzamelingen', code:'VZM', oms:'Elementen, deelverzamelingen, doorsnede, unie, verschil en venndiagrammen.'},
+    {k:'tra', naam:'Transformaties', code:'TRA', oms:'Spiegeling, puntspiegeling, verschuiving en rotatie.'},
+    {k:'alg', naam:'Algebra', code:'ALG', oms:'Lettervormen, machten, getalwaarde, formules en patronen.'},
+    {k:'vvg', naam:'Verhoudingen en vergelijkingen', kort:'Verhoudingen', code:'VVG', oms:'Verhoudingen, schaal, procenten, evenredige verbanden en vergelijkingen.'}],
   /* 2B: volgorde van de leeswijzer (keuze van Tom, 24 oktober 2026) */
   B: [
     {k:'wpo', naam:'Wiskundige problemen oplossen', kort:'Problemen oplossen', code:'WPO', breed:true,
