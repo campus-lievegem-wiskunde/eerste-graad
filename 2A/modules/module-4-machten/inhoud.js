@@ -498,7 +498,9 @@ function linH(L){ L = linOf(L); if(L.c===0) return sg(L.k);
   return `${c}<i>${L.v}</i>` + (L.k ? (L.k>0 ? ' + ' : ' ' + MIN + ' ') + Math.abs(L.k) : ''); }
 const linT = L => { L = linOf(L); return linH(L).replace(/<[^>]+>/g, ''); };
 /* macht in html: mH('-3', 4) -> (−3)⁴ ; e = null: geen exponent */
-const eH = e => typeof e==='number' ? sg(e) : linP(String(e)) ? linH(e).replace(/ /g, '') : sg(String(e)).replace(/([a-z])/g, '<i>$1</i>');
+/* een exponent als rekenstap (−3+5, 3−(−4), 2·3) blijft zo staan: in een voorbeeld is dat net de tussenstap */
+const eStap = s => !/[a-z]/i.test(s) && /[\d)]\s*[-+−·*]\s*[(\d−-]/.test(s);
+const eH = e => typeof e==='number' ? sg(e) : eStap(String(e)) ? sg(String(e)).replace(/\*/g, '·') : linP(String(e)) ? linH(e).replace(/ /g, '') : sg(String(e)).replace(/([a-z])/g, '<i>$1</i>');
 /* theoriekader bovenaan een kaart die een nieuwe regel brengt */
 const regelTop = (b, html) => b.append(el('div', 'm4-regel', html));
 function mH(b, e){ return `<span class="m4-m">${e==null ? bH(b) : bHp(b)}${e==null ? '' : `<sup class="m4-sup">${eH(e)}</sup>`}</span>`; }
@@ -1307,7 +1309,7 @@ function vrijVak(sp, v, save, onCh, opt){
     if(v.r.length>1) knop('✕', 'regel weg', 'deze regel weghalen', () => { v.r.pop(); ch(); draw(); focus(laatsteA(v.r[v.r.length-1].b)); }, 'vx-weg');
     const plus = el('button', 'btn ghost vx-plus', '<span class="sr-only">volgende tussenstap</span>'); plus.type = 'button'; plus.dataset.tip = 'volgende tussenstap'; plus.setAttribute('aria-label', 'volgende tussenstap: nieuwe regel');
     plus.addEventListener('click', ()=>{ v.r.push({b:VX.R()}); ch(); draw(); focus(v.r[v.r.length-1].b.f[0]); });
-    bar.append(plus, el('div', 'vx-snel', 'Typen kan ook: ' + [['h', '<kbd>(</kbd> <kbd>)</kbd> haakjes'], ['e', '<kbd>^</kbd> macht'], ['b', '<kbd>/</kbd> breuk'], ['m', '<kbd>*</kbd> maal']].filter(([c]) => mag(c)).map(([, t]) => t).join(' · ')));
+    bar.append(plus, el('div', 'vx-snel', '<span>Typen kan ook:</span>' + [['h', '<kbd>(</kbd> <kbd>)</kbd> haakjes'], ['e', '<kbd>^</kbd> macht'], ['b', '<kbd>/</kbd> breuk'], ['m', '<kbd>*</kbd> maal']].filter(([c]) => mag(c)).map(([, t]) => `<span>${t}</span>`).join('')));
   }
   function rend(n, actief){
     if(n.k==='row'){ const s = el('span', 'vx-rij'); n.f.forEach((f, i) => { if(i) s.append(el('span', 'vx-maal', '·')); s.append(rend(f, actief)); }); return s; }
@@ -1393,10 +1395,11 @@ function vxHulp(card){
   @media (min-width:640px){
     .m4-q:has(> .vx-balk){display:grid; grid-template-columns:minmax(0, max-content) auto; justify-content:start; column-gap:2.5rem; align-items:start}
     .m4-q:has(> .vx-balk) > *{grid-column:1}
-    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(3, 2.35rem); gap:.35rem; margin:2.2rem 0 0; padding:.55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem; width:max-content}
+    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(3, 2.35rem); gap:.3rem .35rem; margin:2.2rem 0 0; padding:.4rem .55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem; width:max-content}
     .m4-q > .vx-balk .vx-tools{display:contents}
     .m4-q > .vx-balk .vx-k{min-width:2.35rem; min-height:2.35rem}
-    .m4-q > .vx-balk .vx-snel{grid-column:1 / span 3; width:7.8rem; font-size:.7rem; line-height:1.6}
+    .m4-q > .vx-balk .vx-snel{grid-column:1 / span 3; width:7.8rem; font-size:.6rem; line-height:1.3}
+    .m4-q > .vx-balk .vx-snel kbd{display:inline-block; line-height:1; padding:0 .2rem; vertical-align:middle}
   }
   .vx-plus{font-size:0 !important; padding:0 !important; min-width:2.35rem; min-height:2.35rem}
   .m4-q > .vx-balk .vx-plus{grid-column:1 / span 3}
@@ -1409,6 +1412,7 @@ function vxHulp(card){
   .vx-k:hover::after, .vx-plus:hover::after{opacity:1; transition-delay:1s}
   .vx-plus{min-height:2.15rem; padding:.2rem .8rem; font-size:.9rem}
   .vx-snel{flex-basis:100%; font-size:.78rem; color:var(--ink-soft)}
+  .vx-snel > span{display:block}
   .vx-snel kbd{font:inherit; font-weight:700; border:1px solid var(--border); border-radius:.25rem; padding:0 .3rem; background:var(--zone-bg, #f6fbfb); color:var(--accent-dark)}
   .vx-regel{position:relative}
   .m4-items:has(.m4-wx){grid-template-columns:minmax(0, 1fr) !important}
