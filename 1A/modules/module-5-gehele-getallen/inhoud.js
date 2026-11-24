@@ -2388,6 +2388,7 @@ function schriftFout(host, st, save, id, e){ /* e: {wie, task, lines, wrong, con
    en ziet de twee tekens samensmelten tot één teken.
    manierKies: daarna oplossen op de getallenas of met legertjes (gelijke legers voegen samen, tegengestelde vechten).
    ============================================================ */
+let tpTeller = 0;
 const tkS = x => x==='+' ? '+' : MIN;
 /* het nieuwe teken van een tekenpaar: op is '+' of '−', c het getal tussen haakjes */
 const paarTeken = (op, c) => (op==='+') === (c>0) ? '+' : '-';
@@ -2402,7 +2403,7 @@ function tekenParen(host, st, save, id, o){
   const s = st[id] || (st[id] = {d:[]}); const T = o.T, nw = T.map(([op, c]) => paarTeken(op, c));
   const box = el('div', 'm5-tpbox'), uit = el('div', 'm5-tpuit'), keuze = el('div', 'm5-tpkeus'), fb = el('div', 'fb');
   box.append(uit, keuze, fb); host.append(box);
-  let act = null, net = -1;
+  let act = null, net = -1; const tipId = String(++tpTeller);
   const klaar = () => T.every((_, k) => s.d[k]);
   function teken(){
     const oud = zS(o.a) + T.map(([op, c]) => ` ${op==='+' ? '+' : MIN} (${c<0 ? MIN : '+'}${dz(Math.abs(c))})`).join('');
@@ -2414,7 +2415,11 @@ function tekenParen(host, st, save, id, o){
     if(act!=null){ const [op, c] = T[act];
       keuze.innerHTML = `<span>Welk teken komt in de plaats van <b class="m5-tpv">${tkS(op==='+' ? '+' : '-')} (${c<0 ? MIN : '+'}</b>?</span><button type="button" class="btn m5-tpk" data-s="+" aria-label="plus">+</button><button type="button" class="btn m5-tpk" data-s="-" aria-label="min">${MIN}</button>`;
       keuze.querySelectorAll('.m5-tpk').forEach(x => x.addEventListener('click', () => kies(x.dataset.s))); }
-    else keuze.innerHTML = klaar() ? '' : `<span class="m5-tpw">👆 ${o.keuzeTip || `Klik op ${T.length>1 ? 'een tekenpaar' : 'het tekenpaar'}: twee tekens die naast elkaar staan.`}</span>`; }
+    else { keuze.innerHTML = klaar() ? '' : `<span class="m5-tpw">👆 ${o.keuzeTip || `Klik op ${T.length>1 ? 'een tekenpaar' : 'het tekenpaar'}: twee tekens die naast elkaar staan.`}</span>`; tipEenKeer(); } }
+  /* de tip staat maar één keer per kaart (bij het eerste tekenpaar); daarna volstaat de gestippelde kader */
+  function tipEenKeer(){ const w = keuze.querySelector('.m5-tpw'); if(!w) return;
+    const c = box.closest('.card'); if(!c){ w.hidden = true; setTimeout(() => { if(keuze.contains(w)) { w.hidden = false; tipEenKeer(); } }); return; }
+    if(c.dataset.tpTip && c.dataset.tpTip!==tipId) w.remove(); else c.dataset.tpTip = tipId; }
   function kies(sg){ const k = act, [op, c] = T[k];
     if(sg===nw[k]){ s.d[k] = sg; net = k; act = null; fb.className = 'fb'; fb.textContent = ''; save(); teken();
       if(klaar()){ if(!o.noCL) CLres(qid, true); if(o.onKlaar) o.onKlaar(false); } }
