@@ -3101,14 +3101,14 @@ OP.sprong = { title:'Springen op de getallenas', lvl:1,
   build(b, st, save){
     const R = makeR(st); const P = [somPaar(R, 'pn', 9), somPaar(R, 'np', 9), somPaar(R, 'zz', 6)]; if(st.i==null) st.i = 0;
     const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
-    const toon = () => { lijst.innerHTML = P.slice(0, st.i).map(([x, y]) => `<span class="m5-ok">✓ ${somT(x, y)} = ${zS(x + y)}</span>`).join('');
+    const toon = () => { lijst.innerHTML = P.slice(0, st.i).map(([x, y]) => `<span class="m5-ok">✓ ${y<0 ? `${somT(x, y)} = ${paarKaal(x, [['+', y]])}` : somT(x, y)} = ${zS(x + y)}</span>`).join('');
       host.innerHTML = '';
       if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`)); const [x, y] = P[st.i];
         const top = el('div'); host.append(top);
         const sp = sprongAs(host, st, save, 's' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }});
         /* negatieve tweede term: het tekenpaar + (− mag je aanklikken en vereenvoudigen; de sprong past zich aan */
         opgMetPaar(top, st, save, 'p' + st.i, x, y, sp); }
-      else allesJuist(host, 'Een positief getal optellen: naar <b>rechts</b>. Een negatief getal optellen: naar <b>links</b>.'); };
+      else allesJuist(host, 'Eerst het tekenpaar: + (− wordt −. Dan op de getallenas: plus naar <b>rechts</b>, min naar <b>links</b>.'); };
     toon();
   } };
 
@@ -3118,13 +3118,13 @@ OP.leger = { title:'Plus- en min-soldaten', lvl:1,
   build(b, st, save){
     const R = makeR(st); const P = R.shuffle([somPaar(R, 'pn', 8), somPaar(R, 'np', 8), somPaar(R, 'zz', 5)]); if(st.i==null) st.i = 0;
     const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
-    const toon = () => { lijst.innerHTML = P.slice(0, st.i).map(([x, y]) => `<span class="m5-ok">✓ ${somT(x, y)} = ${zS(x + y)}</span>`).join('');
+    const toon = () => { lijst.innerHTML = P.slice(0, st.i).map(([x, y]) => `<span class="m5-ok">✓ ${y<0 ? `${somT(x, y)} = ${paarKaal(x, [['+', y]])}` : somT(x, y)} = ${zS(x + y)}</span>`).join('');
       host.innerHTML = '';
       if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`)); const [x, y] = P[st.i];
         const top = el('div'); host.append(top);
         const lg = legertjes(host, st, save, 'l' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }});
         opgMetPaar(top, st, save, 'p' + st.i, x, y, lg); }
-      else allesJuist(host, 'Verschillend teken: de nulparen vallen weg en het grootste leger wint. Zelfde teken: de legers voegen samen.'); };
+      else allesJuist(host, 'Eerst het tekenpaar: + (− wordt −. Gelijke legers voegen samen, tegengestelde legers vechten: de nulparen vallen weg en het grootste leger wint.'); };
     toon();
   } };
 
