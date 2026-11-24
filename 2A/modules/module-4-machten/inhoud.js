@@ -1395,11 +1395,11 @@ function vxHulp(card){
   @media (min-width:640px){
     .m4-q:has(> .vx-balk){display:grid; grid-template-columns:minmax(0, max-content) auto; justify-content:start; column-gap:2.5rem; align-items:start}
     .m4-q:has(> .vx-balk) > *{grid-column:1}
-    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(3, 2.35rem); gap:.35rem; margin:2.2rem 0 0; padding:.55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem; width:max-content}
+    .m4-q > .vx-balk{grid-column:2; grid-row:1 / span 4; display:grid; grid-template-columns:repeat(3, 2.35rem); gap:.3rem .35rem; margin:2.2rem 0 0; padding:.4rem .55rem; border:1.5px solid var(--border); border-radius:.8rem; background:var(--zone-bg, #f4fbfb); position:sticky; top:1rem; width:max-content}
     .m4-q > .vx-balk .vx-tools{display:contents}
     .m4-q > .vx-balk .vx-k{min-width:2.35rem; min-height:2.35rem}
-    .m4-q > .vx-balk .vx-snel{grid-column:1 / span 3; width:7.8rem; font-size:.6rem; line-height:1.12}
-    .m4-q > .vx-balk .vx-snel kbd{padding:0 .2rem}
+    .m4-q > .vx-balk .vx-snel{grid-column:1 / span 3; width:7.8rem; font-size:.6rem; line-height:1.3}
+    .m4-q > .vx-balk .vx-snel kbd{display:inline-block; line-height:1; padding:0 .2rem; vertical-align:middle}
   }
   .vx-plus{font-size:0 !important; padding:0 !important; min-width:2.35rem; min-height:2.35rem}
   .m4-q > .vx-balk .vx-plus{grid-column:1 / span 3}
