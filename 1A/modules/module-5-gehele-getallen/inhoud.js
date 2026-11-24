@@ -3731,10 +3731,28 @@ AF.patroon.instr = 'Reken van boven naar onder. Je trekt telkens 1 minder af: wa
   patroon(b, st, save, {a, B:[2, 1, 0, -1, -2], op:'−', vraag:'Wat gebeurt er als je een <b>negatief</b> getal aftrekt?', opts:[['g', 'de uitkomst wordt groter'], ['k', 'de uitkomst wordt kleiner']], ans:'g',
     why:`Telkens 1 minder aftrekken geeft 1 meer. ${verT(a, -2)} = ${zS(a + 2)}: hetzelfde als ${somT(a, 2)}.`, slot:'Daarom wordt − (− een +: een negatief getal aftrekken is het tegengestelde optellen.'}); }; }
 
+/* ---------- basis: springen op de getallenas en plus- en min-soldaten bij aftrekken ----------
+   Eerst het tekenpaar wegklikken (verplicht), dan pas de getallenas of de legertjes met de vereenvoudigde som. */
+function paarDanWidget(b, st, save, soort, titelSlot, soorten = [0, 2, 0], pre = ''){
+  const R = makeR(st); const P = R.shuffle(soorten).map(k => paarOpg(R, PAARSOORT[k], 8));
+  naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, op, c] = P[i]; const na = el('div');
+    tekenParen(host, st, save, pre + 'p' + i, {a, T:[[op, c]], keuzeTip:'Klik eerst op het tekenpaar en vereenvoudig.', onKlaar:() => { if(na.firstChild) return;
+      const o = {a, b:paarBij(op, c), txt:paarKaal(a, [[op, c]]), noCL:true, onOk:klaar};
+      if(soort==='as') sprongAs(na, st, save, pre + 's' + i, o); else legertjes(na, st, save, pre + 'l' + i, o); }});
+    host.append(na); },
+  titelSlot, P.map(([a, op, c]) => `${paarTxt(a, op, c)} = ${paarKaal(a, [[op, c]])} = ${zS(a + paarBij(op, c))}`));
+}
+AF.sprong = { title:'Springen op de getallenas', lvl:1,
+  instr:'Klik eerst op het tekenpaar en vereenvoudig: − (− wordt +, − (+ wordt −. Klik dan op het startgetal en spring: naar rechts bij plus, naar links bij min.',
+  build(b, st, save){ paarDanWidget(b, st, save, 'as', 'Eerst het tekenpaar weg, dan springen: plus naar <b>rechts</b>, min naar <b>links</b>.'); } };
+AF.leger = { title:'Plus- en min-soldaten', lvl:1,
+  instr:'Klik eerst op het tekenpaar en vereenvoudig. Stel dan de legers op: gelijke legers voegen samen, tegengestelde legers vechten.',
+  build(b, st, save){ paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.'); } };
+
 /* nieuwe kaarten achteraan (sleutels aftrek_9 ...), volgorde op het scherm apart */
-SEC.aftrek.cards.push(AF.regel, AF.kies, AF.reken, AF.vraag, AF.vthermo, AF.vlift, AF.vduik);
+SEC.aftrek.cards.push(AF.regel, AF.kies, AF.reken, AF.vraag, AF.vthermo, AF.vlift, AF.vduik, AF.sprong, AF.leger);
 { const i = k => SEC.aftrek.cards.indexOf(k);
-  SEC.aftrek.toon = [AF.tweeling, AF.regel, AF.patroon, AF.paar, AF.kies, AF.reken, AF.vrij, AF.vthermo, AF.vlift, AF.vduik, AF.groot, AF.slier, AF.aanvul].map(i); }
+  SEC.aftrek.toon = [AF.sprong, AF.leger, AF.regel, AF.paar, AF.kies, AF.reken, AF.vrij, AF.vthermo, AF.vlift, AF.vduik, AF.groot, AF.slier, AF.aanvul].map(i); }
 SEC.aftrek.tip = 'Twee tekens na elkaar? Vereenvoudig eerst: twee gelijke tekens worden +, twee verschillende tekens worden −. Daarna is het een gewone som: spring op de getallenas of laat de legertjes vechten.';
 (function(){ const css = `.m5-tpitem{display:flex; flex-direction:column; gap:.2rem} .m5-tpitem .m5-tpuit{font-size:1.4rem} .m5-tpitem .q{border-top:0 !important; border-image:none !important; padding:.2rem 0 0}
   .m5-tregel table{border-collapse:collapse; font-size:1.5rem; margin:0 auto} .m5-tregel td, .m5-tregel th{border:1.5px solid var(--border); padding:.25rem .9rem; text-align:center}
@@ -3742,7 +3760,7 @@ SEC.aftrek.tip = 'Twee tekens na elkaar? Vereenvoudig eerst: twee gelijke tekens
   .m5-tregel.af{border:2px solid var(--ok); border-radius:.8rem; padding:.5rem; animation:m5-pop .35s ease-out} .m5-tregel p{text-align:center; margin:.4rem 0 0}`; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
 /* ============================================================
    OPTELLEN IN BEELD (24 november 2026, vraag van de beheerder)
-   Na de basis getallenas en de basis legertjes: Twee tekens na elkaar (+ (− en + (+ aanklikken),
+   Zelfde opbouw als Aftrekken: springen en soldaten (tekenpaar eerst), Ontdek de tekenregel, Twee tekens na elkaar (+ (− en + (+ aanklikken),
    Vereenvoudig en kies je manier, en Bereken met getallenas en legertjes als hulpknop.
    Nieuwe kaarten achteraan in SEC.optel.cards; SEC.optel.toon bepaalt de volgorde op het scherm.
    ============================================================ */
@@ -3767,8 +3785,18 @@ OP.kies = { title:'Vereenvoudig en kies je manier', lvl:1,
     'Eerst het tekenpaar weg, dan reken je: springen op de getallenas of vechten met legertjes.', P.map(([a, op, c]) => `${paarTxt(a, op, c)} = ${paarKaal(a, [[op, c]])} = ${zS(a + c)}`));
   } };
 OP.ber1.instr = 'Vereenvoudig het tekenpaar en reken uit. Lukt het niet uit je hoofd? Gebruik de getallenas of de legertjes als hulp.';
-SEC.optel.cards.push(OP.paar, OP.kies);
-SEC.optel.toon = [OP.sprong, OP.leger, OP.paar, OP.kies, OP.ber1, OP.ber2, OP.temp, OP.lift, OP.duik, OP.bank, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2, OP.tijd].map(k => SEC.optel.cards.indexOf(k));
+/* basis: net als bij Aftrekken eerst het tekenpaar wegklikken (verplicht), dan springen of de legers.
+   Eigen sleutels (v...) zodat oude bewaarde sprongen niet op nieuwe opgaven vallen. */
+OP.sprong.instr = 'Klik eerst op het tekenpaar en vereenvoudig: + (− wordt −, + (+ wordt +. Klik dan op het startgetal en spring: naar rechts bij plus, naar links bij min.';
+OP.sprong.build = function(b, st, save){ paarDanWidget(b, st, save, 'as', 'Eerst het tekenpaar weg, dan springen: plus naar <b>rechts</b>, min naar <b>links</b>.', [1, 3, 1], 'v'); };
+OP.leger.instr = 'Klik eerst op het tekenpaar en vereenvoudig. Stel dan de legers op: gelijke legers voegen samen, tegengestelde legers vechten.';
+OP.leger.build = function(b, st, save){ paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.', [1, 3, 1], 'v'); };
+/* de tekenregel, zoals bij Aftrekken: alle vier de tekenparen */
+OP.tregel = { title:'Ontdek de tekenregel', lvl:1, instr:AF.regel.instr, build:AF.regel.build };
+OP.ber1.title = 'Vereenvoudig en reken'; OP.ber1.lvl = 2;
+OP.ber2.title = 'Doe het zelf: bereken tot 100';
+SEC.optel.cards.push(OP.paar, OP.kies, OP.tregel);
+SEC.optel.toon = [OP.sprong, OP.leger, OP.tregel, OP.paar, OP.kies, OP.ber1, OP.ber2, OP.temp, OP.lift, OP.duik, OP.bank, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2, OP.tijd].map(k => SEC.optel.cards.indexOf(k));
 /* ============================================================
    ONDERDELEN 8 EN 9 · EIGENSCHAPPEN, DISTRIBUTIVITEIT
    ============================================================ */

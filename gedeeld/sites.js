@@ -485,7 +485,7 @@ export const SITES = [
     "id": "optel",
     "naam": "Optellen",
     "toets": false,
-    "vragen": 51
+    "vragen": 55
    },
    {
     "id": "aftrek",
