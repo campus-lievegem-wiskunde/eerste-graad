@@ -2427,7 +2427,9 @@ function tekenParen(host, st, save, id, o){
 /* een som x + y in een reeks; is y negatief, dan mag de leerling het tekenpaar + (− eerst aanklikken en vereenvoudigen.
    q: de opties van mQ zonder html en nr */
 const PAARTIP = 'Wil je eerst vereenvoudigen? Klik op het tekenpaar.';
-function somMetPaar(g, st, save, id, nr, x, y, q){ uitMetPaar(g, st, save, id, nr, x, '+', y, q); }
+function somMetPaar(g, st, save, id, nr, x, y, q, hulp){ const it = uitMetPaar(g, st, save, id, nr, x, '+', y, q);
+  /* hulp: getallenas en legertjes als hulpknop onder de vraag */
+  if(hulp) manierKies(it, st, save, id + 'h', {a:x, b:y, txt:y<0 ? paarKaal(x, [['+', y]]) : somT(x, y), hulp:true}); }
 /* algemeen: x op (y) met op '+' of '−'; voor: tekst boven de opgave (vraagstuk) */
 function uitMetPaar(g, st, save, id, nr, x, op, y, q, voor){
   const it = el('div', 'q m5-tpitem'); g.append(it);
@@ -2435,7 +2437,7 @@ function uitMetPaar(g, st, save, id, nr, x, op, y, q, voor){
   const n2 = voor ? '' : nr;
   if(y>=0) it.append(el('div', 'm5-tpuit', (n2 ? `<span class="q-num">${n2}</span>` : '') + `${zS(x)} ${op==='+' ? '+' : MIN} ${dz(y)}`));
   else tekenParen(it, st, save, id + 'p', {a:x, T:[[op, y]], nr:n2, noCL:true, keuzeTip:PAARTIP});
-  mQ(it, st, save, id, Object.assign({html:`${isq} {{u:a}}`}, q));
+  mQ(it, st, save, id, Object.assign({html:`${isq} {{u:a}}`}, q)); return it;
 }
 /* boven een getallenas of legertjes: de opgave; met een negatieve tweede term is het tekenpaar aanklikbaar en past w zich aan */
 function opgMetPaar(top, st, save, id, x, y, w){
@@ -3160,7 +3162,7 @@ OP.ber1 = { title:'Bereken', lvl:1,
     const R = makeR(st); const P = R.shuffle(['zz', 'zz', 'pn', 'pn', 'np', 'np', 'pn', 'pp'].map(k => somPaar(R, k, 20)));
     reeks(b, P.length, (g, i, nr) => { const [x, y] = P[i], T = x + y;
       somMetPaar(g, st, save, 'b' + i, nr, x, y, { check:V=>chkGt(V.a, T, [[x - y, 'Je trok af in plaats van op te tellen.'], [Math.sign(T)*(Math.abs(x) + Math.abs(y)), 'De tekens zijn verschillend: trek de absolute waarden van elkaar af.']]),
-        hint:somHint(x, y, true), meer:somMeer(x, y), sol:`${somT(x, y)} ${isq} ${zS(T)}` }); });
+        hint:somHint(x, y, true), meer:somMeer(x, y), sol:`${somT(x, y)} ${isq} ${zS(T)}` }, true); }, {een:true});
   } };
 
 /* ---------- 6 bereken (oefenen) ---------- */
@@ -3316,7 +3318,7 @@ SEC.optel = { id:'optel', ic:'z_optel', nav:'Optellen', title:'Gehele getallen o
   tip:'Twee tekens na elkaar? Klik erop en vereenvoudig: + (− wordt −. Daarna op de getallenas: plus naar rechts, min naar links.',
   cheat:CHEAT_OPTEL, cards:[OP.patroon, OP.sprong, OP.leger, OP.regel, OP.ber1, OP.ber2, OP.temp, OP.lift, OP.duik, OP.bank, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2, OP.tijd] };
 /* Ontdek het patroon en Kies de juiste regel zijn verborgen (24 november 2026): getallenas en legertjes tonen het al;: de dubbele tekens worden eerst weggewerkt door het tekenpaar aan te klikken. */
-SEC.optel.toon = SEC.optel.cards.map((_, i) => i).filter(i => ![OP.regel, OP.patroon].includes(SEC.optel.cards[i]));
+/* SEC.optel.toon staat in 54_optelvis.js */
 (function(){ const s = document.createElement('style'); s.textContent = `
   .m5-gedaan{display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 .4rem} .m5-ok{background:var(--ok-bg); color:var(--ok); border-radius:.5rem; padding:.15rem .55rem; font-weight:700}
   .m5-teller{font-size:.85rem; font-weight:700; color:var(--accent-dark); text-transform:uppercase; letter-spacing:.04em}
@@ -3738,6 +3740,35 @@ SEC.aftrek.tip = 'Twee tekens na elkaar? Vereenvoudig eerst: twee gelijke tekens
   .m5-tregel table{border-collapse:collapse; font-size:1.5rem; margin:0 auto} .m5-tregel td, .m5-tregel th{border:1.5px solid var(--border); padding:.25rem .9rem; text-align:center}
   .m5-tregel th{font-size:.95rem} .m5-tregel tr.af td{background:var(--ok-bg)} .m5-tregel tr.af b{color:var(--accent-dark)}
   .m5-tregel.af{border:2px solid var(--ok); border-radius:.8rem; padding:.5rem; animation:m5-pop .35s ease-out} .m5-tregel p{text-align:center; margin:.4rem 0 0}`; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
+/* ============================================================
+   OPTELLEN IN BEELD (24 november 2026, vraag van de beheerder)
+   Na de basis getallenas en de basis legertjes: Twee tekens na elkaar (+ (− en + (+ aanklikken),
+   Vereenvoudig en kies je manier, en Bereken met getallenas en legertjes als hulpknop.
+   Nieuwe kaarten achteraan in SEC.optel.cards; SEC.optel.toon bepaalt de volgorde op het scherm.
+   ============================================================ */
+const PAAR_OP = [PAARSOORT[1], PAARSOORT[3]];   /* + (− en + (+ */
+OP.paar = { title:'Twee tekens na elkaar', lvl:1,
+  instr:'Klik op de twee tekens die naast elkaar staan en kies het teken dat in hun plaats komt: + (− wordt −, + (+ wordt +. Reken dan uit.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 0, 0, 0, 1, 1]).map(k => paarOpg(R, PAAR_OP[k], 15));
+    reeks(b, P.length, (g, i, nr) => { const [a, op, c] = P[i]; const it = el('div', 'q m5-tpitem'), na = el('div'); g.append(it);
+      tekenParen(it, st, save, 'k' + i, {a, T:[[op, c]], nr, onKlaar:() => { if(na.firstChild) return;
+        mQ(na, st, save, 'r' + i, { html:`${paarKaal(a, [[op, c]])} ${isq} {{u:r}}`, check:V=>chkG(V.r, a + c), sol:`${paarTxt(a, op, c)} ${isq} ${paarKaal(a, [[op, c]])} ${isq} ${zS(a + c)}` }); }});
+      it.append(na); });
+  } };
+OP.kies = { title:'Vereenvoudig en kies je manier', lvl:1,
+  instr:'Klik eerst op het tekenpaar en vereenvoudig. Kies dan hoe je het oplost: springen op de getallenas of vechten met legertjes.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 0, 0, 1]).map(k => paarOpg(R, PAAR_OP[k], 8));
+    naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, op, c] = P[i]; const na = el('div');
+      tekenParen(host, st, save, 'p' + i, {a, T:[[op, c]], onKlaar:() => { if(na.firstChild) return;
+        manierKies(na, st, save, 'm' + i, {a, b:c, txt:paarKaal(a, [[op, c]]), vraag:'Hoe los je het op? Kies je manier.', onOk:klaar}); }});
+      host.append(na); },
+    'Eerst het tekenpaar weg, dan reken je: springen op de getallenas of vechten met legertjes.', P.map(([a, op, c]) => `${paarTxt(a, op, c)} = ${paarKaal(a, [[op, c]])} = ${zS(a + c)}`));
+  } };
+OP.ber1.instr = 'Vereenvoudig het tekenpaar en reken uit. Lukt het niet uit je hoofd? Gebruik de getallenas of de legertjes als hulp.';
+SEC.optel.cards.push(OP.paar, OP.kies);
+SEC.optel.toon = [OP.sprong, OP.leger, OP.paar, OP.kies, OP.ber1, OP.ber2, OP.temp, OP.lift, OP.duik, OP.bank, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2, OP.tijd].map(k => SEC.optel.cards.indexOf(k));
 /* ============================================================
    ONDERDELEN 8 EN 9 · EIGENSCHAPPEN, DISTRIBUTIVITEIT
    ============================================================ */
