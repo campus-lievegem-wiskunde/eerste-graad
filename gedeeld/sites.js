@@ -485,13 +485,13 @@ export const SITES = [
     "id": "optel",
     "naam": "Optellen",
     "toets": false,
-    "vragen": 48
+    "vragen": 44
    },
    {
     "id": "aftrek",
     "naam": "Aftrekken",
     "toets": false,
-    "vragen": 39
+    "vragen": 43
    },
    {
     "id": "maal",

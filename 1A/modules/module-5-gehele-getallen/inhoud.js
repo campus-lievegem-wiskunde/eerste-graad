@@ -1815,6 +1815,8 @@ function chkGt(v, T, fout){ v = v || {}; const t = nrm(v.t||'');
 const chkZG = (v, T, fout) => (v && !v.z) ? chkGt(v, T, fout) : chkG(v, T, fout);
 
 /* ---------- getallenas ---------- */
+/* label van een sprong: gewoon − 4 of + 4, zonder dubbele tekens */
+const sprLab = d => (d<0 ? MIN : '+') + ' ' + Math.abs(d);
 /* o: {lo, hi, W, sprongen:[{van, naar, lab, cls, nieuw}], punten:[{x, lab, cls}], geen0} */
 function asSvg(o){
   const W = o.W || 640, pad = 26, y = o.y || 78, H = o.H || 112;
@@ -1842,7 +1844,8 @@ function asBereik(xs, min=14){ let lo = Math.min(0, ...xs) - 2, hi = Math.max(0,
 
 /* ---------- springen op de getallenas: klik het startgetal, sleep (of klik) naar waar je landt, vul in ---------- */
 function sprongAs(host, st, save, id, o){
-  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const qid = QID(id); if(!QZ && !o.noCL) CLvraag(qid);
+  let opg = o.txt || `${zS(o.a)} + ${zP(o.b)}`; const slab = sprLab(o.b);
   const s = st[id] || (st[id] = {f:0}); const a = o.a, b = o.b, T = a + b;
   const B = asBereik([a, T]); const P = paneel(host);
   const fig = el('div', 'm5-asbox'); P.vis.append(fig);
@@ -1850,27 +1853,29 @@ function sprongAs(host, st, save, id, o){
   P.stap.insertBefore(fb, k3); P.stap.append(vak);
   let geest = null, nieuw = false, sleep = false;
   function teken(){
-    const sp = s.f>=2 ? [{van:a, naar:T, lab:'+ ' + zP(b), cls:b<0 ? 'neg' : 'pos', nieuw}] : s.f===1 && geest!=null && geest!==a ? [{van:a, naar:geest, lab:'+ ' + zP(geest - a), cls:geest<a ? 'neg' : 'pos', vl:true}] : [];
+    const sp = s.f>=2 ? [{van:a, naar:T, lab:slab, cls:b<0 ? 'neg' : 'pos', nieuw}] : s.f===1 && geest!=null && geest!==a ? [{van:a, naar:geest, lab:sprLab(geest - a), cls:geest<a ? 'neg' : 'pos', vl:true}] : [];
     const pt = s.f>=1 ? [{x:a, cls:'start'}] : []; if(s.f>=2) pt.push({x:T, cls:'eind'});
     fig.innerHTML = asSvg(Object.assign({}, B, {sprongen:sp, punten:pt, geest:s.f<2 ? geest : null, alt:`getallenas van ${B.lo} tot ${B.hi}`}));
     fig.classList.toggle('sleep', s.f<2); nieuw = false;
     k1.innerHTML = `<span class="m5-sk-n">①</span> Klik op het startgetal <b>${zS(a)}</b>.`; k1.classList.toggle('klaar', s.f>=1);
-    k2.innerHTML = `<span class="m5-sk-n">②</span> Je telt <b>${zP(b)}</b> op. Sleep vanaf ${zS(a)} naar waar je landt, of klik erop.`; k2.classList.toggle('uit', s.f<1); k2.classList.toggle('klaar', s.f>=2);
+    k2.innerHTML = o.txt || opg!==`${zS(a)} + ${zP(b)}` ? `<span class="m5-sk-n">②</span> Je rekent <b>${opg}</b>. Sleep vanaf ${zS(a)} naar waar je landt, of klik erop.` : `<span class="m5-sk-n">②</span> Je telt <b>${zP(b)}</b> op. Sleep vanaf ${zS(a)} naar waar je landt, of klik erop.`; k2.classList.toggle('uit', s.f<1); k2.classList.toggle('klaar', s.f>=2);
     k3.classList.toggle('uit', s.f<2); }
   const waar = e => asKlik(fig.querySelector('svg'), e, B);
   fig.addEventListener('pointerdown', e => { if(s.f>=2) return; if(s.f===1){ sleep = true; try{ fig.setPointerCapture(e.pointerId); }catch(x){} } geest = waar(e); teken(); });
   fig.addEventListener('pointermove', e => { if(s.f>=2) return; const v = waar(e); if(v!==geest){ geest = v; teken(); } });
   fig.addEventListener('pointerleave', () => { if(sleep) return; geest = null; if(s.f<2) teken(); });
   fig.addEventListener('pointerup', e => { if(s.f>=2) return; sleep = false; const v = waar(e);
-    if(s.f===0){ if(v===a){ s.f = 1; fb.className = 'fb'; fb.textContent = ''; } else { fb.className = 'fb bad'; fb.innerHTML = `❌ Je klikte op ${zS(v)}. Zoek ${zS(a)}: ${a<0 ? 'links' : 'rechts'} van 0.`; CLres(qid, false); } }
+    if(s.f===0){ if(v===a){ s.f = 1; fb.className = 'fb'; fb.textContent = ''; } else { fb.className = 'fb bad'; fb.innerHTML = `❌ Je klikte op ${zS(v)}. Zoek ${zS(a)}: ${a<0 ? 'links' : 'rechts'} van 0.`; if(!o.noCL) CLres(qid, false); } }
     else if(s.f===1){ if(v===a){ geest = null; teken(); return; }
       if(v===T){ s.f = 2; nieuw = true; fb.className = 'fb'; fb.textContent = ''; vraag(); }
-      else { fb.className = 'fb bad'; fb.innerHTML = v===a - b ? `❌ Je sprong de verkeerde kant op. Een ${b<0 ? 'negatief getal optellen: naar links' : 'positief getal optellen: naar rechts'}.` : `❌ Je landde op ${zS(v)}. Tel ${Math.abs(b)} streepjes vanaf ${zS(a)}.`; CLres(qid, false); } }
+      else { fb.className = 'fb bad'; fb.innerHTML = v===a - b ? (o.txt ? `❌ Je sprong de verkeerde kant op. ${b<0 ? 'Min: naar links' : 'Plus: naar rechts'}.` : `❌ Je sprong de verkeerde kant op. Een ${b<0 ? 'negatief getal optellen: naar links' : 'positief getal optellen: naar rechts'}.`) : `❌ Je landde op ${zS(v)}. Tel ${Math.abs(b)} streepjes vanaf ${zS(a)}.`; if(!o.noCL) CLres(qid, false); } }
     geest = null; save(); teken(); });
   function vraag(){ vak.innerHTML = '';
-    mQ(vak, st, save, id + 'u', {noCL:true, html:`${zS(a)} + ${zP(b)} ${isq} {{u:a${o.teken===false ? '' : ',t'}}}`, check:V=>chkZG(V.a, T, [[a - b, 'Kijk naar de sprong op de getallenas.']]),
-      onOk:silent=>{ if(!silent){ CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
+    mQ(vak, st, save, id + 'u', {noCL:true, html:`${opg} ${isq} {{u:a${o.teken ? ',t' : ''}}}`, check:V=>chkZG(V.a, T, [[a - b, 'Kijk naar de sprong op de getallenas.']]),
+      onOk:silent=>{ if(!silent){ if(!o.noCL) CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
   teken(); if(s.f>=2) vraag();
+  /* na het vereenvoudigen van het tekenpaar: andere opgave en ander label op de sprong */
+  return { zet(txt){ opg = txt; teken(); if(s.f>=2 && !vak.querySelector('.fb.ok')){ vak.innerHTML = ''; vraag(); } } };
 }
 
 /* ---------- legertjes: de leerling stelt een min- en een plus-leger op; nulparen vallen weg ---------- */
@@ -1879,12 +1884,13 @@ const soldSvg = soort => { const c = LKLEUR[soort], sym = soort==='plus' ? `<pat
   return `<svg viewBox="0 0 24 30" aria-hidden="true"><path d="M6.5 6.5a5.5 5.5 0 0 1 11 0z" fill="${c}"/><circle cx="12" cy="8" r="4" fill="#f2c9a0"/><rect x="5" y="12.5" width="14" height="14" rx="4" fill="${c}"/><circle cx="12" cy="19.5" r="5" fill="#fff"/>${sym}<rect x="7" y="26" width="3.5" height="3.5" rx="1" fill="#35545a"/><rect x="13.5" y="26" width="3.5" height="3.5" rx="1" fill="#35545a"/></svg>`; };
 const LNAAM = {min:'➖ Min-leger', plus:'➕ Plus-leger'};
 function legertjes(host, st, save, id, o){
-  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const qid = QID(id); if(!QZ && !o.noCL) CLvraag(qid); let opg = o.txt || `${zS(o.a)} + ${zP(o.b)}`, kaal = !!o.txt;
   const s = st[id] || (st[id] = {n:[0, 0], f:0}); const a = o.a, b = o.b, T = a + b, MAX = 25;
   const srt = [a<0 ? 'min' : 'plus', b<0 ? 'min' : 'plus'], doel = [Math.abs(a), Math.abs(b)], samen = srt[0]===srt[1], paren = samen ? 0 : Math.min(doel[0], doel[1]);
   const P = paneel(host); const slag = el('div', 'm5-slag'); P.vis.append(slag);
   stapKop(P.stap, 1, 'Stel je legers op');
-  P.stap.append(el('p', 'm5-tip', `${zS(a)} + ${zP(b)}: een positief getal is een plus-leger, een negatief getal een min-leger.`));
+  const lTip = () => kaal ? `${opg}: ${zS(a)} is een ${srt[0]}-leger van ${Math.abs(a)}, ${b<0 ? MIN : '+'} ${Math.abs(b)} is een ${srt[1]}-leger van ${Math.abs(b)}.` : `${zS(a)} + ${zP(b)}: een positief getal is een plus-leger, een negatief getal een min-leger.`;
+  const tip1 = el('p', 'm5-tip', lTip()); P.stap.append(tip1);
   const rijen = el('div', 'm5-lrijen'); const act = el('div', 'q-act'); const knop = el('button', 'btn', samen ? '🤝 Samenvoegen' : '⚔️ Ten aanval'); knop.type = 'button'; act.append(knop);
   const fb = el('div', 'fb'); P.stap.append(rijen, act, fb);
   const k2 = stapKop(P.stap, 2, 'Noteer de uitkomst'); const vak = el('div'); P.stap.append(vak);
@@ -1902,7 +1908,7 @@ function legertjes(host, st, save, id, o){
   function wijzig(i, d){ if(s.f || anim) return; s.n[i] = Math.max(0, Math.min(MAX, s.n[i] + d)); fb.className = 'fb'; fb.textContent = ''; save(); teken(); }
   knop.addEventListener('click', () => {
     const fout = [0, 1].find(i => s.n[i]!==doel[i]);
-    if(fout!=null){ const x = fout ? b : a; fb.className = 'fb bad'; fb.innerHTML = `❌ Het ${srt[fout]}-leger hoort bij <b>${zS(x)}</b>: zet er ${Math.abs(x)} soldaatjes in.`; CLres(qid, false); return; }
+    if(fout!=null){ const x = fout ? b : a; fb.className = 'fb bad'; fb.innerHTML = `❌ Het ${srt[fout]}-leger hoort bij <b>${zS(x)}</b>: zet er ${Math.abs(x)} soldaatjes in.`; if(!o.noCL) CLres(qid, false); return; }
     fb.className = 'fb'; fb.textContent = '';
     const klaar = () => { anim = false; s.f = 1; save(); teken(); toonVraag(); };
     if(samen || REDUCED_M || !paren){ klaar(); return; }
@@ -1911,10 +1917,12 @@ function legertjes(host, st, save, id, o){
     for(let j=0; j<paren; j++) setTimeout(() => { s0[j] && s0[j].classList.add('raak'); s1[j] && s1[j].classList.add('raak'); }, j*stap);
     setTimeout(klaar, paren*stap + 500); });
   function toonVraag(){ if(vak.firstChild) return;
-    P.stap.insertBefore(el('p', 'm5-tip', samen ? `Zelfde teken: de legers voegen samen. Er zijn ${s.n[0] + s.n[1]} ${srt[0]}-soldaatjes.` : T ? `${paren} ${paren===1 ? 'nulpaar valt' : 'nulparen vallen'} weg. Er ${Math.abs(T)===1 ? 'blijft' : 'blijven'} ${Math.abs(T)} ${T<0 ? 'min' : 'plus'}-soldaatje${Math.abs(T)===1 ? '' : 's'} over.` : 'Alle soldaatjes vormen nulparen. Er blijft niets over.'), vak);
-    mQ(vak, st, save, id + 'u', {noCL:true, html:`${zS(a)} + ${zP(b)} ${isq} {{u:a${o.teken===false ? '' : ',t'}}}`, check:V=>chkZG(V.a, T),
-      onOk:silent=>{ if(!silent){ CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
+    if(!P.stap.querySelector('.m5-ltip2')) P.stap.insertBefore(el('p', 'm5-tip m5-ltip2', samen ? `Zelfde teken: de legers voegen samen. Er zijn ${s.n[0] + s.n[1]} ${srt[0]}-soldaatjes.` : T ? `${paren} ${paren===1 ? 'nulpaar valt' : 'nulparen vallen'} weg. Er ${Math.abs(T)===1 ? 'blijft' : 'blijven'} ${Math.abs(T)} ${T<0 ? 'min' : 'plus'}-soldaatje${Math.abs(T)===1 ? '' : 's'} over.` : 'Alle soldaatjes vormen nulparen. Er blijft niets over.'), vak);
+    mQ(vak, st, save, id + 'u', {noCL:true, html:`${opg} ${isq} {{u:a${o.teken ? ',t' : ''}}}`, check:V=>chkZG(V.a, T),
+      onOk:silent=>{ if(!silent){ if(!o.noCL) CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
   teken(); if(s.f) toonVraag();
+  /* na het vereenvoudigen van het tekenpaar: andere opgave in de tekst en de vraag */
+  return { zet(txt){ opg = txt; kaal = true; tip1.innerHTML = lTip(); if(s.f && !vak.querySelector('.fb.ok')){ vak.innerHTML = ''; toonVraag(); } } };
 }
 
 /* ---------- piramide: elk vak is de som (of het product) van de twee vakken eronder; de leerling typt elk getal, met een minteken als het negatief is ---------- */
@@ -1964,7 +1972,7 @@ function thermoPaar(o){ /* o: {lo, hi, t1, t2 (stand rechts of null), voor:[icoo
   h += `<line class="th-start" x1="${c2-64}" y1="${fx(Y(o.t1))}" x2="${c2+12}" y2="${fx(Y(o.t1))}"/>`;
   if(o.t2!=null && o.t2!==o.t1){ const x = c2 - 56, y1 = Y(o.t1), y2 = Y(o.t2), op = o.t2 > o.t1;
     h += `<line class="th-pijl${o.vl ? ' vl' : ''}" x1="${x}" y1="${fx(y1)}" x2="${x}" y2="${fx(op ? y2 + 9 : y2 - 9)}"/><path class="th-pijlk" d="M${x-7} ${fx(op ? y2 + 11 : y2 - 11)} L${x} ${fx(y2)} L${x+7} ${fx(op ? y2 + 11 : y2 - 11)}z"/>`;
-    h += sT(x - 8, (y1 + y2)/2, (op ? '+' : MIN) + Math.abs(o.t2 - o.t1), 'th-sprong', 'end'); }
+    if(!o.geenGetal) h += sT(x - 8, (y1 + y2)/2, (op ? '+' : MIN) + Math.abs(o.t2 - o.t1), 'th-sprong', 'end'); }
   if(o.t2!=null && !o.vl) h += tag(c2, o.t2, false);
   h += `<rect class="th-raak" x="${c2-70}" y="${THT.top-24}" width="150" height="${THT.bot-THT.top+70}"/>`;
   return `<svg class="mf m5-th2" viewBox="0 0 470 330" role="img" aria-label="twee thermometers: ${o.voor[1]} ${zS(o.t1)} °C">${h}</svg>`;
@@ -2373,6 +2381,103 @@ function schriftFout(host, st, save, id, e){ /* e: {wie, task, lines, wrong, con
   .mf .sd-w{font-size:12px; font-weight:800; fill:var(--ink)} .mf .sd-x{font-size:12px; font-weight:700; fill:var(--accent-dark)}
   .m5-tl{width:100%; height:auto; display:block}
   @media (max-width:600px){ .m5-bs small{display:none} .m5-kamp{min-height:120px} .m5-lnaam{min-width:0; flex:1 1 100%} }
+  `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
+/* ============================================================
+   TEKENPAREN AANKLIKKEN, DAN KIEZEN: GETALLENAS OF LEGERTJES
+   tekenParen: de leerling klikt in de opgave op een tekenpaar (bv. − (−), kiest het nieuwe teken
+   en ziet de twee tekens samensmelten tot één teken.
+   manierKies: daarna oplossen op de getallenas of met legertjes (gelijke legers voegen samen, tegengestelde vechten).
+   ============================================================ */
+const tkS = x => x==='+' ? '+' : MIN;
+/* het nieuwe teken van een tekenpaar: op is '+' of '−', c het getal tussen haakjes */
+const paarTeken = (op, c) => (op==='+') === (c>0) ? '+' : '-';
+/* uitleg bij een verkeerde keuze */
+const paarWaarom = (op, c) => op==='+' ? (c>0 ? 'Plus en plus: twee gelijke tekens worden +.' : 'Plus en min: twee verschillende tekens worden −.')
+  : (c>0 ? 'Min en plus: twee verschillende tekens worden −.' : 'Min en min: twee gelijke tekens worden +. Een negatief getal aftrekken maakt de uitkomst groter.');
+/* de opgave na het vereenvoudigen */
+const paarKaal = (a, T) => zS(a) + T.map(([op, c]) => ` ${tkS(paarTeken(op, c))} ${dz(Math.abs(c))}`).join('');
+/* o: {a, T:[[op, c], ...], onKlaar(silent), noCL, nr} */
+function tekenParen(host, st, save, id, o){
+  const qid = QID(id); if(!QZ && !o.noCL) CLvraag(qid);
+  const s = st[id] || (st[id] = {d:[]}); const T = o.T, nw = T.map(([op, c]) => paarTeken(op, c));
+  const box = el('div', 'm5-tpbox'), uit = el('div', 'm5-tpuit'), keuze = el('div', 'm5-tpkeus'), fb = el('div', 'fb');
+  box.append(uit, keuze, fb); host.append(box);
+  let act = null, net = -1;
+  const klaar = () => T.every((_, k) => s.d[k]);
+  function teken(){
+    const oud = zS(o.a) + T.map(([op, c]) => ` ${op==='+' ? '+' : MIN} (${c<0 ? MIN : '+'}${dz(Math.abs(c))})`).join('');
+    uit.innerHTML = (o.nr ? `<span class="q-num">${o.nr}</span>` : '') + (klaar() ? `<span class="m5-tpoud">${oud}</span><span class="m5-tpbr"></span><span class="m5-tppijl">→</span>` : '') + `<span>${zS(o.a)}</span>` + T.map(([op, c], k) => s.d[k]
+      ? `<span class="m5-tp1${k===net ? ' nieuw' : ''}">${tkS(s.d[k])}</span><span>${dz(Math.abs(c))}</span>`
+      : `<button type="button" class="m5-tp${k===act ? ' act' : ''}" data-k="${k}" aria-label="tekenpaar ${op==='+' ? 'plus' : 'min'} ${c<0 ? 'min' : 'plus'}"><span>${tkS(op==='+' ? '+' : '-')}</span><span class="hk">(</span><span>${c<0 ? MIN : '+'}</span></button><span>${dz(Math.abs(c))}</span><span class="hk">)</span>`).join('');
+    uit.querySelectorAll('.m5-tp').forEach(x => x.addEventListener('click', () => { act = +x.dataset.k; fb.className = 'fb'; fb.textContent = ''; teken(); }));
+    net = -1;
+    if(act!=null){ const [op, c] = T[act];
+      keuze.innerHTML = `<span>Welk teken komt in de plaats van <b class="m5-tpv">${tkS(op==='+' ? '+' : '-')} (${c<0 ? MIN : '+'}</b>?</span><button type="button" class="btn m5-tpk" data-s="+" aria-label="plus">+</button><button type="button" class="btn m5-tpk" data-s="-" aria-label="min">${MIN}</button>`;
+      keuze.querySelectorAll('.m5-tpk').forEach(x => x.addEventListener('click', () => kies(x.dataset.s))); }
+    else keuze.innerHTML = klaar() ? '' : `<span class="m5-tpw">👆 ${o.keuzeTip || `Klik op ${T.length>1 ? 'een tekenpaar' : 'het tekenpaar'}: twee tekens die naast elkaar staan.`}</span>`; }
+  function kies(sg){ const k = act, [op, c] = T[k];
+    if(sg===nw[k]){ s.d[k] = sg; net = k; act = null; fb.className = 'fb'; fb.textContent = ''; save(); teken();
+      if(klaar()){ if(!o.noCL) CLres(qid, true); if(o.onKlaar) o.onKlaar(false); } }
+    else { fb.className = 'fb bad'; fb.innerHTML = `❌ ${paarWaarom(op, c)}`; if(!o.noCL) CLres(qid, false);
+      keuze.classList.remove('schud'); void keuze.offsetWidth; keuze.classList.add('schud'); } }
+  teken(); if(klaar() && o.onKlaar) o.onKlaar(true);
+  return box;
+}
+
+/* een som x + y in een reeks; is y negatief, dan mag de leerling het tekenpaar + (− eerst aanklikken en vereenvoudigen.
+   q: de opties van mQ zonder html en nr */
+const PAARTIP = 'Wil je eerst vereenvoudigen? Klik op het tekenpaar.';
+function somMetPaar(g, st, save, id, nr, x, y, q){ uitMetPaar(g, st, save, id, nr, x, '+', y, q); }
+/* algemeen: x op (y) met op '+' of '−'; voor: tekst boven de opgave (vraagstuk) */
+function uitMetPaar(g, st, save, id, nr, x, op, y, q, voor){
+  const it = el('div', 'q m5-tpitem'); g.append(it);
+  if(voor) it.append(el('div', 'm5-tpvoor', (nr ? `<span class="q-num">${nr}</span>` : '') + voor));
+  const n2 = voor ? '' : nr;
+  if(y>=0) it.append(el('div', 'm5-tpuit', (n2 ? `<span class="q-num">${n2}</span>` : '') + `${zS(x)} ${op==='+' ? '+' : MIN} ${dz(y)}`));
+  else tekenParen(it, st, save, id + 'p', {a:x, T:[[op, y]], nr:n2, noCL:true, keuzeTip:PAARTIP});
+  mQ(it, st, save, id, Object.assign({html:`${isq} {{u:a}}`}, q));
+}
+/* boven een getallenas of legertjes: de opgave; met een negatieve tweede term is het tekenpaar aanklikbaar en past w zich aan */
+function opgMetPaar(top, st, save, id, x, y, w){
+  if(y<0) tekenParen(top, st, save, id, {a:x, T:[['+', y]], noCL:true, keuzeTip:PAARTIP, onKlaar:() => w.zet(paarKaal(x, [['+', y]]))});
+  else top.append(el('div', 'm5-tpuit', somT(x, y)));
+}
+
+/* kies je manier: getallenas of legertjes, voor de som a + b (b met teken). o: {a, b, txt, onOk, open} (open: beide knoppen, anders als hulp) */
+function manierKies(host, st, save, id, o){
+  const s = st[id] || (st[id] = {}); const bar = el('div', 'm5-manier'), plek = el('div'); host.append(bar, plek);
+  const M = [['as', '📏 Op de getallenas'], ['leger', '🪖 Met legertjes']];
+  function teken(){ bar.innerHTML = (o.vraag ? `<span class="m5-mvraag">${o.vraag}</span>` : '') + M.map(([k, t]) => `<button type="button" class="btn ghost${o.hulp ? ' m5-hulpk' : ''}" data-m="${k}" aria-pressed="${s.m===k}">${o.hulp ? '💡 ' : ''}${o.hulp ? t.replace(/^\S+ /, '') : t}</button>`).join('');
+    bar.querySelectorAll('button').forEach(x => x.addEventListener('click', () => { s.m = s.m===x.dataset.m && o.hulp ? null : x.dataset.m; save(); teken(); toon(); })); }
+  function toon(){ plek.innerHTML = ''; if(!s.m) return;
+    const opt = {a:o.a, b:o.b, txt:o.txt, noCL:true, teken:false, onOk:o.onOk};
+    if(s.m==='as') sprongAs(plek, st, save, id + 'as', opt); else legertjes(plek, st, save, id + 'lg', opt); }
+  teken(); toon();
+}
+
+(function(){ const css = `
+  .m5-tpbox{margin:.3rem 0}
+  .m5-tpuit{display:flex; flex-wrap:wrap; align-items:center; gap:.3rem; font-size:1.9rem; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.4}
+  .m5-tp{font:inherit; color:inherit; background:var(--card, #fff); border:2px dashed var(--accent); border-radius:.6rem; padding:0 .3rem; cursor:pointer; display:inline-flex; gap:.2rem; align-items:center; line-height:1.3}
+  .m5-tp:hover, .m5-tp:focus-visible{border-style:solid; background:var(--zone-bg)}
+  .m5-tp.act{border-style:solid; border-color:#FCAF17; background:#fff3d6; color:#1d2b2e}
+  .hk{font-weight:400; opacity:.7}
+  .m5-tp1{display:inline-block; color:var(--accent-dark)}
+  .m5-tp1.nieuw{animation:m5-smelt .7s ease-out}
+  @keyframes m5-smelt{0%{transform:scale(2.1) rotate(-12deg); color:#FCAF17} 60%{transform:scale(.9)} 100%{transform:none}}
+  .m5-tpkeus{display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-top:.45rem; min-height:2.4rem; font-size:1.05rem}
+  .m5-tpk{font-size:1.6rem; min-width:3.2rem; line-height:1.1; padding:.25rem .6rem}
+  .m5-tpv{white-space:nowrap}
+  .m5-tpw{color:var(--ink-soft)}
+  .m5-tpvoor{font-size:1rem; line-height:1.4}
+  .m5-tpkeus:empty, .m5-tpbox .fb:empty{display:none}
+  .m5-tpoud{color:var(--ink-soft); font-weight:600; font-size:.8em} .m5-tpbr{flex-basis:100%; height:0} .m5-tppijl{color:var(--accent-dark); font-size:.8em; margin:0 .15rem}
+  .schud{animation:m5-schud .35s}
+  @keyframes m5-schud{25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}}
+  .m5-manier{display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:.6rem 0 .3rem}
+  .m5-manier .btn.ghost[aria-pressed="true"]{--fill:var(--accent); --el:var(--accent); --er:var(--accent); background:var(--accent); color:#fff}
+  .m5-mvraag{font-weight:700; flex:1 1 100%}
+  @media (max-width:600px){ .m5-tpuit{font-size:1.5rem} .m5-vrij{grid-template-columns:1fr auto} .m5-vnaam{grid-column:1 / -1} }
   `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
 /* ============================================================
    1A MODULE 5 · GEREEDSCHAP VOOR DE ANDERE ONDERDELEN
@@ -2959,7 +3064,7 @@ function somHint(a, b, tv){
   const vtk = T<0 ? MIN : '+';
   return [s1, {u:'Vul aan.', line:`${somT(a, b)} ${isq} ${vtk} (${reken}) ${isq} {{u:a${u}}}`, check:V=>chkZG(V.a, T), show:`${somT(a, b)} ${isq} ${vtk} (${reken}) ${isq} ${zS(T)}`}];
 }
-const somMeer = (a, b) => host => { host.innerHTML = '<p>Op de getallenas: start bij ' + zS(a) + ' en spring ' + Math.abs(b) + (b<0 ? ' naar links.' : ' naar rechts.') + '</p>' + asSvg(Object.assign(asBereik([a, a+b]), {W:480, sprongen:[{van:a, naar:a+b, lab:'+ ' + zP(b), cls:b<0 ? 'neg' : 'pos'}], punten:[{x:a, cls:'start'}, {x:a+b}], maxw:520})); };
+const somMeer = (a, b) => host => { host.innerHTML = '<p>Op de getallenas: start bij ' + zS(a) + ' en spring ' + Math.abs(b) + (b<0 ? ' naar links.' : ' naar rechts.') + '</p>' + asSvg(Object.assign(asBereik([a, a+b]), {W:480, sprongen:[{van:a, naar:a+b, lab:sprLab(b), cls:b<0 ? 'neg' : 'pos'}], punten:[{x:a, cls:'start'}, {x:a+b}], maxw:520})); };
 
 const OP = {};
 /* ---------- 1 ontdek het patroon ---------- */
@@ -2972,7 +3077,7 @@ OP.patroon = { title:'Ontdek het patroon', lvl:1,
     stapKop(P.stap, 1, 'Reken uit, van boven naar onder.'); const lijst = el('div'), g = el('div'); P.stap.append(lijst, g);
     const k2 = stapKop(P.stap, 2, 'Wat valt je op?'); const bes = el('div'); P.stap.append(bes);
     const fig = (anim) => { const i = st.i ? st.i - 1 : null; const pt = [{x:a, cls:'start'}]; B.forEach((x, j) => { if(j < st.i && x) pt.push({x:a + x}); });
-      const sp = i!=null && B[i] ? [{van:a, naar:a + B[i], lab:'+ ' + zP(B[i]), cls:B[i]<0 ? 'neg' : 'pos', nieuw:anim}] : [];
+      const sp = i!=null && B[i] ? [{van:a, naar:a + B[i], lab:sprLab(B[i]), cls:B[i]<0 ? 'neg' : 'pos', nieuw:anim}] : [];
       staaf.innerHTML = staafSvg({lab:B.map(x => '+ ' + zP(x)), w:B.map((x, j) => j < st.i ? a + x : null), lo, hi, nu:st.i, nieuw:anim ? st.i - 1 : -1});
       figH.innerHTML = asSvg(Object.assign({}, ber, {W:440, punten:pt, sprongen:sp, alt:'getallenas met de uitkomsten', maxw:520}));
       uitl.innerHTML = i==null ? `Start bij <b>${zS(a)}</b>.` : B[i]>0 ? `${zP(B[i])} optellen: ${B[i]} naar <b>rechts</b>.` : B[i]<0 ? `${zP(B[i])} optellen: ${-B[i]} naar <b>links</b>.` : '0 optellen: je blijft staan.'; };
@@ -2992,28 +3097,33 @@ OP.patroon = { title:'Ontdek het patroon', lvl:1,
 
 /* ---------- 2 springen op de getallenas ---------- */
 OP.sprong = { title:'Springen op de getallenas', lvl:1,
-  instr:'Klik eerst op het startgetal. Sleep dan zoveel stappen als de tweede term: naar rechts als die positief is, naar links als die negatief is.',
+  instr:'Staan er twee tekens na elkaar? Klik erop en vereenvoudig. Klik dan op het startgetal en sleep zoveel stappen als de tweede term: naar rechts bij plus, naar links bij min.',
   build(b, st, save){
     const R = makeR(st); const P = [somPaar(R, 'pn', 9), somPaar(R, 'np', 9), somPaar(R, 'zz', 6)]; if(st.i==null) st.i = 0;
     const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
     const toon = () => { lijst.innerHTML = P.slice(0, st.i).map(([x, y]) => `<span class="m5-ok">✓ ${somT(x, y)} = ${zS(x + y)}</span>`).join('');
       host.innerHTML = '';
       if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`)); const [x, y] = P[st.i];
-        sprongAs(host, st, save, 's' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }}); }
+        const top = el('div'); host.append(top);
+        const sp = sprongAs(host, st, save, 's' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }});
+        /* negatieve tweede term: het tekenpaar + (− mag je aanklikken en vereenvoudigen; de sprong past zich aan */
+        opgMetPaar(top, st, save, 'p' + st.i, x, y, sp); }
       else allesJuist(host, 'Een positief getal optellen: naar <b>rechts</b>. Een negatief getal optellen: naar <b>links</b>.'); };
     toon();
   } };
 
 /* ---------- 3 legertjes ---------- */
 OP.leger = { title:'Plus- en min-soldaten', lvl:1,
-  instr:'Een positief getal is een plus-leger, een negatief getal een min-leger. Een plus- en een min-soldaatje samen zijn 0: een nulpaar. Stel de legers op, laat ze vechten en tel wat overblijft.',
+  instr:'Staan er twee tekens na elkaar? Klik erop en vereenvoudig. Een positief getal is een plus-leger, een negatief getal een min-leger. Gelijke legers voegen samen, tegengestelde legers vechten: een plus- en een min-soldaatje samen zijn 0, een nulpaar.',
   build(b, st, save){
     const R = makeR(st); const P = R.shuffle([somPaar(R, 'pn', 8), somPaar(R, 'np', 8), somPaar(R, 'zz', 5)]); if(st.i==null) st.i = 0;
     const lijst = el('div', 'm5-gedaan'), host = el('div'); b.append(lijst, host);
     const toon = () => { lijst.innerHTML = P.slice(0, st.i).map(([x, y]) => `<span class="m5-ok">✓ ${somT(x, y)} = ${zS(x + y)}</span>`).join('');
       host.innerHTML = '';
       if(st.i < P.length){ host.append(el('div', 'm5-teller', `Opgave ${st.i + 1} van ${P.length}`)); const [x, y] = P[st.i];
-        legertjes(host, st, save, 'l' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }}); }
+        const top = el('div'); host.append(top);
+        const lg = legertjes(host, st, save, 'l' + st.i, {a:x, b:y, onOk:()=>{ st.i++; save(); setTimeout(toon, 900); }});
+        opgMetPaar(top, st, save, 'p' + st.i, x, y, lg); }
       else allesJuist(host, 'Verschillend teken: de nulparen vallen weg en het grootste leger wint. Zelfde teken: de legers voegen samen.'); };
     toon();
   } };
@@ -3049,7 +3159,7 @@ OP.ber1 = { title:'Bereken', lvl:1,
   build(b, st, save){
     const R = makeR(st); const P = R.shuffle(['zz', 'zz', 'pn', 'pn', 'np', 'np', 'pn', 'pp'].map(k => somPaar(R, k, 20)));
     reeks(b, P.length, (g, i, nr) => { const [x, y] = P[i], T = x + y;
-      mQ(g, st, save, 'b' + i, { nr, html:`${somT(x, y)} ${isq} {{u:a}}`, check:V=>chkGt(V.a, T, [[x - y, 'Je trok af in plaats van op te tellen.'], [Math.sign(T)*(Math.abs(x) + Math.abs(y)), 'De tekens zijn verschillend: trek de absolute waarden van elkaar af.']]),
+      somMetPaar(g, st, save, 'b' + i, nr, x, y, { check:V=>chkGt(V.a, T, [[x - y, 'Je trok af in plaats van op te tellen.'], [Math.sign(T)*(Math.abs(x) + Math.abs(y)), 'De tekens zijn verschillend: trek de absolute waarden van elkaar af.']]),
         hint:somHint(x, y, true), meer:somMeer(x, y), sol:`${somT(x, y)} ${isq} ${zS(T)}` }); });
   } };
 
@@ -3059,7 +3169,7 @@ OP.ber2 = { title:'Bereken tot 100', lvl:2,
   build(b, st, save){
     const R = makeR(st); const P = R.shuffle(['zz', 'zz', 'pn', 'pn', 'np', 'np', 'pn', 'np'].map(k => somPaar(R, k, 99)));
     reeks(b, P.length, (g, i, nr) => { const [x, y] = P[i], T = x + y;
-      mQ(g, st, save, 'c' + i, { nr, html:`${somT(x, y)} ${isq} {{u:a}}`, check:V=>chkG(V.a, T, [[x - y, 'Je trok af in plaats van op te tellen.'], [Math.sign(T)*(Math.abs(x) + Math.abs(y)), 'De tekens zijn verschillend: trek de absolute waarden van elkaar af.']]),
+      somMetPaar(g, st, save, 'c' + i, nr, x, y, { check:V=>chkG(V.a, T, [[x - y, 'Je trok af in plaats van op te tellen.'], [Math.sign(T)*(Math.abs(x) + Math.abs(y)), 'De tekens zijn verschillend: trek de absolute waarden van elkaar af.']]),
         hint:somHint(x, y, false), meer:somMeer(x, y), sol:`${somT(x, y)} ${isq} ${zS(T)}` }); });
   } };
 
@@ -3147,7 +3257,7 @@ OP.groot = { title:'Grote getallen', lvl:3,
     const R = makeR(st); const g = () => R.int(12, 950)*R.pick([1, 5, 10]);
     const P = ['zz', 'pn', 'np', 'pn', 'np', 'zz'].map(k => { let x, y; do{ x = g(); y = g(); }while(x===y); return k==='zz' ? [-x, -y] : k==='pn' ? [x, -y] : [-x, y]; });
     reeks(b, P.length, (gg, i, nr) => { const [x, y] = P[i], T = x + y;
-      mQ(gg, st, save, 'g' + i, { nr, html:`${somT(x, y)} ${isq} {{u:a}}`, check:V=>chkG(V.a, T), sol:`${somT(x, y)} ${isq} ${zS(T)}` }); });
+      somMetPaar(gg, st, save, 'g' + i, nr, x, y, { check:V=>chkG(V.a, T), sol:`${somT(x, y)} ${isq} ${zS(T)}` }); });
   } };
 OP.aanvul = { title:'Vul aan zodat het klopt', lvl:3,
   instr:'Welk getal ontbreekt? Een negatief getal na het plusteken mag je met of zonder haakjes typen.',
@@ -3203,8 +3313,10 @@ const CHEAT_OPTEL = `<h3>Spiekbriefje · optellen</h3><table>
   <tr><td>nulpaar</td><td>een getal en zijn tegengestelde samen zijn 0: ${somT(9, -9)} = 0</td></tr>
   <tr><td>haakjes</td><td>een negatief getal na een bewerkingsteken staat tussen haakjes: 4 + (${MIN}9)</td></tr></table>`;
 SEC.optel = { id:'optel', ic:'z_optel', nav:'Optellen', title:'Gehele getallen optellen',
-  tip:'Een positief getal optellen: naar rechts op de getallenas. Een negatief getal optellen: naar links. Een negatief getal na een bewerkingsteken staat tussen haakjes.',
+  tip:'Twee tekens na elkaar? Klik erop en vereenvoudig: + (− wordt −. Daarna op de getallenas: plus naar rechts, min naar links.',
   cheat:CHEAT_OPTEL, cards:[OP.patroon, OP.sprong, OP.leger, OP.regel, OP.ber1, OP.ber2, OP.temp, OP.lift, OP.duik, OP.bank, OP.pir, OP.groot, OP.aanvul, OP.teken, OP.pir2, OP.tijd] };
+/* Ontdek het patroon en Kies de juiste regel zijn verborgen (24 november 2026): getallenas en legertjes tonen het al;: de dubbele tekens worden eerst weggewerkt door het tekenpaar aan te klikken. */
+SEC.optel.toon = SEC.optel.cards.map((_, i) => i).filter(i => ![OP.regel, OP.patroon].includes(SEC.optel.cards[i]));
 (function(){ const s = document.createElement('style'); s.textContent = `
   .m5-gedaan{display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 .4rem} .m5-ok{background:var(--ok-bg); color:var(--ok); border-radius:.5rem; padding:.15rem .55rem; font-weight:700}
   .m5-teller{font-size:.85rem; font-weight:700; color:var(--accent-dark); text-transform:uppercase; letter-spacing:.04em}
@@ -3282,8 +3394,8 @@ AF.verschil = { title:'Hoeveel verschil?', lvl:2,
       [`Een duiker zwemt op ${zS(d)} m, een meeuw vliegt op ${m} m boven het water. Hoeveel meter zit er tussen?`, m, d, 'm'],
       [`Een tempel werd gebouwd in ${j} v.C. (${zS(-j)}), een andere in ${k} v.C. (${zS(-k)}). Hoeveel jaar zit er tussen?`, Math.max(-j, -k), Math.min(-j, -k), 'jaar']];
     reeks(b, L.length, (g, i, nr) => { const [tx, hoog, laag, u] = L[i]; const T = hoog - laag;
-      mQ(g, st, save, 'd' + i, { nr, html:`<span class="txt">${tx}</span> ${zS(hoog)} − ${zP(laag)} ${isq} {{u:a}} <span class="txt">${u}</span>`, check:V=>chkG(V.a, T, [[hoog + laag, 'Een negatief getal aftrekken: tel het tegengestelde op.']]),
-        hint:[`${zS(hoog)} − ${zP(laag)} ${isq} ${somT(hoog, -laag)}`], sol:`${zS(hoog)} − ${zP(laag)} ${isq} ${somT(hoog, -laag)} ${isq} ${T}` }); }, {een:true});
+      uitMetPaar(g, st, save, 'd' + i, nr, hoog, '−', laag, { html:`${isq} {{u:a}} <span class="txt">${u}</span>`, check:V=>chkG(V.a, T, [[hoog + laag, 'Een negatief getal aftrekken: tel het tegengestelde op.']]),
+        hint:[`${zS(hoog)} − ${zP(laag)} ${isq} ${somT(hoog, -laag)}`], sol:`${zS(hoog)} − ${zP(laag)} ${isq} ${somT(hoog, -laag)} ${isq} ${T}` }, tx); }, {een:true});
   } };
 /* ---------- verdieping ---------- */
 AF.groot = { title:'Grote getallen', lvl:3,
@@ -3291,7 +3403,7 @@ AF.groot = { title:'Grote getallen', lvl:3,
   build(b, st, save){
     const R = makeR(st); const g = () => R.int(12, 950)*R.pick([1, 5, 10]);
     const P = [[-g(), g()], [g(), -g()], [-g(), -g()], [g(), g()], [-g(), -g()], [-g(), g()]];
-    reeks(b, P.length, (gg, i, nr) => { const [a, c] = P[i]; mQ(gg, st, save, 'g' + i, { nr, html:`${verT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, a - c), sol:`${verT(a, c)} ${isq} ${somT(a, -c)} ${isq} ${zS(a - c)}` }); });
+    reeks(b, P.length, (gg, i, nr) => { const [a, c] = P[i]; uitMetPaar(gg, st, save, 'g' + i, nr, a, '−', c, { check:V=>chkG(V.a, a - c), sol:`${verT(a, c)} ${isq} ${somT(a, -c)} ${isq} ${zS(a - c)}` }); });
   } };
 AF.slier = { title:'Rekenslierten', lvl:3,
   instr:'Volg de pijlen. Vul elk vak in.',
@@ -3462,6 +3574,170 @@ SEC.deel = { id:'deel', ic:'z_deel', nav:'Delen', title:'Gehele getallen delen',
   .m5-slier{display:inline-flex; align-items:center; justify-content:center; min-width:2.6rem; height:2.4rem; border:2px solid var(--tq); border-radius:.5rem; background:var(--tq-soft); padding:0 .4rem}
   .m5-pijl{font-size:1rem; color:var(--accent-dark); white-space:nowrap}
   `; document.head.append(s); })();
+/* ============================================================
+   AFTREKKEN IN BEELD (24 november 2026, vraag van de beheerder)
+   Opbouw van de basis: tweelingsommen op de getallenas → ontdek de tekenregel (tekenparen aanklikken) → waarom − (− een + wordt (patroon) →
+   twee tekens na elkaar → vereenvoudig en kies je manier → vereenvoudig en reken (hulp via hint) →
+   doe het zelf → vraagstukken. Nieuwe kaarten komen achteraan in SEC.aftrek.cards (opslagsleutel = index);
+   SEC.aftrek.toon bepaalt de volgorde op het scherm.
+   ============================================================ */
+/* een tekenpaar-opgave: a, op ('+' of '−'), c met teken; zo dat de uitkomst klein blijft */
+function paarOpg(R, soort, max){ const a = nz(R, -max, max), c = R.int(2, max); const [op, sg] = soort;
+  return [a, op, sg==='-' ? -c : c]; }
+const PAARSOORT = [['−', '-'], ['+', '-'], ['−', '+'], ['+', '+']];
+const paarBij = (op, c) => op==='+' ? c : -c;   /* wat er na het vereenvoudigen bij a komt */
+const paarTxt = (a, op, c) => `${zS(a)} ${op} (${c<0 ? MIN : '+'}${Math.abs(c)})`;
+
+/* ---------- ontdek de tekenregel: de vier tekenparen aanklikken ---------- */
+AF.regel = { title:'Ontdek de tekenregel', lvl:1,
+  instr:'Klik op elk tekenpaar en kies het teken dat in de plaats komt. De tabel vult zich. Welke regel zie je?',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 1, 2, 3]).map(k => paarOpg(R, PAARSOORT[k], 9));
+    const Pn = paneel(b); const tab = el('div', 'm5-tregel'); Pn.vis.append(tab);
+    const af = new Set(); const vul = () => { tab.innerHTML = `<table><tr><th>tekenpaar</th><th>wordt</th></tr>${PAARSOORT.map(([op, sg]) => { const k = P.findIndex(([, o, c]) => o===op && (c<0)===(sg==='-')); const ok = af.has(k);
+        return `<tr class="${ok ? 'af' : ''}"><td>${tkS(op==='+' ? '+' : '-')} (${tkS(sg)}</td><td>${ok ? `<b>${tkS(paarTeken(op, sg==='-' ? -1 : 1))}</b>` : '?'}</td></tr>`; }).join('')}</table>` +
+        (af.size===4 ? '<p class="m5-eig-n">De tekenregel</p><p>Twee <b>gelijke</b> tekens worden <b>+</b>.<br>Twee <b>verschillende</b> tekens worden <b>−</b>.</p>' : ''); tab.classList.toggle('af', af.size===4); };
+    stapKop(Pn.stap, 1, 'Klik op het tekenpaar en kies.'); vul();
+    reeks(Pn.stap, P.length, (g, i, nr) => { const [a, op, c] = P[i]; const it = el('div', 'q m5-tpitem'); g.append(it);
+      tekenParen(it, st, save, 'k' + i, {a, T:[[op, c]], nr, onKlaar:s => { af.add(i); vul();
+        if(af.size===4 && !Pn.stap.querySelector('.m5-juist')) allesJuist(Pn.stap, 'Gelijke tekens worden +, verschillende tekens worden −.'); }}); });
+  } };
+
+/* ---------- tweelingsommen: de leerling springt zelf ---------- */
+AF.tweeling.instr = 'Spring de som op de getallenas. Het verschil ernaast is haar tweeling: wat valt je op?';
+AF.tweeling.build = function(b, st, save){
+  const R = makeR(st); const P = [[nz(R, -9, 9), R.int(2, 9)], [nz(R, -9, 9), -R.int(2, 9)], [-R.int(2, 9), -R.int(2, 9)]];
+  naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, c] = P[i], T = a - c; const tw = el('div');
+    sprongAs(host, st, save, 'g' + i, {a, b:-c, teken:false, onOk:() => toonTw()}); host.append(tw);
+    function toonTw(){ if(tw.firstChild) return;
+      mQ(tw, st, save, 'w' + i, { html:`<span class="txt">De tweeling:</span> ${verT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, T, [[a + c, 'Kijk naar de sprong: de tweeling landt op hetzelfde getal.']]),
+        onOk:s => { if(!s) klaar(); } }); }
+    if(st['g' + i] && st['g' + i].f>=2) toonTw(); },
+    'Aftrekken is hetzelfde als het tegengestelde optellen: a − b = a + (−b).', P.map(([a, c]) => `${verT(a, c)} = ${somT(a, -c)} = ${zS(a - c)}`));
+};
+
+/* ---------- twee tekens na elkaar: het tekenpaar aanklikken ---------- */
+AF.paar.instr = 'Klik op de twee tekens die naast elkaar staan en kies het teken dat in hun plaats komt. Twee gelijke tekens worden +, twee verschillende tekens worden −. Reken dan uit.';
+AF.paar.build = function(b, st, save){
+  const R = makeR(st); const P = R.shuffle([0, 1, 2, 3, 0, 1]).map(k => paarOpg(R, PAARSOORT[k], 15));
+  reeks(b, P.length, (g, i, nr) => { const [a, op, c] = P[i]; const it = el('div', 'q m5-tpitem'), na = el('div'); g.append(it);
+    tekenParen(it, st, save, 'k' + i, {a, T:[[op, c]], nr, onKlaar:() => { if(na.firstChild) return;
+      mQ(na, st, save, 'r' + i, { html:`${paarKaal(a, [[op, c]])} ${isq} {{u:r}}`, check:V=>chkG(V.r, a + paarBij(op, c)), sol:`${paarTxt(a, op, c)} ${isq} ${paarKaal(a, [[op, c]])} ${isq} ${zS(a + paarBij(op, c))}` }); }});
+    it.append(na); });
+};
+
+/* ---------- vereenvoudig en kies je manier ---------- */
+AF.kies = { title:'Vereenvoudig en kies je manier', lvl:1,
+  instr:'Klik eerst op het tekenpaar en vereenvoudig. Kies dan hoe je het oplost: springen op de getallenas of vechten met legertjes.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 1, 2, 3]).map(k => paarOpg(R, PAARSOORT[k], 8));
+    naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, op, c] = P[i]; const na = el('div');
+      tekenParen(host, st, save, 'p' + i, {a, T:[[op, c]], onKlaar:() => { if(na.firstChild) return;
+        manierKies(na, st, save, 'm' + i, {a, b:paarBij(op, c), txt:paarKaal(a, [[op, c]]), vraag:'Hoe los je het op? Kies je manier.', onOk:klaar}); }});
+      host.append(na); },
+    'Eerst de tekenparen weg, dan is het een gewone som: springen op de getallenas of vechten met legertjes.', P.map(([a, op, c]) => `${paarTxt(a, op, c)} = ${paarKaal(a, [[op, c]])} = ${zS(a + paarBij(op, c))}`));
+  } };
+
+/* ---------- vereenvoudig en reken, getallenas en legertjes als hulp ---------- */
+AF.reken = { title:'Vereenvoudig en reken', lvl:2,
+  instr:'Vereenvoudig het tekenpaar en reken uit. Lukt het niet uit je hoofd? Gebruik de getallenas of de legertjes als hulp.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 1, 2, 3, 0, 2]).map(k => paarOpg(R, PAARSOORT[k], 12));
+    reeks(b, P.length, (g, i, nr) => { const [a, op, c] = P[i], T = a + paarBij(op, c); const it = el('div', 'q m5-tpitem'), na = el('div'); g.append(it);
+      tekenParen(it, st, save, 'k' + i, {a, T:[[op, c]], nr, onKlaar:() => { if(na.firstChild) return;
+        mQ(na, st, save, 'r' + i, { html:`${paarKaal(a, [[op, c]])} ${isq} {{u:r}}`, check:V=>chkG(V.r, T), sol:`${paarTxt(a, op, c)} ${isq} ${paarKaal(a, [[op, c]])} ${isq} ${zS(T)}` });
+        manierKies(na, st, save, 'h' + i, {a, b:paarBij(op, c), txt:paarKaal(a, [[op, c]]), hulp:true}); }});
+      it.append(na); }, {een:true});
+  } };
+
+/* ---------- doe het zelf ---------- */
+AF.vrij.title = 'Doe het zelf: bereken tot 100';
+
+/* ---------- vraagstukken ---------- */
+AF.vraag = { title:'Vraagstukken', lvl:2,
+  instr:'Lees goed: wat komt erbij en wat gaat eraf? Bedenk de bewerking en reken uit.',
+  build(b, st, save){
+    const R = makeR(st);
+    const t = -R.int(1, 6), d = R.int(3, 9), sch = R.int(20, 60), sw = R.int(5, 15), p = R.int(2, 9), q = R.int(2, 5), f = -R.int(12, 22), k = R.int(16, 23), du = -R.int(20, 40), st2 = R.int(5, 15), v = R.int(1, 3), n = R.int(4, 6);
+    const L = R.shuffle([
+      [`🌡️ 's Morgens is het ${zS(t)} °C. 's Avonds is het ${d} graden kouder. Hoeveel graden is het 's avonds?`, `${zS(t)} − ${d}`, t - d, '°C'],
+      [`🏦 Lisa heeft een schuld van ${sch} euro: haar saldo is ${zS(-sch)} euro. Haar oma neemt ${sw} euro van die schuld weg. Wat is haar saldo nu?`, `${zS(-sch)} − (${MIN}${sw})`, -sch + sw, 'euro'],
+      [`🎲 Je hebt ${p} punten. De juf schrapt een strafpunt van ${zS(-q)}. Hoeveel punten heb je nu?`, `${p} − (${MIN}${q})`, p + q, 'punten'],
+      [`🧊 In de diepvries is het ${zS(f)} °C, in de keuken ${k} °C. Hoeveel graden is het in de keuken warmer?`, `${k} − (${MIN}${-f})`, k - f, '°C'],
+      [`🤿 Een duiker zwemt op ${zS(du)} m. Ze stijgt ${st2} m. Op welke diepte zwemt ze nu?`, `${zS(du)} + ${st2}`, du + st2, 'm'],
+      [`🛗 Je staat op verdieping ${v}. Je neemt de lift ${n} verdiepingen naar beneden. Op welke verdieping kom je uit?`, `${v} − ${n}`, v - n, '']]).slice(0, 5);
+    reeks(b, L.length, (g, i, nr) => { const [tx, bew, T, u] = L[i];
+      mQ(g, st, save, 'v' + i, { nr, html:`<span class="txt">${tx}</span><span class="m5-nl"></span><span class="txt">Antwoord:</span> {{u:a}} <span class="txt">${u}</span>`, check:V=>chkG(V.a, T),
+        hint:['Teken het op een getallenas of met legertjes: waar begin je, en ga je naar boven of naar beneden?', `De bewerking is ${bew}.`], sol:`${bew} ${isq} ${zS(T)}${u ? ' ' + u : ''}` }); }, {een:true});
+  } };
+
+/* ---------- het verschil in beeld: thermometer, lift, duiker en meeuw ----------
+   o: {soort:'thermo'|'lift'|'zee', hoog, laag, tekst, eh, lo, hi, voor, na, extra, onOk}
+   Stap 1: tel via 0 (van laag tot 0, van 0 tot hoog, samen). Stap 2: schrijf hoog − (laag), klik het tekenpaar en reken. */
+function verschilFig(host, st, save, id, o){
+  const qid = QID(id); if(!QZ) CLvraag(qid);
+  const s = st[id] || (st[id] = {f:0}); const T = o.hoog - o.laag, eh = o.eh ? ` <span class="txt">${o.eh}</span>` : '';
+  const P = paneel(host); const fig = el('div', 'm5-vfig'); P.vis.append(fig);
+  const tekenFig = () => { fig.innerHTML = o.soort==='thermo' ? thermoPaar({lo:o.lo, hi:o.hi, t1:o.laag, t2:o.hoog, voor:o.voor, na:o.na, geenGetal:!s.f})
+    : hoogteSvg({scene:o.soort, lo:o.lo, hi:o.hi, pos:o.soort==='lift' ? o.hoog : o.laag, geest:o.soort==='lift' ? o.laag : null, extra:o.extra}); };
+  tekenFig();
+  P.stap.append(el('p', 'm5-vtekst', o.tekst));
+  stapKop(P.stap, 1, 'Tel in twee stukken: tot 0 en vanaf 0.'); const v1 = el('div'); P.stap.append(v1);
+  const k2 = stapKop(P.stap, 2, 'Schrijf het als aftrekking: grootste min kleinste. Klik op het tekenpaar.'); const v2 = el('div'); P.stap.append(v2); k2.classList.add('uit');
+  mQ(v1, st, save, id + 'a', {noCL:true, html:`<span class="txt">van ${zS(o.laag)} tot 0:</span> {{u:a}}${eh}<span class="m5-nl"></span><span class="txt">van 0 tot ${zS(o.hoog)}:</span> {{u:b}}${eh}<span class="m5-nl"></span><span class="txt">samen:</span> {{u:c}}${eh}`,
+    check:V=>allOf([['a', chkG(V.a, -o.laag, [[o.laag, 'Tel de stappen: het aantal is positief.']])], ['b', chkG(V.b, o.hoog)], ['c', chkG(V.c, T, [[o.hoog + o.laag, 'Tel de twee stukken op.']])]]),
+    hint:[o.soort==='thermo' ? 'Kijk op de thermometers: hoeveel streepjes is het van de lage stand tot 0?' : 'Tel de verdiepingen of de meters tot 0.'],
+    onOk:() => { k2.classList.remove('uit'); if(!s.f){ s.f = 1; save(); tekenFig(); } if(v2.firstChild) return; const na = el('div');
+      tekenParen(v2, st, save, id + 'p', {a:o.hoog, T:[['−', o.laag]], noCL:true, onKlaar:() => { if(na.firstChild) return;
+        mQ(na, st, save, id + 'r', {noCL:true, html:`${paarKaal(o.hoog, [['−', o.laag]])} ${isq} {{u:r}}${eh}`, check:V=>chkG(V.r, T),
+          onOk:silent => { if(!silent){ CLres(qid, true); if(o.onOk) o.onOk(); } } }); }});
+      v2.append(na); } });
+}
+const vsLijst = (L, f) => L.map(x => { const [h, l] = f(x); return `${zS(h)} − (${zS(l)}) = ${zS(h)} + ${-l} = ${zS(h - l)}`; });
+AF.vthermo = { title:'Het verschil op de thermometer', lvl:2,
+  instr:'Hoeveel graden is het warmer geworden? Tel eerst tot 0 en dan verder. Schrijf daarna de aftrekking.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2].map(() => [R.int(2, 13), -R.int(3, 14)]);
+    naElkaar(b, st, save, L.length, (host, i, klaar) => { const [h, l] = L[i];
+      verschilFig(host, st, save, 't' + i, {soort:'thermo', hoog:h, laag:l, lo:-15, hi:15, voor:['🌌', '3.00 uur'], na:['☀️', '14.00 uur'], eh:'°C',
+        tekst:`Om 3.00 uur 's nachts is het <b>${zS(l)} °C</b>. Om 14.00 uur is het <b>${zS(h)} °C</b>. Hoeveel graden is het opgewarmd?`, onOk:klaar}); },
+      'Het verschil is grootste min kleinste. Een negatief getal aftrekken is het tegengestelde optellen.', vsLijst(L, x => x));
+  } };
+AF.vlift = { title:'Het verschil met de lift', lvl:2,
+  instr:'Hoeveel verdiepingen ga je omhoog? Tel eerst tot het gelijkvloers en dan verder. Schrijf daarna de aftrekking.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([[R.int(2, 8), -1], [R.int(2, 8), -2], [R.int(2, 8), -3]]);
+    naElkaar(b, st, save, L.length, (host, i, klaar) => { const [h, l] = L[i];
+      verschilFig(host, st, save, 'l' + i, {soort:'lift', hoog:h, laag:l, lo:-3, hi:8, eh:'verdiepingen',
+        tekst:`Je stapt in de lift op <b>parking ${zS(l)}</b> en stapt uit op <b>verdieping ${h}</b>. Hoeveel verdiepingen ga je omhoog?`, onOk:klaar}); },
+      'Van een parking naar een verdieping: tel tot 0 en dan verder. Of reken: grootste min kleinste.', vsLijst(L, x => x));
+  } };
+AF.vduik = { title:'Duiker en meeuw', lvl:2,
+  instr:'Hoeveel meter zit er tussen de duiker en de meeuw? Tel eerst tot het wateroppervlak en dan verder. Schrijf daarna de aftrekking.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2].map(() => [R.int(2, 7), -R.int(5, 26)]);
+    naElkaar(b, st, save, L.length, (host, i, klaar) => { const [h, l] = L[i];
+      verschilFig(host, st, save, 'd' + i, {soort:'zee', hoog:h, laag:l, lo:-30, hi:8, extra:[['🐦', h]], eh:'m',
+        tekst:`De duiker zwemt op <b>${zS(l)} m</b>. Een meeuw vliegt op <b>${h} m</b> boven het water. Hoeveel meter zit er tussen?`, onOk:klaar}); },
+      'De afstand is grootste min kleinste: de hoogte van de meeuw min de diepte van de duiker.', vsLijst(L, x => x));
+  } };
+
+/* het patroon als korte waarom-kaart na de tekenregel */
+AF.patroon.title = 'Waarom wordt − (− een +?';
+AF.patroon.instr = 'Reken van boven naar onder. Je trekt telkens 1 minder af: wat gebeurt er met de uitkomst?';
+{ AF.patroon.build = function(b, st, save){ const R = makeR(st); const a = R.pick([2, 3, 4, -2, -3]);
+  patroon(b, st, save, {a, B:[2, 1, 0, -1, -2], op:'−', vraag:'Wat gebeurt er als je een <b>negatief</b> getal aftrekt?', opts:[['g', 'de uitkomst wordt groter'], ['k', 'de uitkomst wordt kleiner']], ans:'g',
+    why:`Telkens 1 minder aftrekken geeft 1 meer. ${verT(a, -2)} = ${zS(a + 2)}: hetzelfde als ${somT(a, 2)}.`, slot:'Daarom wordt − (− een +: een negatief getal aftrekken is het tegengestelde optellen.'}); }; }
+
+/* nieuwe kaarten achteraan (sleutels aftrek_9 ...), volgorde op het scherm apart */
+SEC.aftrek.cards.push(AF.regel, AF.kies, AF.reken, AF.vraag, AF.vthermo, AF.vlift, AF.vduik);
+{ const i = k => SEC.aftrek.cards.indexOf(k);
+  SEC.aftrek.toon = [AF.tweeling, AF.regel, AF.patroon, AF.paar, AF.kies, AF.reken, AF.vrij, AF.vthermo, AF.vlift, AF.vduik, AF.groot, AF.slier, AF.aanvul].map(i); }
+SEC.aftrek.tip = 'Twee tekens na elkaar? Vereenvoudig eerst: twee gelijke tekens worden +, twee verschillende tekens worden −. Daarna is het een gewone som: spring op de getallenas of laat de legertjes vechten.';
+(function(){ const css = `.m5-tpitem{display:flex; flex-direction:column; gap:.2rem} .m5-tpitem .m5-tpuit{font-size:1.4rem} .m5-tpitem .q{border-top:0 !important; border-image:none !important; padding:.2rem 0 0}
+  .m5-tregel table{border-collapse:collapse; font-size:1.5rem; margin:0 auto} .m5-tregel td, .m5-tregel th{border:1.5px solid var(--border); padding:.25rem .9rem; text-align:center}
+  .m5-tregel th{font-size:.95rem} .m5-tregel tr.af td{background:var(--ok-bg)} .m5-tregel tr.af b{color:var(--accent-dark)}
+  .m5-tregel.af{border:2px solid var(--ok); border-radius:.8rem; padding:.5rem; animation:m5-pop .35s ease-out} .m5-tregel p{text-align:center; margin:.4rem 0 0}`; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
 /* ============================================================
    ONDERDELEN 8 EN 9 · EIGENSCHAPPEN, DISTRIBUTIVITEIT
    ============================================================ */
@@ -3710,14 +3986,15 @@ GD.stap = { title:'Plustermen en mintermen', lvl:1,
         hint:[`De plustermen zijn ${t.filter(x => x>0).join(', ')}.`, `Reken tot slot ${zS(p)} + ${zP(m)}.`], sol:`${zS(p)} + ${zP(m)} ${isq} ${zS(p + m)}` }); }, {een:true});
   } };
 GD.paar = { title:'Eerst de tekenparen', lvl:1,
-  instr:'Schrijf de som zonder haakjes: kies voor elk tekenpaar één teken. Reken dan uit.',
+  instr:'Schrijf de som zonder haakjes: klik op elk tekenpaar en kies het teken dat in de plaats komt. Reken dan uit.',
   build(b, st, save){
     const R = makeR(st); const L = [0, 1, 2].map(() => { const a = nz(R, -15, 15); const T = [0, 1, 2, 3].map(() => [R.pick(['+', '−']), R.sign()*R.int(1, 15)]); return [a, T]; });
-    reeks(b, L.length, (g, i, nr) => { const [a, T] = L[i]; const nieuw = T.map(([o, c]) => (o==='+') === (c>0) ? '+' : '-'); const val = a + somV(T.map(([o, c]) => o==='+' ? c : -c));
-      const E = zS(a) + T.map(([o, c]) => ` ${o} (${c<0 ? MIN : '+'}${c<0 ? -c : c})`).join('');
-      mQ(g, st, save, 'p' + i, { nr, html:`<span class="m5-groot">${E}</span><span class="m5-nl"></span>${isq} ${zS(a)} ${T.map(([, c], k) => `{{s:s${k}}} ${Math.abs(c)}`).join(' ')} ${isq} {{u:r}}`,
-        check:V=>allOf(T.map((_, k) => ['s' + k, (V['s' + k]||{}).s===nieuw[k] ? {ok:true} : {ok:false, msg:'Twee gelijke tekens worden +, twee verschillende tekens worden −.'}]).concat([['r', chkGt(V.r, val)]])),
-        sol:`${E} ${isq} ${kaalS([a].concat(T.map(([o, c]) => o==='+' ? c : -c)))} ${isq} ${zS(val)}` }); }, {een:true});
+    reeks(b, L.length, (g, i, nr) => { const [a, T] = L[i]; const val = a + somV(T.map(([o, c]) => o==='+' ? c : -c));
+      const E = zS(a) + T.map(([o, c]) => ` ${o} (${c<0 ? MIN : '+'}${c<0 ? -c : c})`).join(''), K = paarKaal(a, T);
+      const it = el('div', 'q m5-tpitem'), na = el('div'); g.append(it);
+      tekenParen(it, st, save, 'k' + i, {a, T, nr, onKlaar:() => { if(na.firstChild) return;
+        mQ(na, st, save, 'r' + i, { html:`${K} ${isq} {{u:r}}`, check:V=>chkG(V.r, val), sol:`${E} ${isq} ${K} ${isq} ${zS(val)}` }); }});
+      it.append(na); }, {een:true});
   } };
 GD.vrij = { title:'Bereken de gedurige som', lvl:2,
   instr:'Werk uit in het vak. Je mag eerst de tekenparen wegwerken en daarna plustermen en mintermen samentellen.',
@@ -4666,7 +4943,8 @@ function buildSection(sec, num){
     setTab(k0);
     p2.append(el('div','tip', icon('bulb') + '<div>Verdieping is moeilijker. Probeer deze oefeningen als je <b>Basis en oefenen</b> goed kan.</div>'));
   }
-  sec.cards.forEach((card,ci)=>{
+  /* sec.toon: de volgorde op het scherm (indexen in sec.cards); de opslagsleutel blijft de index, zodat bewaarde antwoorden nooit verschuiven. Niet in toon = verborgen. */
+  (sec.toon || sec.cards.map((_, i) => i)).forEach(ci=>{ const card = sec.cards[ci];
     const key = sec.id + '_' + ci;
     const c = el('div','card m4-geenbrk');   /* geen breuken in deze module */
     const ch = el('div','card-head', `<h3>${card.title}${card.lvl?LVL[card.lvl]:''}</h3>`);
