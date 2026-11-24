@@ -283,9 +283,13 @@ async function alsLeerling(email){
   window.CL_VERBORGEN = z.uit;
   if(z.rt) rekentoestelKnop();
   wipeLocal(); koppelResultaten();
-  const s = el('script'); s.src = INHOUD;
-  s.onload = ()=>document.dispatchEvent(new Event('inhoud-geladen'));
-  document.body.append(s);
+  laadInhoud();
+}
+/* inhoud.js laden. Eerst vraagt fetch met cache 'no-cache' de server of het bestand veranderd is (meestal een korte 304),
+   zodat de browser na een update nooit een oude inhoud.js uit zijn cache gebruikt. Daarna laadt de script-tag de verse kopie. */
+function laadInhoud(){
+  const zet = ()=>{ const s = el('script'); s.src = INHOUD; s.onload = ()=>document.dispatchEvent(new Event('inhoud-geladen')); document.body.append(s); };
+  try{ fetch(INHOUD, {cache:'no-cache'}).then(zet, zet); }catch(e){ zet(); }
 }
 async function start(u){
   if(started) return; started = true;
@@ -348,9 +352,7 @@ async function start(u){
   }
   ls.keys().forEach(k=>{ if(ownKey(k)) dirty.add(k); });
   koppelResultaten(); watchStorage(); watchTime();
-  const s = el('script'); s.src = INHOUD;
-  s.onload = ()=>document.dispatchEvent(new Event('inhoud-geladen'));
-  document.body.append(s);
+  laadInhoud();
 }
 A.onAuthStateChanged(auth, async u=>{
   if(!u){ lock(true); return; }
