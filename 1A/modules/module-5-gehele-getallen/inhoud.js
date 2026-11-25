@@ -2416,10 +2416,11 @@ function tekenParen(host, st, save, id, o){
       keuze.innerHTML = `<span>Welk teken komt in de plaats van <b class="m5-tpv">${tkS(op==='+' ? '+' : '-')} (${c<0 ? MIN : '+'}</b>?</span><button type="button" class="btn m5-tpk" data-s="+" aria-label="plus">+</button><button type="button" class="btn m5-tpk" data-s="-" aria-label="min">${MIN}</button>`;
       keuze.querySelectorAll('.m5-tpk').forEach(x => x.addEventListener('click', () => kies(x.dataset.s))); }
     else { keuze.innerHTML = klaar() ? '' : `<span class="m5-tpw">👆 ${o.keuzeTip || `Klik op ${T.length>1 ? 'een tekenpaar' : 'het tekenpaar'}: twee tekens die naast elkaar staan.`}</span>`; tipEenKeer(); } }
-  /* de tip staat maar één keer per kaart (bij het eerste tekenpaar); daarna volstaat de gestippelde kader */
+  /* de tip staat maar één keer per onderdeel: bij het eerste tekenpaar van de eerste kaart (Springen op de getallenas); daarna volstaat de gestippelde kader */
   function tipEenKeer(){ const w = keuze.querySelector('.m5-tpw'); if(!w) return;
     const c = box.closest('.card'); if(!c){ w.hidden = true; setTimeout(() => { if(keuze.contains(w)) { w.hidden = false; tipEenKeer(); } }); return; }
-    if(c.dataset.tpTip && c.dataset.tpTip!==tipId) w.remove(); else c.dataset.tpTip = tipId; }
+    const sec = c.closest('section'), eerste = sec && [...sec.querySelectorAll('.card')].find(k => k.querySelector('.m5-tpbox'));
+    if((eerste && eerste!==c) || (c.dataset.tpTip && c.dataset.tpTip!==tipId)) w.remove(); else c.dataset.tpTip = tipId; }
   function kies(sg){ const k = act, [op, c] = T[k];
     if(sg===nw[k]){ s.d[k] = sg; net = k; act = null; fb.className = 'fb'; fb.textContent = ''; save(); teken();
       if(klaar()){ if(!o.noCL) CLres(qid, true); if(o.onKlaar) o.onKlaar(false); } }
