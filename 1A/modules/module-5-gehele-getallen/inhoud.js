@@ -1878,52 +1878,87 @@ function sprongAs(host, st, save, id, o){
   return { zet(txt){ opg = txt; teken(); if(s.f>=2 && !vak.querySelector('.fb.ok')){ vak.innerHTML = ''; vraag(); } } };
 }
 
-/* ---------- legertjes: de leerling stelt een min- en een plus-leger op; nulparen vallen weg ---------- */
-const LKLEUR = {plus:'#d62828', min:'#1d4ed8'};
-const soldSvg = soort => { const c = LKLEUR[soort], sym = soort==='plus' ? `<path d="M12 16.5v6M9 19.5h6" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>` : `<path d="M9 19.5h6" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`;
+/* ---------- legertjes: de leerling stelt een min- en een plus-leger op; nulparen vallen weg ----------
+   o.zelf: 0 = geleid (soort en actie gegeven), 1 = de leerling kiest zelf samenvoegen of vechten,
+           2 = de leerling kiest ook zelf of elk leger een plus- of een min-leger is */
+const LKLEUR = {plus:'#d62828', min:'#1d4ed8', leeg:'#8a9a9c'};
+const soldSvg = soort => { const c = LKLEUR[soort], sym = soort==='plus' ? `<path d="M12 16.5v6M9 19.5h6" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>` : soort==='min' ? `<path d="M9 19.5h6" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>` : `<path d="M10.6 18.2a1.6 1.6 0 1 1 2.2 1.5c-.6.3-.8.6-.8 1.2M12 22.6v.1" stroke="${c}" stroke-width="1.6" stroke-linecap="round" fill="none"/>`;
   return `<svg viewBox="0 0 24 30" aria-hidden="true"><path d="M6.5 6.5a5.5 5.5 0 0 1 11 0z" fill="${c}"/><circle cx="12" cy="8" r="4" fill="#f2c9a0"/><rect x="5" y="12.5" width="14" height="14" rx="4" fill="${c}"/><circle cx="12" cy="19.5" r="5" fill="#fff"/>${sym}<rect x="7" y="26" width="3.5" height="3.5" rx="1" fill="#35545a"/><rect x="13.5" y="26" width="3.5" height="3.5" rx="1" fill="#35545a"/></svg>`; };
 const LNAAM = {min:'➖ Min-leger', plus:'➕ Plus-leger'};
 function legertjes(host, st, save, id, o){
   const qid = QID(id); if(!QZ && !o.noCL) CLvraag(qid); let opg = o.txt || `${zS(o.a)} + ${zP(o.b)}`, kaal = !!o.txt;
-  const s = st[id] || (st[id] = {n:[0, 0], f:0}); const a = o.a, b = o.b, T = a + b, MAX = 25;
+  const s = st[id] || (st[id] = {n:[0, 0], f:0}); if(!s.k) s.k = [null, null];
+  const a = o.a, b = o.b, T = a + b, MAX = 25, zelf = o.zelf || 0;
   const srt = [a<0 ? 'min' : 'plus', b<0 ? 'min' : 'plus'], doel = [Math.abs(a), Math.abs(b)], samen = srt[0]===srt[1], paren = samen ? 0 : Math.min(doel[0], doel[1]);
+  const ks = i => s.f || zelf<2 ? srt[i] : (s.k[i] || 'leeg');   /* de soort die je ziet */
+  const knaam = i => ks(i)==='leeg' ? `Leger ${i + 1}` : LNAAM[ks(i)];
+  const gTxt = i => i ? (kaal ? `${b<0 ? MIN : '+'} ${Math.abs(b)}` : zP(b)) : zS(a);
   const P = paneel(host); const slag = el('div', 'm5-slag'); P.vis.append(slag);
   stapKop(P.stap, 1, 'Stel je legers op');
-  const lTip = () => kaal ? `${opg}: ${zS(a)} is een ${srt[0]}-leger van ${Math.abs(a)}, ${b<0 ? MIN : '+'} ${Math.abs(b)} is een ${srt[1]}-leger van ${Math.abs(b)}.` : `${zS(a)} + ${zP(b)}: een positief getal is een plus-leger, een negatief getal een min-leger.`;
+  const lTip = () => zelf>=2 ? `${opg}: is elk getal een plus-leger of een min-leger? Kies en zet er soldaatjes in. Voegen de legers samen of vechten ze?`
+    : kaal ? `${opg}: ${zS(a)} is een ${srt[0]}-leger van ${Math.abs(a)}, ${b<0 ? MIN : '+'} ${Math.abs(b)} is een ${srt[1]}-leger van ${Math.abs(b)}.${zelf ? ' Voegen ze samen of vechten ze?' : ''}`
+    : `${zS(a)} + ${zP(b)}: een positief getal is een plus-leger, een negatief getal een min-leger.`;
   const tip1 = el('p', 'm5-tip', lTip()); P.stap.append(tip1);
-  const rijen = el('div', 'm5-lrijen'); const act = el('div', 'q-act'); const knop = el('button', 'btn', samen ? '🤝 Samenvoegen' : '⚔️ Ten aanval'); knop.type = 'button'; act.append(knop);
+  const rijen = el('div', 'm5-lrijen'); const act = el('div', 'q-act m5-lact');
+  const juist = samen ? 'samen' : 'vecht', ACT = {samen:'🤝 Samenvoegen', vecht:'⚔️ Vechten'};
+  (zelf ? ['samen', 'vecht'] : [juist]).forEach(k => { const x = el('button', 'btn', ACT[k]); x.type = 'button'; x.dataset.a = k; x.addEventListener('click', () => doe(k)); act.append(x); });
   const fb = el('div', 'fb'); P.stap.append(rijen, act, fb);
   const k2 = stapKop(P.stap, 2, 'Noteer de uitkomst'); const vak = el('div'); P.stap.append(vak);
-  let anim = false;
-  function kamp(i){ const n = s.n[i], weg = s.f ? (samen ? 0 : paren) : 0;
-    const troep = n ? Array.from({length:n}, (_, j) => `<span class="m5-sd${j<weg ? ' dood' : ''}" data-j="${j}">${soldSvg(srt[i])}</span>`).join('') : '<span class="m5-kleeg">Klik hier om soldaatjes toe te voegen</span>';
-    return `<div class="m5-kamp ${srt[i]}${s.f ? '' : ' klik'}" data-k="${i}"><div class="m5-kkop"><span>${LNAAM[srt[i]]}</span><span class="m5-kcnt">${s.f && !samen ? (n - weg) + ' over' : n}</span></div><div class="m5-troep">${troep}</div></div>`; }
+  let anim = false, net = false;
+  function kamp(i){ const n = s.n[i], weg = s.f ? (samen ? 0 : paren) : 0, k = ks(i);
+    const troep = n ? Array.from({length:n}, (_, j) => `<span class="m5-sd${j<weg ? ' dood' : ''}" data-j="${j}">${soldSvg(k)}</span>`).join('') : '<span class="m5-kleeg">Klik hier om soldaatjes toe te voegen</span>';
+    return `<div class="m5-kamp ${k}${s.f ? '' : ' klik'}" data-k="${i}"><div class="m5-kkop"><span>${knaam(i)}</span><span class="m5-kcnt">${s.f && !samen ? (n - weg) + ' over' : n}</span></div><div class="m5-troep">${troep}</div></div>`; }
   function teken(){
-    slag.innerHTML = s.f && samen ? `<div class="m5-kamp ${srt[0]} breed"><div class="m5-kkop"><span>${LNAAM[srt[0]]} (samengevoegd)</span><span class="m5-kcnt">${s.n[0] + s.n[1]}</span></div><div class="m5-troep">${Array.from({length:s.n[0] + s.n[1]}, () => `<span class="m5-sd">${soldSvg(srt[0])}</span>`).join('')}</div></div>`
-      : `${kamp(0)}<div class="m5-vs">${samen ? '🤝' : '⚔️'}</div>${kamp(1)}`;
-    rijen.innerHTML = [0, 1].map(i => `<div class="m5-lrij ${srt[i]}"><span class="m5-lnaam">${LNAAM[srt[i]]}</span><span class="m5-lcnt">${s.n[i]}</span><button type="button" class="btn sm-btn" data-k="${i}" data-d="1"${s.f || s.n[i]>=MAX ? ' disabled' : ''}>1 erbij</button><button type="button" class="btn sm-btn" data-k="${i}" data-d="5"${s.f || s.n[i]>MAX - 5 ? ' disabled' : ''}>5 erbij</button><button type="button" class="btn sm-btn ghost" data-k="${i}" data-d="-1"${s.f || !s.n[i] ? ' disabled' : ''}>1 weg</button></div>`).join('');
-    knop.hidden = !!s.f; knop.disabled = anim; k2.classList.toggle('uit', !s.f);
-    rijen.querySelectorAll('button').forEach(x => x.addEventListener('click', () => wijzig(+x.dataset.k, +x.dataset.d)));
+    const n0 = s.n[0];
+    slag.innerHTML = s.f && samen ? `<div class="m5-kamp ${srt[0]} breed${net ? ' nieuw' : ''}"><div class="m5-kkop"><span>${LNAAM[srt[0]]} (samengevoegd)</span><span class="m5-kcnt">${s.n[0] + s.n[1]}</span></div><div class="m5-troep">${Array.from({length:s.n[0] + s.n[1]}, (_, j) => `<span class="m5-sd${net && j>=n0 ? ' bij' : ''}"${net && j>=n0 ? ` style="animation-delay:${Math.min(900, (j - n0)*60)}ms"` : ''}>${soldSvg(srt[0])}</span>`).join('')}</div></div>`
+      : `${kamp(0)}<div class="m5-vs">${s.f ? (samen ? '🤝' : '⚔️') : (zelf ? '❔' : samen ? '🤝' : '⚔️')}</div>${kamp(1)}`;
+    const uit = s.f || anim;
+    rijen.innerHTML = [0, 1].map(i => `<div class="m5-lrij ${ks(i)}">${zelf>=2 ? `<span class="m5-lnaam m5-lgetal">Bij ${gTxt(i)}</span><span class="m5-lkies" role="group" aria-label="soort leger bij ${gTxt(i)}">${['plus', 'min'].map(k => `<button type="button" class="btn sm-btn m5-lsrt ${k}" data-k="${i}" data-s="${k}" aria-pressed="${s.k[i]===k}"${uit ? ' disabled' : ''}>${LNAAM[k]}</button>`).join('')}</span>` : `<span class="m5-lnaam">${LNAAM[srt[i]]}</span>`}<span class="m5-lcnt">${s.n[i]}</span><button type="button" class="btn sm-btn" data-k="${i}" data-d="1"${uit || s.n[i]>=MAX ? ' disabled' : ''}>1 erbij</button><button type="button" class="btn sm-btn" data-k="${i}" data-d="5"${uit || s.n[i]>MAX - 5 ? ' disabled' : ''}>5 erbij</button><button type="button" class="btn sm-btn ghost" data-k="${i}" data-d="-1"${uit || !s.n[i] ? ' disabled' : ''}>1 weg</button></div>`).join('');
+    act.hidden = !!s.f; act.querySelectorAll('button').forEach(x => x.disabled = anim); k2.classList.toggle('uit', !s.f);
+    rijen.querySelectorAll('button[data-d]').forEach(x => x.addEventListener('click', () => wijzig(+x.dataset.k, +x.dataset.d)));
+    rijen.querySelectorAll('button[data-s]').forEach(x => x.addEventListener('click', () => { if(s.f || anim) return; s.k[+x.dataset.k] = x.dataset.s; fb.className = 'fb'; fb.textContent = ''; save(); teken(); }));
     if(!s.f && !anim) slag.querySelectorAll('.m5-kamp.klik').forEach(k => k.addEventListener('click', e => wijzig(+k.dataset.k, e.target.closest('.m5-sd') ? -1 : 1))); }
   function wijzig(i, d){ if(s.f || anim) return; s.n[i] = Math.max(0, Math.min(MAX, s.n[i] + d)); fb.className = 'fb'; fb.textContent = ''; save(); teken(); }
-  knop.addEventListener('click', () => {
+  function nee(t){ fb.className = 'fb bad'; fb.innerHTML = `❌ ${t}`; if(!o.noCL) CLres(qid, false); }
+  function doe(k){ if(s.f || anim) return;
+    if(zelf>=2){ const f = [0, 1].find(i => s.k[i]!==srt[i]); if(f!=null){ const x = f ? b : a;
+      return nee(s.k[f] ? `${gTxt(f)} is ${x<0 ? 'negatief' : 'positief'}: dat is een <b>${srt[f]}-leger</b>.` : `Kies eerst of het leger bij ${gTxt(f)} een plus-leger of een min-leger is.`); } }
     const fout = [0, 1].find(i => s.n[i]!==doel[i]);
-    if(fout!=null){ const x = fout ? b : a; fb.className = 'fb bad'; fb.innerHTML = `❌ Het ${srt[fout]}-leger hoort bij <b>${zS(x)}</b>: zet er ${Math.abs(x)} soldaatjes in.`; if(!o.noCL) CLres(qid, false); return; }
+    if(fout!=null) return nee(`Het ${srt[fout]}-leger hoort bij <b>${gTxt(fout)}</b>: zet er ${doel[fout]} soldaatjes in.`);
+    if(k!==juist) return nee(samen ? `Twee ${srt[0]}-legers zijn gelijke legers: ze vechten niet, ze <b>voegen samen</b>.` : 'Een plus-leger en een min-leger zijn tegengestelde legers: ze <b>vechten</b>.');
     fb.className = 'fb'; fb.textContent = '';
-    const klaar = () => { anim = false; s.f = 1; save(); teken(); toonVraag(); };
-    if(samen || REDUCED_M || !paren){ klaar(); return; }
-    anim = true; knop.disabled = true; slag.querySelector('.m5-vs').classList.add('vecht');
-    const s0 = slag.querySelectorAll('.m5-kamp[data-k="0"] .m5-sd'), s1 = slag.querySelectorAll('.m5-kamp[data-k="1"] .m5-sd'), stap = Math.max(60, Math.min(160, 1400/paren));
+    const klaar = () => { anim = false; s.f = 1; save(); teken(); net = false; toonVraag(); };
+    if(REDUCED_M){ klaar(); return; }
+    anim = true; teken();
+    const vs = slag.querySelector('.m5-vs');
+    if(samen){ /* het tweede leger marcheert naar het eerste en gaat erin op */
+      const k0 = slag.querySelector('.m5-kamp[data-k="0"]'), k1 = slag.querySelector('.m5-kamp[data-k="1"]');
+      vs.textContent = '🤝'; vs.classList.add('samen');
+      const dx = k0.getBoundingClientRect().left - k1.getBoundingClientRect().left, dy = k0.getBoundingClientRect().top - k1.getBoundingClientRect().top;
+      try{ k1.animate([{transform:'none', opacity:1}, {transform:`translate(${dx*.75}px, ${dy*.75}px) scale(.7)`, opacity:0}], {duration:800, easing:'ease-in', fill:'forwards'});
+        k0.animate([{transform:'none'}, {transform:'scale(1.05)'}, {transform:'none'}], {duration:600, delay:450}); }catch(e){}
+      setTimeout(() => { net = true; klaar(); }, 900); return; }
+    if(!paren){ klaar(); return; }
+    vs.textContent = '⚔️'; vs.classList.add('vecht');
+    const s0 = slag.querySelectorAll('.m5-kamp[data-k="0"] .m5-sd'), s1 = slag.querySelectorAll('.m5-kamp[data-k="1"] .m5-sd'), stap = Math.max(90, Math.min(220, 1800/paren));
     for(let j=0; j<paren; j++) setTimeout(() => { s0[j] && s0[j].classList.add('raak'); s1[j] && s1[j].classList.add('raak'); }, j*stap);
-    setTimeout(klaar, paren*stap + 500); });
+    setTimeout(klaar, paren*stap + 700); }
   function toonVraag(){ if(vak.firstChild) return;
-    if(!P.stap.querySelector('.m5-ltip2')) P.stap.insertBefore(el('p', 'm5-tip m5-ltip2', samen ? `Zelfde teken: de legers voegen samen. Er zijn ${s.n[0] + s.n[1]} ${srt[0]}-soldaatjes.` : T ? `${paren} ${paren===1 ? 'nulpaar valt' : 'nulparen vallen'} weg. Er ${Math.abs(T)===1 ? 'blijft' : 'blijven'} ${Math.abs(T)} ${T<0 ? 'min' : 'plus'}-soldaatje${Math.abs(T)===1 ? '' : 's'} over.` : 'Alle soldaatjes vormen nulparen. Er blijft niets over.'), vak);
+    if(!P.stap.querySelector('.m5-ltip2')) P.stap.insertBefore(el('p', 'm5-tip m5-ltip2', samen ? `Gelijke legers voegen samen. Er zijn ${s.n[0] + s.n[1]} ${srt[0]}-soldaatjes.` : T ? `Tegengestelde legers vechten: ${paren} ${paren===1 ? 'nulpaar valt' : 'nulparen vallen'} weg. Er ${Math.abs(T)===1 ? 'blijft' : 'blijven'} ${Math.abs(T)} ${T<0 ? 'min' : 'plus'}-soldaatje${Math.abs(T)===1 ? '' : 's'} over.` : 'Tegengestelde legers vechten: alle soldaatjes vormen nulparen. Er blijft niets over.'), vak);
     mQ(vak, st, save, id + 'u', {noCL:true, html:`${opg} ${isq} {{u:a${o.teken ? ',t' : ''}}}`, check:V=>chkZG(V.a, T),
       onOk:silent=>{ if(!silent){ if(!o.noCL) CLres(qid, true); if(o.onOk) o.onOk(); } } }); }
   teken(); if(s.f) toonVraag();
   /* na het vereenvoudigen van het tekenpaar: andere opgave in de tekst en de vraag */
-  return { zet(txt){ opg = txt; kaal = true; tip1.innerHTML = lTip(); if(s.f && !vak.querySelector('.fb.ok')){ vak.innerHTML = ''; toonVraag(); } } };
+  return { zet(txt){ opg = txt; kaal = true; tip1.innerHTML = lTip(); teken(); if(s.f && !vak.querySelector('.fb.ok')){ vak.innerHTML = ''; toonVraag(); } } };
 }
+
+/* korte instructievideo: zo stel je de legers op */
+const LEGERVIDEO = 'legers.mp4';
+function legerVideo(b){ const w = el('div', 'm5-vid'), k = el('button', 'btn ghost', '🎬 Bekijk hoe je de legers opstelt'); k.type = 'button'; k.setAttribute('aria-expanded', 'false'); w.append(k); b.append(w);
+  k.addEventListener('click', () => { let v = w.querySelector('video');
+    if(v){ v.pause(); v.remove(); k.setAttribute('aria-expanded', 'false'); return; }
+    v = el('video'); v.src = LEGERVIDEO; v.controls = true; v.playsInline = true; v.muted = true; v.preload = 'auto'; v.setAttribute('aria-label', 'instructievideo: de legers opstellen'); w.append(v); k.setAttribute('aria-expanded', 'true');
+    const p = v.play(); if(p && p.catch) p.catch(() => {}); }); }
 
 /* ---------- piramide: elk vak is de som (of het product) van de twee vakken eronder; de leerling typt elk getal, met een minteken als het negatief is ---------- */
 /* basis: getallen onderaan; open: indexen (rij*10 + kolom, rij 0 = onderaan) die de leerling invult; o.op: '+' of '·' */
@@ -2307,8 +2342,21 @@ function schriftFout(host, st, save, id, e){ /* e: {wie, task, lines, wrong, con
   .m5-troep{display:flex; flex-wrap:wrap; gap:2px; align-content:flex-start}
   .m5-sd{width:25px; height:31px; display:inline-block; transition:opacity .3s, transform .15s}
   .m5-sd svg{width:100%; height:100%; display:block}
-  .m5-sd.dood{opacity:.15; filter:grayscale(1)} .m5-sd.raak{animation:m5-poef .5s ease-in forwards}
-  @keyframes m5-poef{50%{transform:scale(1.25) rotate(-8deg)} to{opacity:.15; filter:grayscale(1); transform:none}}
+  .m5-sd.dood{opacity:.15; filter:grayscale(1)}
+  .m5-kamp[data-k="0"] .m5-sd.raak{animation:m5-aanval0 .7s ease-in-out forwards} .m5-kamp[data-k="1"] .m5-sd.raak{animation:m5-aanval1 .7s ease-in-out forwards}
+  @keyframes m5-aanval0{40%{transform:translateX(9px) scale(1.2)} 55%{transform:translateX(9px) scale(1.3) rotate(-14deg)} to{opacity:.15; filter:grayscale(1); transform:none}}
+  @keyframes m5-aanval1{40%{transform:translateX(-9px) scale(1.2)} 55%{transform:translateX(-9px) scale(1.3) rotate(14deg)} to{opacity:.15; filter:grayscale(1); transform:none}}
+  .m5-kamp{position:relative; z-index:0} .m5-kamp[data-k="1"]{z-index:1}
+  .m5-kamp.leeg{background:#f1f4f4; border-color:#b9c6c7} .m5-kamp.leeg .m5-kkop{color:#4f6668} .m5-lrij.leeg{background:#f1f4f4}
+  .m5-kamp.nieuw{animation:m5-groei .5s ease-out} @keyframes m5-groei{from{transform:scale(.96)} 60%{transform:scale(1.03)} to{transform:none}}
+  .m5-sd.bij{animation:m5-bij .45s ease-out both} @keyframes m5-bij{from{opacity:0; transform:translateY(-10px) scale(.4)} to{opacity:1; transform:none}}
+  .m5-vs.samen{animation:m5-bots .4s ease-in-out 2 alternate}
+  .m5-lkies{display:inline-flex; gap:.25rem} .m5-lgetal{min-width:4.2rem}
+  .m5-lrij .m5-lsrt{background:#fff !important; color:#173436 !important; border:2px solid #b9c6c7 !important}
+  .m5-lrij .m5-lsrt.plus[aria-pressed="true"]{background:#d62828 !important; border-color:#d62828 !important; color:#fff !important}
+  .m5-lrij .m5-lsrt.min[aria-pressed="true"]{background:#1d4ed8 !important; border-color:#1d4ed8 !important; color:#fff !important}
+  .m5-lact{gap:.5rem}
+  .m5-vid{margin:.2rem 0 .6rem} .m5-vid video{display:block; width:100%; max-width:620px; margin-top:.5rem; border-radius:.7rem; border:1px solid var(--border); background:#fff}
   .m5-kleeg{margin:auto; text-align:center; font-size:.8rem; font-style:italic; color:#4f6668}
   .m5-vs{display:flex; align-items:center; font-size:1.5rem} .m5-vs.vecht{animation:m5-bots .3s ease-in-out infinite alternate}
   @keyframes m5-bots{to{transform:scale(1.3)}}
@@ -2357,7 +2405,7 @@ function schriftFout(host, st, save, id, e){ /* e: {wie, task, lines, wrong, con
   .bg-tp{display:inline-flex; gap:.15rem; font:inherit; font-weight:900; padding:0 .3rem; border:2px dashed #e0a800; border-radius:.45rem; background:#fff4e0; color:#173436; cursor:pointer; line-height:1.25; animation:m5-puls 1.6s ease-in-out infinite}
   .bg-tp:hover, .bg-tp:focus-visible{border-style:solid; outline:none}
   @keyframes m5-puls{50%{box-shadow:0 0 0 4px rgba(252,175,23,.35)}}
-  @media (prefers-reduced-motion:reduce){ .bg-tp, .m5-vs.vecht, .m5-juist{animation:none} }
+  @media (prefers-reduced-motion:reduce){ .bg-tp, .m5-vs.vecht, .m5-vs.samen, .m5-juist, .m5-sd.bij, .m5-kamp.nieuw{animation:none} }
   .m5-schrift{position:relative; background:#fffef7; border:1px solid #ece6c8; border-radius:.8rem; padding:.8rem 1rem 1.4rem 3rem; color:#3a3a3a; background-image:linear-gradient(to right, transparent 2.1rem, #f3b4b4 2.1rem 2.2rem, transparent 2.2rem), repeating-linear-gradient(to bottom, transparent 0 2.45rem, #dbe7ef 2.45rem 2.5rem); min-height:12rem}
   .sj-naam{font-size:.85rem; color:#4f6668; font-weight:700; margin-bottom:.4rem; font-family:inherit}
   .sj-r{display:block; width:100%; text-align:left; font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:1.35rem; line-height:2.5rem; min-height:2.5rem; background:transparent; border:0; border-radius:.4rem; color:#2b3a55; padding:0 .4rem}
@@ -2458,7 +2506,7 @@ function manierKies(host, st, save, id, o){
   function teken(){ bar.innerHTML = (o.vraag ? `<span class="m5-mvraag">${o.vraag}</span>` : '') + M.map(([k, t]) => `<button type="button" class="btn ghost${o.hulp ? ' m5-hulpk' : ''}" data-m="${k}" aria-pressed="${s.m===k}">${o.hulp ? '💡 ' : ''}${o.hulp ? t.replace(/^\S+ /, '') : t}</button>`).join('');
     bar.querySelectorAll('button').forEach(x => x.addEventListener('click', () => { s.m = s.m===x.dataset.m && o.hulp ? null : x.dataset.m; save(); teken(); toon(); })); }
   function toon(){ plek.innerHTML = ''; if(!s.m) return;
-    const opt = {a:o.a, b:o.b, txt:o.txt, noCL:true, teken:false, onOk:o.onOk};
+    const opt = {a:o.a, b:o.b, txt:o.txt, noCL:true, teken:false, onOk:o.onOk, zelf:2};   /* na de basis kiest de leerling zelf de soort legers en samenvoegen of vechten */
     if(s.m==='as') sprongAs(plek, st, save, id + 'as', opt); else legertjes(plek, st, save, id + 'lg', opt); }
   teken(); toon();
 }
@@ -3744,7 +3792,7 @@ function paarDanWidget(b, st, save, soort, titelSlot, soorten = [0, 2, 0], pre =
   naElkaar(b, st, save, P.length, (host, i, klaar) => { const [a, op, c] = P[i]; const na = el('div');
     tekenParen(host, st, save, pre + 'p' + i, {a, T:[[op, c]], keuzeTip:'Klik eerst op het tekenpaar en vereenvoudig.', onKlaar:() => { if(na.firstChild) return;
       const o = {a, b:paarBij(op, c), txt:paarKaal(a, [[op, c]]), noCL:true, onOk:klaar};
-      if(soort==='as') sprongAs(na, st, save, pre + 's' + i, o); else legertjes(na, st, save, pre + 'l' + i, o); }});
+      if(soort==='as') sprongAs(na, st, save, pre + 's' + i, o); else legertjes(na, st, save, pre + 'l' + i, Object.assign(o, {zelf:i})); }});
     host.append(na); },
   titelSlot, P.map(([a, op, c]) => `${paarTxt(a, op, c)} = ${paarKaal(a, [[op, c]])} = ${zS(a + paarBij(op, c))}`));
 }
@@ -3752,8 +3800,8 @@ AF.sprong = { title:'Springen op de getallenas', lvl:1,
   instr:'Klik eerst op het tekenpaar en vereenvoudig: − (− wordt +, − (+ wordt −. Klik dan op het startgetal en spring: naar rechts bij plus, naar links bij min.',
   build(b, st, save){ paarDanWidget(b, st, save, 'as', 'Eerst het tekenpaar weg, dan springen: plus naar <b>rechts</b>, min naar <b>links</b>.'); } };
 AF.leger = { title:'Plus- en min-soldaten', lvl:1,
-  instr:'Klik eerst op het tekenpaar en vereenvoudig. Stel dan de legers op: gelijke legers voegen samen, tegengestelde legers vechten.',
-  build(b, st, save){ paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.'); } };
+  instr:'Klik eerst op het tekenpaar en vereenvoudig. Stel dan de legers op: gelijke legers voegen samen, tegengestelde legers vechten. Bij opgave 2 kies je zelf: samenvoegen of vechten. Bij opgave 3 kies je ook zelf of elk leger een plus- of een min-leger is.',
+  build(b, st, save){ legerVideo(b); paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.'); } };
 
 /* nieuwe kaarten achteraan (sleutels aftrek_9 ...), volgorde op het scherm apart */
 SEC.aftrek.cards.push(AF.regel, AF.kies, AF.reken, AF.vraag, AF.vthermo, AF.vlift, AF.vduik, AF.sprong, AF.leger);
@@ -3795,8 +3843,8 @@ OP.ber1.instr = 'Vereenvoudig het tekenpaar en reken uit. Lukt het niet uit je h
    Eigen sleutels (v...) zodat oude bewaarde sprongen niet op nieuwe opgaven vallen. */
 OP.sprong.instr = 'Klik eerst op het tekenpaar en vereenvoudig: + (− wordt −, + (+ wordt +. Klik dan op het startgetal en spring: naar rechts bij plus, naar links bij min.';
 OP.sprong.build = function(b, st, save){ paarDanWidget(b, st, save, 'as', 'Eerst het tekenpaar weg, dan springen: plus naar <b>rechts</b>, min naar <b>links</b>.', [1, 3, 1], 'v'); };
-OP.leger.instr = 'Klik eerst op het tekenpaar en vereenvoudig. Stel dan de legers op: gelijke legers voegen samen, tegengestelde legers vechten.';
-OP.leger.build = function(b, st, save){ paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.', [1, 3, 1], 'v'); };
+OP.leger.instr = AF.leger.instr;
+OP.leger.build = function(b, st, save){ legerVideo(b); paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.', [1, 3, 1], 'v'); };
 /* de tekenregel, zoals bij Aftrekken: alle vier de tekenparen */
 OP.tregel = { title:'Ontdek de tekenregel', lvl:1, instr:AF.regel.instr, build:AF.regel.build };
 OP.ber1.title = 'Vereenvoudig en reken'; OP.ber1.lvl = 2;
