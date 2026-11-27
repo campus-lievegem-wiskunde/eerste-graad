@@ -3493,12 +3493,12 @@ MA.patroon1 = { title:'Ontdek het patroon (1)', lvl:1,
   instr:'Reken de producten van boven naar onder uit. Kijk hoe de staven veranderen.',
   build(b, st, save){ const R = makeR(st); const a = R.pick([2, 3, 4]);
     patroon(b, st, save, {a, B:[3, 2, 1, 0, -1, -2, -3], op:'·', vraag:'Een positief getal maal een negatief getal is …', opts:[['+', 'positief'], ['-', 'negatief']], ans:'-',
-      why:`Telkens ${a} minder: ${prT(a, -2)} = ${zS(-2*a)}.`, slot:'Positief maal negatief geeft negatief.'}); } };
+      why:`Telkens ${a} minder: ${prT(a, -2)} = ${zS(-2*a)}.`, slot:'Positief maal negatief geeft negatief: 1 minnetje, oneven.'}); } };
 MA.patroon2 = { title:'Ontdek het patroon (2)', lvl:1,
   instr:'Nu is het eerste getal negatief. Reken van boven naar onder.',
   build(b, st, save){ const R = makeR(st); const a = R.pick([-2, -3, -4]);
     patroon(b, st, save, {a, B:[3, 2, 1, 0, -1, -2, -3], op:'·', vraag:'Een negatief getal maal een negatief getal is …', opts:[['+', 'positief'], ['-', 'negatief']], ans:'+',
-      why:`De uitkomsten worden telkens ${-a} groter: ${prT(a, -2)} = ${zS(-2*a)}.`, slot:'Negatief maal negatief geeft positief. Zelfde teken: positief, verschillend teken: negatief.'}); } };
+      why:`De uitkomsten worden telkens ${-a} groter: ${prT(a, -2)} = ${zS(-2*a)}.`, slot:'Negatief maal negatief geeft positief: 2 minnetjes, even. Tel de minnetjes: even geeft positief, oneven geeft negatief.'}); } };
 MA.sprong = { title:'Herhaalde sprongen', lvl:1,
   instr:'4 · (−3) betekent: 4 keer een sprong van −3, vanaf 0. Kijk op de getallenas en vul in.',
   build(b, st, save){
@@ -3526,7 +3526,7 @@ MA.ber = { title:'Bereken', lvl:1,
   } };
 MA.tabel = { title:'Bewerkingstabel', lvl:2,
   instr:'Vul de tabel in: het getal links maal het getal boven.',
-  build(b, st, save){ const R = makeR(st); tabel(b, st, save, 't', {op:'·', rij:R.shuffle([-3, 2, -5, 4, -1].map(x => x*(R.f() < .5 ? 1 : 1))).slice(0, 4), kol:R.shuffle([-2, 6, -7, 3, -9]).slice(0, 4), why:'Zelfde teken: positief, verschillend teken: negatief.'}); } };
+  build(b, st, save){ const R = makeR(st); tabel(b, st, save, 't', {op:'·', rij:R.shuffle([-3, 2, -5, 4, -1].map(x => x*(R.f() < .5 ? 1 : 1))).slice(0, 4), kol:R.shuffle([-2, 6, -7, 3, -9]).slice(0, 4), why:'Vermenigvuldig de absolute waarden en tel de minnetjes: even geeft positief, oneven geeft negatief.'}); } };
 MA.pir = { title:'Productpiramide', lvl:2,
   instr:'Elk vak is het product van de twee vakken eronder. Kies bij elke steen het teken en vul het getal in.',
   build(b, st, save){ const R = makeR(st); const B = [0, 0, 0].map(() => R.sign()*R.int(1, 4)); if(B.every(x => x>0)) B[1] = -B[1];
@@ -3587,7 +3587,7 @@ DE.ber2 = { title:'Bereken met grotere getallen', lvl:2,
   instr:'Bereken. Een negatief getal typ je met een minteken.',
   build(b, st, save){
     const R = makeR(st); const P = [0, 1, 2, 3, 4, 5].map(k => { const c = R.sign()*R.pick([2, 3, 4, 5, 6, 8, 12, 15, 25]), q = R.sign()*R.int(3, 20); return [q*c, c]; });
-    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i]; mQ(g, st, save, 'c' + i, { nr, html:`${dlT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, a/c), hint:['Bepaal eerst het teken. Deel dan de absolute waarden.'], sol:`${dlT(a, c)} ${isq} ${zS(a/c)}` }); });
+    reeks(b, P.length, (g, i, nr) => { const [a, c] = P[i]; mQ(g, st, save, 'c' + i, { nr, html:`${dlT(a, c)} ${isq} {{u:a}}`, check:V=>chkG(V.a, a/c), hint:['Stap 1: deel de absolute waarden. Stap 2: tel de minnetjes: even geeft positief, oneven geeft negatief.'], sol:`${dlT(a, c)} ${isq} ${zS(a/c)}` }); });
   } };
 DE.gem = { title:'Gemiddelde temperatuur', lvl:2,
   instr:'Het gemiddelde: tel alle getallen op en deel door het aantal getallen.',
@@ -3603,7 +3603,7 @@ DE.wnw = { title:'Waar of niet waar?', lvl:2,
   build(b, st, save){
     const R = makeR(st); const n = R.int(2, 9);
     const L = R.shuffle([[`0 : ${zP(-n)} ${isq} 0`, 'w', `0 gedeeld door een getal (niet 0) is 0.`], [`${zS(-n)} : 0 ${isq} 0`, 'n', 'Delen door 0 kan niet.'], [`${zS(-n)} : ${zP(-n)} ${isq} 1`, 'w', 'Een getal gedeeld door zichzelf is 1.'], [`${n} : ${zP(-1)} ${isq} ${n}`, 'n', `Delen door ${MIN}1 geeft het tegengestelde: ${zS(-n)}.`],
-      [`${zS(-12)} : 3 ${isq} 3 : ${zP(-12)}`, 'n', 'Bij delen mag je niet wisselen.'], [`${zS(-24)} : ${zP(-6)} ${isq} 24 : 6`, 'w', 'Zelfde teken: het quotiënt is positief.']]).slice(0, 5);
+      [`${zS(-12)} : 3 ${isq} 3 : ${zP(-12)}`, 'n', 'Bij delen mag je niet wisselen.'], [`${zS(-24)} : ${zP(-6)} ${isq} 24 : 6`, 'w', '2 minnetjes: even, dus positief.']]).slice(0, 5);
     reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans, why }); });
   } };
 DE.aanvul = { title:'Vul aan', lvl:3,
@@ -4505,7 +4505,7 @@ MX.raad = { title:'Raad het getal', lvl:3,
 const CHEAT_MIX = `<h3>Spiekbriefje · alles door elkaar</h3><table>
   <tr><td>+</td><td>zelfde teken: tel op en behoud het teken; verschillend teken: trek af, teken van de grootste absolute waarde</td></tr>
   <tr><td>−</td><td>tel het tegengestelde op: 4 − (${MIN}6) ${isq} 4 + 6</td></tr>
-  <tr><td>· en :</td><td>zelfde teken: +; verschillend teken: ${MIN}</td></tr>
+  <tr><td>· en :</td><td>stap 1: absolute waarden; stap 2: tel de minnetjes (even: +, oneven: ${MIN})</td></tr>
   <tr><td>vraagstuk</td><td>1. schrijf een bewerking met de getallen uit de tekst 2. reken uit 3. schrijf de eenheid</td></tr></table>`;
 SEC.mix = { id:'mix', ic:'z_mix', nav:'Alles door elkaar', title:'Alles door elkaar en vraagstukken',
   tip:'Kijk eerst welke bewerking er staat en welke regel daarbij hoort. Bij een vraagstuk schrijf je eerst een bewerking met de getallen uit de tekst.',
@@ -4522,7 +4522,7 @@ const FT_GEN = {
     R => { const a = R.int(2, 9), c = R.int(10, 20); return [`${zS(a)} − ${c} + ${R.int(2, 9)}`, null, 0, 'tek', `${a} − ${c} is negatief: ${zS(a - c)}.`]; }],
   maal:[
     R => { const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 15); return [`${zS(-a)} · (${MIN}${c}) + ${d}`, `${zS(-a*c)} + ${d}`, 0, 'tek', `Min maal min is plus: ${zS(-a)} · (${MIN}${c}) ${isq} ${a*c}.`]; },
-    R => { const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 15); return [`${zS(-a*c)} : (${MIN}${c}) − ${d}`, `${zS(-a)} − ${d}`, 0, 'tek', `Zelfde teken: het quotiënt is positief, ${zS(-a*c)} : (${MIN}${c}) ${isq} ${a}.`]; },
+    R => { const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 15); return [`${zS(-a*c)} : (${MIN}${c}) − ${d}`, `${zS(-a)} − ${d}`, 0, 'tek', `2 minnetjes, even: het quotiënt is positief, ${zS(-a*c)} : (${MIN}${c}) ${isq} ${a}.`]; },
     R => { const a = R.int(2, 5), c = R.int(2, 5), d = R.int(2, 4); return [`${a} · (${MIN}${c}) · (${MIN}${d})`, `${zS(-a*c*d)}`, 1, 'tek', `${zS(-a*c)} · (${MIN}${d}): min maal min is plus, dus ${a*c*d}.`]; },
     R => { const a = R.int(3, 9), c = R.int(3, 9), d = R.int(2, 15); return [`${zS(-a)} · ${c} − ${d}`, `${zS(-(a*c + a))} − ${d}`, 0, 'rek', `${a} · ${c} ${isq} ${a*c}: een fout in de tafel van ${a}.`]; }],
   volg:[
@@ -4533,7 +4533,7 @@ const FT_GEN = {
   diep:[
     R => { const a = R.int(2, 9), c = R.int(3, 9), d = R.int(10, 19), e = R.int(2, 5), w = d - e; return [`${zS(-a)} − [${c} − (${MIN}${d} + ${e})]`, `${zS(-a)} − ${zP(c - w)}`, 1, 'teg', `${c} − (${MIN}${w}): een negatief getal aftrekken is het tegengestelde optellen, dus ${c} + ${w}.`]; },
     R => { const a = R.int(2, 6), c = R.int(2, 6), d = R.int(2, 6), e = R.int(2, 6); return [`${zS(-a)} · ${c} − ${d} · (${MIN}${e})`, null, 1, 'tek', `${d} · (${MIN}${e}) is negatief: ${zS(-d*e)}.`]; },
-    R => { const q = R.int(2, 5), k = R.int(2, 6), d = R.int(2, 9); return [`${zS(-d)} − ${q*k} : (${MIN}${q}) · 2`, null, 0, 'tek', `${q*k} : (${MIN}${q}) ${isq} ${zS(-k)}: verschillend teken geeft een negatief quotiënt.`]; }]
+    R => { const q = R.int(2, 5), k = R.int(2, 6), d = R.int(2, 9); return [`${zS(-d)} − ${q*k} : (${MIN}${q}) · 2`, null, 0, 'tek', `${q*k} : (${MIN}${q}) ${isq} ${zS(-k)}: 1 minnetje, oneven: het quotiënt is negatief.`]; }]
 };
 /* foute regel automatisch maken als die null is: neem de juiste stap en verander het teken van de eerste uitkomst */
 function ftMaak(R, f){ const r = f(R); if(r[1]) return r; const k = r[2];
@@ -5013,8 +5013,207 @@ function bigToets(i){ return [
 ]; }
 [0, 1, 2].forEach(i => { SEC['toets' + (i+1)] = { id:'toets' + (i+1), ic:'toets', nav:'Proeftoets ' + (i+1), title:'Proeftoets ' + (i+1), tip:TOETS_TIP,
   cards:[ { title:'Proeftoets ' + (i+1), noReset:true, build:(b, st, save, key) => proeftoets(b, st, save, key, bigToets(i)) } ] }; });
+/* ============================================================
+   VIER ONDERDELEN WORDEN TWEE, PLUS DE VIER BEWERKINGEN DOOR ELKAAR (27 november 2026, vraag van de beheerder)
+   4 Optellen en aftrekken (id optel, ook de kaarten van aftrek)
+   5 Vermenigvuldigen en delen (id maal, ook de kaarten van deel)
+   6 De vier bewerkingen door elkaar (id vier, nieuw)
+   Strategie bij · en : (beheerder): stap 1 reken met de absolute waarden, stap 2 tel de minnetjes (even: positief, oneven: negatief).
+   Bewaarde antwoorden blijven staan: kaarten uit aftrek en deel houden hun oude sleutel (card.sleutel, bv. deel_3),
+   en sec.ook = ['deel'] laat het dashboard die resultaten bij het samengevoegde onderdeel tellen.
+   Nieuwe kaarten komen achteraan in sec.cards; sec.toon bepaalt de volgorde op het scherm.
+   ============================================================ */
+function voegToe(doel, bron){ bron.cards.forEach((c, i) => { if(!c.sleutel) c.sleutel = bron.id + '_' + i; doel.cards.push(c); }); (doel.ook = doel.ook || []).push(bron.id); }
+const toonVan = (sec, L) => L.map(k => { const i = sec.cards.indexOf(k); if(i < 0) throw new Error('kaart ontbreekt: ' + k.title); return i; });
+
+/* ---------- gemengde opgaven met · en : ---------- */
+const OPS_MD = ['·', ':'];
+/* een keten getallen met · en : waarvan elke deling opgaat; n = aantal getallen, max = grootste absolute waarde van een factor */
+function mdKeten(R, n, max, ops){
+  for(let p=0; p<200; p++){
+    const op = []; for(let k=1; k<n; k++) op.push(ops ? ops[k-1] : R.pick(OPS_MD));
+    const v = [R.int(2, max)]; let w = v[0];
+    for(let k=1; k<n; k++){ const d = R.int(2, max);
+      if(op[k-1]===':'){ if(k===1){ v[0] = w = d*R.int(2, max); v.push(d); w = w/d; } else { v[0] = v[0]*d; w = w*d; v.push(d); w = w/d; } }
+      else { v.push(d); w = w*d; } }
+    if(Math.abs(w) > 400) continue;
+    const s = v.map(() => R.sign()); if(s.every(x => x > 0)) s[R.int(0, n - 1)] = -1;
+    const f = v.map((x, k) => x*s[k]); let T = f[0]; for(let k=1; k<n; k++) T = op[k-1]==='·' ? T*f[k] : T/f[k];
+    if(!Number.isInteger(T)) continue;
+    return {f, op, T, abs:Math.abs(T), m:f.filter(x => x < 0).length};
+  }
+  return {f:[-12, 3], op:[':'], T:-4, abs:4, m:1};
+}
+const mdTxt = K => K.f.map((x, k) => k ? ` ${K.op[k-1]} ${zP(x)}` : zS(x)).join('');
+const mdAbs = K => K.f.map((x, k) => k ? ` ${K.op[k-1]} ${Math.abs(x)}` : String(Math.abs(x))).join('');
+const mdWoord = K => K.op.every(o => o==='·') ? 'vermenigvuldig' : K.op.every(o => o===':') ? 'deel' : 'reken';
+const minTxt = m => `${m} ${m===1 ? 'minteken' : 'mintekens'}: ${m % 2 ? 'oneven, dus negatief' : 'even, dus positief'}`;
+/* hint in twee stappen, zoals de beheerder het aanleert */
+const mdHint = K => [{u:`Stap 1: ${mdWoord(K)} met de absolute waarden.`, line:`${mdAbs(K)} ${isq} {{u:a}}`, check:V=>chkG(V.a, K.abs).ok, show:String(K.abs)},
+  `Stap 2: tel de minnetjes. ${minTxt(K.m)}.`];
+const mdSol = K => `${mdTxt(K)} ${isq} ${K.T<0 ? MIN : ''}${K.abs}   (${mdAbs(K)} ${isq} ${K.abs}; ${minTxt(K.m)})`;
+
+const MD = {};
+MD.stap = { title:'Stap voor stap', lvl:1,
+  instr:'Stap 1: vermenigvuldig of deel de absolute waarden. Stap 2: tel de minnetjes: een even aantal geeft een positief getal, een oneven aantal een negatief getal.',
+  build(b, st, save){
+    const R = makeR(st); const L = [mdKeten(R, 2, 9, ['·']), mdKeten(R, 2, 9, [':']), mdKeten(R, 3, 6)];
+    naElkaar(b, st, save, L.length, (host, i, klaar) => { const K = L[i];
+      host.append(el('p', 'm5-groot', mdTxt(K)));
+      const s2 = el('div'), s3 = el('div');
+      mQ(host, st, save, 'a' + i, { html:`<span class="txt">Stap 1: met de absolute waarden</span> ${mdAbs(K)} ${isq} {{u:a}}`, check:V=>chkG(V.a, K.abs, [[-K.abs, 'Met de absolute waarden is de uitkomst nooit negatief.']]),
+        onOk:() => { if(s2.firstChild) return;
+          mQ(s2, st, save, 'm' + i, { html:`<span class="txt">Stap 2: hoeveel minnetjes tel je?</span> {{u:m}}`, check:V=>chkG(V.m, K.m), hint:['Tel alleen de mintekens van de getallen, niet de bewerkingstekens.'],
+            onOk:() => { if(s3.firstChild) return;
+              qChoice(s3, st, save, 't' + i, { html:`${K.m} ${K.m===1 ? 'minteken' : 'mintekens'}: de uitkomst is …`, opts:PN, ans:K.m % 2 ? '-' : '+', why:minTxt(K.m) + '.',
+                after:ok => { if(!ok || s3.querySelector('.m4-q')) return;
+                  mQ(s3, st, save, 'u' + i, { html:`${mdTxt(K)} ${isq} {{u:u}}`, check:V=>chkGt(V.u, K.T), sol:mdSol(K), onOk:s => { if(!s) klaar(); } }); } }); } }); } });
+      host.append(s2, s3); },
+    'Eerst de absolute waarden, dan de minnetjes tellen. Zo werkt het bij vermenigvuldigen én delen.', L.map(mdSol));
+  } };
+MD.min = { title:'Minnetjes tellen', lvl:1,
+  instr:'Reken niet uit. Tel de minnetjes: een even aantal geeft een positief getal, een oneven aantal een negatief getal. Dat geldt voor · en voor :.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle([2, 2, 3, 3, 4, 5]).map(n => mdKeten(R, n, n > 3 ? 4 : 7));
+    reeks(b, L.length, (g, i, nr) => { const K = L[i];
+      qChoice(g, st, save, 'm' + i, { nr, html:`<span class="m5-groot">${mdTxt(K)}</span>`, opts:PN, ans:K.T < 0 ? '-' : '+', why:minTxt(K.m) + '.', whyBad:'Tel enkel de mintekens van de getallen.' }); }, {een:true});
+  } };
+MD.ber = { title:'Bereken', lvl:1,
+  instr:'Stap 1: vermenigvuldig of deel de absolute waarden. Stap 2: tel de minnetjes en zet het teken. Een negatief getal typ je met een minteken.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle(['·', '·', '·', '·', ':', ':', ':', ':']).map(o => mdKeten(R, 2, 10, [o]));
+    reeks(b, L.length, (g, i, nr) => { const K = L[i];
+      mQ(g, st, save, 'b' + i, { nr, html:`${mdTxt(K)} ${isq} {{u:a}}`, check:V=>chkGt(V.a, K.T, [[-K.T, 'Het getal klopt, maar het teken niet. Tel de minnetjes opnieuw.']]), hint:mdHint(K), sol:mdSol(K) }); });
+  } };
+MD.groot = { title:'Maal en gedeeld door, door elkaar', lvl:3,
+  instr:'Reken van links naar rechts. Stap 1: reken met de absolute waarden. Stap 2: tel de minnetjes.',
+  build(b, st, save){
+    const R = makeR(st); const L = [3, 3, 3, 4, 4, 5].map(n => mdKeten(R, n, n > 3 ? 5 : 8));
+    reeks(b, L.length, (g, i, nr) => { const K = L[i];
+      mQ(g, st, save, 'g' + i, { nr, html:`${mdTxt(K)} ${isq} {{u:a}}`, check:V=>chkG(V.a, K.T, [[-K.T, 'Het getal klopt, maar het teken niet. Tel de minnetjes opnieuw.']]), hint:mdHint(K), sol:mdSol(K) }); });
+  } };
+
+/* ---------- bestaande kaarten: de strategie in twee stappen ---------- */
+MA.ber.instr = 'Stap 1: vermenigvuldig de absolute waarden. Stap 2: tel de minnetjes: even geeft +, oneven geeft −.';
+MA.min.instr = 'Reken niet uit. Tel de minnetjes: een even aantal geeft een positief product, een oneven aantal een negatief product.';
+MA.tabel.instr = 'Vul de tabel in: het getal links maal het getal boven. Vermenigvuldig de absolute waarden en tel de minnetjes.';
+MA.pir.instr = 'Elk vak is het product van de twee vakken eronder. Vermenigvuldig de absolute waarden en tel de minnetjes.';
+MA.groot.instr = 'Stap 1: vermenigvuldig de absolute waarden en zoek handige paren. Stap 2: tel de minnetjes.';
+DE.ber2.instr = 'Stap 1: deel de absolute waarden. Stap 2: tel de minnetjes. Een negatief getal typ je met een minteken.';
+DE.groot.instr = 'Stap 1: deel de absolute waarden, zoek een handige manier. Stap 2: tel de minnetjes.';
+DE.wnw.instr = 'Denk na over 0 en tel de minnetjes.';
+DE.omg.instr = 'Delen is de omgekeerde bewerking van vermenigvuldigen. Vul het quotiënt in en controleer met een vermenigvuldiging. Het teken vind je door de minnetjes te tellen.';
+
+/* ---------- 4 optellen en aftrekken ---------- */
+const PM = {};
+PM.sprong = { title:'Springen op de getallenas', lvl:1,
+  instr:'Klik eerst op het tekenpaar en vereenvoudig: twee gelijke tekens worden +, twee verschillende tekens worden −. Klik dan op het startgetal en spring: naar rechts bij plus, naar links bij min.',
+  build(b, st, save){ paarDanWidget(b, st, save, 'as', 'Eerst het tekenpaar weg, dan springen: plus naar <b>rechts</b>, min naar <b>links</b>.', [0, 1, 2, 3], 'w'); } };
+PM.leger = { title:'Plus- en min-soldaten', lvl:1, instr:AF.leger.instr,
+  build(b, st, save){ legerVideo(b); paarDanWidget(b, st, save, 'leger', 'Eerst het tekenpaar weg, dan de legers: gelijke legers voegen samen, tegengestelde legers vechten.', [0, 1, 2], 'w'); } };
+PM.vrij = { title:'Doe het zelf: bereken tot 100', lvl:2,
+  instr:'Werk uit in het vak. Vereenvoudig eerst het tekenpaar, dan reken je de som uit.',
+  build(b, st, save){
+    const R = makeR(st); const P = R.shuffle([0, 1, 2, 3, 0, 1]).map(k => { const a = nz(R, -60, 60), c = R.int(5, 60), [op, sg] = PAARSOORT[k]; return [a, op, sg==='-' ? -c : c]; });
+    reeks(b, P.length, (g, i, nr) => { const [a, op, c] = P[i]; const E = paarTxt(a, op, c), bij = paarBij(op, c), T = a + bij;
+      const K = `${zS(a)} ${bij < 0 ? MIN : '+'} ${Math.abs(bij)}`;
+      mQ(g, st, save, 'v' + i, { nr, html:`<span class="m5-opg">${E}</span> {{z:a,h}}`, check:V=>chkZ(V.a, ZX.waarde(E), {opg:E}),
+        hint:['Vereenvoudig eerst het tekenpaar: twee gelijke tekens worden +, twee verschillende tekens worden −.', ['Zo begin je:', `= ${K}`]], sol:uitwH([E, K, zS(T)]) }); });
+  } };
+OP.groot.title = 'Grote getallen optellen'; AF.groot.title = 'Grote getallen aftrekken';
+OP.aanvul.title = 'Vul aan bij een som'; AF.aanvul.title = 'Vul aan bij een verschil';
+AF.reken.instr = 'Vereenvoudig het tekenpaar en reken uit. Lukt het niet uit je hoofd? Gebruik de getallenas of de legertjes als hulp.';
+
+voegToe(SEC.optel, SEC.aftrek);
+SEC.optel.cards.push(PM.sprong, PM.leger, PM.vrij);
+Object.assign(SEC.optel, { nav:'Optellen en aftrekken', title:'Gehele getallen optellen en aftrekken',
+  tip:'Twee tekens na elkaar? Vereenvoudig eerst: twee gelijke tekens worden +, twee verschillende tekens worden −. Daarna is het een gewone som: spring op de getallenas of laat de legertjes vechten.',
+  cheat:CHEAT_OPTEL.replace('Spiekbriefje · optellen', 'Spiekbriefje · optellen en aftrekken').replace('</table>', CHEAT_AFTREK.replace(/^[\s\S]*?<table>/, '')) });
+SEC.optel.toon = toonVan(SEC.optel, [PM.sprong, PM.leger, OP.tregel, AF.paar, AF.kies,
+  AF.reken, PM.vrij, OP.temp, AF.vthermo, OP.lift, AF.vlift, OP.duik, AF.vduik, OP.bank, OP.pir,
+  OP.groot, AF.groot, OP.aanvul, AF.aanvul, OP.teken, AF.slier, OP.pir2, OP.tijd]);
+
+/* ---------- 5 vermenigvuldigen en delen ---------- */
+voegToe(SEC.maal, SEC.deel);
+SEC.maal.cards.push(MD.stap, MD.min, MD.ber, MD.groot);
+const CHEAT_MD = `<h3>Spiekbriefje · vermenigvuldigen en delen</h3><table>
+  <tr><td>stap 1</td><td>vermenigvuldig of deel de absolute waarden<div class="m4-line">${prT(-3, -4)}: 3 · 4 ${isq} 12</div><div class="m4-line">${dlT(-12, 3)}: 12 : 3 ${isq} 4</div></td></tr>
+  <tr><td>stap 2</td><td>tel de minnetjes: even aantal: positief, oneven aantal: negatief<div class="m4-line">${prT(-3, -4)} ${isq} 12 (2 mintekens)</div><div class="m4-line">${dlT(-12, 3)} ${isq} ${MIN}4 (1 minteken)</div></td></tr>
+  <tr><td>meer getallen</td><td>${zS(-2)} · 3 : ${zP(-1)} · ${zP(-5)}: 2 · 3 : 1 · 5 ${isq} 30, 3 mintekens: ${MIN}30</td></tr>
+  <tr><td>controle</td><td>quotiënt · deler = deeltal</td></tr><tr><td>0</td><td>0 : ${zP(-5)} = 0, maar delen door 0 kan niet</td></tr></table>`;
+Object.assign(SEC.maal, { nav:'Vermenigvuldigen en delen', title:'Gehele getallen vermenigvuldigen en delen', cheat:CHEAT_MD,
+  tip:'Stap 1: vermenigvuldig of deel de absolute waarden. Stap 2: tel de minnetjes: een even aantal geeft een positief getal, een oneven aantal een negatief getal.' });
+SEC.maal.toon = toonVan(SEC.maal, [MA.patroon1, MA.patroon2, MA.sprong, DE.omg, MD.stap, MD.min, MD.ber,
+  MA.tabel, MA.pir, DE.ber2, MA.ctx, DE.gem, DE.wnw,
+  MA.groot, MD.groot, MA.vgl, DE.aanvul, DE.groot]);
+delete SEC.aftrek; delete SEC.deel;
+
+/* ---------- 6 de vier bewerkingen door elkaar ---------- */
+/* een opgave met + of − (met tekenpaar) of met · of : */
+function vierOpg(R, soort){
+  if(soort==='+' || soort==='−'){ const a = nz(R, -20, 20), c = nz(R, -15, 15); const T = soort==='+' ? a + c : a - c;
+    return {txt:`${zS(a)} ${soort} ${zP(c)}`, T, pm:true, hint:['Plus of min: vereenvoudig eerst het tekenpaar, dan is het een som. Spring op de getallenas of laat de legertjes vechten.'],
+      sol:`${zS(a)} ${soort} ${zP(c)} ${isq} ${zS(a)} ${(soort==='+') === (c > 0) ? '+' : MIN} ${Math.abs(c)} ${isq} ${zS(T)}`}; }
+  const K = mdKeten(R, 2, 10, [soort]); return {txt:mdTxt(K), T:K.T, pm:false, hint:['Maal of gedeeld door: tel de minnetjes.', ...mdHint(K)], sol:mdSol(K)};
+}
+const AANPAK = [['t', 'tekenpaar vereenvoudigen en optellen'], ['m', 'absolute waarden en minnetjes tellen']];
+const VR = {};
+VR.welke = { title:'Welke aanpak?', lvl:1,
+  instr:'Reken nog niet. Kies de aanpak die past. Bij + en − vereenvoudig je het tekenpaar. Bij · en : reken je met de absolute waarden en tel je de minnetjes.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle(['+', '−', '·', ':', '−', '·']).map(s => vierOpg(R, s));
+    reeks(b, L.length, (g, i, nr) => { const O = L[i];
+      qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${O.txt}</span>`, opts:AANPAK, ans:O.pm ? 't' : 'm',
+        why:O.pm ? 'Het is een plus of een min: vereenvoudig het tekenpaar en tel op.' : 'Het is een maal of een gedeeld door: absolute waarden en minnetjes tellen.',
+        whyBad:'Kijk naar het bewerkingsteken tussen de twee getallen.' }); });
+  } };
+VR.pm = { title:'Plus of maal?', lvl:1,
+  instr:'Telkens dezelfde twee getallen, maar een andere bewerking. Let op: minnetjes tellen doe je alleen bij · en :.',
+  build(b, st, save){
+    const R = makeR(st); const L = [0, 1, 2, 3].map(k => { const a = -R.int(2, 9), c = (k % 2 ? 1 : -1)*R.int(2, 9); return [a, c, R.pick(['+', '−'])]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, c, o] = L[i]; const S = o==='+' ? a + c : a - c;
+      mQ(g, st, save, 'p' + i, { nr, html:`${zS(a)} ${o} ${zP(c)} ${isq} {{u:s}}<span class="m5-nl"></span>${prT(a, c)} ${isq} {{u:p}}`,
+        check:V=>allOf([['s', chkG(V.s, S, [[a*c, 'Dat is het product. Bij een plus of een min tel je geen minnetjes.'], [-S, 'Kijk nog eens naar het teken.']])], ['p', chkG(V.p, a*c, [[S, 'Dat is de uitkomst van de andere bewerking.'], [-a*c, 'Tel de minnetjes opnieuw.']])]]),
+        hint:['Bovenaan: vereenvoudig het tekenpaar en tel op. Onderaan: absolute waarden vermenigvuldigen en minnetjes tellen.'],
+        sol:`${zS(a)} ${o} ${zP(c)} ${isq} ${zS(S)} en ${prT(a, c)} ${isq} ${zS(a*c)}` }); }, {een:true});
+  } };
+VR.ber = { title:'Bereken: alles door elkaar', lvl:2,
+  instr:'Kijk eerst naar het bewerkingsteken en kies je aanpak. Een negatief getal typ je met een minteken.',
+  build(b, st, save){
+    const R = makeR(st); const L = R.shuffle(['+', '+', '−', '−', '·', '·', ':', ':']).map(s => vierOpg(R, s));
+    reeks(b, L.length, (g, i, nr) => { const O = L[i];
+      mQ(g, st, save, 'b' + i, { nr, html:`${O.txt} ${isq} {{u:a}}`, check:V=>chkGt(V.a, O.T), hint:O.hint, sol:O.sol }); });
+  } };
+VR.wnw = { title:'Waar of niet waar?', lvl:2,
+  instr:'Zoek de typische fouten. Tel je minnetjes bij een plus of een min? Dan klopt het meestal niet.',
+  build(b, st, save){
+    const R = makeR(st); const a = R.int(2, 9), c = R.int(2, 9), d = R.int(2, 6), e = R.int(2, 9);
+    const L = R.shuffle([
+      [`${zS(-a)} + ${zP(-c)} ${isq} ${a + c}`, 'n', `Twee negatieve getallen optellen geeft een negatief getal: ${zS(-a - c)}. Minnetjes tellen doe je alleen bij · en :.`],
+      [`${prT(-a, -c)} ${isq} ${a*c}`, 'w', '2 mintekens: even, dus positief.'],
+      [`${zS(-a)} − ${zP(-c)} ${isq} ${zS(-a - c)}`, 'n', `− (− wordt +: ${zS(-a)} + ${c} ${isq} ${zS(c - a)}.`],
+      [`${dlT(-d*e, -e)} ${isq} ${d}`, 'w', '2 mintekens: even, dus positief.'],
+      [`${zS(-2)} · ${zP(-3)} · ${zP(-1)} ${isq} 6`, 'n', '3 mintekens: oneven, dus negatief: −6.'],
+      [`${zS(a)} − ${zP(a + c)} ${isq} ${zS(-c)}`, 'w', `${a} − ${a + c} ${isq} ${zS(-c)}.`]]).slice(0, 5);
+    reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:WNW, ans, why }); });
+  } };
+VR.vul = { title:'Vul aan: alles door elkaar', lvl:3,
+  instr:'Welk getal ontbreekt? Controleer met de uitkomst.',
+  build(b, st, save){
+    const R = makeR(st); const S = R.shuffle(['+', '−', '·', ':', '+', '·']);
+    const L = S.map(s => { if(s===':'){ const q = nz(R, -9, 9), c = nz(R, -9, 9); return [q*c, s, c, q]; } const a = nz(R, -12, 12), c = nz(R, -12, 12); return [a, s, c, s==='+' ? a + c : s==='−' ? a - c : a*c]; });
+    reeks(b, L.length, (g, i, nr) => { const [a, s, c, T] = L[i];
+      mQ(g, st, save, 'v' + i, { nr, html:`${zS(a)} ${s} {{u:a}} ${isq} ${zS(T)}`, check:V=>chkG(V.a, c), hint:['Probeer een getal en reken na. Let op het bewerkingsteken.'], sol:`${zS(a)} ${s} ${zP(c)} ${isq} ${zS(T)}` }); });
+  } };
+const CHEAT_VIER = `<h3>Spiekbriefje · de vier bewerkingen</h3><table>
+  <tr><td>+ en −</td><td>vereenvoudig het tekenpaar: gelijke tekens worden +, verschillende tekens worden −; daarna tel je op (getallenas of legertjes)<div class="m4-line">${zS(-3)} − ${zP(-5)} ${isq} ${zS(-3)} + 5 ${isq} 2</div></td></tr>
+  <tr><td>· en :</td><td>stap 1: absolute waarden; stap 2: tel de minnetjes (even +, oneven −)<div class="m4-line">${prT(-3, -5)} ${isq} 15</div></td></tr>
+  <tr><td>let op</td><td>${zS(-3)} + ${zP(-5)} ${isq} ${MIN}8, maar ${prT(-3, -5)} ${isq} 15</td></tr></table>`;
+SEC.vier = { id:'vier', ic:'z_mix', nav:'De vier bewerkingen', title:'De vier bewerkingen door elkaar',
+  tip:'Kijk eerst naar het bewerkingsteken. Plus of min: vereenvoudig het tekenpaar. Maal of gedeeld door: absolute waarden en minnetjes tellen.',
+  cheat:CHEAT_VIER, cards:[VR.welke, VR.pm, VR.ber, VR.wnw, VR.vul] };
 /* volgorde van de onderdelen in het menu */
-const ORDER = ['getal', 'abs', 'orde', 'optel', 'aftrek', 'maal', 'deel', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3'];
+const ORDER = ['getal', 'abs', 'orde', 'optel', 'maal', 'vier', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
 
 /* ============================================================
@@ -5058,7 +5257,7 @@ function buildSection(sec, num){
   }
   /* sec.toon: de volgorde op het scherm (indexen in sec.cards); de opslagsleutel blijft de index, zodat bewaarde antwoorden nooit verschuiven. Niet in toon = verborgen. */
   (sec.toon || sec.cards.map((_, i) => i)).forEach(ci=>{ const card = sec.cards[ci];
-    const key = sec.id + '_' + ci;
+    const key = card.sleutel || (sec.id + '_' + ci);   /* samengevoegde onderdelen: een kaart houdt haar oude sleutel */
     const c = el('div','card m4-geenbrk');   /* geen breuken in deze module */
     const ch = el('div','card-head', `<h3>${card.title}${card.lvl?LVL[card.lvl]:''}</h3>`);
     const rb = el('button','refresh-btn', card.keep ? '↺ Opnieuw beginnen' : '↺ Nieuwe opgave'); rb.type='button';
