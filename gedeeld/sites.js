@@ -497,13 +497,13 @@ export const SITES = [
     "ook": [
      "deel"
     ],
-    "vragen": 72
+    "vragen": 70
    },
    {
     "id": "vier",
     "naam": "De vier bewerkingen",
     "toets": false,
-    "vragen": 29
+    "vragen": 37
    },
    {
     "id": "eig",
