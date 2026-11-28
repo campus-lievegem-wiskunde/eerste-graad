@@ -2072,6 +2072,48 @@ VV.tabel = { title:'De tabelmethode', lvl:2,
     tabelQ(g, st, save, 't1', 'b)', som(trm(R.int(1, 3), x), trm(nz(R, -4, 4))), som(trm(1, x + '^2'), trm(nz(R, -5, 5), x), trm(nz(R, -6, 6))));
   } };
 
+/* ---------- boogjes in de opgave (28 november 2026, vraag van de beheerder; zoals bij Distributiviteit in 1A module 5) ----------
+   De leerling tekent zelf de boogjes: vanuit een term van de eerste factor klikt hij op elke term van de tweede factor.
+   Boogjes vanuit de 1ste (3de) term staan boven, vanuit de 2de term onder, elk in een eigen kleur.
+   prodBoog(row, st, save, key, f1, f2, {wacht, stap})
+   wacht: het vrije vak verschijnt pas als alle boogjes er staan.
+   stap: elk boogje schrijft zijn product in de tussenstap (enkel bij de eerste opgaven van een kaart). Eigen sleutel b_<vraag-id> in de kaartstatus. */
+const lQ = g => { const L = g.querySelectorAll('.m4-q'); return L[L.length - 1]; };
+function prodBoog(row, st, save, key, f1, f2, o={}){
+  const line = row && row.querySelector('.m4-line'), plek = line && line.querySelector(':scope > .m6-x'); if(!plek) return;
+  const A = termen(f1), B = termen(f2), n = A.length*B.length; const S = st[key] = st[key] || [];
+  const heeft = (i, j) => S.includes(i + '-' + j), af = i => B.every((_, j) => heeft(i, j)), klaar = () => S.length >= n;
+  const w = el('span', 'm6-bg' + (A.length > 1 ? ' onder' : '')); const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'm6-bg-svg'); svg.setAttribute('aria-hidden', 'true');
+  const knop = (t, i, cls) => { const b = el('button', cls); b.type = 'button'; b.innerHTML = i ? `${/^-/.test(t) ? MIN : '+'}&nbsp;${EH(t.replace(/^-/, ''))}` : EH(t); b.setAttribute('aria-label', 'term ' + t.replace(/^-/, 'min ')); return b; };
+  const haak = (L, cls) => { w.append(document.createTextNode('(')); const K = L.map((t, i) => { const b = knop(t, i, cls + (i ? ' na' : '')); w.append(b); return b; }); w.append(document.createTextNode(')')); return K; };
+  w.append(svg); const kA = haak(A, 'm6-bg-a'), kB = haak(B, 'm6-bg-b');
+  plek.innerHTML = ''; plek.append(w);
+  const tip = el('div', 'm6-bg-tip'); line.after(tip);
+  const uit = el('div', 'm6-bg-uit'); if(o.stap) plek.after(uit);
+  let act = Math.max(0, A.findIndex((_, i) => !af(i)));
+  const pr = (i, j) => `${i || j ? hT(A[i]) : A[i]}*${hT(B[j])}`;
+  const schrijf = () => { if(!o.stap) return; const L = []; A.forEach((_, i) => B.forEach((_, j) => L.push(heeft(i, j) ? `<span class="m6-bg-p k${i%2}">${EH(pr(i, j))}</span>` : '<span class="m6-bg-leeg">…</span>')));
+    uit.innerHTML = `<span class="m4-is">=</span> ` + L.join(' + '); };
+  const teken = () => { const r0 = w.getBoundingClientRect(); if(!r0.width) return; svg.setAttribute('width', r0.width); svg.setAttribute('height', r0.height);
+    svg.innerHTML = S.map(x => { const [i, j] = x.split('-').map(Number); if(!kA[i] || !kB[j]) return ''; const ra = kA[i].getBoundingClientRect(), rb = kB[j].getBoundingClientRect();
+      const x1 = ra.left + ra.width/2 - r0.left, x2 = rb.left + rb.width/2 - r0.left, boven = i%2===0;
+      const y = boven ? Math.min(ra.top, rb.top) - r0.top + 3 : Math.max(ra.bottom, rb.bottom) - r0.top - 3; const h = Math.min(boven ? y - 2 : r0.height - y - 2, 8 + Math.abs(x2 - x1)*.13)*(boven ? -1 : 1);
+      return `<g class="k${i%2}"><path d="M${fx(x1)},${fx(y)} Q${fx((x1 + x2)/2)},${fx(y + 2*h)} ${fx(x2)},${fx(y)}"/><path d="M${fx(x2 - 4)},${fx(y + (boven ? -6 : 6))} L${fx(x2)},${fx(y)} L${fx(x2 + 4)},${fx(y + (boven ? -6 : 6))}"/></g>`; }).join('');
+    kA.forEach((b, i) => { b.classList.toggle('start', !klaar() && i===act); b.classList.toggle('af', af(i)); b.classList.toggle('k1', i%2===1); });
+    kB.forEach((b, j) => b.classList.toggle('af', !klaar() && heeft(act, j))); schrijf(); };
+  const zegt = (cls, h) => { tip.className = 'm6-bg-tip' + (cls ? ' ' + cls : ''); tip.innerHTML = h; };
+  const zet = (nieuw) => { row.classList.toggle('m6-bwacht', !!o.wacht && !klaar()); w.classList.toggle('klaar', klaar());
+    if(klaar()) zegt('ok', `✓ Elke term van de eerste factor gaat naar elke term van de tweede: ${n} producten.` + (o.stap ? '' : ' Schrijf ze op, met hun teken.'));
+    else if(!S.length) zegt('', (o.wacht ? 'Teken eerst de boogjes. ' : 'Je mag de boogjes tekenen. ') + `Ze vertrekken bij ${EH(A[act])}. Klik op elke term van de tweede factor.`);
+    else if(nieuw) zegt('info', `Nu vertrekken de boogjes bij ${EH(A[act])}. Klik weer op elke term van de tweede factor.`);
+    teken(); };
+  kA.forEach((b, i) => b.addEventListener('click', () => { if(klaar()) return; if(af(i)){ zegt('info', `Vanuit ${EH(A[i])} staan alle boogjes er al.`); return; } act = i; zet(true); }));
+  kB.forEach((b, j) => b.addEventListener('click', () => { if(klaar()) return; if(heeft(act, j)){ zegt('info', 'Dat boogje staat er al. Klik op een andere term van de tweede factor.'); return; }
+    S.push(act + '-' + j); save(); let nieuw = false; if(af(act) && !klaar()){ act = A.findIndex((_, i) => !af(i)); nieuw = true; } zet(nieuw); }));
+  if(row.querySelector('.fb.ok') && !klaar()){ A.forEach((_, i) => B.forEach((_, j) => { if(!heeft(i, j)) S.push(i + '-' + j); })); }
+  zet(false); requestAnimationFrame(teken); if(window.ResizeObserver) new ResizeObserver(teken).observe(w);
+}
+
 /* ---------- vrij vak: werk uit en herleid ---------- */
 function vrijProd(b, st, save, items, o={}){
   const R = makeR(st, 'vb'); const vb = o.vb ? o.vb(R) : null;
@@ -2079,10 +2121,11 @@ function vrijProd(b, st, save, items, o={}){
   reeks(b, items.length, (g, i, nr) => { const [f1, f2, extra={}] = items[i]; const opg = extra.opg || `(${f1})(${f2})`, D = EX.p(opg);
     mQ(g, st, save, 'v' + i, { nr, html:`${EH(opg)} {{p:a,${o.knop || 'pnmeh'}}}`, check:V=>chkP(V.a, D, Object.assign({ctx: f2 ? {k:'prod', f:[f1, f2]} : null}, extra.chk || {})),
       hint: o.hint || ['Vermenigvuldig elke term van de eerste factor met elke term van de tweede. Schrijf alle producten op één regel.', 'Werk elk product uit: getallen maal getallen, letters maal letters (exponenten optellen). Tel de mintekens.', 'Herleid: neem de gelijksoortige termen samen. Schrijf de uitkomst in dalende machten.'],
-      sol: f2 ? prodHoe(f1, f2).map(([m]) => m).join(' ') : `${EH(opg)} ${isq} ${PH(D, extra.chk && extra.chk.dec ? {dec:true} : {})}` }); }, {een:true});
+      sol: f2 ? prodHoe(f1, f2).map(([m]) => m).join(' ') : `${EH(opg)} ${isq} ${PH(D, extra.chk && extra.chk.dec ? {dec:true} : {})}` });
+    if(o.boog && f2 && !extra.opg) prodBoog(lQ(g), st, save, 'b_v' + i, f1, f2, o.boog(i)); }, {een:true});
 }
 VV.vrij = { title:'Werk uit en herleid', lvl:2,
-  instr:'Werk uit en herleid. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>. Typ <b>x^2</b> voor <i>x</i><sup>2</sup>.',
+  instr:'Teken eerst de boogjes: klik op elke term van de tweede factor. Werk dan uit en herleid. Schrijf elke tussenstap op een nieuwe regel met <b>=</b>. Typ <b>x^2</b> voor <i>x</i><sup>2</sup>.',
   build(b, st, save){
     const R = makeR(st); const L = R.shuffle(['x', 'a', 'y', 'p']);
     const k = () => R.int(1, 5), n = () => nz(R, -9, 9);
@@ -2090,7 +2133,8 @@ VV.vrij = { title:'Werk uit en herleid', lvl:2,
       [som(trm(k(), L[1]), trm(-R.int(1, 6))), som(trm(R.int(2, 5), L[1]), trm(-R.int(1, 6)))],
       [som(trm(R.int(2, 7)), trm(-R.int(1, 4), L[2])), som(trm(R.int(1, 3), L[2]), trm(n()))],
       [som(trm(-R.int(1, 4), L[3]), trm(n())), som(trm(R.int(2, 6), L[3]), trm(n()))]];
-    vrijProd(b, st, save, items, {vb:R2 => [som(trm(R2.int(2, 4), 'x'), trm(-R2.int(2, 7))), som(trm(R2.int(2, 5), 'x'), trm(R2.int(1, 4)))]});
+    /* boogjes verplicht; bij a) en b) schrijft elk boogje zijn product in de tussenstap, daarna schrijft de leerling die zelf */
+    vrijProd(b, st, save, items, {vb:R2 => [som(trm(R2.int(2, 4), 'x'), trm(-R2.int(2, 7))), som(trm(R2.int(2, 5), 'x'), trm(R2.int(1, 4)))], boog:i => ({wacht:true, stap:i < 2})});
   } };
 VV.meer = { title:'Met machten en meer termen', lvl:2,
   instr:'Werk uit en herleid. Bij een tweeterm maal een drieterm krijg je 6 producten. Rangschik de uitkomst in dalende machten.',
@@ -2102,7 +2146,7 @@ VV.meer = { title:'Met machten en meer termen', lvl:2,
       [som(trm(1, 'x^2'), trm(R.int(2, 6), 'x')), som(trm(R.int(2, 4), 'x'), trm(-R.int(1, 5)))],
       [som(trm(R.int(2, 4), 'a'), trm(R.pick([1, -1]), 'b')), som(trm(1, 'a'), trm(-R.int(2, 4), 'b'))],
       [som(trm(R.int(2, 3), 'y^3'), trm(-1, 'y')), som(trm(1, 'y^2'), trm(R.int(2, 5)))]]).slice(0, 4);
-    vrijProd(b, st, save, items, {vb:R2 => [som(trm(1, 'x^2'), trm(-R2.int(2, 4))), som(trm(R2.int(2, 3), 'x'), trm(R2.int(1, 5)))]});
+    vrijProd(b, st, save, items, {vb:R2 => [som(trm(1, 'x^2'), trm(-R2.int(2, 4))), som(trm(R2.int(2, 3), 'x'), trm(R2.int(1, 5)))], boog:() => ({})});
   } };
 VV.brk = { title:'Met breuken en kommagetallen', lvl:2,
   instr:'Werk uit en herleid. Een breuk maak je met <b>/</b> of met de breukknop. Vereenvoudig breuken.',
@@ -2163,6 +2207,25 @@ SEC.vv = { id:'vv', ic:'m6_vv', nav:'Veelterm maal veelterm', title:'Een veelter
   .m4-line:has(> .m4-wp[data-knoppen*="1"]){flex-wrap:wrap}
   .mf .m6-snij{stroke:var(--accent-dark); stroke-width:2; stroke-dasharray:6 5; fill:none}
   .mf .m6-boog{fill:none; stroke:var(--orange); stroke-width:2.6; stroke-linecap:round}
+  .m6-bg{position:relative; display:inline-block; padding-top:1.35em; white-space:nowrap} .m6-bg.onder{padding-bottom:1.35em}
+  .m6-bg-svg{position:absolute; left:0; top:0; pointer-events:none; overflow:visible}
+  .m6-bg-svg path{fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round}
+  .m6-bg-svg .k0 path{stroke:var(--accent-dark)} .m6-bg-svg .k1 path{stroke:#d27f00}
+  .m6-bg-a, .m6-bg-b{font:inherit; color:inherit; background:none; border:0; border-bottom:2px dashed #9fd9db; border-radius:0; padding:0 .08em; cursor:pointer}
+  .m6-bg-a.na, .m6-bg-b.na{margin-left:.3em}
+  .m6-bg-a{border-bottom-color:transparent; border-radius:.3rem}
+  .m6-bg-a.start{background:var(--or-soft); box-shadow:0 0 0 2px var(--orange)}
+  .m6-bg-a.af{color:var(--accent-dark)} .m6-bg-a.af.k1{color:#b56d00}
+  .m6-bg-b.af, .m6-bg.klaar .m6-bg-b{border-bottom-color:transparent; cursor:default} .m6-bg.klaar .m6-bg-a, .m6-bg.klaar .m6-bg-b{pointer-events:none}
+  .m6-bg-a:hover, .m6-bg-b:hover{background:var(--tq-soft)}
+  .m6-bwacht .m4-wp, .m6-bwacht > .vx-balk, .m6-bwacht > .q-act, .m6-bwacht > .hint-gr{display:none}
+  .m6-bg-uit{flex-basis:100%; padding-left:1.4rem; font-weight:700}
+  .m6-bg-p{animation:m6-bgin .35s both; display:inline-block} .m6-bg-p .m6-x{white-space:nowrap} .m6-bg-p.k0 .m6-x{color:var(--accent-dark)} .m6-bg-p.k1 .m6-x{color:#b56d00}
+  .m6-bg-leeg{color:#9fd9db; font-weight:600}
+  @keyframes m6-bgin{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:none}}
+  .m6-bg-tip{flex-basis:100%; font-size:.9rem; color:var(--ink-soft); margin:-.1rem 0 .1rem}
+  .m6-bg-tip.ok{color:var(--ok)} .m6-bg-tip.info{color:var(--accent-dark)}
+  .m6-bg-tip .m6-x{font-weight:700}
   .mf .m6-boog.af{stroke:var(--accent-dark); stroke-width:1.8; opacity:.55}
   `; const s = document.createElement('style'); s.textContent = css; document.head.append(s); })();
 /* ============================================================

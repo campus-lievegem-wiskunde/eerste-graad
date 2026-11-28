@@ -32,5 +32,25 @@ const { chromium } = require('playwright');
     check(!fout.length, `ronde ${ronde+1}: geen JavaScript-fouten ` + fout.slice(0, 3).join(' | '));
     await p.close();
   }
+  /* boogjes bij Werk uit en herleid: eerst tekenen, bij a) en b) schrijft elk boogje zijn product in de tussenstap, bij c) en d) niet */
+  { const p = await ctx.newPage(); const fout = []; p.on('pageerror', e=>fout.push(e.message));
+    const url = 'http://localhost:8765/2A/modules/module-6-veeltermen-vermenigvuldigen/_test6.html';
+    await p.goto(url); await p.evaluate(()=>localStorage.clear()); await p.goto(url); await p.waitForTimeout(400);
+    await p.evaluate(()=>show('vv', false)); await p.waitForTimeout(300);
+    const k = p.locator('.card', { has:p.locator('.card-head h3', { hasText:'Werk uit en herleid' }) }).first();
+    const qa = k.locator('.m4-q').nth(0), qc = k.locator('.m4-q').nth(2);
+    check(!(await qa.locator('.m4-wp').isVisible()), 'boogjes: het vrije vak wacht tot de boogjes getekend zijn');
+    const B = qa.locator('.m6-bg-b'); const nb = await B.count(), na = await qa.locator('.m6-bg-a').count();
+    for(let i = 0; i < na; i++) for(let j = 0; j < nb; j++) await B.nth(j).click();
+    const uit = (await qa.locator('.m6-bg-uit').innerText()).replace(/\s+/g, ' ');
+    const verwacht = await p.evaluate(()=>{ const c = [...document.querySelectorAll('.card')].find(x=>x.querySelector('h3').textContent.startsWith('Werk uit en herleid'));
+      const t = [...c.querySelectorAll('.m4-q')][0].querySelector('.sol .m4-is').nextElementSibling.textContent; return t.replace(/\s+/g, ' ').trim(); });
+    check(await qa.locator('.m4-wp').isVisible() && uit.includes(verwacht), `boogjes: ${na * nb} boogjes schrijven de tussenstap (${uit})`);
+    check(await qa.locator('.m6-bg-svg path').count() === 2 * na * nb, 'boogjes: elk boogje is getekend');
+    check(await qc.locator('.m6-bg-uit').count() === 0 && !(await qc.locator('.m4-wp').isVisible()), 'boogjes: bij c) geen tussenstap van de boogjes, vrij vak wacht');
+    await p.reload(); await p.waitForTimeout(400); await p.evaluate(()=>show('vv', false)); await p.waitForTimeout(300);
+    check(await k.locator('.m4-q').nth(0).locator('.m4-wp').isVisible(), 'boogjes: blijven bewaard na herladen');
+    check(!fout.length, 'boogjes: geen JavaScript-fouten ' + fout.slice(0, 3).join(' | '));
+    await p.close(); }
   await b.close(); process.exit(ok ? 0 : 1);
 })();
