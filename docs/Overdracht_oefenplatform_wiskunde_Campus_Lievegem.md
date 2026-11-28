@@ -754,7 +754,7 @@ Evaluatie van de drie modules volgens de afspraken Eén oefening op één scherm
 - Animaties: machtentrap (÷ grondtal per trede), groeiende schimmel met schuifknop in de tijd, tegels die samenschuiven.
 - Controle: alle opgaven en hint-invulregels worden met brute kracht opgelost en de gevonden antwoorden met sympy nagerekend (456 van 456 juist, 3 willekeurige reeksen). Testscripts in de scratchpad van de sessie, niet in de repository.
 
-### 2A Module 6 · veeltermen vermenigvuldigen (voorbereiding en proefstuk 28 november 2026, branch claude/project-thread-xkuc2j)
+### 2A Module 6 · veeltermen vermenigvuldigen (voorbereiding en proefstuk 28 november 2026, branch claude/project-thread-xkuc2j, PR 80, nog niet op main)
 
 - Bron: Nando 2, module 06 Veeltermen vermenigvuldigen. De beheerder wil een oefenmodule op het platform én een papieren oefenbundel met verbetersleutel. Namen (goedgekeurd in ronde 1): map 2A/modules/module-6-veeltermen-vermenigvuldigen, site-id **2a-m6**, prefix **2a_m6_product_v1_**.
 - Alles in /mnt/project-files/2A-module-6/: Analyse_en_voorstel.md, Keuzes.md, vragen_vooraf.html en vragen_ronde2.html, bronnen/ (PDF, HT M4 + M6, KT's NG2 en klas 2D).
