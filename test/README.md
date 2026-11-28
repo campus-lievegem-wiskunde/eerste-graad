@@ -26,6 +26,7 @@ node test/uitgroep.js          # tabblad Leerlingen van een groep: Uit groep en 
 node test/versleep.js          # versleepbare vensters: rekenmachine, woordenboek, spiekbriefje, uitleg bij een stap, 2B-rekenmachine en TI-30XB
 node test/rekentoestel.js      # TI-30XB: pijltjes overal in hun kwart klikbaar, mode → SCI met kader-cursor, volledig scherm (pagina en zwevend venster, Esc of Sluiten)
 node test/sleutel.js           # oplossingssleutel voor leerkrachten (dashboard/sleutel.html): 1A heuristieken, knop Sleutel in het dashboard, link in de module, niet voor leerling of toeschouwer
+node test/veeltermen2a.js      # 2A Module 6: elke vraag met een veelterm-, term- of tekenvak aanvaardt zijn eigen oplossing (8 willekeurige reeksen), geen JavaScript-fouten
 ```
 
 | Bestand | Rol |

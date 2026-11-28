@@ -1046,6 +1046,29 @@ export const SITES = [
   ]
  },
  {
+  "id": "2a-m6",
+  "titel": "Module 6 · Vermenigvuldigen van veeltermen",
+  "kort": "Module 6",
+  "jaar": "2A",
+  "rubriek": "modules",
+  "pad": "2A/modules/module-6-veeltermen-vermenigvuldigen/",
+  "prefix": "2a_m6_product_v1_",
+  "onderdelen": [
+   {
+    "id": "vv",
+    "naam": "Veelterm maal veelterm",
+    "toets": false,
+    "vragen": 30
+   },
+   {
+    "id": "kw",
+    "naam": "Kwadraat van een tweeterm",
+    "toets": false,
+    "vragen": 34
+   }
+  ]
+ },
+ {
   "id": "2a-wp",
   "titel": "Wiskundige problemen · 2de jaar",
   "kort": "Wiskundige problemen",
