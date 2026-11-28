@@ -34,6 +34,7 @@
         <tr><td>2nd</td><td>Daarna geldt de blauwe functie boven de volgende toets.</td></tr>
         <tr><td>◂▸</td><td>Wisselt een uitkomst tussen breuk, decimaal getal en √ of π.</td></tr>
         <tr><td>▲ ▼</td><td>Bekijk vorige berekeningen. Met enter haal je er een terug.</td></tr>
+        <tr><td>mode</td><td>Instellingen, bv. SCI voor de wetenschappelijke notatie. Kies met de pijltjes en bevestig met enter. Met clear ga je terug.</td></tr>
         <tr><td>data</td><td>De lijsten L1, L2 en L3. Met 2nd data (stat) bereken je het gemiddelde, de mediaan …</td></tr>
         <tr><td>2nd 0</td><td>Reset: alles terug zoals een nieuw toestel.</td></tr>
       </table>
@@ -46,7 +47,7 @@
         <tr><td><kbd>Backspace</kbd></td><td>delete</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>clear</td></tr>
       </table>
-      <div class="rt-bar"><button class="btn ghost" type="button" id="reset">↺ Toestel resetten</button></div>
+      <div class="rt-bar"><button class="btn ghost" type="button" id="vol">⛶ Volledig scherm</button><button class="btn ghost" type="button" id="reset">↺ Toestel resetten</button></div>
     </div>
   </div>
 </main>
@@ -54,6 +55,7 @@
 <script>
   const C = TI30XB.create(document.getElementById('calc'), { store:'ti30xb_v1' });
   try{ C.el.focus({ preventScroll:true }); }catch(e){}
+  document.getElementById('vol').addEventListener('click', ()=>TI30XB.fullscreen(C));
   document.getElementById('reset').addEventListener('click', ()=>{ ['2nd','0','2'].forEach(k=>C.press(k)); C.el.focus(); });
 </script>
 <script src="../gedeeld/kop.js"></script>

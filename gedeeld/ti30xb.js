@@ -657,12 +657,16 @@ const CSS30 = `
 .ti30 .sel{ outline:1.5px solid #1c2117; outline-offset:1px; }
 .ti30 .ln{ white-space:pre; height:1.2em; overflow:hidden; }
 .ti30 .inv{ background:#1c2117; color:#c9d0c3; }
-.ti30 .blink{ animation:ti-b 1s steps(1) infinite; }
+/* cursor in mode- en instelschermen: een kader rond je keuze dat knippert tussen gewoon en omgekeerd (enter bevestigt) */
+.ti30 .blink{ box-shadow:inset 0 0 0 .1em #1c2117; animation:ti-bi 1s steps(1) infinite; }
+.ti30 .inv.blink{ animation-name:ti-bn; }
 .ti30 .cur{ display:inline-block; width:.55em; height:1em; vertical-align:-.12em; background:#1c2117; animation:ti-b 1s steps(1) infinite; }
 .ti30 .ins .cur{ width:.14em; }
 .ti30 .ng{ display:inline-block; transform:translateY(.28em); }
 .ti30 .ml{ display:inline-block; transform:translateY(.22em); }
 @keyframes ti-b{ 50%{ opacity:0; } }
+@keyframes ti-bi{ 50%{ background:#1c2117; color:#c9d0c3; } }
+@keyframes ti-bn{ 50%{ background:transparent; color:#1c2117; } }
 @media (prefers-reduced-motion: reduce){ .ti30 .cur, .ti30 .blink{ animation:none; } }
 .ti30 .fr{ display:inline-flex; flex-direction:column; vertical-align:middle; font-size:.78em; text-align:center; line-height:1.05; margin:0 .08em; }
 .ti30 .fr > span:first-child{ border-bottom:1.5px solid currentColor; padding:0 .1em .05em; }
@@ -691,9 +695,16 @@ const CSS30 = `
 .ti30 .pad{ position:absolute; right:-.1em; top:-.15em; width:calc(var(--kw) * 2 + .55em); height:5.3em; border-radius:2.6em 2.6em 2.2em 2.2em / 2.6em; background:linear-gradient(#6a6f73, #4d5155); box-shadow:0 .14em 0 #34373a; }
 .ti30 .pad button{ position:absolute; background:transparent; border:none; cursor:pointer; color:#c5cacd; font-size:.8em; padding:0; }
 .ti30 .pad .disc{ position:absolute; left:50%; top:50%; width:3.6em; height:3.6em; margin:-1.8em 0 0 -1.8em; border-radius:50%; background:radial-gradient(circle at 50% 45%, #3f4346 0 35%, #2d3033 36% 100%); pointer-events:none; }
-.ti30 .pad .u{ left:30%; right:30%; top:0; height:35%; } .ti30 .pad .d{ left:30%; right:30%; bottom:0; height:35%; }
-.ti30 .pad .l{ left:0; width:35%; top:25%; bottom:25%; } .ti30 .pad .r{ right:0; width:35%; top:25%; bottom:25%; }
-.ti30 .pad button.hot{ outline:.25em solid #FCAF17; border-radius:.6em; }
+/* elk pijltje is een volledig kwart van het pad (vier driehoeken vanuit het midden), dus overal klikbaar */
+.ti30 .pad button.k{ inset:0; display:flex; }
+.ti30 .pad .u{ clip-path:polygon(0 0, 100% 0, 50% 50%); align-items:flex-start; justify-content:center; padding-top:.45em; }
+.ti30 .pad .d{ clip-path:polygon(0 100%, 100% 100%, 50% 50%); align-items:flex-end; justify-content:center; padding-bottom:.45em; }
+.ti30 .pad .l{ clip-path:polygon(0 0, 50% 50%, 0 100%); align-items:center; justify-content:flex-start; padding-left:.55em; }
+.ti30 .pad .r{ clip-path:polygon(100% 0, 50% 50%, 100% 100%); align-items:center; justify-content:flex-end; padding-right:.55em; }
+.ti30 .pad button:hover span{ color:#fff; }
+.ti30 .pad button:active, .ti30 .pad button.down{ background:rgba(255,255,255,.16) !important; transform:none; }
+.ti30 .pad button.hot{ background:rgba(252,175,23,.6) !important; }
+.ti30 .pad button.hot span{ color:#fff; }
 .ti30 .pad button span{ position:relative; z-index:1; }
 `;
 let cssDone = false;
@@ -1200,10 +1211,51 @@ const CSSPOP = `
 .ti30-fab svg{ height:100%; width:auto; display:block; }
 .ti30-fab:hover{ transform:translateY(-2px) scale(1.06); }
 .ti30-fab:focus-visible{ outline:3px solid #FCAF17; outline-offset:3px; border-radius:6px; }
-@media print{ .ti30-fab, .ti30-win{ display:none; } }
+.ti30-vs{ position:absolute; top:-.5rem; left:-.5rem; z-index:2; width:2rem; height:2rem; border-radius:50%; border:none; background:#3BC1C5; color:#fff; font:700 1.1rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; }
+.ti30-vs:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
+.ti30-stage{ position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; background:#eef8f8; overflow:hidden; }
+.ti30-stage .ti30{ cursor:default; }
+.ti30-stage-x{ position:absolute; top:12px; right:12px; z-index:2; display:inline-flex; align-items:center; gap:.4em; padding:.45em .9em; border:none; border-radius:999px; background:#3BC1C5; color:#fff; font:700 1rem/1 Carlito, Calibri, Arial, sans-serif; cursor:pointer; }
+.ti30-stage-x:focus-visible{ outline:3px solid #FCAF17; outline-offset:2px; }
+@media print{ .ti30-fab, .ti30-win, .ti30-stage{ display:none; } }
 `;
 let popOpen = null;
 const POSKEY = 'ti30xb_pos';
+/* volledig scherm (bv. voor projectie): het toestel verhuist tijdelijk naar een scherm-vullende laag en wordt zo groot als het scherm toelaat.
+   Uit met dezelfde knop (⛶), de knop in de laag of Esc. Lukt echt volledig scherm niet (bv. iPhone), dan vult de laag toch het venster. */
+let fullNow = null;
+function fullscreen(C){
+  if(fullNow){ fullNow.exit(); return false; }
+  popCSS();
+  const el = C.el || C, home = el.parentNode, next = el.nextSibling, oldFs = el.style.getPropertyValue('--ti-fs'), last = document.activeElement;
+  const stage = document.createElement('div'); stage.className = 'ti30-stage'; stage.setAttribute('role', 'dialog'); stage.setAttribute('aria-label', 'Rekentoestel op volledig scherm');
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-stage-x'; x.innerHTML = '⛶ Sluiten'; x.title = 'Volledig scherm sluiten (Esc)'; x.setAttribute('aria-label', 'Volledig scherm sluiten');
+  stage.append(x, el); document.body.append(stage);
+  const size = () => { el.style.setProperty('--ti-fs', '20px'); const r = el.getBoundingClientRect(), W = stage.clientWidth, H = stage.clientHeight;
+    const f = Math.max(8, Math.floor(20 * Math.min((H - 40) / (r.height + 12), (W - 40) / r.width) * 10) / 10); el.style.setProperty('--ti-fs', f + 'px'); };
+  size();
+  const onResize = () => size();
+  addEventListener('resize', onResize);
+  const onFs = () => { if(!document.fullscreenElement && fullNow) exit(true); else size(); };
+  document.addEventListener('fullscreenchange', onFs);
+  /* Esc sluit (op dit scherm is Esc dus niet clear) */
+  const onEsc = e => { if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); exit(); } };
+  document.addEventListener('keydown', onEsc, true);
+  const exit = (fromBrowser) => {
+    if(!fullNow) return; fullNow = null;
+    removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onFs); document.removeEventListener('keydown', onEsc, true);
+    if(!fromBrowser && document.fullscreenElement === stage){ try{ document.exitFullscreen(); }catch(e){} }
+    if(oldFs) el.style.setProperty('--ti-fs', oldFs); else el.style.removeProperty('--ti-fs');
+    if(home) home.insertBefore(el, next && next.parentNode === home ? next : null);
+    stage.remove();
+    try{ (last && last !== document.body ? last : el).focus({ preventScroll:true }); }catch(e){}
+  };
+  x.addEventListener('click', () => exit());
+  fullNow = { exit, el:stage };
+  try{ const p = stage.requestFullscreen && stage.requestFullscreen(); if(p && p.catch) p.catch(()=>{}); }catch(e){}
+  try{ el.focus({ preventScroll:true }); }catch(e){}
+  return true;
+}
 function popCSS(){ addCSS(); if(!document.getElementById('ti30-pop-css')){ const s = document.createElement('style'); s.id = 'ti30-pop-css'; s.textContent = CSSPOP; document.head.append(s); } }
 /* het grote toestel in een zwevend venster dat je kan verslepen; de pagina blijft bruikbaar.
    Eén toestel per pagina; het onthoudt alles (store) en ook waar je het neerzette. */
@@ -1213,8 +1265,10 @@ function open(opts = {}){
   const last = document.activeElement;
   const win = document.createElement('div'); win.className = 'ti30-win'; win.setAttribute('role', 'dialog'); win.setAttribute('aria-label', 'Rekentoestel');
   const x = document.createElement('button'); x.type = 'button'; x.className = 'ti30-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Rekentoestel sluiten');
-  win.append(x); document.body.append(win);
+  const vs = document.createElement('button'); vs.type = 'button'; vs.className = 'ti30-vs'; vs.textContent = '⛶'; vs.title = 'Volledig scherm'; vs.setAttribute('aria-label', 'Rekentoestel op volledig scherm');
+  win.append(x, vs); document.body.append(win);
   const C = create(win, Object.assign({ store:'ti30xb_v1' }, opts));
+  vs.addEventListener('click', () => fullscreen(C));
   /* plaats: waar het vorige keer stond, anders rechtsonder boven de knop */
   const fit = (l, t) => { const r = win.getBoundingClientRect(), W = innerWidth, H = innerHeight;
     win.style.left = Math.max(0, Math.min(W - r.width, l)) + 'px'; win.style.top = Math.max(0, Math.min(H - Math.min(r.height, H), t)) + 'px'; };
@@ -1235,7 +1289,7 @@ function open(opts = {}){
   win.addEventListener('pointerup', drop); win.addEventListener('pointercancel', drop);
   const onResize = () => { const r = win.getBoundingClientRect(); fit(r.left, r.top); };
   addEventListener('resize', onResize);
-  const close = () => { win.remove(); popOpen = null; removeEventListener('resize', onResize); document.removeEventListener('keydown', esc, true); try{ last && last.focus(); }catch(e){} };
+  const close = () => { if(fullNow && fullNow.el.contains(C.el)) fullNow.exit(); win.remove(); popOpen = null; removeEventListener('resize', onResize); document.removeEventListener('keydown', esc, true); try{ last && last.focus(); }catch(e){} };
   const esc = e => { if(e.key === 'Escape' && win.contains(document.activeElement) && !C.el.contains(document.activeElement)){ e.preventDefault(); close(); } };
   x.addEventListener('click', close);
   document.addEventListener('keydown', esc, true);
@@ -1249,5 +1303,5 @@ function fab(opts = {}){
   const b = document.createElement('button'); b.type = 'button'; b.className = 'ti30-fab'; b.title = 'Rekentoestel'; b.setAttribute('aria-label', 'Rekentoestel openen');
   b.innerHTML = icon(); b.addEventListener('click', () => { if(popOpen) popOpen.close(); else open(opts); }); document.body.append(b); return b;
 }
-root.TI30XB = { create, open, fab, icon, version:'1.1' };
+root.TI30XB = { create, open, fab, icon, fullscreen, version:'1.2' };
 })(typeof window !== 'undefined' ? window : globalThis);
