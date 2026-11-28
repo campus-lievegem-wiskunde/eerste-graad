@@ -555,8 +555,8 @@ T({ id:'s09', h:'schets', niv:1, bron:'een klassiek zaagprobleem', maak(R){
     hint:[{ fase:'plannen', vraag:'Teken een balk in 3 stukken. Hoeveel zaagsneden heb je nodig?', ans:2 },
       { fase:'uitvoeren', vraag:`Hoeveel zaagsneden heb je voor ${n} stukken?`, ans:n - 1 }],
     uitw:{ begrijpen:`De balk moet in ${n} stukken, één zaagsnede duurt ${t} min.`,
-      plannen:'Maak een schets van de balk met de zaagsneden.' + svg(260, 40, rh(5, 8, 250, 24, { f:'#e8c48a', k:'var(--ink)' }) + Array.from({ length:3 }, (_, i)=>lijn(5 + (i + 1) * 62.5, 2, 5 + (i + 1) * 62.5, 38, { k:'var(--bad)', w:2.5, d:'4 3' })).join(''), { b:260 }),
-      uitvoeren:`Voor 4 stukken zijn er 3 zaagsneden: altijd één minder dan stukken. ${n} stukken → ${n - 1} zaagsneden → ${n - 1} · ${t} = <b>${(n - 1) * t} minuten</b>.`,
+      plannen:`Maak een schets van de balk in ${n} stukken met de zaagsneden.` + svg(260, 40, rh(5, 8, 250, 24, { f:'#e8c48a', k:'var(--ink)' }) + Array.from({ length:n - 1 }, (_, i)=>lijn(5 + (i + 1) * 250 / n, 2, 5 + (i + 1) * 250 / n, 38, { k:'var(--bad)', w:2.5, d:'4 3' })).join(''), { b:260 }),
+      uitvoeren:`Tel in de schets: ${n} stukken en ${n - 1} zaagsneden, altijd één minder dan stukken. ${n - 1} zaagsneden · ${t} min = <b>${(n - 1) * t} minuten</b>.`,
       terugkijken:'Het laatste stuk heeft geen zaagsnede nodig: het blijft vanzelf over.' } };
 } });
 
@@ -604,7 +604,8 @@ T({ id:'s08', h:'schets', niv:2, bron:'Kangoeroe', maak(R){
   const [A, B] = R.pick([['voetbal', 'zwemmen'], ['piano', 'gitaar'], ['een hond', 'een kat'], ['Frans', 'Engels'], ['tennis', 'judo']]);
   const x = R.int(4, 11), y = R.int(3, 10), c = R.int(2, 7), z = R.int(1, 6), n = x + y + c + z, a = x + c, b = y + c;
   const Z = { 'voetbal':['voetballen', 'voetballen'], 'zwemmen':['zwemmen', 'zwemmen'], 'piano':['spelen piano', 'piano spelen'], 'gitaar':['spelen gitaar', 'gitaar spelen'], 'een hond':['hebben een hond', 'een hond hebben'], 'een kat':['hebben een kat', 'een kat hebben'], 'Frans':['spreken Frans', 'Frans spreken'], 'Engels':['spreken Engels', 'Engels spreken'], 'tennis':['tennissen', 'tennissen'], 'judo':['doen aan judo', 'aan judo doen'] };
-  return { tekst:`<p>In een groep zitten ${n} jongeren. ${a} jongeren ${Z[A][0]}. ${b} jongeren ${Z[B][0]}. ${c} jongeren ${Z[A][0].split(' ')[0] === Z[B][0].split(' ')[0] && Z[A][0].includes(' ') ? Z[A][0].split(' ')[0] + ' ' + Z[A][0].split(' ').slice(1).join(' ') + ' én ' + Z[B][0].split(' ').slice(1).join(' ') : Z[A][0] + ' én ' + Z[B][0]}.</p><p><b>Hoeveel jongeren ${Z[A][1].includes(' ') ? 'doen geen van beide' : 'doen geen van beide'}?</b></p>`,
+  const GEEN = { 'voetbal':'doen geen van beide sporten', 'piano':'spelen geen van beide instrumenten', 'een hond':'hebben geen van beide huisdieren', 'Frans':'spreken geen van beide talen', 'tennis':'doen geen van beide sporten' };
+  return { tekst:`<p>In een groep zitten ${n} jongeren. ${a} jongeren ${Z[A][0]}. ${b} jongeren ${Z[B][0]}. ${c} jongeren ${Z[A][0].split(' ')[0] === Z[B][0].split(' ')[0] && Z[A][0].includes(' ') ? Z[A][0].split(' ')[0] + ' ' + Z[A][0].split(' ').slice(1).join(' ') + ' én ' + Z[B][0].split(' ').slice(1).join(' ') : Z[A][0] + ' én ' + Z[B][0]}.</p><p><b>Hoeveel jongeren ${GEEN[A]}?</b></p>`,
     mc:opties(R, z, [n - a - b, n - a - b + 2 * c, n - c, c + z, n - a, z + 2], { min:0 }),
     hint:[{ fase:'plannen', vraag:`Teken twee cirkels die overlappen. In het stuk dat ze delen komen ${c} jongeren. Hoeveel komen er in het stuk van enkel ${A}?`, ans:x },
       { fase:'uitvoeren', vraag:`Hoeveel jongeren enkel ${B}?`, ans:y },
