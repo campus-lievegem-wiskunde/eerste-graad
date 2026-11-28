@@ -4048,8 +4048,8 @@ function boogjes(row, st, save, key, E, o={}){
   const tip = el('div', 'm5-bg-tip', o.wacht ? 'Teken eerst de boogjes: klik op elke term tussen de haakjes.' : 'Klik op elke term tussen de haakjes: zo teken je de boogjes.');
   /* tussenstap: elk boogje schrijft zijn product, bv. (−9 · 6) + (−9 · (−6)) */
   const F = D.f==='-' ? MIN + '1' : ltH(D.f); const haak = x => { const s = x.replace(/\s+/g, ''); return s[0]==='-' ? `(${ltH(s)})` : ltH(s.replace(/^\+/, '')); };
-  const uit = el('div', 'm5-bg-uit'); row.querySelector('.m4-line').after(...(o.stap ? [uit, tip] : [tip]));
-  const schrijf = () => { if(!o.stap) return; uit.innerHTML = `<span class="m4-is">=</span> ` + D.T.map((x, i) => S.includes(i) ? `<span class="m5-bg-p">(${F} · ${haak(x)})</span>` : '<span class="m5-bg-leeg">( … )</span>').join(' + '); };
+  const uit = el('span', 'm5-bg-uit'); if(o.stap) plek.after(uit); row.querySelector('.m4-line').after(tip);
+  const schrijf = () => { if(!o.stap) return; uit.innerHTML = ` <span class="m4-is">=</span> ` + D.T.map((x, i) => S.includes(i) ? `<span class="m5-bg-p">(${F} · ${haak(x)})</span>` : '<span class="m5-bg-leeg">( … )</span>').join(' + '); };
   const teken = () => { const r0 = w.getBoundingClientRect(); if(!r0.width) return; const fr = fEl.getBoundingClientRect(); const fx = fr.left + fr.width/2 - r0.left; const y0 = fr.top - r0.top + 2;
     svg.setAttribute('width', r0.width); svg.setAttribute('height', r0.height);
     svg.innerHTML = S.map(i => { const tr = tEl[i].getBoundingClientRect(); const tx = tr.left + tr.width/2 - r0.left; const h = Math.min(y0 - 1, 10 + Math.abs(tx - fx)*.12);
@@ -4112,7 +4112,8 @@ SEC.distr = { id:'distr', ic:'z_distr', nav:'Distributiviteit', title:'Distribut
   .m5-bg-t:hover, .m5-bg-f:hover{background:#e8f0fd}
   .m5-bg-t.af{border-bottom-color:transparent; color:#1d4fa3; cursor:default; background:none}
   .m5-bwacht .m5-rest, .m5-bwacht .m4-wz, .m5-bwacht > .vx-balk, .m5-bwacht > .q-act, .m5-bwacht > .hint-gr{display:none}
-  .m5-bg-uit{font-size:1.15rem; font-weight:700; margin:.2rem 0 0 1.6rem; color:#1d4fa3; font-variant-numeric:tabular-nums}
+  .m5-bg-uit{font-weight:700; color:#1d4fa3; font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.3em}
+  .m5-bg-tip{flex-basis:100%}
   .m5-bg-p{animation:m5-in .35s both} .m5-bg-leeg{color:#9cc0f0; font-weight:600}
   .m5-bg-tip{font-size:.9rem; color:var(--ink-soft); margin:.15rem 0 .3rem}
   .m5-bg-tip.ok{color:var(--ok)} .m5-bg-tip.info{color:#1d4fa3}
