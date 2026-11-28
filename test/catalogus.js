@@ -18,12 +18,12 @@ const fs = require('fs'); const path = require('path'); const { chromium } = req
   for(const s of SITES){
     const p = await ctx.newPage(); const fout = []; p.on('pageerror', e=>fout.push(e.message));
     await p.goto(`http://localhost:8765/${s.pad}_catalogus.html?site=${s.id}&prefix=${s.prefix}&stroom=${/B$/.test(s.jaar || '') ? 'B' : 'A'}`); await p.waitForTimeout(800);
-    const secs = await p.evaluate(()=>SECTIONS.map(x=>({ id:x.id, naam:x.nav, toets:/^toets/.test(x.id) })));
+    const secs = await p.evaluate(()=>SECTIONS.map(x=>Object.assign({ id:x.id, naam:x.nav, toets:/^toets/.test(x.id) }, x.ook ? { ook:x.ook } : {})));
     for(const sec of secs) await p.evaluate(id=>show(id, false), sec.id);
     await p.waitForTimeout(300);
     const ids = await p.evaluate(()=>[...new Set(__ids)]);
-    const lang = [...secs].sort((a, c)=>c.id.length - a.id.length); secs.forEach(x=>x.vragen = 0);
-    ids.forEach(id=>{ const sec = lang.find(x=>id.startsWith(x.id + '_')); if(sec) sec.vragen++; });
+    const lang = secs.flatMap(x=>[x.id, ...(x.ook || [])].map(k=>({ k, x }))).sort((a, c)=>c.k.length - a.k.length); secs.forEach(x=>x.vragen = 0);
+    ids.forEach(id=>{ const t = lang.find(y=>id.startsWith(y.k + '_')); if(t) t.x.vragen++; });
     uit.push(Object.assign({}, s, { onderdelen:secs })); console.log(s.id, secs.length + ' onderdelen', ids.length + ' vragen', fout.slice(0, 2).join(' | ')); await p.close();
     if(fout.length || !secs.length){ fouten++; console.log('NIET OK', s.id, fout.length ? 'JavaScript-fouten' : 'geen onderdelen'); }
   }

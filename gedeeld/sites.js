@@ -483,27 +483,27 @@ export const SITES = [
    },
    {
     "id": "optel",
-    "naam": "Optellen",
+    "naam": "Optellen en aftrekken",
     "toets": false,
-    "vragen": 55
-   },
-   {
-    "id": "aftrek",
-    "naam": "Aftrekken",
-    "toets": false,
-    "vragen": 43
+    "ook": [
+     "aftrek"
+    ],
+    "vragen": 69
    },
    {
     "id": "maal",
-    "naam": "Vermenigvuldigen",
+    "naam": "Vermenigvuldigen en delen",
     "toets": false,
-    "vragen": 34
+    "ook": [
+     "deel"
+    ],
+    "vragen": 72
    },
    {
-    "id": "deel",
-    "naam": "Delen",
+    "id": "vier",
+    "naam": "De vier bewerkingen",
     "toets": false,
-    "vragen": 45
+    "vragen": 29
    },
    {
     "id": "eig",

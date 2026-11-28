@@ -115,7 +115,8 @@ function kiesGroepen(body){
 }
 
 /* ---------- voortgang ---------- */
-function sectieVan(site, vraagId){ let best = null; site.onderdelen.forEach(o=>{ if(vraagId.startsWith(o.id + '_') && (!best || o.id.length > best.id.length)) best = o; }); return best; }
+/* o.ook: id's van vroegere onderdelen die in dit onderdeel opgingen (hun vraag-id's beginnen nog met dat oude id) */
+function sectieVan(site, vraagId){ let best = null, lengte = 0; site.onderdelen.forEach(o=>{ [o.id, ...(o.ook || [])].forEach(id=>{ if(vraagId.startsWith(id + '_') && id.length > lengte){ best = o; lengte = id.length; } }); }); return best; }
 /* letter A-E als bolletje; E betekent: D nog niet beheerst */
 const NIV_UITLEG = { A:'niveau A (hoogste)', B:'niveau B', C:'niveau C', D:'niveau D', E:'E: D nog niet beheerst' };
 function nivBol(nv, extra){ if(!nv) return ''; if(!nv.n) return nv.t ? `<b class="niv-l niv-leeg" title="nog te weinig gegevens (${nv.j}/${nv.t} juist): minstens 3 antwoorden per niveau nodig">?</b>` : ''; return `<b class="niv-l${nv.n === 'E' ? ' niv-e' : ''}" title="${esc(NIV_UITLEG[nv.n] || 'niveau ' + nv.n)}${nv.t ? ` · ${nv.j}/${nv.t} juist` : ''}${extra ? ' · ' + esc(extra) : ''}">${esc(nv.n)}</b>`; }
