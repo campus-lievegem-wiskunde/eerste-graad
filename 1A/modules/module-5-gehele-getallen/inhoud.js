@@ -5143,7 +5143,7 @@ const CHEAT_MD = `<h3>Spiekbriefje · vermenigvuldigen en delen</h3><table>
   <tr><td>controle</td><td>quotiënt · deler = deeltal</td></tr><tr><td>0</td><td>0 : ${zP(-5)} = 0, maar delen door 0 kan niet</td></tr></table>`;
 Object.assign(SEC.maal, { nav:'Vermenigvuldigen en delen', title:'Gehele getallen vermenigvuldigen en delen', cheat:CHEAT_MD,
   tip:'Stap 1: vermenigvuldig of deel de absolute waarden. Stap 2: tel de minnetjes: een even aantal geeft een positief getal, een oneven aantal een negatief getal.' });
-SEC.maal.toon = toonVan(SEC.maal, [MA.patroon1, MA.patroon2, MA.sprong, DE.omg, MD.stap, MD.min, MD.ber,
+SEC.maal.toon = toonVan(SEC.maal, [MD.min, MD.stap, MD.ber, MA.sprong, DE.omg,
   MA.tabel, MA.pir, DE.ber2, MA.ctx, DE.gem, DE.wnw,
   MA.groot, MD.groot, MA.vgl, DE.aanvul, DE.groot]);
 delete SEC.aftrek; delete SEC.deel;

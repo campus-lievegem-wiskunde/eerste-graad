@@ -497,7 +497,7 @@ export const SITES = [
     "ook": [
      "deel"
     ],
-    "vragen": 72
+    "vragen": 70
    },
    {
     "id": "vier",
