@@ -503,7 +503,7 @@ export const SITES = [
     "id": "vier",
     "naam": "De vier bewerkingen",
     "toets": false,
-    "vragen": 29
+    "vragen": 37
    },
    {
     "id": "eig",

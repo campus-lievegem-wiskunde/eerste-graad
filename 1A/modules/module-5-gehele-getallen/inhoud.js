@@ -3873,20 +3873,20 @@ function vglKaart(b, st, save, P, slot){
     mQ(s1, st, save, 'r' + i, { html:`${zT(E1)} ${isq} {{u:a}}<span class="m5-nl"></span>${zT(E2)} ${isq} {{u:b}}`, check:V=>allOf([['a', chkGt(V.a, T1)], ['b', chkGt(V.b, T2)]]), onOk:() => verder() }); },
     slot, P.map(([E1, E2]) => `${zT(E1)} ${ZX.waarde(E1).k===ZX.waarde(E2).k ? '=' : '≠'} ${zT(E2)}`));
 }
-EI.wissel = { title:'Mag je wisselen?', lvl:1,
+EI.wissel = { title:'Mag je wisselen? (commutatief)', lvl:1,
   instr:'Wissel de twee getallen van plaats. Blijft de uitkomst gelijk? Reken beide kanten uit en vergelijk.',
   build(b, st, save){ const R = makeR(st); const a = nz(R, -9, 9), c = nz(R, -9, 9), f = nz(R, -9, 9), h = nz(R, -9, 9);
     let x = nz(R, -9, 9), y = nz(R, -9, 9); while(x===y) y = nz(R, -9, 9);
-    vglKaart(b, st, save, [[`${zS(a)} + ${zP(c)}`, `${zS(c)} + ${zP(a)}`, 'Bij optellen mag je de termen wisselen.'], [`${zS(x)} − ${zP(y)}`, `${zS(y)} − ${zP(x)}`, 'Bij aftrekken mag je niet wisselen: je krijgt het tegengestelde.'],
-      [`${zS(f)} · ${zP(h)}`, `${zS(h)} · ${zP(f)}`, 'Bij vermenigvuldigen mag je de factoren wisselen.']],
-      'Optellen en vermenigvuldigen zijn <b>commutatief</b>: je mag wisselen (wisseleigenschap). Bij aftrekken mag dat niet.'); } };
-EI.schakel = { title:'Mag je schakelen?', lvl:1,
+    vglKaart(b, st, save, [[`${zS(a)} + ${zP(c)}`, `${zS(c)} + ${zP(a)}`, 'Bij optellen mag je de termen wisselen: optellen is commutatief.'], [`${zS(x)} − ${zP(y)}`, `${zS(y)} − ${zP(x)}`, 'Bij aftrekken mag je niet wisselen: je krijgt het tegengestelde. Aftrekken is niet commutatief.'],
+      [`${zS(f)} · ${zP(h)}`, `${zS(h)} · ${zP(f)}`, 'Bij vermenigvuldigen mag je de factoren wisselen: vermenigvuldigen is commutatief.']],
+      'Optellen en vermenigvuldigen zijn <b>commutatief</b>: je mag wisselen. Dat is de <b>commutatieve eigenschap</b> (wisseleigenschap). Bij aftrekken en delen mag dat niet.'); } };
+EI.schakel = { title:'Mag je schakelen? (associatief)', lvl:1,
   instr:'Zet de haakjes op een andere plaats. Blijft de uitkomst gelijk? Reken beide kanten uit en vergelijk.',
   build(b, st, save){ const R = makeR(st); const a = nz(R, -9, 9), c = nz(R, -9, 9), d = nz(R, -9, 9), x = nz(R, -9, 9), y = nz(R, -6, 6), z = nz(R, -6, 6), f = R.sign()*R.int(2, 4), g = R.sign()*R.int(2, 4), h = R.sign()*R.int(2, 4);
-    vglKaart(b, st, save, [[`(${zS(a)} + ${zP(c)}) + ${zP(d)}`, `${zS(a)} + (${zS(c)} + ${zP(d)})`, 'Bij optellen mag je schakelen.'],
-      [`(${zS(x)} − ${zP(y)}) − ${zP(z)}`, `${zS(x)} − (${zS(y)} − ${zP(z)})`, 'Bij aftrekken mag je niet schakelen.'],
-      [`(${zS(f)} · ${zP(g)}) · ${zP(h)}`, `${zS(f)} · (${zS(g)} · ${zP(h)})`, 'Bij vermenigvuldigen mag je schakelen.']],
-      'Optellen en vermenigvuldigen zijn <b>associatief</b>: je mag schakelen (schakeleigenschap). Bij aftrekken en delen mag dat niet.'); } };
+    vglKaart(b, st, save, [[`(${zS(a)} + ${zP(c)}) + ${zP(d)}`, `${zS(a)} + (${zS(c)} + ${zP(d)})`, 'Bij optellen mag je schakelen: optellen is associatief.'],
+      [`(${zS(x)} − ${zP(y)}) − ${zP(z)}`, `${zS(x)} − (${zS(y)} − ${zP(z)})`, 'Bij aftrekken mag je niet schakelen: aftrekken is niet associatief.'],
+      [`(${zS(f)} · ${zP(g)}) · ${zP(h)}`, `${zS(f)} · (${zS(g)} · ${zP(h)})`, 'Bij vermenigvuldigen mag je schakelen: vermenigvuldigen is associatief.']],
+      'Optellen en vermenigvuldigen zijn <b>associatief</b>: je mag schakelen. Dat is de <b>associatieve eigenschap</b> (schakeleigenschap). Bij aftrekken en delen mag dat niet.'); } };
 /* een eigenschap ontdekken: eerst uitrekenen, dan verschijnt de eigenschap met haar naam */
 function eigKaart(title, instr, maak, naam, regel){ return { title, lvl:1, instr,
   build(b, st, save){ const R = makeR(st); const L = maak(R);
@@ -3915,7 +3915,7 @@ EI.vul = { title:'Bijzondere getallen', lvl:1,
       () => { const a = n(); return [`${zS(a)} · {{u:a}} ${isq} ${zS(-a)}`, -1, `Maal ${MIN}1 geeft het tegengestelde.`]; }]).map(f => f());
     reeks(b, L.length, (g, i, nr) => { const [h, T, why] = L[i]; mQ(g, st, save, 'v' + i, { nr, html:h, check:V=>chkG(V.a, T), sol:why }); });
   } };
-const EIG5 = [['w', 'wisseleigenschap (commutatief)'], ['s', 'schakeleigenschap (associatief)'], ['n', 'neutraal element'], ['y', 'symmetrisch element'], ['o', 'opslorpend element']];
+const EIG5 = [['w', 'commutatief (wisseleigenschap)'], ['s', 'associatief (schakeleigenschap)'], ['n', 'neutraal element'], ['y', 'symmetrisch element'], ['o', 'opslorpend element']];
 EI.benoem = { title:'Welke eigenschap?', lvl:1,
   instr:'Welke eigenschap wordt hier gebruikt?',
   build(b, st, save){
@@ -3929,13 +3929,13 @@ EI.gelijk = { title:'Gelijk of niet?', lvl:2,
   instr:'Reken niet uit. Kies = als beide kanten altijd dezelfde uitkomst geven.',
   build(b, st, save){
     const R = makeR(st); const n = () => nz(R, -30, 30); const a = n(), c = n(), d = n();
-    const L = R.shuffle([[`${zS(a)} − ${zP(c)} … ${zS(c)} − ${zP(a)}`, '≠', 'Bij aftrekken mag je niet wisselen.'], [`${zS(a)} · ${zP(c)} · ${zP(d)} … ${zS(d)} · ${zP(a)} · ${zP(c)}`, '=', 'Bij vermenigvuldigen mag je wisselen en schakelen.'],
-      [`${zS(a)} + ${zP(c)} + ${zP(d)} … ${zS(d)} + ${zP(c)} + ${zP(a)}`, '=', 'Bij optellen mag je wisselen en schakelen.'], [`(${zS(a)} − ${zP(c)}) − ${zP(d)} … ${zS(a)} − (${zS(c)} − ${zP(d)})`, '≠', 'Bij aftrekken mag je niet schakelen.'],
-      [`${zS(a)} − ${zP(c)} … ${zS(a)} + ${zP(-c)}`, '=', 'Aftrekken is het tegengestelde optellen.'], [`${zS(a*4)} : 4 … 4 : ${zP(a*4)}`, '≠', 'Bij delen mag je niet wisselen.']]);
+    const L = R.shuffle([[`${zS(a)} − ${zP(c)} … ${zS(c)} − ${zP(a)}`, '≠', 'Bij aftrekken mag je niet wisselen: aftrekken is niet commutatief.'], [`${zS(a)} · ${zP(c)} · ${zP(d)} … ${zS(d)} · ${zP(a)} · ${zP(c)}`, '=', 'Bij vermenigvuldigen mag je wisselen en schakelen: vermenigvuldigen is commutatief en associatief.'],
+      [`${zS(a)} + ${zP(c)} + ${zP(d)} … ${zS(d)} + ${zP(c)} + ${zP(a)}`, '=', 'Bij optellen mag je wisselen en schakelen: optellen is commutatief en associatief.'], [`(${zS(a)} − ${zP(c)}) − ${zP(d)} … ${zS(a)} − (${zS(c)} − ${zP(d)})`, '≠', 'Bij aftrekken mag je niet schakelen: aftrekken is niet associatief.'],
+      [`${zS(a)} − ${zP(c)} … ${zS(a)} + ${zP(-c)}`, '=', 'Aftrekken is het tegengestelde optellen.'], [`${zS(a*4)} : 4 … 4 : ${zP(a*4)}`, '≠', 'Bij delen mag je niet wisselen: delen is niet commutatief.']]);
     reeks(b, L.length, (g, i, nr) => { const [h, ans, why] = L[i]; qChoice(g, st, save, 'g' + i, { nr, html:`<span class="m5-groot">${h}</span>`, opts:GL, sym:true, ans, why }); }, {een:true});
   } };
 EI.handig = { title:'Handig rekenen', lvl:2,
-  instr:'Wissel en schakel slim zodat je makkelijk kan rekenen. Werk uit in het vak.',
+  instr:'Wissel (commutatief) en schakel (associatief) slim zodat je makkelijk kan rekenen. Werk uit in het vak.',
   build(b, st, save){
     const R = makeR(st); const a = R.int(11, 89), c = R.int(3, 19), d = R.int(21, 79), m = R.int(3, 19), p = R.int(11, 49);
     const L = R.shuffle([`-${a} + ${c} + ${a}`, `4 · (-${m}) · 25`, `-${d} + ${c} + (-${100 - d})`, `(-2) · ${m} · (-5)`, `${p} + (-${c}) + (-${p}) + ${c} + (-7)`, `-25 · ${R.int(3, 9)} · (-4)`]).slice(0, 4);
@@ -3966,8 +3966,8 @@ EI.tegen = { title:'Zoek een tegenvoorbeeld', lvl:3,
         check:V=>{ const X = e.k.map(k => getal(V[k])); if(X.some(x => x==null)) return {info:true, msg:'Vul bij elke letter een geheel getal in.'}; return e.f(X) ? {ok:true, msg:e.s(X) + '. ' + e.t} : {ok:false, msg:e.m}; } }); }, {een:true});
   } };
 const CHEAT_EIG = `<h3>Spiekbriefje · eigenschappen</h3><table>
-  <tr><td>wisseleigenschap<br>(commutatief)</td><td>mag bij + en ·: ${MIN}3 + 5 = 5 + (${MIN}3), maar niet bij − en :</td></tr>
-  <tr><td>schakeleigenschap<br>(associatief)</td><td>mag bij + en ·: (${MIN}2 · 5) · 7 = ${MIN}2 · (5 · 7), maar niet bij − en :</td></tr>
+  <tr><td>commutatief<br>(wisseleigenschap)</td><td>mag bij + en ·: ${MIN}3 + 5 = 5 + (${MIN}3), maar niet bij − en :</td></tr>
+  <tr><td>associatief<br>(schakeleigenschap)</td><td>mag bij + en ·: (${MIN}2 · 5) · 7 = ${MIN}2 · (5 · 7), maar niet bij − en :</td></tr>
   <tr><td>neutraal element</td><td>0 voor +: <i>a</i> + 0 = <i>a</i>; 1 voor ·: <i>a</i> · 1 = <i>a</i></td></tr>
   <tr><td>symmetrisch element</td><td>het tegengestelde: <i>a</i> + (${MIN}<i>a</i>) = 0</td></tr>
   <tr><td>opslorpend element</td><td>0 voor ·: <i>a</i> · 0 = 0</td></tr>
@@ -5152,20 +5152,20 @@ delete SEC.aftrek; delete SEC.deel;
 /* een opgave met + of − (met tekenpaar) of met · of : */
 function vierOpg(R, soort){
   if(soort==='+' || soort==='−'){ const a = nz(R, -20, 20), c = nz(R, -15, 15); const T = soort==='+' ? a + c : a - c;
-    return {txt:`${zS(a)} ${soort} ${zP(c)}`, T, pm:true, hint:['Plus of min: vereenvoudig eerst het tekenpaar, dan is het een som. Spring op de getallenas of laat de legertjes vechten.'],
+    return {txt:`${zS(a)} ${soort} ${zP(c)}`, T, pm:true, hint:['Het is een plus of een min. Maak van de twee tekens één teken. Reken dan met de getallenas of de soldaatjes.'],
       sol:`${zS(a)} ${soort} ${zP(c)} ${isq} ${zS(a)} ${(soort==='+') === (c > 0) ? '+' : MIN} ${Math.abs(c)} ${isq} ${zS(T)}`}; }
-  const K = mdKeten(R, 2, 10, [soort]); return {txt:mdTxt(K), T:K.T, pm:false, hint:['Maal of gedeeld door: tel de minnetjes.', ...mdHint(K)], sol:mdSol(K)};
+  const K = mdKeten(R, 2, 10, [soort]); return {txt:mdTxt(K), T:K.T, pm:false, hint:['Het is een maal of een gedeeld door: tel de minnetjes.', ...mdHint(K)], sol:mdSol(K)};
 }
-const AANPAK = [['t', 'tekenpaar vereenvoudigen en optellen'], ['m', 'absolute waarden en minnetjes tellen']];
+const AANPAK = [['m', 'ja, tel de minnetjes'], ['t', 'nee, reken zoals bij optellen en aftrekken']];
 const VR = {};
-VR.welke = { title:'Welke aanpak?', lvl:1,
-  instr:'Reken nog niet. Kies de aanpak die past. Bij + en − vereenvoudig je het tekenpaar. Bij · en : reken je met de absolute waarden en tel je de minnetjes.',
+VR.welke = { title:'Minnetjes tellen: ja of nee?', lvl:1,
+  instr:'Reken nog niet. Moet je hier de minnetjes tellen? Dat doe je enkel bij maal en gedeeld door.',
   build(b, st, save){
     const R = makeR(st); const L = R.shuffle(['+', '−', '·', ':', '−', '·']).map(s => vierOpg(R, s));
     reeks(b, L.length, (g, i, nr) => { const O = L[i];
       qChoice(g, st, save, 'w' + i, { nr, html:`<span class="m5-groot">${O.txt}</span>`, opts:AANPAK, ans:O.pm ? 't' : 'm',
-        why:O.pm ? 'Het is een plus of een min: vereenvoudig het tekenpaar en tel op.' : 'Het is een maal of een gedeeld door: absolute waarden en minnetjes tellen.',
-        whyBad:'Kijk naar het bewerkingsteken tussen de twee getallen.' }); });
+        why:O.pm ? 'Het is een plus of een min: je telt geen minnetjes.' : 'Het is een maal of een gedeeld door: je telt de minnetjes.',
+        whyBad:'Kijk naar het teken tussen de twee getallen.' }); });
   } };
 VR.pm = { title:'Plus of maal?', lvl:1,
   instr:'Telkens dezelfde twee getallen, maar een andere bewerking. Let op: minnetjes tellen doe je alleen bij · en :.',
@@ -5174,11 +5174,11 @@ VR.pm = { title:'Plus of maal?', lvl:1,
     reeks(b, L.length, (g, i, nr) => { const [a, c, o] = L[i]; const S = o==='+' ? a + c : a - c;
       mQ(g, st, save, 'p' + i, { nr, html:`${zS(a)} ${o} ${zP(c)} ${isq} {{u:s}}<span class="m5-nl"></span>${prT(a, c)} ${isq} {{u:p}}`,
         check:V=>allOf([['s', chkG(V.s, S, [[a*c, 'Dat is het product. Bij een plus of een min tel je geen minnetjes.'], [-S, 'Kijk nog eens naar het teken.']])], ['p', chkG(V.p, a*c, [[S, 'Dat is de uitkomst van de andere bewerking.'], [-a*c, 'Tel de minnetjes opnieuw.']])]]),
-        hint:['Bovenaan: vereenvoudig het tekenpaar en tel op. Onderaan: absolute waarden vermenigvuldigen en minnetjes tellen.'],
+        hint:['Bovenaan is het een plus of een min: reken zoals bij optellen en aftrekken. Onderaan is het een maal: tel de minnetjes.'],
         sol:`${zS(a)} ${o} ${zP(c)} ${isq} ${zS(S)} en ${prT(a, c)} ${isq} ${zS(a*c)}` }); }, {een:true});
   } };
 VR.ber = { title:'Bereken: alles door elkaar', lvl:2,
-  instr:'Kijk eerst naar het bewerkingsteken en kies je aanpak. Een negatief getal typ je met een minteken.',
+  instr:'Kijk eerst naar het teken tussen de getallen. Plus of min: reken zoals bij optellen en aftrekken. Maal of gedeeld door: tel de minnetjes. Een negatief getal typ je met een minteken.',
   build(b, st, save){
     const R = makeR(st); const L = R.shuffle(['+', '+', '−', '−', '·', '·', ':', ':']).map(s => vierOpg(R, s));
     reeks(b, L.length, (g, i, nr) => { const O = L[i];
@@ -5205,13 +5205,27 @@ VR.vul = { title:'Vul aan: alles door elkaar', lvl:3,
     reeks(b, L.length, (g, i, nr) => { const [a, s, c, T] = L[i];
       mQ(g, st, save, 'v' + i, { nr, html:`${zS(a)} ${s} {{u:a}} ${isq} ${zS(T)}`, check:V=>chkG(V.a, c), hint:['Probeer een getal en reken na. Let op het bewerkingsteken.'], sol:`${zS(a)} ${s} ${zP(c)} ${isq} ${zS(T)}` }); });
   } };
+/* 28 november 2026 (de beheerder): eerst herkennen welke bewerking het is */
+const BEWNAAM = {'+':'optellen', '−':'aftrekken', '·':'vermenigvuldigen', ':':'delen'};
+const BEWOPTS = [['+', 'optellen'], ['−', 'aftrekken'], ['·', 'vermenigvuldigen'], [':', 'delen']];
+VR.bew = { title:'Welke bewerking is dit?', lvl:1,
+  instr:'Reken nog niet. Kijk naar het teken tussen de twee getallen: is het optellen, aftrekken, vermenigvuldigen of delen? Het minteken vlak voor een getal hoort bij dat getal.',
+  build(b, st, save){
+    const R = makeR(st); const S = R.shuffle(['+', '−', '·', ':', '+', '−', '·', ':']); const L = S.map(s => [s, vierOpg(R, s)]);
+    reeks(b, L.length, (g, i, nr) => { const [s, O] = L[i];
+      qChoice(g, st, save, 'b' + i, { nr, html:`<span class="m5-groot">${O.txt}</span>`, opts:BEWOPTS, ans:s,
+        why:`Tussen de twee getallen staat ${s}: dat is ${BEWNAAM[s]}.`,
+        whyBad:'Kijk naar het teken tussen de twee getallen, niet naar het minteken van een getal.' }); });
+  } };
+
 const CHEAT_VIER = `<h3>Spiekbriefje · de vier bewerkingen</h3><table>
-  <tr><td>+ en −</td><td>vereenvoudig het tekenpaar: gelijke tekens worden +, verschillende tekens worden −; daarna tel je op (getallenas of legertjes)<div class="m4-line">${zS(-3)} − ${zP(-5)} ${isq} ${zS(-3)} + 5 ${isq} 2</div></td></tr>
-  <tr><td>· en :</td><td>stap 1: absolute waarden; stap 2: tel de minnetjes (even +, oneven −)<div class="m4-line">${prT(-3, -5)} ${isq} 15</div></td></tr>
+  <tr><td>+ en −</td><td>maak van twee tekens één teken (gelijk wordt +, verschillend wordt −) en reken met de getallenas of de soldaatjes<div class="m4-line">${zS(-3)} − ${zP(-5)} ${isq} ${zS(-3)} + 5 ${isq} 2</div></td></tr>
+  <tr><td>· en :</td><td>reken zonder mintekens en tel de minnetjes (even +, oneven −)<div class="m4-line">${prT(-3, -5)} ${isq} 15</div></td></tr>
   <tr><td>let op</td><td>${zS(-3)} + ${zP(-5)} ${isq} ${MIN}8, maar ${prT(-3, -5)} ${isq} 15</td></tr></table>`;
 SEC.vier = { id:'vier', ic:'z_mix', nav:'De vier bewerkingen', title:'De vier bewerkingen door elkaar',
-  tip:'Kijk eerst naar het bewerkingsteken. Plus of min: vereenvoudig het tekenpaar. Maal of gedeeld door: absolute waarden en minnetjes tellen.',
-  cheat:CHEAT_VIER, cards:[VR.welke, VR.pm, VR.ber, VR.wnw, VR.vul] };
+  tip:'Kijk eerst naar het teken tussen de getallen. Plus of min: reken zoals bij optellen en aftrekken. Maal of gedeeld door: tel de minnetjes.',
+  cheat:CHEAT_VIER, cards:[VR.welke, VR.pm, VR.ber, VR.wnw, VR.vul, VR.bew] };   /* nieuwe kaarten achteraan */
+SEC.vier.toon = toonVan(SEC.vier, [VR.bew, VR.welke, VR.pm, VR.ber, VR.wnw, VR.vul]);
 /* volgorde van de onderdelen in het menu */
 const ORDER = ['getal', 'abs', 'orde', 'optel', 'maal', 'vier', 'eig', 'distr', 'gedur', 'volg', 'mix', 'fout', 'quiz', 'spel', 'toets1', 'toets2', 'toets3'];
 const SECTIONS = ORDER.map(id=>SEC[id]).filter(Boolean);
