@@ -3997,12 +3997,13 @@ DI.recht = { title:'Het rechthoekmodel', lvl:1,
       'Distributiviteit: <i>a</i> · (<i>b</i> + <i>c</i>) = <i>a</i> · <i>b</i> + <i>a</i> · <i>c</i>.', P.map(([a, c, d]) => `${zS(a)} · (${zS(c)} + ${zP(d)}) = ${zS(a*c + a*d)}`));
   } };
 DI.uit = { title:'Haakjes uitwerken', lvl:1,
-  instr:'Vermenigvuldig het getal voor de haakjes met elke term. Vul de producten in en reken uit.',
+  instr:'Teken eerst de boogjes: klik op elke term tussen de haakjes. Vermenigvuldig dan het getal voor de haakjes met elke term. Vul de producten in en reken uit.',
   build(b, st, save){
     const R = makeR(st); const P = R.shuffle([[-R.int(2, 9), R.int(2, 9), R.int(2, 9), '+'], [R.int(2, 9), R.int(2, 9), R.int(2, 9), '−'], [-R.int(2, 9), R.int(2, 9), R.int(2, 9), '−'], [-R.int(2, 9), -R.int(2, 9), R.int(2, 9), '+'], [R.int(2, 9), -R.int(2, 9), R.int(2, 9), '−']]);
     reeks(b, P.length, (g, i, nr) => { const [a, c, d, op] = P[i]; const q = op==='+' ? a*d : -a*d; const T = a*c + q;
-      mQ(g, st, save, 'u' + i, { nr, html:`${zS(a)} · (${zS(c)} ${op} ${d}) ${isq} {{u:p}} + ({{u:q}}) ${isq} {{u:r}}`, check:V=>allOf([['p', chkGt(V.p, a*c)], ['q', chkGt(V.q, q, [[-q, op==='−' ? `Let op het minteken: ${zS(a)} · (${MIN}${d}) = ${zS(-a*d)}.` : 'Kijk naar de tekens.']])], ['r', chkGt(V.r, T)]]),
-        hint:[`${zS(a)} · ${zP(c)} en ${zS(a)} · ${zP(op==='+' ? d : -d)}`], sol:`${zS(a)} · ${zP(c)} + ${zS(a)} · ${zP(op==='+' ? d : -d)} ${isq} ${zS(a*c)} + ${zP(q)} ${isq} ${zS(T)}` }); }, {een:true});
+      mQ(g, st, save, 'u' + i, { nr, html:`<span class="m5-opg">${zS(a)} · (${zS(c)} ${op} ${d})</span><span class="m5-rest"> ${isq} {{u:p}} + ({{u:q}}) ${isq} {{u:r}}</span>`, check:V=>allOf([['p', chkGt(V.p, a*c)], ['q', chkGt(V.q, q, [[-q, op==='−' ? `Let op het minteken: ${zS(a)} · (${MIN}${d}) = ${zS(-a*d)}.` : 'Kijk naar de tekens.']])], ['r', chkGt(V.r, T)]]),
+        hint:[`${zS(a)} · ${zP(c)} en ${zS(a)} · ${zP(op==='+' ? d : -d)}`], sol:`${zS(a)} · ${zP(c)} + ${zS(a)} · ${zP(op==='+' ? d : -d)} ${isq} ${zS(a*c)} + ${zP(q)} ${isq} ${zS(T)}` });
+      boogjes(laatsteQ(g), st, save, 'b_u' + i, `${a} · (${c} ${op==='+' ? '+' : '-'} ${d})`, {wacht:true}); }, {een:true});
   } };
 DI.ontbreek = { title:'Vul aan', lvl:2,
   instr:'Welk getal ontbreekt? Kijk naar de twee producten.',
@@ -4029,12 +4030,40 @@ DI.buiten = { title:'Buiten haakjes brengen', lvl:2,
         hint:[`${c} + ${zP(e)} ${isq} ${zS(s)}`], sol:`${zS(a)} · (${c} + ${zP(e)}) ${isq} ${zS(a)} · ${zP(s)} ${isq} ${zS(a*s)}` }); }, {een:true});
   } };
 /* met letters: vrij vak */
-function letterOpg(g, st, save, id, nr, E, hint=true){
+/* ---------- boogjes bij distributiviteit (28 november 2026, vraag van de beheerder) ----------
+   De leerling klikt op elke term tussen de haakjes; er komt een boogje van het getal voor de haakjes naar die term.
+   boogjes(row, st, save, key, E, {wacht}): E = opgave in ZX-tekst, bv. '-3 · (x - 5)' of '-(x - 7)'.
+   wacht = true: de invulvakken verschijnen pas als alle boogjes getekend zijn. */
+function distrDelen(E){ const m = E.match(/^(.*?)\s*(?:·\s*)?\((.*)\)$/); if(!m) return null;
+  const T = m[2].replace(/ ([+-]) /g, '|$1 ').split('|'); return {f:m[1], T}; }
+function boogjes(row, st, save, key, E, o={}){
+  const D = distrDelen(E); const plek = row.querySelector('.m5-opg'); if(!D || !plek) return;
+  const S = st[key] = st[key] || []; const n = D.T.length;
+  const w = el('span', 'm5-bg'); const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'm5-bg-svg'); svg.setAttribute('aria-hidden', 'true');
+  const fEl = el('button', 'm5-bg-f', D.f==='-' ? MIN : ltH(D.f)); fEl.type = 'button';
+  w.append(svg, fEl, document.createTextNode(D.f==='-' ? '(' : ' · ('));
+  const tEl = D.T.map((x, i) => { const b = el('button', 'm5-bg-t', ltH(x)); b.type = 'button'; b.setAttribute('aria-label', 'boogje naar ' + x.replace('-', 'min ')); w.append(b); if(i < n - 1) w.append(document.createTextNode(' ')); return b; });
+  w.append(document.createTextNode(')')); plek.innerHTML = ''; plek.append(w);
+  const tip = el('div', 'm5-bg-tip', o.wacht ? 'Teken eerst de boogjes: klik op elke term tussen de haakjes.' : 'Klik op elke term tussen de haakjes: zo teken je de boogjes.');
+  row.querySelector('.m4-line').after(tip);
+  const teken = () => { const r0 = w.getBoundingClientRect(); if(!r0.width) return; const fr = fEl.getBoundingClientRect(); const fx = fr.left + fr.width/2 - r0.left; const y0 = fr.top - r0.top + 2;
+    svg.setAttribute('width', r0.width); svg.setAttribute('height', r0.height);
+    svg.innerHTML = S.map(i => { const tr = tEl[i].getBoundingClientRect(); const tx = tr.left + tr.width/2 - r0.left; const h = Math.min(y0 - 1, 10 + Math.abs(tx - fx)*.12);
+      return `<path d="M${fx},${y0} Q${(fx + tx)/2},${y0 - 2*h} ${tx},${y0}"/><path class="kop" d="M${tx - 4},${y0 - 6} L${tx},${y0} L${tx + 4},${y0 - 6}"/>`; }).join('');
+    tEl.forEach((b, i) => b.classList.toggle('af', S.includes(i))); };
+  const klaar = () => S.length===n;
+  const zet = () => { row.classList.toggle('m5-bwacht', !!o.wacht && !klaar()); if(klaar()){ tip.className = 'm5-bg-tip ok'; tip.textContent = D.f==='-' ? `✓ Elke term krijgt een boogje: vermenigvuldig elke term met ${MIN}1.` : `✓ Elke term krijgt een boogje: vermenigvuldig ${zT(D.f)} met elke term.`; } teken(); };
+  fEl.addEventListener('click', () => { if(klaar()) return; tip.className = 'm5-bg-tip info'; tip.textContent = 'Het boogje begint hier. Klik nu op een term tussen de haakjes.'; });
+  tEl.forEach((b, i) => b.addEventListener('click', () => { if(S.includes(i)) return; S.push(i); save(); zet(); }));
+  if(row.querySelector('.fb.ok') && !klaar()){ D.T.forEach((_, i) => { if(!S.includes(i)) S.push(i); }); }
+  zet(); requestAnimationFrame(teken); if(window.ResizeObserver) new ResizeObserver(teken).observe(w); }
+const laatsteQ = g => { const L = g.querySelectorAll('.m4-q'); return L[L.length - 1]; };
+function letterOpg(g, st, save, id, nr, E, hint=true, wacht=true){
   const T = ZX.waarde(E);
   mQ(g, st, save, id, { nr, html:`<span class="m5-opg">${ltH(E)}</span> {{z:a,mh}}`, check:V=>chkZ(V.a, T, {opg:E}),
-    hint:hint ? ['Vermenigvuldig het getal voor de haakjes met elke term tussen de haakjes. Let op de tekens.'] : undefined, sol:`${ltH(E)} ${isq} ${ZX.H(T).replace(/ · <i>/g, '<i>')}` }); }
+    hint:hint ? ['Vermenigvuldig het getal voor de haakjes met elke term tussen de haakjes. Let op de tekens.'] : undefined, sol:`${ltH(E)} ${isq} ${ZX.H(T).replace(/ · <i>/g, '<i>')}` }); boogjes(laatsteQ(g), st, save, 'b_' + id, E, {wacht}); }
 DI.letter = { title:'Met letters', lvl:2,
-  instr:'Werk de haakjes weg. Een letter vermenigvuldig je zoals een getal: 3 · <i>x</i> schrijf je als 3<i>x</i>.',
+  instr:'Teken eerst de boogjes: klik op elke term tussen de haakjes. Werk dan de haakjes weg. Een letter vermenigvuldig je zoals een getal: 3 · <i>x</i> schrijf je als 3<i>x</i>.',
   build(b, st, save){
     const R = makeR(st); const x = () => R.pick(['x', 'a', 'y']); const n = () => R.int(2, 9);
     const L = [() => `${n()} · (${x()} + ${n()})`, () => `-${n()} · (${x()} + ${n()})`, () => `${n()} · (${x()} - ${n()})`, () => `-${n()} · (${x()} - ${n()})`, () => `-(${x()} - ${n()})`, () => `-${n()} · (${n()} - ${x()})`];
@@ -4047,7 +4076,7 @@ DI.twee = { title:'Langere haakjes', lvl:3,
   build(b, st, save){
     const R = makeR(st); const n = () => R.int(2, 9);
     const P = [`-${n()} · (a - ${n()}b + ${n()})`, `${n()} · (-x + ${n()}y - ${n()})`, `-(${n()}a - b - ${n()})`, `-${n()} · (-${n()}x + ${n()})`];
-    reeks(b, P.length, (g, i, nr) => letterOpg(g, st, save, 't' + i, nr, P[i], false), {een:true});
+    reeks(b, P.length, (g, i, nr) => letterOpg(g, st, save, 't' + i, nr, P[i], false, false), {een:true});
   } };
 DI.groot = { title:'Slim met grote getallen', lvl:3,
   instr:'Bereken zo handig mogelijk. Je mag de tussenstappen schrijven.',
@@ -4071,6 +4100,16 @@ SEC.distr = { id:'distr', ic:'z_distr', nav:'Distributiviteit', title:'Distribut
   .m5-recht .rh-a{fill:#e4f6f7; stroke:var(--ink); stroke-width:2} .m5-recht .rh-b{fill:#fff1d6; stroke:var(--ink); stroke-width:2}
   .m5-recht .rh-l{font-size:18px; font-weight:800; fill:var(--ink)} .m5-recht .rh-t{font-size:19px; font-weight:700; fill:#173436}
   .m5-rs{margin-top:.6rem}
+  .m5-bg{position:relative; display:inline-block; padding-top:1.7em; white-space:nowrap}
+  .m5-bg-svg{position:absolute; left:0; top:0; pointer-events:none; overflow:visible}
+  .m5-bg-svg path{fill:none; stroke:#2f6fd6; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round}
+  .m5-bg-f, .m5-bg-t{font:inherit; color:inherit; background:none; border:0; border-bottom:2px dashed #9cc0f0; border-radius:.3rem; padding:0 .12em; cursor:pointer}
+  .m5-bg-f{border-bottom-color:transparent}
+  .m5-bg-t:hover, .m5-bg-f:hover{background:#e8f0fd}
+  .m5-bg-t.af{border-bottom-color:transparent; color:#1d4fa3; cursor:default; background:none}
+  .m5-bwacht .m5-rest, .m5-bwacht .m4-wz, .m5-bwacht > .vx-balk, .m5-bwacht > .q-act, .m5-bwacht > .hint-gr{display:none}
+  .m5-bg-tip{font-size:.9rem; color:var(--ink-soft); margin:.15rem 0 .3rem}
+  .m5-bg-tip.ok{color:var(--ok)} .m5-bg-tip.info{color:#1d4fa3}
   .m5-eig{border:2px dashed var(--orange); border-radius:.7rem; padding:.7rem .9rem; display:flex; flex-direction:column; gap:.3rem; min-height:6rem; justify-content:center}
   .m5-eig p{margin:0} .m5-eig-v{color:var(--ink-soft); font-size:1.2rem; text-align:center}
   .m5-eig.af{border-style:solid; border-color:var(--ok); background:var(--ok-bg); animation:m5-in .4s both}
